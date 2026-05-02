@@ -18,13 +18,211 @@ const CONTENTS_FETCH_CHUNK = 200;
 /**
  * Phase 3.5 — Clockworks 폴백으로 unknown 인플 fans 채우기
  *
- * 1. brand+country 인플루언서 중 follower_count null인 것 추출
- * 2. 각 인플의 영상 1개 URL을 contents에서 가져옴 (최신 우선)
- * 3. clockworks 호출 (배치 200) → authorMeta.fans 회수
- * 4. influencers 업데이트 (follower_count, tier, fans_source=apify_clockworks)
- * 5. fresh phase3 stats 재계산 + top_creators 보강 반환
- *
- * 비용: unknown 수 × $0.0017 (예: 3,652명 → ~$6.21)
+ * Step-level batch 처리 — orchestrator가 setup → batch loop → finalize 호출.
+ */
+
+export type Phase35Setup = {
+  brand_id: string;
+  country: string;
+  unique_inflids: string[];
+  unknown_url_pairs: Array<{ inflId: string; url: string }>;
+  skipped_reason?: string;
+};
+
+export type Phase35BatchResult = {
+  filled: number;
+  cost: number;
+  attempted: number;
+};
+
+/**
+ * Setup 단계 — case 정보 + unknown 인플 영상 URL 수집.
+ */
+export async function fetchPhase35Setup(
+  supabase: SupaClient,
+  case_id: string,
+): Promise<Phase35Setup> {
+  if (!process.env.APIFY_TOKEN) {
+    return {
+      brand_id: "",
+      country: "",
+      unique_inflids: [],
+      unknown_url_pairs: [],
+      skipped_reason: "APIFY_TOKEN 미설정",
+    };
+  }
+
+  const { data: c, error: cErr } = await supabase
+    .from("cases")
+    .select("brand_id, country")
+    .eq("id", case_id)
+    .single();
+  if (cErr || !c) throw new Error(`case fetch: ${cErr?.message}`);
+
+  const uniqueIds = await fetchUniqueInfluencerIds(
+    supabase,
+    c.brand_id,
+    c.country,
+  );
+  if (uniqueIds.length === 0) {
+    return {
+      brand_id: c.brand_id,
+      country: c.country,
+      unique_inflids: [],
+      unknown_url_pairs: [],
+      skipped_reason: "인플 0명",
+    };
+  }
+
+  const allInfluencers = await fetchInfluencers(supabase, uniqueIds);
+  const unknowns = allInfluencers.filter((i) => i.follower_count == null);
+  if (unknowns.length === 0) {
+    return {
+      brand_id: c.brand_id,
+      country: c.country,
+      unique_inflids: uniqueIds,
+      unknown_url_pairs: [],
+      skipped_reason: "Unknown 0명",
+    };
+  }
+
+  const idToUrl = await fetchOneUrlPerInfluencer(
+    supabase,
+    c.brand_id,
+    c.country,
+    unknowns.map((u) => u.id),
+  );
+  const pairs: Array<{ inflId: string; url: string }> = [];
+  for (const [inflId, url] of idToUrl.entries()) {
+    pairs.push({ inflId, url });
+  }
+  if (pairs.length === 0) {
+    return {
+      brand_id: c.brand_id,
+      country: c.country,
+      unique_inflids: uniqueIds,
+      unknown_url_pairs: [],
+      skipped_reason: "URL 매핑 가능한 unknown 0명",
+    };
+  }
+
+  return {
+    brand_id: c.brand_id,
+    country: c.country,
+    unique_inflids: uniqueIds,
+    unknown_url_pairs: pairs,
+  };
+}
+
+/**
+ * Batch 처리 — N URL씩 clockworks 호출 + influencers update.
+ */
+export async function processPhase35Batch(
+  supabase: SupaClient,
+  pairs: Array<{ inflId: string; url: string }>,
+): Promise<Phase35BatchResult> {
+  const urlToInflId = new Map<string, string>();
+  for (const p of pairs) urlToInflId.set(p.url, p.inflId);
+
+  const result = await fetchTikTokVideos({
+    postURLs: pairs.map((p) => p.url),
+  });
+  if (result.skipped_reason) {
+    return { filled: 0, cost: 0, attempted: pairs.length };
+  }
+
+  let filled = 0;
+  for (const item of result.items) {
+    const inflId = urlToInflId.get(item.url);
+    if (!inflId || item.fans == null) continue;
+
+    const tier = classifyTier(item.fans);
+    const dbTier = tier === "unknown" || tier === "sub-nano" ? null : tier;
+
+    const updates: {
+      follower_count: number;
+      tier: string | null;
+      fans_source: string;
+      external_id?: string;
+    } = {
+      follower_count: item.fans,
+      tier: dbTier,
+      fans_source: "apify_clockworks",
+    };
+    if (item.user_id) updates.external_id = item.user_id;
+
+    const { error } = await supabase
+      .from("influencers")
+      .update(updates)
+      .eq("id", inflId);
+    if (!error) filled += 1;
+  }
+
+  return {
+    filled,
+    cost: result.cost_estimate_usd,
+    attempted: pairs.length,
+  };
+}
+
+/**
+ * Finalize — fresh phase3 stats + top_creators 보강.
+ */
+export async function finalizePhase35(
+  supabase: SupaClient,
+  setup: Phase35Setup,
+  batchResults: Phase35BatchResult[],
+  existingTopCreators: TopCreator[],
+): Promise<{
+  phase35: Phase35Stats;
+  phase3Updated: Phase3Stats;
+  topCreatorsUpdated: TopCreator[];
+}> {
+  if (setup.skipped_reason) {
+    const allInfluencers =
+      setup.unique_inflids.length > 0
+        ? await fetchInfluencers(supabase, setup.unique_inflids)
+        : [];
+    return wrap(
+      empty35(setup.skipped_reason),
+      allInfluencers,
+      existingTopCreators,
+    );
+  }
+
+  let total_filled = 0;
+  let total_cost = 0;
+  for (const r of batchResults) {
+    total_filled += r.filled;
+    total_cost += r.cost;
+  }
+
+  const updatedInfluencers = await fetchInfluencers(
+    supabase,
+    setup.unique_inflids,
+  );
+  const phase3Updated = computePhase3Stats(updatedInfluencers);
+  const topCreatorsUpdated = existingTopCreators.map((tc) => {
+    const i = updatedInfluencers.find((x) => x.handle === tc.handle);
+    return {
+      ...tc,
+      follower_count: i?.follower_count ?? tc.follower_count,
+    };
+  });
+
+  const phase35: Phase35Stats = {
+    total_unknown_before: setup.unknown_url_pairs.length,
+    total_attempted: setup.unknown_url_pairs.length,
+    total_filled,
+    cost_actual_usd: total_cost,
+    computed_at: new Date().toISOString(),
+  };
+
+  return { phase35, phase3Updated, topCreatorsUpdated };
+}
+
+/**
+ * Legacy single-call entrypoint.
  */
 export async function runPhase35Fans(
   supabase: SupaClient,

@@ -31,6 +31,128 @@ export type ShopScrapeResult = {
 };
 
 /**
+ * Async pattern: kickoff actor (POST /runs), 폴링 후 dataset fetch.
+ * 각 호출은 짧음 (<5s). Vercel 함수 한도 무관.
+ */
+export type KickoffResult = {
+  runId: string;
+  datasetId: string;
+  request_body: string;
+};
+
+export async function kickoffTikTokShopScrape(opts: {
+  storeUrl: string;
+  maxProducts?: number;
+  region?: string;
+}): Promise<KickoffResult> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN 미설정");
+  if (!opts.storeUrl) throw new Error("스토어 URL 없음");
+
+  const region = (opts.region ?? "us").toLowerCase();
+  const max = opts.maxProducts ?? 1000;
+  const body = {
+    scrapeType: "store",
+    storeUrls: [opts.storeUrl],
+    sortBy: "relevance",
+    maxItems: max,
+    region,
+    includeReviews: false,
+    maxReviews: 30,
+    reviewsSortBy: "recommended",
+    reviewsFilterType: "all",
+    reviewsStarRating: 0,
+    proxyConfiguration: {
+      useApifyProxy: true,
+      apifyProxyGroups: ["RESIDENTIAL"],
+      apifyProxyCountry: region.toUpperCase(),
+    },
+  };
+  const bodyJson = JSON.stringify(body);
+
+  const response = await fetch(
+    `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${token}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: bodyJson,
+    },
+  );
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`pro100chok kickoff ${response.status}: ${text.slice(0, 300)}`);
+  }
+  const data = (await response.json()) as {
+    data: { id: string; defaultDatasetId: string };
+  };
+  return {
+    runId: data.data.id,
+    datasetId: data.data.defaultDatasetId,
+    request_body: bodyJson.slice(0, 800),
+  };
+}
+
+export async function pollActorRun(
+  runId: string,
+): Promise<{ status: string; finishedAt: string | null }> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN 미설정");
+  const response = await fetch(
+    `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`,
+  );
+  if (!response.ok) {
+    throw new Error(`poll ${response.status}`);
+  }
+  const data = (await response.json()) as {
+    data: { status: string; finishedAt: string | null };
+  };
+  return data.data;
+}
+
+export async function fetchActorDataset(
+  datasetId: string,
+): Promise<unknown[]> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN 미설정");
+  const response = await fetch(
+    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&format=json`,
+  );
+  if (!response.ok) {
+    throw new Error(`dataset ${response.status}`);
+  }
+  return (await response.json()) as unknown[];
+}
+
+/**
+ * Raw items → mapped products. processProducts에서 사용.
+ */
+export function mapShopRawItems(
+  raw: unknown[],
+): {
+  products: ShopProductItem[];
+  raw_count: number;
+  debug_first_item_keys?: string[];
+  debug_first_item_sample?: string;
+} {
+  let debug_first_item_keys: string[] | undefined;
+  let debug_first_item_sample: string | undefined;
+  if (raw[0] && typeof raw[0] === "object") {
+    const first = raw[0] as Record<string, unknown>;
+    debug_first_item_keys = Object.keys(first).slice(0, 30);
+    debug_first_item_sample = JSON.stringify(first).slice(0, 800);
+  }
+  const products = raw
+    .map(mapItem)
+    .filter((x): x is ShopProductItem => x !== null);
+  return {
+    products,
+    raw_count: raw.length,
+    debug_first_item_keys,
+    debug_first_item_sample,
+  };
+}
+
+/**
  * 스토어 URL을 actor에 보내 제품 리스트 회수.
  * 다양한 응답 필드 변형을 허용 (sold_count vs soldCount vs totalSold 등).
  */

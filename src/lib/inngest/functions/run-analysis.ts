@@ -1,13 +1,38 @@
 import { inngest, type PhaseKey } from "@/lib/inngest/client";
 import { inngestSupabase } from "@/lib/inngest/supabase";
-import { runPhase15Shop } from "@/lib/inngest/aggregators/phase1-5-shop";
+import {
+  fetchPhase15Setup,
+  processPhase15Products,
+  runPhase15Shop,
+} from "@/lib/inngest/aggregators/phase1-5-shop";
+import {
+  fetchActorDataset,
+  kickoffTikTokShopScrape,
+  pollActorRun,
+} from "@/lib/apify/tiktok-shop-scraper";
 import { runPhase2 } from "@/lib/inngest/aggregators/phase2";
 import { runPhase3 } from "@/lib/inngest/aggregators/phase3";
-import { runPhase35Fans } from "@/lib/inngest/aggregators/phase3-5-fans";
-import { runPhase37ShopCreator } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
+import {
+  fetchPhase35Setup,
+  finalizePhase35,
+  processPhase35Batch,
+  type Phase35BatchResult,
+} from "@/lib/inngest/aggregators/phase3-5-fans";
+import {
+  empty37,
+  fetchPhase37Setup,
+  finalizePhase37,
+  processPhase37Batch,
+  type Phase37BatchResult,
+} from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
-import { runPhase4bAsr } from "@/lib/inngest/aggregators/phase4b-asr";
+import {
+  fetchPhase4bAsrSetup,
+  finalizePhase4bAsr,
+  processPhase4bAsrBatch,
+  type Phase4bAsrBatchResult,
+} from "@/lib/inngest/aggregators/phase4b-asr";
 import { runPhase4bVision } from "@/lib/inngest/aggregators/phase4b-vision";
 import { runPhase4bClusters } from "@/lib/inngest/aggregators/phase4b-clusters";
 import { runPhase4bSku } from "@/lib/inngest/aggregators/phase4b-sku";
@@ -16,6 +41,7 @@ import { downloadAndStore } from "@/lib/storage/asset-downloader";
 import type {
   KeyStats,
   Phase35Stats,
+  Phase37Stats,
   Phase3Stats,
   Phase4aStats,
   TopCreator,
@@ -65,26 +91,99 @@ export const runAnalysis = inngest.createFunction(
       return (data?.key_stats ?? {}) as KeyStats;
     });
 
-    // ─── Phase 1.5: TikTok Shop 자동 수집 (tiktok_shop 채널만) ───
-    const phase1_5 = await step.run("phase-1-5-tiktok-shop", async () => {
-      if (existing.phase1_5 && !force("phase1_5")) {
-        logger.info("[Phase 1.5] cached", {
-          computed_at: existing.phase1_5.computed_at,
-        });
-        return existing.phase1_5;
-      }
-      logger.info("[Phase 1.5] tiktok shop scrape", { case_id });
-      const stats = await runPhase15Shop(supabase, case_id);
-      logger.info("[Phase 1.5] done", {
-        products: stats.total_products,
-        with_price: stats.total_with_price,
-        with_sales: stats.total_with_sales,
-        revenue: stats.total_revenue_estimate,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
+    // ─── Phase 1.5: TikTok Shop 자동 수집 (async pattern) ───
+    // Actor 자체가 ~20분 걸리므로 kickoff → poll → fetch 3단계로 분리.
+    // 각 step.run은 짧음 (<5s), step.sleep으로 대기 (Vercel 한도 무관).
+    const PHASE15_POLL_INTERVAL_S = 30;
+    const PHASE15_MAX_POLLS = 60; // 30s × 60 = 30min cap
+    const phase15CacheHit = existing.phase1_5 && !force("phase1_5");
+
+    let phase1_5;
+    if (phase15CacheHit) {
+      logger.info("[Phase 1.5] cached", {
+        computed_at: existing.phase1_5!.computed_at,
       });
-      return stats;
-    });
+      phase1_5 = existing.phase1_5!;
+    } else {
+      const setup = await step.run("phase-1-5-setup", async () =>
+        fetchPhase15Setup(supabase, case_id),
+      );
+
+      if (setup.skipped_reason) {
+        // skip 케이스 (amazon, URL 없음 등) — 즉시 finalize
+        phase1_5 = await step.run("phase-1-5-skipped", async () =>
+          processPhase15Products(supabase, case_id, setup, [], null),
+        );
+      } else {
+        // 1) Actor 시작
+        const kicked = await step.run("phase-1-5-kickoff", async () =>
+          kickoffTikTokShopScrape({
+            storeUrl: setup.storeUrl,
+            region: setup.region,
+            maxProducts: 1000,
+          }),
+        );
+        logger.info("[Phase 1.5] actor 시작됨", { runId: kicked.runId });
+
+        // 2) Polling — actor 끝날 때까지 대기
+        let finalStatus = "RUNNING";
+        for (let attempt = 1; attempt <= PHASE15_MAX_POLLS; attempt += 1) {
+          await step.sleep(
+            `phase-1-5-wait-${attempt}`,
+            `${PHASE15_POLL_INTERVAL_S}s`,
+          );
+          const status = await step.run(
+            `phase-1-5-poll-${attempt}`,
+            async () => pollActorRun(kicked.runId),
+          );
+          if (
+            status.status === "SUCCEEDED" ||
+            status.status === "FAILED" ||
+            status.status === "ABORTED" ||
+            status.status === "TIMED-OUT"
+          ) {
+            finalStatus = status.status;
+            break;
+          }
+        }
+
+        if (finalStatus !== "SUCCEEDED") {
+          phase1_5 = {
+            total_products: 0,
+            total_with_price: 0,
+            total_with_sales: 0,
+            total_revenue_estimate: 0,
+            raw_count: 0,
+            cost_actual_usd: 0,
+            skipped_reason: `actor 완료 안 됨: ${finalStatus}`,
+            debug_store_url: setup.storeUrl,
+            debug_request_body: kicked.request_body,
+            computed_at: new Date().toISOString(),
+          };
+        } else {
+          // 3) Dataset fetch
+          const items = await step.run("phase-1-5-fetch", async () =>
+            fetchActorDataset(kicked.datasetId),
+          );
+          // 4) Items 처리 + DB 저장
+          phase1_5 = await step.run("phase-1-5-process", async () =>
+            processPhase15Products(
+              supabase,
+              case_id,
+              setup,
+              items,
+              kicked.request_body,
+            ),
+          );
+        }
+      }
+
+      logger.info("[Phase 1.5] done", {
+        products: phase1_5.total_products,
+        revenue: phase1_5.total_revenue_estimate,
+        skipped: phase1_5.skipped_reason,
+      });
+    }
 
     // skipped_reason이 있는 stats는 "no real data change"로 간주 → cascade 안 함
     const phase1_5_New = !existing.phase1_5 || force("phase1_5");
@@ -174,41 +273,58 @@ export const runAnalysis = inngest.createFunction(
     }
 
     // ─── Phase 3.5: Clockworks 폴백으로 unknown 인플 fans 채우기 ───
-    // Phase 3 이후 follower_count null인 인플에 대해 clockworks 호출 → fans 채움
-    // Phase 3가 새로 돌면 자동 재실행 (unknown 풀이 바뀌었을 수 있음)
-    const phase35Result = await step.run("phase-3-5-fans", async () => {
-      if (
-        existing.phase35 &&
-        !force("phase35") &&
-        !phase3New
-      ) {
-        logger.info("[Phase 3.5] cached", {
-          filled: existing.phase35.total_filled,
-        });
-        return {
-          phase35: existing.phase35,
-          phase3Updated: phase3,
-          topCreatorsUpdated: updatedTopCreators,
-        };
-      }
-      logger.info("[Phase 3.5] clockworks fans 폴백", { case_id });
-      const result = await runPhase35Fans(
-        supabase,
-        case_id,
-        updatedTopCreators,
-      );
-      logger.info("[Phase 3.5] done", {
-        unknown_before: result.phase35.total_unknown_before,
-        attempted: result.phase35.total_attempted,
-        filled: result.phase35.total_filled,
-        cost: result.phase35.cost_actual_usd,
-        skipped: result.phase35.skipped_reason,
+    // Step-level batch 처리. 200 URL씩 batch.
+    const PHASE35_BATCH_SIZE = 200;
+    const phase35CacheHit =
+      existing.phase35 && !force("phase35") && !phase3New;
+
+    let phase35: Phase35Stats;
+    let phase3Final: Phase3Stats;
+    let topCreatorsFinal: TopCreator[];
+
+    if (phase35CacheHit) {
+      logger.info("[Phase 3.5] cached", {
+        filled: existing.phase35!.total_filled,
       });
-      return result;
-    });
-    const phase35 = phase35Result.phase35 as Phase35Stats;
-    const phase3Final = phase35Result.phase3Updated as Phase3Stats;
-    const topCreatorsFinal = phase35Result.topCreatorsUpdated as TopCreator[];
+      phase35 = existing.phase35!;
+      phase3Final = phase3;
+      topCreatorsFinal = updatedTopCreators;
+    } else {
+      logger.info("[Phase 3.5] clockworks fans 폴백 (batch)", { case_id });
+      const setup = await step.run("phase-3-5-setup", async () =>
+        fetchPhase35Setup(supabase, case_id),
+      );
+
+      const batchResults: Phase35BatchResult[] = [];
+      if (!setup.skipped_reason) {
+        const totalBatches = Math.ceil(
+          setup.unknown_url_pairs.length / PHASE35_BATCH_SIZE,
+        );
+        for (let i = 0; i < totalBatches; i += 1) {
+          const slice = setup.unknown_url_pairs.slice(
+            i * PHASE35_BATCH_SIZE,
+            (i + 1) * PHASE35_BATCH_SIZE,
+          );
+          const r = await step.run(`phase-3-5-batch-${i}`, async () =>
+            processPhase35Batch(supabase, slice),
+          );
+          batchResults.push(r);
+        }
+      }
+
+      const finalized = await step.run("phase-3-5-finalize", async () =>
+        finalizePhase35(supabase, setup, batchResults, updatedTopCreators),
+      );
+      phase35 = finalized.phase35 as Phase35Stats;
+      phase3Final = finalized.phase3Updated as Phase3Stats;
+      topCreatorsFinal = finalized.topCreatorsUpdated as TopCreator[];
+      logger.info("[Phase 3.5] done", {
+        attempted: phase35.total_attempted,
+        filled: phase35.total_filled,
+        cost: phase35.cost_actual_usd,
+        skipped: phase35.skipped_reason,
+      });
+    }
     const phase2Final = { ...phase2, top_creators: topCreatorsFinal };
 
     const phase35New =
@@ -231,30 +347,66 @@ export const runAnalysis = inngest.createFunction(
     }
 
     // ─── Phase 3.7: Shop Creator 판별 (tiktok_shop 채널만, lemur ~$2) ───
-    const phase37 = await step.run("phase-3-7-shop-creator", async () => {
-      if (
-        existing.phase37 &&
-        !force("phase37") &&
-        !phase3New &&
-        !phase35New
-      ) {
-        logger.info("[Phase 3.7] cached", {
-          shop_creators: existing.phase37.total_shop_creators,
-        });
-        return existing.phase37;
-      }
-      logger.info("[Phase 3.7] shop creator 판별", { case_id });
-      const stats = await runPhase37ShopCreator(supabase, case_id);
-      logger.info("[Phase 3.7] done", {
-        candidates: stats.total_candidates,
-        shop: stats.total_shop_creators,
-        non_shop: stats.total_non_shop,
-        unmatched: stats.total_unmatched,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
+    // Batch 처리: setup → 100명씩 batch → finalize. 각 step.run이 짧음.
+    const PHASE37_BATCH_SIZE = 100;
+    const phase37CacheHit =
+      existing.phase37 &&
+      !force("phase37") &&
+      !phase3New &&
+      !phase35New;
+
+    let phase37: Phase37Stats;
+    if (phase37CacheHit) {
+      logger.info("[Phase 3.7] cached", {
+        shop_creators: existing.phase37!.total_shop_creators,
       });
-      return stats;
-    });
+      phase37 = existing.phase37!;
+    } else {
+      logger.info("[Phase 3.7] shop creator 판별 (batch)", { case_id });
+      const setup = await step.run("phase-3-7-setup", async () =>
+        fetchPhase37Setup(supabase, case_id),
+      );
+
+      if (setup.skipped_reason || setup.candidates.length === 0) {
+        phase37 = empty37(
+          setup.skipped_reason ?? "이미 모든 인플 판별 완료",
+        );
+      } else {
+        const totalBatches = Math.ceil(
+          setup.candidates.length / PHASE37_BATCH_SIZE,
+        );
+        logger.info("[Phase 3.7] batch start", {
+          candidates: setup.candidates.length,
+          batches: totalBatches,
+        });
+
+        const batchResults: Phase37BatchResult[] = [];
+        for (let i = 0; i < totalBatches; i += 1) {
+          const slice = setup.candidates.slice(
+            i * PHASE37_BATCH_SIZE,
+            (i + 1) * PHASE37_BATCH_SIZE,
+          );
+          const r = await step.run(`phase-3-7-batch-${i}`, async () =>
+            processPhase37Batch(supabase, slice),
+          );
+          batchResults.push(r);
+        }
+
+        phase37 = await step.run("phase-3-7-finalize", async () =>
+          finalizePhase37(setup, batchResults),
+        );
+      }
+
+      logger.info("[Phase 3.7] done", {
+        candidates: phase37.total_candidates,
+        shop: phase37.total_shop_creators,
+        non_shop: phase37.total_non_shop,
+        unmatched: phase37.total_unmatched,
+        update_errors: phase37.total_update_errors,
+        cost: phase37.cost_actual_usd,
+        skipped: phase37.skipped_reason,
+      });
+    }
 
     const phase37New =
       !existing.phase37 ||
@@ -485,26 +637,53 @@ export const runAnalysis = inngest.createFunction(
     }
 
     // ─── Phase 4b.2: 샘플 영상 ASR 수집 (clockworks, ~$0.51) ───
-    const phase4bAsr = await step.run("phase-4b-asr", async () => {
-      if (existing.phase4b_asr && !force("phase4b_asr") && !phase4bSampleNew) {
-        logger.info("[Phase 4b.2] cached", {
-          with_asr: existing.phase4b_asr.total_with_asr,
-        });
-        return existing.phase4b_asr;
-      }
-      logger.info("[Phase 4b.2] collecting ASR via clockworks", {
+    // Step-level batch — 50 URL씩, 각 step.run ~1-2분.
+    const PHASE4B_ASR_BATCH_SIZE = 50;
+    const phase4bAsrCacheHit =
+      existing.phase4b_asr && !force("phase4b_asr") && !phase4bSampleNew;
+    let phase4bAsr;
+    if (phase4bAsrCacheHit) {
+      logger.info("[Phase 4b.2] cached", {
+        with_asr: existing.phase4b_asr!.total_with_asr,
+      });
+      phase4bAsr = existing.phase4b_asr!;
+    } else {
+      logger.info("[Phase 4b.2] collecting ASR (batch)", {
         case_id,
         sample_size: phase4bSample.sample_content_ids.length,
       });
-      const stats = await runPhase4bAsr(supabase, case_id, phase4bSample);
+      const setup = await step.run("phase-4b-asr-setup", async () =>
+        fetchPhase4bAsrSetup(supabase, phase4bSample),
+      );
+      if (setup.skipped_reason) {
+        phase4bAsr = await step.run("phase-4b-asr-finalize", async () =>
+          finalizePhase4bAsr([], setup.skipped_reason),
+        );
+      } else {
+        const total = setup.contents.length;
+        const totalBatches = Math.ceil(total / PHASE4B_ASR_BATCH_SIZE);
+        const batchResults: Phase4bAsrBatchResult[] = [];
+        for (let i = 0; i < totalBatches; i += 1) {
+          const slice = setup.contents.slice(
+            i * PHASE4B_ASR_BATCH_SIZE,
+            (i + 1) * PHASE4B_ASR_BATCH_SIZE,
+          );
+          const r = await step.run(`phase-4b-asr-batch-${i}`, async () =>
+            processPhase4bAsrBatch(supabase, case_id, slice),
+          );
+          batchResults.push(r);
+        }
+        phase4bAsr = await step.run("phase-4b-asr-finalize", async () =>
+          finalizePhase4bAsr(batchResults),
+        );
+      }
       logger.info("[Phase 4b.2] done", {
-        attempted: stats.total_attempted,
-        with_asr: stats.total_with_asr,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
+        attempted: phase4bAsr.total_attempted,
+        with_asr: phase4bAsr.total_with_asr,
+        cost: phase4bAsr.cost_actual_usd,
+        skipped: phase4bAsr.skipped_reason,
       });
-      return stats;
-    });
+    }
 
     const phase4bAsrNew =
       !existing.phase4b_asr || force("phase4b_asr") || phase4bSampleNew;
