@@ -86,7 +86,9 @@ export const runAnalysis = inngest.createFunction(
       return stats;
     });
 
+    // skipped_reason이 있는 stats는 "no real data change"로 간주 → cascade 안 함
     const phase1_5_New = !existing.phase1_5 || force("phase1_5");
+    const phase1_5_HasData = phase1_5_New && !phase1_5.skipped_reason;
     if (phase1_5_New) {
       await step.run("phase-1-5-save", async () => {
         const newStats: KeyStats = { ...existing, phase1_5 };
@@ -117,7 +119,7 @@ export const runAnalysis = inngest.createFunction(
     });
 
     const phase2New =
-      !existing.phase2 || force("phase2") || phase1_5_New;
+      !existing.phase2 || force("phase2") || phase1_5_HasData;
     if (phase2New) {
       await step.run("phase-2-save", async () => {
         const newStats: KeyStats = { ...existing, phase2 };
@@ -259,6 +261,7 @@ export const runAnalysis = inngest.createFunction(
       force("phase37") ||
       phase3New ||
       phase35New;
+    const phase37HasData = phase37New && !phase37.skipped_reason;
     if (phase37New) {
       await step.run("phase-3-7-save", async () => {
         const newStats: KeyStats = {
@@ -460,7 +463,7 @@ export const runAnalysis = inngest.createFunction(
     });
 
     const phase4bSampleNew =
-      !existing.phase4b_sample || force("phase4b_sample") || phase37New;
+      !existing.phase4b_sample || force("phase4b_sample") || phase37HasData;
     if (phase4bSampleNew) {
       await step.run("phase-4b-sample-save", async () => {
         const newStats: KeyStats = {
