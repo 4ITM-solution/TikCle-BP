@@ -40,6 +40,7 @@ import { runPhase5 } from "@/lib/inngest/aggregators/phase5-position";
 import { downloadAndStore } from "@/lib/storage/asset-downloader";
 import type {
   KeyStats,
+  Phase2Stats,
   Phase35Stats,
   Phase37Stats,
   Phase3Stats,
@@ -251,9 +252,12 @@ export const runAnalysis = inngest.createFunction(
       });
       return result;
     });
-    const phase3 = phase3Result.phase3;
-    const updatedTopCreators = phase3Result.updatedTopCreators;
-    const phase2WithEnrichment = { ...phase2, top_creators: updatedTopCreators };
+    const phase3 = phase3Result.phase3 as Phase3Stats;
+    const updatedTopCreators = phase3Result.updatedTopCreators as TopCreator[];
+    const phase2WithEnrichment: Phase2Stats = {
+      ...phase2,
+      top_creators: updatedTopCreators,
+    };
 
     const phase3New = !existing.phase3 || force("phase3");
     if (phase3New) {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { franc } from "franc-min";
 import type { Database } from "@/lib/supabase/types";
 import { classifyTier } from "./phase3";
 import type {
@@ -295,6 +296,44 @@ async function fetchAllCaptionsAndLanguages(
 // 언어 분포 계산
 // =============================================================================
 
+// franc 반환은 ISO 639-3 (3자). 자주 나오는 거만 ISO 639-1 (2자)로 매핑.
+const FRANC_TO_ISO1: Record<string, string> = {
+  eng: "en",
+  spa: "es",
+  kor: "ko",
+  jpn: "ja",
+  cmn: "zh",
+  yue: "zh",
+  fra: "fr",
+  deu: "de",
+  por: "pt",
+  ita: "it",
+  rus: "ru",
+  vie: "vi",
+  ind: "id",
+  tha: "th",
+  ara: "ar",
+  tur: "tr",
+};
+
+/**
+ * Caption 텍스트에서 언어 detect.
+ * - 짧은 텍스트(franc 기본 minLength)이면 'und' 반환 → null로 처리
+ * - hashtag 위주 caption이라 hashtag 제거 후 detect
+ */
+function detectLanguageFromCaption(caption: string | null): string | null {
+  if (!caption) return null;
+  // hashtag와 mention 제거 (#word, @word) → 순수 텍스트만
+  const cleaned = caption
+    .replace(/[#@][\w가-힣ぁ-んァ-ン一-龯]+/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .trim();
+  if (cleaned.length < 10) return null; // 너무 짧으면 부정확
+  const code3 = franc(cleaned, { minLength: 10 });
+  if (code3 === "und") return null;
+  return FRANC_TO_ISO1[code3] ?? code3;
+}
+
 function computeLanguageDistribution(rows: ContentRow[]): {
   languages: LanguageEntry[];
   total_with_language: number;
@@ -303,7 +342,9 @@ function computeLanguageDistribution(rows: ContentRow[]): {
   const counts = new Map<string, number>();
   let total_without = 0;
   for (const r of rows) {
-    const lang = r.language?.trim().toLowerCase();
+    // contents.language가 채워져있으면 그걸 우선, 아니면 caption에서 detect
+    const stored = r.language?.trim().toLowerCase();
+    const lang = stored || detectLanguageFromCaption(r.caption);
     if (!lang) total_without += 1;
     else counts.set(lang, (counts.get(lang) ?? 0) + 1);
   }
