@@ -119,6 +119,9 @@ export type Phase3Stats = {
     manual: number;
     other: number;
   };
+  // 월별 unique 인플 분포 (그 달에 영상 1개라도 만든 인플의 tier 카운트).
+  // key = YYYY-MM. value = TierDistribution. 인플이 같은 달에 여러 영상 만들어도 1번.
+  tier_dist_by_month?: Record<string, TierDistribution>;
   computed_at: string;
 };
 

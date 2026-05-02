@@ -106,7 +106,13 @@ export async function runPhase3(
 
   // 7. 최종 분포 계산 (전체 influencer 재조회로 fresh 데이터)
   const allInfluencers = await fetchInfluencers(supabase, uniqueInfluencerIds);
-  const phase3 = computePhase3Stats(allInfluencers);
+  // 7-1. 월별 활동 인플 집계 (각 월에 영상 1개라도 만든 unique 인플)
+  const activityByMonth = await fetchInfluencerActivityByMonth(
+    supabase,
+    c.brand_id,
+    c.country,
+  );
+  const phase3 = computePhase3Stats(allInfluencers, activityByMonth);
 
   // 8. Phase 2의 top_creators에 fans 보강
   const updatedTopCreators = existingPhase2.top_creators.map((tc) => {
@@ -148,6 +154,42 @@ export async function fetchUniqueInfluencerIds(
     from += FETCH_PAGE;
   }
   return Array.from(set);
+}
+
+/**
+ * 월별 활동 인플 집계.
+ * 각 월(YYYY-MM)에 영상 1개라도 만든 unique influencer_id의 Set.
+ * 한 인플이 같은 달에 5개 영상 만들어도 1번만 카운트.
+ */
+export async function fetchInfluencerActivityByMonth(
+  supabase: SupaClient,
+  brand_id: string,
+  country: string,
+): Promise<Map<string, Set<string>>> {
+  const byMonth = new Map<string, Set<string>>();
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("contents")
+      .select("influencer_id, uploaded_at")
+      .eq("brand_id", brand_id)
+      .eq("country", country)
+      .not("influencer_id", "is", null)
+      .not("uploaded_at", "is", null)
+      .range(from, from + FETCH_PAGE - 1);
+    if (error)
+      throw new Error(`contents activity fetch: ${error.message}`);
+    if (!data || data.length === 0) break;
+    for (const r of data) {
+      if (!r.influencer_id || !r.uploaded_at) continue;
+      const month = String(r.uploaded_at).slice(0, 7); // "YYYY-MM"
+      if (!byMonth.has(month)) byMonth.set(month, new Set());
+      byMonth.get(month)!.add(r.influencer_id);
+    }
+    if (data.length < FETCH_PAGE) break;
+    from += FETCH_PAGE;
+  }
+  return byMonth;
 }
 
 export type InfluencerRow = {
@@ -197,8 +239,8 @@ export function classifyTier(fans: number | null): TierBucket {
   return "sub-nano";
 }
 
-export function computePhase3Stats(influencers: InfluencerRow[]): Phase3Stats {
-  const dist: TierDistribution = {
+function emptyTierDist(): TierDistribution {
+  return {
     mega: 0,
     macro: 0,
     mid: 0,
@@ -207,6 +249,19 @@ export function computePhase3Stats(influencers: InfluencerRow[]): Phase3Stats {
     "sub-nano": 0,
     unknown: 0,
   };
+}
+
+function tierOf(i: InfluencerRow): TierBucket {
+  // DB tier가 있으면 그걸 우선, 없으면 fans 기반 재분류
+  // (sub-nano는 DB에 NULL로 저장되니 fans로 재계산해야 unknown과 구분됨)
+  return i.tier ? (i.tier as TierBucket) : classifyTier(i.follower_count);
+}
+
+export function computePhase3Stats(
+  influencers: InfluencerRow[],
+  activityByMonth?: Map<string, Set<string>>,
+): Phase3Stats {
+  const dist = emptyTierDist();
   const sources = {
     influencer_db_tt: 0,
     apify_clockworks: 0,
@@ -215,12 +270,12 @@ export function computePhase3Stats(influencers: InfluencerRow[]): Phase3Stats {
   };
   let withFans = 0;
 
+  // 인플 ID → tier 매핑 (월별 집계에서 재사용)
+  const tierByInfluencerId = new Map<string, TierBucket>();
+
   for (const i of influencers) {
-    // 분류 결정: DB tier가 있으면 그걸 우선, 없으면 fans 기반 재분류
-    // (sub-nano는 DB에 NULL로 저장되니 fans로 재계산해야 unknown과 구분됨)
-    const tier: TierBucket = i.tier
-      ? (i.tier as TierBucket)
-      : classifyTier(i.follower_count);
+    const tier = tierOf(i);
+    tierByInfluencerId.set(i.id, tier);
     if (dist[tier] !== undefined) {
       dist[tier] += 1;
     } else {
@@ -234,12 +289,27 @@ export function computePhase3Stats(influencers: InfluencerRow[]): Phase3Stats {
     else if (i.fans_source) sources.other += 1;
   }
 
+  // 월별 unique 인플 분포 (전체 분포와 동일한 인플 unique 단위 기준)
+  let tier_dist_by_month: Record<string, TierDistribution> | undefined;
+  if (activityByMonth && activityByMonth.size > 0) {
+    tier_dist_by_month = {};
+    for (const [month, infIds] of activityByMonth.entries()) {
+      const m = emptyTierDist();
+      for (const id of infIds) {
+        const t = tierByInfluencerId.get(id) ?? "unknown";
+        m[t] = (m[t] ?? 0) + 1;
+      }
+      tier_dist_by_month[month] = m;
+    }
+  }
+
   return {
     tier_distribution: dist,
     total_creators: influencers.length,
     total_with_fans: withFans,
     total_unknown: dist.unknown,
     fans_sources: sources,
+    tier_dist_by_month,
     computed_at: new Date().toISOString(),
   };
 }
