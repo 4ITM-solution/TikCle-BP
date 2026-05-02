@@ -132,14 +132,25 @@ export default async function CaseDetailPage({
           }>,
         };
 
-    const { data: bsrRows } = productIds.length
-      ? await supabase
-          .from("sales_snapshot")
-          .select("product_id")
-          .in("product_id", productIds)
-      : { data: [] as Array<{ product_id: string }> };
-
-    const bsrSet = new Set((bsrRows ?? []).map((b) => b.product_id));
+    // hasBsr 체크 — 각 product별로 sales_snapshot에 row가 있는지만 확인.
+    // .select("product_id") 전체 fetch는 Supabase 기본 limit 1000에 걸려서
+    // 시계열 row 합계가 1000 넘으면 일부 product가 빠지는 stale 버그 발생.
+    // → product별로 head count query 7~10개 병렬이 정확하면서 payload도 작음.
+    const bsrSet = new Set<string>();
+    if (productIds.length > 0) {
+      const checks = await Promise.all(
+        productIds.map(async (pid) => {
+          const { count } = await supabase
+            .from("sales_snapshot")
+            .select("*", { count: "exact", head: true })
+            .eq("product_id", pid);
+          return [pid, (count ?? 0) > 0] as const;
+        }),
+      );
+      for (const [pid, has] of checks) {
+        if (has) bsrSet.add(pid);
+      }
+    }
     const salesByProduct = new Map(
       (salesRows ?? []).map((s) => [
         s.product_id,
