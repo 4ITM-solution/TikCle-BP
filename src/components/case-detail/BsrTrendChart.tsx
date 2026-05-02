@@ -191,6 +191,9 @@ export function BsrTrendChart({
               <option key={s.asin} value={s.asin}>
                 {s.asin} · {s.name.slice(0, 30)}
                 {s.name.length > 30 ? "…" : ""}
+                {s.points.length < 2
+                  ? ` (데이터 ${s.points.length}일)`
+                  : ""}
               </option>
             ))}
           </select>
@@ -247,6 +250,21 @@ export function BsrTrendChart({
           ))}
           {/* line series */}
           {bsrSeries.map((s) => {
+            const color = colorByAsinAll.get(s.asin) ?? COLORS[0]!;
+            // points < 2면 polyline 안 그려져서 단일 circle로 표시
+            if (s.points.length < 2) {
+              if (s.points.length === 0) return null;
+              const p = s.points[0]!;
+              return (
+                <circle
+                  key={s.asin}
+                  cx={xOf(p.date)}
+                  cy={yOf(p.bsr)}
+                  r={4}
+                  fill={color}
+                />
+              );
+            }
             const pts = s.points
               .map((p) => `${xOf(p.date)},${yOf(p.bsr)}`)
               .join(" ");
@@ -255,7 +273,7 @@ export function BsrTrendChart({
                 key={s.asin}
                 points={pts}
                 fill="none"
-                stroke={colorByAsinAll.get(s.asin) ?? COLORS[0]!}
+                stroke={color}
                 strokeWidth="1.8"
               />
             );

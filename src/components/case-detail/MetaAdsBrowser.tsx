@@ -254,35 +254,6 @@ export function MetaAdsBrowser({
         </div>
       </div>
 
-      {phase4a?.landings && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            fontSize: 11,
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-g500)",
-            background: "var(--color-g25)",
-            padding: "8px 10px",
-            borderRadius: 6,
-            marginBottom: 10,
-          }}
-        >
-          <span style={{ fontWeight: 700, color: "var(--color-g600)" }}>
-            전체 랜딩 분포:
-          </span>
-          {LANDING_OPTIONS.filter((o) => o.key !== "all").map((o) => {
-            const count = phase4a.landings[o.key as LandingType] ?? 0;
-            if (count === 0) return null;
-            return (
-              <span key={o.key}>
-                {o.label} <b style={{ color: "var(--color-ink)" }}>{count}</b>
-              </span>
-            );
-          })}
-        </div>
-      )}
 
       {visible.length === 0 ? (
         <div

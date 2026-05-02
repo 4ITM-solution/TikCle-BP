@@ -120,10 +120,9 @@ export function MiniDashboard({
       {phase4a && (
         <>
           <SectionHeader letter="E" title="Meta 광고" />
-          {metaAdsList && metaAdsList.length > 0 ? (
+          <MetaAdsModule phase4a={phase4a} />
+          {metaAdsList && metaAdsList.length > 0 && (
             <MetaAdsBrowser ads={metaAdsList} phase4a={phase4a} />
-          ) : (
-            <MetaAdsModule phase4a={phase4a} />
           )}
         </>
       )}
@@ -883,33 +882,6 @@ function MetaAdsModule({ phase4a }: { phase4a: Phase4aStats }) {
         <LandingBreakdown phase4a={phase4a} />
       </div>
 
-      {phase4a.ads_preview.length > 0 && (
-        <>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--color-g500)",
-              textTransform: "uppercase",
-              letterSpacing: ".05em",
-              marginBottom: 8,
-            }}
-          >
-            대표 광고 (본사·active 우선)
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 10,
-            }}
-          >
-            {phase4a.ads_preview.map((ad, i) => (
-              <AdPreviewCard key={ad.ad_archive_id ?? i} ad={ad} />
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
