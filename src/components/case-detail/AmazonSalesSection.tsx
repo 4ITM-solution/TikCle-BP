@@ -109,19 +109,19 @@ export function AmazonSalesSection({
         </span>
       </div>
 
-      {!hasUpload ? (
-        <UploadDropzone
-          onFile={onFile}
-          pending={pending}
-          hint="CSV · ASIN별 행 · 컬럼 ASIN/Title/Price/ASIN Sales/ASIN Revenue 등"
-        />
-      ) : (
+      <UploadDropzone
+        onFile={onFile}
+        pending={pending}
+        hint="CSV · ASIN별 행 · 컬럼 ASIN/Title/Price/ASIN Sales/ASIN Revenue 등"
+      />
+      {hasUpload && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
             padding: "10px 14px",
+            marginTop: 8,
             background: "var(--color-pos-soft)",
             border: "1px solid #B8D4BE",
             borderRadius: 6,
@@ -130,7 +130,7 @@ export function AmazonSalesSection({
         >
           <span style={{ color: "var(--color-pos)", fontWeight: 800 }}>✓</span>
           <span style={{ flex: 1, fontWeight: 600 }}>
-            {skuRows.length}개 SKU 적재 · 다시 업로드하려면 페이지 새로고침
+            {skuRows.length}개 SKU 적재됨 · 같은 ASIN+기간은 갱신, 다른 기간은 누적됨
           </span>
         </div>
       )}
