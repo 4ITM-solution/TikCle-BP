@@ -57,6 +57,7 @@ export async function runPhase4bVision(
   let tokens_out = 0;
   let tokens_cache_r = 0;
   let tokens_cache_w = 0;
+  const failure_reasons: Array<{ reason: string; cover_url?: string }> = [];
 
   for (let i = 0; i < inputs.length; i += VISION_CONCURRENCY) {
     const slice = inputs.slice(i, i + VISION_CONCURRENCY);
@@ -76,6 +77,21 @@ export async function runPhase4bVision(
       const res = results[j];
       if (res?.status !== "fulfilled") {
         total_failed += 1;
+        const err = res?.reason as unknown;
+        const reason =
+          err instanceof Error
+            ? `${err.name}: ${err.message}`
+            : typeof err === "string"
+              ? err
+              : JSON.stringify(err)?.slice(0, 500) ?? "unknown";
+        console.error("[vision] failed", {
+          content_id: item.content_id,
+          cover_url: item.cover_url,
+          reason,
+        });
+        if (failure_reasons.length < 5) {
+          failure_reasons.push({ reason, cover_url: item.cover_url });
+        }
         continue;
       }
       tokens_in += res.value.tokens_input;
@@ -122,6 +138,7 @@ export async function runPhase4bVision(
     tokens_input: tokens_in,
     tokens_output: tokens_out,
     tokens_cache_read: tokens_cache_r,
+    failure_reasons: failure_reasons.length > 0 ? failure_reasons : undefined,
     computed_at: new Date().toISOString(),
   };
 }
