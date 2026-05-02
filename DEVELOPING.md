@@ -4,6 +4,7 @@
 
 ## 목차
 
+0. [현재 진행 상황 (다음 세션 시 먼저 읽기)](#현재-진행-상황-다음-세션-시-먼저-읽기)
 1. [기술 스택](#기술-스택)
 2. [로컬 셋업](#로컬-셋업)
 3. [프로젝트 구조](#프로젝트-구조)
@@ -18,6 +19,76 @@
 12. [DB 마이그레이션](#db-마이그레이션)
 13. [디버그 SQL](#디버그-sql)
 14. [트러블슈팅](#트러블슈팅)
+
+---
+
+## 현재 진행 상황 (다음 세션 시 먼저 읽기)
+
+> **갱신 시점**: 2026-05-03 새벽 (상희님 첫 사용 + QA 세션)
+
+### 진행 중인 케이스
+
+- **EQQUALBERRY · US · Amazon** (case_id `5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56`)
+- 7 SKU sales/BSR 적재 완료. Phase 1.5/2/3/3.5/3.7/4a/4b.1/4b.2 다 정상 완주
+- **Phase 4b.3 (Vision)부터 stuck** — Anthropic 잔고 sync 이슈 (아래 참고)
+
+### 데이터 정합 검증 끝난 것
+
+| 검증 | 결과 |
+|---|---|
+| exolyt 4,829 contents 적재 | ✓ |
+| 7 ASIN sales (SellerSprite-style header) | ✓ |
+| 7 ASIN BSR 시계열 (Keepa 한국 포맷) | ✓ |
+| Phase 1~4a 결과 | ✓ |
+| Phase 4b.3 Vision | ✗ — 잔고 부족 에러 |
+
+### 막혀있는 것 — Anthropic 잔고 sync 버그
+
+- 사용자 console에 잔고 $50 표시. API key도 정상. workspace 1개. spend limit 정상.
+- 그런데 모든 vision API 호출이 `credit balance is too low` 400 에러
+- 노트북에서 직접 curl로도 동일 (vercel 환경 무관)
+- console **사용량 logs에 호출 자체가 안 잡힘** = 키 organization과 표시되는 organization이 시스템상 어긋남
+- GitHub [anthropics/claude-code#31537](https://github.com/anthropics/claude-code/issues/31537) 등 다수 사용자 동일 보고. 보통 **1~2시간 후 자동 sync**. 또는 personal account 우회.
+
+### 진행 가능한 다음 단계
+
+1. **잔고 sync 풀린 후** — 케이스 페이지 "분석 재실행" 누르면 cache hit으로 phase 4b.3부터만 새로 돌아감. 비용 ~$5-6.
+2. **새 코드 결과 검증** — phase 2/3/4a/5 cache 비워야 새 코드 (B-3/B-2/B-5/B-4) 결과 채워짐. 잔고 풀리기 전에도 가능. SQL:
+   ```sql
+   UPDATE cases
+   SET key_stats = key_stats - 'phase2' - 'phase3' - 'phase4a' - 'phase5'
+   WHERE id = '5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56';
+   ```
+   → 그 후 분석 재실행. phase 4b.3은 잔고 풀리기 전엔 또 막힘.
+
+### 이번 세션 코드 변경 (5/2-3 push, main에 모두 반영)
+
+| commit | 내용 |
+|---|---|
+| `df89360` | Amazon sales dropzone 적재 후 사라지던 UI 버그 수정 |
+| `73a98fc` | BSR upload 같은 날짜 중복 ON CONFLICT dedup |
+| `d50fc68` | BSR 업로드 ASIN mismatch 검증 + 재업로드 UX |
+| `65487cd` | upload 후 stale UI 해결 (`router.refresh()`) |
+| `1b314ab` | hasBsr 계산 Supabase 1000 row limit 우회 (head count query) |
+| `373a732` | Vision 코드 base64 → URL source (이슈 진단용. 잔고가 진짜 원인이라 검증 미완) |
+| `ca8fd59` | Vision failure_reasons 캡처 (디버그) |
+| `336c1da` | Vision api_key_preview stats 노출 (디버그) |
+| **`9ed0380`** | **B-3** Phase 3 `tier_dist_by_month` + UI month dropdown |
+| **`dc36044`** | **B-2** TopCreator `top_videos` (top 3 영상 lazy iframe expand) |
+| **`07c327b`** | **B-5** Meta 광고 DTC 분류 + 월별 필터 + 더보기 browser |
+| **`8c15f20`** | **B-4** BSR x축 month tick + 급등 marker + 동반 콘텐츠 |
+
+(굵게 표시된 4개가 슬랙 9 항목 vs 실제 구현 gap을 메우는 변경)
+
+### 다음에 할 작업 후보 (B-1, B-6은 다른 트리거)
+
+- **B-1 언어 detect** — Phase 5에서 sample 영상 ASR text + caption으로 `franc` lib detect. **선행 조건: vision 정상 작동 (sample 영상 있어야 의미 있음)**.
+- **B-6 GMV TTS 노출** — TikTok Shop 케이스 QA할 때 같이.
+
+### 참고 파일
+
+- **버그 누적 리포트**: `/Users/sanghui/티클/bp_bugs.md` (12건). 모든 발견 버그 + 원인 + 적용된 fix 정리. 신규 발견 시 #13부터 추가.
+- **변환 스크립트**: 다운로드 폴더 Helium10 sales-30d.csv → SellerSprite 형식 변환 1회용 코드는 chat 세션 안에. 다음 사용자도 비슷한 변환 필요하면 `parsers/helium10-trendster.ts`로 정식 통합 후보 (버그 #3 참고).
 
 ---
 
