@@ -35,6 +35,21 @@ type ReusableInfo = {
   row_count: number;
 };
 
+export type MetaAdListItem = {
+  id: string;
+  ad_archive_id: string | null;
+  page_name: string | null;
+  format: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean | null;
+  body_text: string | null;
+  link_url: string | null;
+  thumbnail_url: string | null;
+  video_url: string | null;
+  is_brand_official: boolean;
+};
+
 export default async function CaseDetailPage({
   params,
 }: {
@@ -173,6 +188,33 @@ export default async function CaseDetailPage({
         };
       })
       .sort((a, b) => (b.revenue_30d ?? 0) - (a.revenue_30d ?? 0));
+  }
+
+  // 4b. Meta 광고 전체 list (UI에서 월별 필터/더보기에 사용). Amazon 케이스만.
+  let metaAdsList: MetaAdListItem[] = [];
+  if (c.channel === "amazon" && c.status === "ready") {
+    const { data: ads } = await supabase
+      .from("meta_ads")
+      .select(
+        "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official",
+      )
+      .eq("case_id", c.id)
+      .order("start_date", { ascending: false })
+      .limit(2000);
+    metaAdsList = (ads ?? []).map((a) => ({
+      id: a.id,
+      ad_archive_id: a.ad_archive_id ?? null,
+      page_name: a.page_name ?? null,
+      format: a.format ?? null,
+      start_date: a.start_date ?? null,
+      end_date: a.end_date ?? null,
+      is_active: a.is_active ?? null,
+      body_text: a.body_text ?? null,
+      link_url: a.link_url ?? null,
+      thumbnail_url: a.thumbnail_url ?? null,
+      video_url: a.video_url ?? null,
+      is_brand_official: a.is_brand_official ?? false,
+    }));
   }
 
   // 5. 분석 시작 가능 여부
@@ -396,6 +438,7 @@ export default async function CaseDetailPage({
                   phase4bClusters={ks.phase4b_clusters}
                   phase4bSku={ks.phase4b_sku}
                   phase5={ks.phase5}
+                  metaAdsList={metaAdsList}
                 />
               </>
             );

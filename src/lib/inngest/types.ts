@@ -186,6 +186,7 @@ export type LandingType =
   | "amazon"
   | "tiktok_shop"
   | "facebook"
+  | "dtc"
   | "other"
   | "none";
 

@@ -87,7 +87,7 @@ export async function runPhase4a(
   // landing 분류 (DB엔 컬럼 없음, 집계용으로만 계산)
   const adsWithLanding = inserts.map((a) => ({
     ...a,
-    landing: classifyLanding(a.link_url),
+    landing: classifyLanding(a.link_url, c.brand_keyword),
   }));
 
   for (let i = 0; i < inserts.length; i += BATCH) {
@@ -107,6 +107,7 @@ export async function runPhase4a(
     amazon: 0,
     tiktok_shop: 0,
     facebook: 0,
+    dtc: 0,
     other: 0,
     none: 0,
   };
@@ -255,8 +256,12 @@ function extractDomain(url: string): string | null {
 /**
  * 광고 link_url을 랜딩 카테고리로 분류.
  * FB 리다이렉트가 박혀있으면 풀어서 destination 기준으로 분류.
+ * brandKeyword (콤마 구분)가 도메인에 substring 매치되면 DTC.
  */
-function classifyLanding(url: string | null): LandingType {
+function classifyLanding(
+  url: string | null,
+  brandKeyword?: string | null,
+): LandingType {
   if (!url) return "none";
   const real = unwrapRedirect(url).toLowerCase();
   if (real.includes("instagram.com") || real.includes("instagr.am"))
@@ -272,6 +277,22 @@ function classifyLanding(url: string | null): LandingType {
   if (real.includes("tiktok.com/shop")) return "tiktok_shop";
   if (real.includes("facebook.com") || real.includes("fb.com"))
     return "facebook";
+
+  // DTC: brand_keyword 토큰이 도메인에 들어가면 자사몰로 분류.
+  // 짧은 토큰(2자 이하)은 false positive 위험으로 제외.
+  if (brandKeyword) {
+    const tokens = brandKeyword
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length >= 3);
+    if (tokens.length > 0) {
+      const domain = extractDomain(real);
+      if (domain && tokens.some((t) => domain.includes(t))) {
+        return "dtc";
+      }
+    }
+  }
+
   return "other";
 }
 
@@ -286,6 +307,7 @@ function emptyPhase4a(reason: string): Phase4aStats {
       amazon: 0,
       tiktok_shop: 0,
       facebook: 0,
+      dtc: 0,
       other: 0,
       none: 0,
     },

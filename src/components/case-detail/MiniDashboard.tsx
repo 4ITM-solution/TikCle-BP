@@ -1,5 +1,7 @@
 import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
+import { MetaAdsBrowser } from "./MetaAdsBrowser";
+import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import type {
   DisplayedVideoEntry,
   HeatmapRow,
@@ -34,6 +36,7 @@ export function MiniDashboard({
   phase4bClusters,
   phase4bSku,
   phase5,
+  metaAdsList,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -46,6 +49,7 @@ export function MiniDashboard({
   phase4bClusters?: Phase4bClusterStats;
   phase4bSku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
+  metaAdsList?: MetaAdListItem[];
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -111,6 +115,9 @@ export function MiniDashboard({
         <>
           <SectionHeader letter="E" title="Meta 광고" />
           <MetaAdsModule phase4a={phase4a} />
+          {metaAdsList && metaAdsList.length > 0 && (
+            <MetaAdsBrowser ads={metaAdsList} />
+          )}
         </>
       )}
 
@@ -906,6 +913,7 @@ function LandingBreakdown({ phase4a }: { phase4a: Phase4aStats }) {
     { key: "amazon", label: "Amazon" },
     { key: "tiktok_shop", label: "TikTok Shop" },
     { key: "facebook", label: "Facebook" },
+    { key: "dtc", label: "자사몰 (DTC)" },
     { key: "other", label: "기타" },
     { key: "none", label: "랜딩 없음" },
   ];
@@ -1064,6 +1072,8 @@ function landingBadge(
       return { label: "→ TT Shop", color: "#000" };
     case "facebook":
       return { label: "→ FB", color: "#1877F2" };
+    case "dtc":
+      return { label: "→ DTC", color: "var(--color-accent)" };
     case "other": {
       // 기타는 실제 도메인 표시
       const domain = getDomain(url);
