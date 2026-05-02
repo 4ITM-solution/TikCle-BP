@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { UploadDropzone } from "./UploadDropzone";
-import { reuseExolyt, uploadExolyt } from "@/app/cases/[id]/upload-actions";
+import {
+  reuseExolyt,
+  uploadExolytFromStorage,
+} from "@/app/cases/[id]/upload-actions";
+import { createClient } from "@/lib/supabase/client";
 
 export function ExolytSection({
   case_id,
@@ -25,14 +29,26 @@ export function ExolytSection({
 
   function onFile(f: File) {
     start(async () => {
-      const fd = new FormData();
-      fd.append("file", f);
-      const r = await uploadExolyt(case_id, fd);
+      // 파일을 Supabase Storage에 직접 업로드 → Vercel 4.5MB 한도 우회
+      const supabase = createClient();
+      const path = `${case_id}/uploads/exolyt-${Date.now()}.csv`;
+      const { error: uploadErr } = await supabase.storage
+        .from("case-assets")
+        .upload(path, f, { contentType: "text/csv", upsert: true });
+
+      if (uploadErr) {
+        const text = `Storage 업로드 실패: ${uploadErr.message}`;
+        console.error("[Exolyt upload]", text);
+        setMsg({ type: "err", text });
+        return;
+      }
+
+      // 서버에서 storage path 받아 파싱 + DB 저장
+      const r = await uploadExolytFromStorage(case_id, path);
       if (!r.ok) {
         console.error("[Exolyt upload]", r.error);
         window.alert(`exolyt 업로드 실패\n\n${r.error}`);
       } else {
-        // 재업로드 성공 시 dropzone 자동 닫기
         setShowReupload(false);
       }
       setMsg(

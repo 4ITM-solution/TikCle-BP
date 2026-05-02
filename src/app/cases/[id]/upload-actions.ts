@@ -28,8 +28,38 @@ async function getCase(case_id: string) {
 }
 
 // =============================================================================
-// 1. exolyt 업로드
+// 1. exolyt 업로드 (Supabase Storage 경유 — Vercel 4.5MB body 한도 우회)
 // =============================================================================
+export async function uploadExolytFromStorage(
+  case_id: string,
+  storagePath: string,
+): Promise<Result> {
+  const { supabase, c } = await getCase(case_id);
+
+  // Storage에서 파일 다운로드
+  const { data: blob, error: downloadErr } = await supabase.storage
+    .from("case-assets")
+    .download(storagePath);
+  if (downloadErr || !blob) {
+    return {
+      ok: false,
+      error: `Storage 다운로드 실패: ${downloadErr?.message ?? "no data"}`,
+    };
+  }
+  const text = await blob.text();
+
+  const result = await processExolytText(supabase, c, text);
+
+  // 처리 후 임시 파일 정리
+  await supabase.storage.from("case-assets").remove([storagePath]);
+
+  return result;
+}
+
+/**
+ * Legacy entrypoint — 작은 파일용 (Vercel body 한도 < 4.5MB).
+ * 큰 파일은 uploadExolytFromStorage 사용.
+ */
 export async function uploadExolyt(
   case_id: string,
   formData: FormData,
@@ -41,6 +71,14 @@ export async function uploadExolyt(
 
   const { supabase, c } = await getCase(case_id);
   const text = await file.text();
+  return processExolytText(supabase, c, text);
+}
+
+async function processExolytText(
+  supabase: Awaited<ReturnType<typeof getCase>>["supabase"],
+  c: Awaited<ReturnType<typeof getCase>>["c"],
+  text: string,
+): Promise<Result> {
   const parseResult = parseExolyt(text);
   const {
     rows,
@@ -151,7 +189,7 @@ export async function uploadExolyt(
     inserted += count ?? batch.length;
   }
 
-  revalidatePath(`/cases/${case_id}`);
+  revalidatePath(`/cases/${c.id}`);
   const skipNote =
     skippedNoUsername + skippedNoUrl + duplicateUrls > 0
       ? ` (CSV ${totalLines}행 중: 적재 ${contentInserts.length}, 중복url ${duplicateUrls}, username결측 ${skippedNoUsername}, url결측 ${skippedNoUrl})`
