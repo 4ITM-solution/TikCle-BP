@@ -67,24 +67,10 @@ export async function visionTagOne(opts: {
   caption: string | null;
   asr_text: string | null;
 }): Promise<VisionTagResult> {
-  // 이미지 fetch + base64 (Anthropic Image Block)
-  // TikTok CDN은 Referer + UA 검사 → 명시적으로 보내야 200 응답
-  const imgRes = await fetch(opts.cover_url, {
-    headers: {
-      Referer: "https://www.tiktok.com/",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    },
-  });
-  if (!imgRes.ok) {
-    throw new Error(`cover image fetch ${imgRes.status}`);
-  }
-  const buf = await imgRes.arrayBuffer();
-  const base64 = Buffer.from(buf).toString("base64");
-  const mediaTypeRaw = imgRes.headers.get("content-type") ?? "image/jpeg";
-  const mediaType = ((mediaTypeRaw.split(";")[0] ?? mediaTypeRaw)
-    .trim()) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-
+  // Anthropic API에 URL을 직접 넘김 (Anthropic 서버 IP에서 fetch).
+  // 이전엔 vercel에서 base64로 변환해서 보냈는데, TikTok CDN이 AWS IP를 차단해서
+  // vercel serverless의 fetch가 모두 fail. URL source로 바꾸면 Anthropic 서버가
+  // 자체 fetch하므로 차단 우회.
   const userText = `Caption:\n${opts.caption ?? "(none)"}\n\nASR transcript:\n${
     opts.asr_text ?? "(none)"
   }`;
@@ -106,9 +92,8 @@ export async function visionTagOne(opts: {
           {
             type: "image",
             source: {
-              type: "base64",
-              media_type: mediaType,
-              data: base64,
+              type: "url",
+              url: opts.cover_url,
             },
           },
           { type: "text", text: userText },
