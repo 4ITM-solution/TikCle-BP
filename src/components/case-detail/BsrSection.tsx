@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { uploadBsr } from "@/app/cases/[id]/upload-actions";
 import type { SkuRow } from "./AmazonSalesSection";
 
@@ -11,6 +12,7 @@ export function BsrSection({
   case_id: string;
   skuRows: SkuRow[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [pendingAsin, setPendingAsin] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
@@ -34,6 +36,7 @@ export function BsrSection({
           ? { type: "ok", text: r.message }
           : { type: "err", text: r.error },
       );
+      if (r.ok) router.refresh();
     });
   }
 
@@ -41,12 +44,14 @@ export function BsrSection({
     start(async () => {
       const results: string[] = [];
       const errors: string[] = [];
+      let anySuccess = false;
       for (const f of Array.from(files)) {
         const fd = new FormData();
         fd.append("file", f);
         const r = await uploadBsr(case_id, fd);
         if (r.ok) {
           results.push(`✓ ${r.message}`);
+          anySuccess = true;
         } else {
           results.push(`✕ ${f.name}: ${r.error}`);
           errors.push(`${f.name}: ${r.error}`);
@@ -60,6 +65,7 @@ export function BsrSection({
         type: errors.length > 0 ? "err" : "ok",
         text: results.join(" · "),
       });
+      if (anySuccess) router.refresh();
     });
   }
 

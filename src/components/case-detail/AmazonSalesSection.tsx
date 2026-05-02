@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { UploadDropzone } from "./UploadDropzone";
 import { uploadAmazonSales } from "@/app/cases/[id]/upload-actions";
 
@@ -20,6 +21,7 @@ export function AmazonSalesSection({
   case_id: string;
   skuRows: SkuRow[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
@@ -49,6 +51,7 @@ export function AmazonSalesSection({
           ? { type: "ok", text: r.message }
           : { type: "err", text: r.error },
       );
+      if (r.ok) router.refresh();
     });
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { UploadDropzone } from "./UploadDropzone";
 import {
   reuseExolyt,
@@ -21,6 +22,7 @@ export function ExolytSection({
   reusedAlready: boolean;
   contentCount: number;
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
@@ -56,6 +58,7 @@ export function ExolytSection({
           ? { type: "ok", text: r.message }
           : { type: "err", text: r.error },
       );
+      if (r.ok) router.refresh();
     });
   }
 
@@ -67,6 +70,7 @@ export function ExolytSection({
           ? { type: "ok", text: r.message }
           : { type: "err", text: r.error },
       );
+      if (r.ok) router.refresh();
     });
   }
 
