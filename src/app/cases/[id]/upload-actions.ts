@@ -357,8 +357,17 @@ export async function uploadBsr(
     return { ok: false, error: `파싱된 행 0개. ${errors[0] ?? ""}` };
   }
 
-  // 3. sales_snapshot 업서트
-  const inserts = rows.map((r) => ({
+  // 3. dedup — Keepa는 같은 날에 여러 번 측정값을 export할 수 있음 (오전/오후 등).
+  // upsert unique key가 (product_id, channel, collected_at)이라 같은 날 row 2개가
+  // 한 batch에 들어가면 ON CONFLICT 두 번 update 불가 에러. 같은 날짜는 마지막 row 유지.
+  const deduped = new Map<string, (typeof rows)[0]>();
+  for (const r of rows) {
+    deduped.set(r.collected_at, r);
+  }
+  const dedupedRows = Array.from(deduped.values());
+
+  // 4. sales_snapshot 업서트
+  const inserts = dedupedRows.map((r) => ({
     brand_id: prod.brand_id,
     product_id: prod.id,
     channel: "amazon",
@@ -383,7 +392,9 @@ export async function uploadBsr(
   }
 
   revalidatePath(`/cases/${case_id}`);
-  return { ok: true, message: `ASIN ${asin} BSR ${rows.length}일 적재 완료` };
+  const dupCount = rows.length - dedupedRows.length;
+  const dupNote = dupCount > 0 ? ` (중복 ${dupCount}건 통합)` : "";
+  return { ok: true, message: `ASIN ${asin} BSR ${dedupedRows.length}일 적재 완료${dupNote}` };
 }
 
 // =============================================================================
