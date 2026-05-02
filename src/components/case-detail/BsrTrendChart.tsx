@@ -28,18 +28,36 @@ function formatViews(n: number): string {
 }
 
 export function BsrTrendChart({
-  bsrSeries,
+  bsrSeries: bsrSeriesAll,
   inflections,
 }: {
   bsrSeries: BsrSeries[];
   inflections?: BsrInflection[];
 }) {
+  const [selectedAsin, setSelectedAsin] = useState<string>("all");
+  const [selectedInflection, setSelectedInflection] =
+    useState<BsrInflection | null>(null);
+
+  // 드롭다운 선택에 따라 시계열 필터링 (단 색상 인덱스는 전체 기준 유지)
+  const bsrSeries = useMemo(
+    () =>
+      selectedAsin === "all"
+        ? bsrSeriesAll
+        : bsrSeriesAll.filter((s) => s.asin === selectedAsin),
+    [bsrSeriesAll, selectedAsin],
+  );
+
+  // 색상 매핑은 전체 시계열 기준 (필터 후에도 SKU 색상 일관)
+  const colorByAsinAll = useMemo(() => {
+    const m = new Map<string, string>();
+    bsrSeriesAll.forEach((s, i) => m.set(s.asin, COLORS[i % COLORS.length]!));
+    return m;
+  }, [bsrSeriesAll]);
+
   const allPoints = useMemo(
     () => bsrSeries.flatMap((s) => s.points),
     [bsrSeries],
   );
-  const [selectedInflection, setSelectedInflection] =
-    useState<BsrInflection | null>(null);
 
   if (allPoints.length === 0) return null;
 
@@ -89,16 +107,9 @@ export function BsrTrendChart({
     return ticks;
   }, [minDate, maxDate, minTs, dateRange]);
 
-  // 색상 by ASIN
-  const colorByAsin = useMemo(() => {
-    const m = new Map<string, string>();
-    bsrSeries.forEach((s, i) =>
-      m.set(s.asin, COLORS[i % COLORS.length] ?? COLORS[0]!),
-    );
-    return m;
-  }, [bsrSeries]);
+  const colorByAsin = colorByAsinAll;
 
-  // 그래프 표시 가능한 inflection만 (asin이 시계열에 있고 date가 범위 내)
+  // 그래프 표시 가능한 inflection만 (asin이 현재 표시 중인 시계열에 있고 date가 범위 내)
   const visibleInflections = useMemo(() => {
     if (!inflections) return [];
     const asinsInChart = new Set(bsrSeries.map((s) => s.asin));
@@ -111,25 +122,78 @@ export function BsrTrendChart({
 
   return (
     <div className="section-card">
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>SKU별 BSR 추이</div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--color-g400)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          매출 Top {bsrSeries.length} SKU · 일별 (낮을수록 좋음, log scale)
-          {visibleInflections.length > 0 && (
-            <>
-              {" · "}
-              <span style={{ color: "var(--color-accent)", fontWeight: 700 }}>
-                ↑ {visibleInflections.length}개 급등
-              </span>{" "}
-              (rank ≥50% 개선)
-            </>
-          )}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 10,
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>SKU별 BSR 추이</div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {selectedAsin === "all"
+              ? `매출 Top ${bsrSeriesAll.length} SKU`
+              : `${selectedAsin}만 표시`}
+            {" · 일별 (낮을수록 좋음, log scale)"}
+            {visibleInflections.length > 0 && (
+              <>
+                {" · "}
+                <span
+                  style={{ color: "var(--color-accent)", fontWeight: 700 }}
+                >
+                  ↑ {visibleInflections.length}개 급등
+                </span>{" "}
+                (rank ≥50% 개선)
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            SKU
+          </span>
+          <select
+            value={selectedAsin}
+            onChange={(e) => {
+              setSelectedAsin(e.target.value);
+              setSelectedInflection(null);
+            }}
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              padding: "4px 8px",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              background: "white",
+              color: "var(--color-ink)",
+              cursor: "pointer",
+              maxWidth: 320,
+            }}
+          >
+            <option value="all">전체 ({bsrSeriesAll.length})</option>
+            {bsrSeriesAll.map((s) => (
+              <option key={s.asin} value={s.asin}>
+                {s.asin} · {s.name.slice(0, 30)}
+                {s.name.length > 30 ? "…" : ""}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -182,7 +246,7 @@ export function BsrTrendChart({
             </g>
           ))}
           {/* line series */}
-          {bsrSeries.map((s, i) => {
+          {bsrSeries.map((s) => {
             const pts = s.points
               .map((p) => `${xOf(p.date)},${yOf(p.bsr)}`)
               .join(" ");
@@ -191,7 +255,7 @@ export function BsrTrendChart({
                 key={s.asin}
                 points={pts}
                 fill="none"
-                stroke={COLORS[i % COLORS.length]}
+                stroke={colorByAsinAll.get(s.asin) ?? COLORS[0]!}
                 strokeWidth="1.8"
               />
             );
@@ -249,7 +313,7 @@ export function BsrTrendChart({
           borderTop: "1px solid var(--color-g100)",
         }}
       >
-        {bsrSeries.map((s, i) => (
+        {bsrSeries.map((s) => (
           <span
             key={s.asin}
             style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
@@ -258,7 +322,7 @@ export function BsrTrendChart({
               style={{
                 width: 12,
                 height: 2,
-                background: COLORS[i % COLORS.length],
+                background: colorByAsinAll.get(s.asin) ?? COLORS[0],
               }}
             />
             {s.asin} · {s.name.slice(0, 30)}

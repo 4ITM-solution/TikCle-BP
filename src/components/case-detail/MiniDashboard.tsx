@@ -120,9 +120,10 @@ export function MiniDashboard({
       {phase4a && (
         <>
           <SectionHeader letter="E" title="Meta 광고" />
-          <MetaAdsModule phase4a={phase4a} />
-          {metaAdsList && metaAdsList.length > 0 && (
-            <MetaAdsBrowser ads={metaAdsList} />
+          {metaAdsList && metaAdsList.length > 0 ? (
+            <MetaAdsBrowser ads={metaAdsList} phase4a={phase4a} />
+          ) : (
+            <MetaAdsModule phase4a={phase4a} />
           )}
         </>
       )}

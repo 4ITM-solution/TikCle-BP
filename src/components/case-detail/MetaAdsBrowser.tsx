@@ -2,10 +2,70 @@
 
 import { useMemo, useState } from "react";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
+import type { LandingType, Phase4aStats } from "@/lib/inngest/types";
 
 const PAGE_SIZE = 6;
 
-export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
+const LANDING_OPTIONS: Array<{ key: "all" | LandingType; label: string }> = [
+  { key: "all", label: "전체 랜딩" },
+  { key: "dtc", label: "자사몰 (DTC)" },
+  { key: "amazon", label: "Amazon" },
+  { key: "instagram", label: "Instagram" },
+  { key: "tiktok_shop", label: "TikTok Shop" },
+  { key: "facebook", label: "Facebook" },
+  { key: "other", label: "기타" },
+  { key: "none", label: "랜딩 없음" },
+];
+
+// brand_keyword 토큰이 도메인에 들어가는지 (DTC 분류와 동일 룰)
+function classifyAdLanding(
+  url: string | null,
+  brandKeyword?: string | null,
+): LandingType {
+  if (!url) return "none";
+  const real = url.toLowerCase();
+  if (real.includes("instagram.com") || real.includes("instagr.am"))
+    return "instagram";
+  if (
+    real.includes("amazon.com") ||
+    real.includes("amzn.to") ||
+    real.includes("a.co/") ||
+    real.includes("amzn.com")
+  ) {
+    return "amazon";
+  }
+  if (real.includes("tiktok.com/shop")) return "tiktok_shop";
+  if (real.includes("facebook.com") || real.includes("fb.com"))
+    return "facebook";
+  if (brandKeyword) {
+    const tokens = brandKeyword
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length >= 3);
+    if (tokens.length > 0 && tokens.some((t) => real.includes(t))) {
+      return "dtc";
+    }
+  }
+  return "other";
+}
+
+export function MetaAdsBrowser({
+  ads,
+  phase4a,
+}: {
+  ads: MetaAdListItem[];
+  phase4a?: Phase4aStats;
+}) {
+  // 각 광고의 landing 카테고리 lazy 계산 (brand_keyword 정보는 phase4a 결과 활용 어려움 →
+  // phase4a.landings의 분포만 직접 표시. 광고 list 자체 landing은 url 기반 추정)
+  const adLandings = useMemo(() => {
+    const m = new Map<string, LandingType>();
+    for (const a of ads) {
+      m.set(a.id, classifyAdLanding(a.link_url, null));
+    }
+    return m;
+  }, [ads]);
+
   // 월 list (start_date YYYY-MM 기준 내림차순)
   const months = useMemo(() => {
     const set = new Set<string>();
@@ -16,7 +76,11 @@ export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
   }, [ads]);
 
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [selectedLanding, setSelectedLanding] = useState<"all" | LandingType>(
+    "all",
+  );
   const [activeOnly, setActiveOnly] = useState(false);
+  const [brandOfficialOnly, setBrandOfficialOnly] = useState(true);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const filtered = useMemo(() => {
@@ -27,9 +91,21 @@ export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
         }
       }
       if (activeOnly && !a.is_active) return false;
+      if (brandOfficialOnly && !a.is_brand_official) return false;
+      if (selectedLanding !== "all") {
+        const landing = adLandings.get(a.id) ?? "none";
+        if (landing !== selectedLanding) return false;
+      }
       return true;
     });
-  }, [ads, selectedMonth, activeOnly]);
+  }, [
+    ads,
+    selectedMonth,
+    activeOnly,
+    brandOfficialOnly,
+    selectedLanding,
+    adLandings,
+  ]);
 
   // 정렬: brand_official → active → 최신순
   const sorted = useMemo(() => {
@@ -68,23 +144,23 @@ export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
               fontFamily: "var(--font-mono)",
             }}
           >
-            {selectedMonth === "all"
-              ? `전체 ${ads.length.toLocaleString()}개 광고`
-              : `${selectedMonth} · ${filtered.length.toLocaleString()}개`}
-            {activeOnly ? " · active만" : ""}
+            전체 {ads.length.toLocaleString()}개 →{" "}
+            <b style={{ color: "var(--color-ink)" }}>
+              {filtered.length.toLocaleString()}개
+            </b>{" "}
+            표시
+            {brandOfficialOnly ? " · 본사만" : ""}
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--color-g500)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            기간
-          </span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
           <select
             value={selectedMonth}
             onChange={(e) => {
@@ -102,13 +178,58 @@ export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
               cursor: "pointer",
             }}
           >
-            <option value="all">전체</option>
+            <option value="all">전체 기간</option>
             {months.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
           </select>
+          <select
+            value={selectedLanding}
+            onChange={(e) => {
+              setSelectedLanding(e.target.value as "all" | LandingType);
+              setPageSize(PAGE_SIZE);
+            }}
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              padding: "4px 8px",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              background: "white",
+              color: "var(--color-ink)",
+              cursor: "pointer",
+            }}
+          >
+            {LANDING_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <label
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              cursor: "pointer",
+            }}
+            title="본사 페이지 광고만 (스타일코리안 등 유통 광고 제외)"
+          >
+            <input
+              type="checkbox"
+              checked={brandOfficialOnly}
+              onChange={(e) => {
+                setBrandOfficialOnly(e.target.checked);
+                setPageSize(PAGE_SIZE);
+              }}
+            />
+            본사만
+          </label>
           <label
             style={{
               fontSize: 11,
@@ -132,6 +253,36 @@ export function MetaAdsBrowser({ ads }: { ads: MetaAdListItem[] }) {
           </label>
         </div>
       </div>
+
+      {phase4a?.landings && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            fontSize: 11,
+            fontFamily: "var(--font-mono)",
+            color: "var(--color-g500)",
+            background: "var(--color-g25)",
+            padding: "8px 10px",
+            borderRadius: 6,
+            marginBottom: 10,
+          }}
+        >
+          <span style={{ fontWeight: 700, color: "var(--color-g600)" }}>
+            전체 랜딩 분포:
+          </span>
+          {LANDING_OPTIONS.filter((o) => o.key !== "all").map((o) => {
+            const count = phase4a.landings[o.key as LandingType] ?? 0;
+            if (count === 0) return null;
+            return (
+              <span key={o.key}>
+                {o.label} <b style={{ color: "var(--color-ink)" }}>{count}</b>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <div

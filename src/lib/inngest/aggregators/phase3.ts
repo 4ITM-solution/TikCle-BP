@@ -223,6 +223,24 @@ export async function fetchInfluencers(
 }
 
 /**
+ * Phase 3 + Phase 3.5 등 어디서든 fresh stats 계산할 때 사용하는 helper.
+ * brand_id+country로 월별 활동 인플 집계까지 같이 fetch해서 tier_dist_by_month 채움.
+ */
+export async function computePhase3StatsWithMonthly(
+  supabase: SupaClient,
+  brand_id: string,
+  country: string,
+  influencers: InfluencerRow[],
+): Promise<Phase3Stats> {
+  const activityByMonth = await fetchInfluencerActivityByMonth(
+    supabase,
+    brand_id,
+    country,
+  );
+  return computePhase3Stats(influencers, activityByMonth);
+}
+
+/**
  * 사용자 정의 임계값:
  *   Mega ≥ 1M / Macro ≥ 500K / Mid ≥ 100K / Micro ≥ 10K / Nano ≥ 1K
  *   0~999 = sub-nano (fans 알지만 작음)

@@ -4,6 +4,7 @@ import { fetchTikTokVideos } from "@/lib/apify/clockworks-tiktok";
 import {
   classifyTier,
   computePhase3Stats,
+  computePhase3StatsWithMonthly,
   fetchInfluencers,
   fetchUniqueInfluencerIds,
   type InfluencerRow,
@@ -201,7 +202,12 @@ export async function finalizePhase35(
     supabase,
     setup.unique_inflids,
   );
-  const phase3Updated = computePhase3Stats(updatedInfluencers);
+  const phase3Updated = await computePhase3StatsWithMonthly(
+    supabase,
+    setup.brand_id,
+    setup.country,
+    updatedInfluencers,
+  );
   const topCreatorsUpdated = existingTopCreators.map((tc) => {
     const i = updatedInfluencers.find((x) => x.handle === tc.handle);
     return {
@@ -258,7 +264,12 @@ export async function runPhase35Fans(
   const allInfluencers = await fetchInfluencers(supabase, uniqueIds);
   const unknowns = allInfluencers.filter((i) => i.follower_count == null);
   if (unknowns.length === 0) {
-    const phase3Updated = computePhase3Stats(allInfluencers);
+    const phase3Updated = await computePhase3StatsWithMonthly(
+      supabase,
+      c.brand_id,
+      c.country,
+      allInfluencers,
+    );
     return wrap(empty35("Unknown 0명"), allInfluencers, existingTopCreators, phase3Updated);
   }
 
@@ -326,7 +337,12 @@ export async function runPhase35Fans(
 
   // 5. fresh phase3 stats 재계산 + top_creators 보강
   const updatedInfluencers = await fetchInfluencers(supabase, uniqueIds);
-  const phase3Updated = computePhase3Stats(updatedInfluencers);
+  const phase3Updated = await computePhase3StatsWithMonthly(
+    supabase,
+    c.brand_id,
+    c.country,
+    updatedInfluencers,
+  );
   const topCreatorsUpdated = existingTopCreators.map((tc) => {
     const i = updatedInfluencers.find((x) => x.handle === tc.handle);
     return {
