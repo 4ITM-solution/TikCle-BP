@@ -1,0 +1,422 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createServer } from "@/lib/supabase/server";
+import { ExolytSection } from "@/components/case-detail/ExolytSection";
+import {
+  AmazonSalesSection,
+  type SkuRow,
+} from "@/components/case-detail/AmazonSalesSection";
+import { BsrSection } from "@/components/case-detail/BsrSection";
+import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
+import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
+import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
+import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
+import { PhaseProgress } from "@/components/case-detail/PhaseProgress";
+import type { KeyStats } from "@/lib/inngest/types";
+import type {
+  Phase2Stats,
+  Phase3Stats,
+  Phase35Stats,
+  Phase37Stats,
+  Phase4aStats,
+  Phase4bAsrStats,
+  Phase4bClusterStats,
+  Phase4bSampleStats,
+  Phase4bSkuStats,
+  Phase4bVisionStats,
+  Phase5Stats,
+} from "@/lib/inngest/types";
+import { estimateCost } from "@/lib/cost-estimate";
+
+export const dynamic = "force-dynamic";
+
+type ReusableInfo = {
+  other_case_label: string;
+  row_count: number;
+};
+
+export default async function CaseDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createServer();
+
+  // 1. 케이스
+  const { data: c, error } = await supabase
+    .from("cases")
+    .select(
+      "id, country, channel, status, brand_keyword, brand_meta_pages, tiktok_shop_store_url, options, key_stats, created_at, updated_at, brand:brands(name)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    return (
+      <div style={{ padding: 32 }}>
+        <p style={{ color: "var(--color-accent)" }}>오류: {error.message}</p>
+      </div>
+    );
+  }
+  if (!c) notFound();
+  const brand = (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)";
+  const brand_id_q = await supabase
+    .from("cases")
+    .select("brand_id")
+    .eq("id", id)
+    .single();
+  const brand_id = brand_id_q.data?.brand_id;
+
+  // 2. 콘텐츠 적재 상태 (brand+country 스코프)
+  const { count: contentCount } = brand_id
+    ? await supabase
+        .from("contents")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", brand_id)
+        .eq("country", c.country)
+    : { count: 0 };
+
+  const reusedAlready =
+    !!c.options &&
+    typeof c.options === "object" &&
+    !Array.isArray(c.options) &&
+    (c.options as Record<string, unknown>).exolyt_reused === true;
+
+  // 3. 재사용 가능한 다른 케이스 찾기
+  let reusable: ReusableInfo | null = null;
+  if (
+    brand_id &&
+    (contentCount ?? 0) > 0 &&
+    !reusedAlready &&
+    // 현재 케이스에 직접 업로드된 적 없는 경우만 권유
+    !((contentCount ?? 0) > 0 && c.status !== "draft")
+  ) {
+    const { data: otherCases } = await supabase
+      .from("cases")
+      .select("country, channel")
+      .eq("brand_id", brand_id)
+      .eq("country", c.country)
+      .neq("id", id)
+      .limit(1);
+    if (otherCases && otherCases.length > 0) {
+      const o = otherCases[0]!;
+      reusable = {
+        other_case_label: `${brand} · ${o.country} · ${o.channel}`,
+        row_count: contentCount ?? 0,
+      };
+    }
+  }
+
+  // 4. SKU + BSR 상태 (Amazon 케이스)
+  let skuRows: SkuRow[] = [];
+  if (c.channel === "amazon") {
+    const { data: prods } = await supabase
+      .from("products")
+      .select("id, asin, name, product_url")
+      .eq("case_id", c.id);
+
+    const productIds = (prods ?? []).map((p) => p.id);
+
+    const { data: salesRows } = productIds.length
+      ? await supabase
+          .from("case_product_sales")
+          .select("product_id, units_30d, revenue_30d, period_end")
+          .eq("case_id", c.id)
+      : {
+          data: [] as Array<{
+            product_id: string;
+            units_30d: number | null;
+            revenue_30d: number | null;
+            period_end: string | null;
+          }>,
+        };
+
+    const { data: bsrRows } = productIds.length
+      ? await supabase
+          .from("sales_snapshot")
+          .select("product_id")
+          .in("product_id", productIds)
+      : { data: [] as Array<{ product_id: string }> };
+
+    const bsrSet = new Set((bsrRows ?? []).map((b) => b.product_id));
+    const salesByProduct = new Map(
+      (salesRows ?? []).map((s) => [
+        s.product_id,
+        { units_30d: s.units_30d, revenue_30d: s.revenue_30d },
+      ]),
+    );
+
+    skuRows = (prods ?? [])
+      .map((p) => {
+        const sales = salesByProduct.get(p.id);
+        return {
+          asin: p.asin ?? "",
+          name: p.name,
+          url:
+            p.product_url ??
+            (p.asin ? `https://www.amazon.com/dp/${p.asin}` : null),
+          units_30d: sales?.units_30d ?? null,
+          revenue_30d: sales?.revenue_30d ?? null,
+          hasBsr: bsrSet.has(p.id),
+        };
+      })
+      .sort((a, b) => (b.revenue_30d ?? 0) - (a.revenue_30d ?? 0));
+  }
+
+  // 5. 분석 시작 가능 여부
+  // tiktok_shop은 스토어 URL만 있으면 분석 시작 가능 (Phase 1.5에서 자동 수집)
+  const exolytDone = (contentCount ?? 0) > 0 || reusedAlready;
+  const salesDone =
+    c.channel === "amazon"
+      ? skuRows.length > 0
+      : c.channel === "tiktok_shop"
+        ? !!c.tiktok_shop_store_url
+        : true;
+  const ready = exolytDone && salesDone && c.status === "draft";
+
+  let reason = "";
+  if (c.status !== "draft") reason = `현재 상태: ${c.status}`;
+  else if (!exolytDone) reason = "exolyt 데이터 업로드/재사용 필요";
+  else if (!salesDone) {
+    if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
+    else if (c.channel === "tiktok_shop") reason = "TikTok Shop 스토어 URL 필요";
+  }
+
+  // 5b. 비용 추정
+  const costEstimate = estimateCost({
+    channel: c.channel,
+    brand_keyword: c.brand_keyword,
+    brand_meta_pages: c.brand_meta_pages,
+    tiktok_shop_store_url: c.tiktok_shop_store_url,
+    hasApifyToken: !!process.env.APIFY_TOKEN,
+    hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+  });
+
+  return (
+    <div style={{ padding: "24px 32px", maxWidth: 1100 }}>
+      <nav className="breadcrumb">
+        <Link href="/cases">My Cases</Link>
+        <span className="sep">/</span>
+        <span>
+          {brand} · {c.country}/{c.channel.toUpperCase()}
+        </span>
+      </nav>
+
+      {/* Header */}
+      <div className="section-card" style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <h1 className="page-title" style={{ marginBottom: 0 }}>
+            {brand}
+          </h1>
+          <span className={`status-pill ${c.status}`}>{c.status}</span>
+          <div style={{ marginLeft: "auto" }}>
+            <DeleteCaseButton
+              case_id={c.id}
+              brand_label={`${brand} · ${c.country} · ${c.channel.toUpperCase()}`}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+          <span className="case-tag country">{c.country}</span>
+          <span className="case-tag platform">{c.channel.toUpperCase()}</span>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 18,
+            flexWrap: "wrap",
+            fontSize: 11,
+            color: "var(--color-g500)",
+            fontFamily: "var(--font-mono)",
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: "1px solid var(--color-g100)",
+          }}
+        >
+          <span>
+            생성{" "}
+            <b style={{ color: "var(--color-ink)" }}>
+              {new Date(c.created_at).toLocaleString("ko-KR")}
+            </b>
+          </span>
+          <span>
+            업데이트{" "}
+            <b style={{ color: "var(--color-ink)" }}>
+              {new Date(c.updated_at).toLocaleString("ko-KR")}
+            </b>
+          </span>
+          <span>
+            id <b style={{ color: "var(--color-ink)" }}>{c.id.slice(0, 8)}</b>
+          </span>
+        </div>
+      </div>
+
+      {/* Status branch */}
+      {c.status === "draft" ? (
+        <>
+          {/* Section 02: 데이터 업로드 */}
+          <section className="section-card" style={{ marginBottom: 14 }}>
+            <div className="section-head">
+              <span className="section-num">SECTION 02</span>
+              <span className="section-title">데이터 업로드</span>
+              <span className={`section-status ${ready ? "done" : "partial"}`}>
+                {ready ? "완료" : "진행중"}
+              </span>
+            </div>
+
+            <ExolytSection
+              case_id={c.id}
+              hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
+              reusable={reusable}
+              reusedAlready={reusedAlready}
+              contentCount={contentCount ?? 0}
+            />
+
+            {c.channel === "amazon" && (
+              <>
+                <AmazonSalesSection case_id={c.id} skuRows={skuRows} />
+                <BsrSection case_id={c.id} skuRows={skuRows} />
+              </>
+            )}
+
+            {c.channel === "tiktok_shop" && (
+              <div
+                style={{
+                  background: "var(--color-g25)",
+                  border: "1px dashed var(--color-g200)",
+                  borderRadius: 8,
+                  padding: "14px 16px",
+                  fontSize: 12,
+                  color: "var(--color-g500)",
+                  lineHeight: 1.6,
+                }}
+              >
+                <b style={{ color: "var(--color-ink)" }}>
+                  TikTok Shop 매출/제품 자동 수집
+                </b>
+                <br />
+                분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다.
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    background: "white",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontFamily: "var(--font-mono)",
+                    color: c.tiktok_shop_store_url
+                      ? "var(--color-g600)"
+                      : "var(--color-accent)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <StartAnalysisButton
+            case_id={c.id}
+            ready={ready}
+            reason={reason}
+            costEstimate={costEstimate}
+          />
+        </>
+      ) : c.status === "ready" && c.key_stats ? (
+        <>
+          {(() => {
+            const ks = c.key_stats as {
+              phase2?: Phase2Stats;
+              phase3?: Phase3Stats;
+              phase35?: Phase35Stats;
+              phase37?: Phase37Stats;
+              phase4a?: Phase4aStats;
+              phase4b_sample?: Phase4bSampleStats;
+              phase4b_asr?: Phase4bAsrStats;
+              phase4b_vision?: Phase4bVisionStats;
+              phase4b_clusters?: Phase4bClusterStats;
+              phase4b_sku?: Phase4bSkuStats;
+              phase5?: Phase5Stats;
+            } | null;
+            if (!ks?.phase2) {
+              return (
+                <div
+                  style={{
+                    padding: 18,
+                    background: "var(--color-warn-soft)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: "var(--color-warn)",
+                  }}
+                >
+                  status는 ready인데 phase2 결과가 비어있어요. 다시 분석 시작 필요.
+                </div>
+              );
+            }
+            return (
+              <>
+                <PhaseProgress
+                  case_id={c.id}
+                  keyStats={ks as KeyStats}
+                />
+                <div style={{ height: 14 }} />
+                <MiniDashboard
+                  phase2={ks.phase2}
+                  phase3={ks.phase3}
+                  phase35={ks.phase35}
+                  phase37={ks.phase37}
+                  phase4a={ks.phase4a}
+                  phase4bSample={ks.phase4b_sample}
+                  phase4bAsr={ks.phase4b_asr}
+                  phase4bVision={ks.phase4b_vision}
+                  phase4bClusters={ks.phase4b_clusters}
+                  phase4bSku={ks.phase4b_sku}
+                  phase5={ks.phase5}
+                />
+              </>
+            );
+          })()}
+          <DevTestActions
+            case_id={c.id}
+            status={c.status}
+            costEstimate={costEstimate}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            style={{
+              padding: 18,
+              background: "var(--color-warn-soft)",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "var(--color-warn)",
+            }}
+          >
+            ⟳ 분석 진행 중 (status: <b>{c.status}</b>) — 새로고침으로 진행 확인.
+            로컬 dev라면 Inngest dev server (
+            <span className="font-mono">localhost:8288</span>) → Runs 탭에서 실시간 진행 추적.
+          </div>
+          <DevTestActions
+            case_id={c.id}
+            status={c.status}
+            costEstimate={costEstimate}
+          />
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,37 @@
+{
+  "name": "bp_v2_app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types typescript --project-id dxjodlxkynjirldpumxr --schema public > src/lib/supabase/types.gen.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.102.1",
+    "apify-client": "^2.10.0",
+    "inngest": "^3.27.0",
+    "next": "^15.1.0",
+    "papaparse": "^5.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.9.0",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2"
+  }
+}
