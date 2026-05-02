@@ -162,7 +162,7 @@ function BsrRow({
         border: "1px solid var(--color-g100)",
         borderRadius: 6,
         background: "white",
-        cursor: sku.hasBsr || pending ? "default" : "pointer",
+        cursor: pending ? "default" : "pointer",
       }}
     >
       {sku.url ? (
@@ -217,7 +217,11 @@ function BsrRow({
             : {}),
         }}
       >
-        {pending ? "업로드 중…" : sku.hasBsr ? "✓ 적재 완료" : "CSV 업로드"}
+        {pending
+          ? "업로드 중…"
+          : sku.hasBsr
+            ? "✓ 적재됨 · 다시 클릭해 덮어쓰기"
+            : "CSV 업로드"}
       </span>
       <input
         type="file"
@@ -226,7 +230,18 @@ function BsrRow({
         disabled={pending}
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) onPick(f);
+          if (f) {
+            if (
+              sku.hasBsr &&
+              !window.confirm(
+                `${sku.asin}에 이미 BSR 데이터가 있습니다.\n파일: ${f.name}\n\n기존 시계열을 모두 삭제하고 새 파일로 교체합니다. 진행할까요?`,
+              )
+            ) {
+              e.currentTarget.value = "";
+              return;
+            }
+            onPick(f);
+          }
           e.currentTarget.value = "";
         }}
       />

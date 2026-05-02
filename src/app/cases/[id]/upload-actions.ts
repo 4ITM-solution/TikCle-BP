@@ -322,10 +322,19 @@ export async function uploadBsr(
     return { ok: false, error: "파일이 첨부되지 않았습니다" };
   }
 
-  const asin =
-    typeof explicitAsin === "string" && explicitAsin
-      ? explicitAsin
-      : extractAsinFromFilename(file.name);
+  const filenameAsin = extractAsinFromFilename(file.name);
+  const slotAsin =
+    typeof explicitAsin === "string" && explicitAsin ? explicitAsin : null;
+
+  // 슬롯 ASIN이 있으면 그게 기준. 단 파일명 ASIN과 mismatch면 reject (실수 방지)
+  if (slotAsin && filenameAsin && slotAsin !== filenameAsin) {
+    return {
+      ok: false,
+      error: `슬롯 ASIN(${slotAsin})과 파일명 ASIN(${filenameAsin})이 다릅니다. 다른 SKU 파일을 잘못 드롭한 것 같아요. 올바른 파일을 다시 선택하거나 "여러 개 한 번에 업로드" 버튼을 사용하세요.`,
+    };
+  }
+
+  const asin = slotAsin ?? filenameAsin;
   if (!asin) {
     return {
       ok: false,
@@ -365,6 +374,15 @@ export async function uploadBsr(
     deduped.set(r.collected_at, r);
   }
   const dedupedRows = Array.from(deduped.values());
+
+  // 3.5 재업로드 reset — Keepa는 lifetime 시계열을 통째로 export하는 게 정상이라
+  // incremental append보다 기존 데이터 통째 교체가 깔끔. 잘못된 파일 올린 경우도 자동 정리.
+  const { error: resetErr } = await supabase
+    .from("sales_snapshot")
+    .delete()
+    .eq("product_id", prod.id)
+    .eq("channel", "amazon");
+  if (resetErr) return { ok: false, error: `bsr reset: ${resetErr.message}` };
 
   // 4. sales_snapshot 업서트
   const inserts = dedupedRows.map((r) => ({
