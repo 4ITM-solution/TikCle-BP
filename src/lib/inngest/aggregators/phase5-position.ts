@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { classifyTier } from "./phase3";
 import type {
+  BsrInflection,
+  BsrInflectionVideo,
   HeatmapCell,
   HeatmapRow,
   LanguageEntry,
@@ -76,7 +78,15 @@ export async function runPhase5(
     brandName,
   );
 
-  // 5. 클러스터 결과 없으면 히트맵 생략 (언어/USP는 그대로 반환)
+  // 5. BSR inflection (Amazon 케이스만 의미. 다른 채널은 빈 결과)
+  const bsr_inflections = await computeBsrInflections(
+    supabase,
+    case_id,
+    c.brand_id,
+    c.country,
+  );
+
+  // 6. 클러스터 결과 없으면 히트맵 생략 (언어/USP/inflection은 그대로 반환)
   if (!phase4bClusters || phase4bClusters.meta_clusters.length === 0) {
     return {
       heatmap: [],
@@ -87,12 +97,13 @@ export async function runPhase5(
       total_without_language,
       usp_keywords,
       total_captions,
+      bsr_inflections,
       skipped_reason: "메타 클러스터 없음 (Phase 4b.4 비어있음)",
       computed_at: new Date().toISOString(),
     };
   }
 
-  // 6. 히트맵
+  // 7. 히트맵
   const heatmapResult = await computeHeatmap(
     supabase,
     case_id,
@@ -108,6 +119,7 @@ export async function runPhase5(
     total_without_language,
     usp_keywords,
     total_captions,
+    bsr_inflections,
     computed_at: new Date().toISOString(),
   };
 }
@@ -436,4 +448,188 @@ function computeUspKeywords(
   }));
 
   return { usp_keywords, total_captions };
+}
+
+// =============================================================================
+// BSR Inflection 계산
+//
+// 알고리즘:
+//   1. 각 SKU별 BSR 시계열에서 7일 rolling rank 변화율 계산
+//   2. (rank_before - rank_after) / rank_before >= 0.5 인 시점 t를 급등 후보로 마킹
+//   3. 그 시점 ±0~7일 윈도우 콘텐츠 viewCount 합계 (BSR 변화 직전 7일이 cause)
+//   4. [t-14, t-7] 윈도우 viewCount 합계와 비교. ratio >= 2면 "메가 볼륨"
+//   5. [t-7, t] 윈도우 영상 중 뷰 desc top 3을 inflection에 포함
+// =============================================================================
+
+const RANK_IMPROVE_THRESHOLD = 0.5; // 50% 이상 개선
+const VOLUME_RATIO_THRESHOLD = 2.0; // 직전 7일 대비 2배 이상이면 메가 볼륨
+const TOP_VIDEOS_PER_INFLECTION = 3;
+
+async function computeBsrInflections(
+  supabase: SupaClient,
+  case_id: string,
+  brand_id: string,
+  country: string,
+): Promise<BsrInflection[]> {
+  // 1. 케이스의 product list (asin)
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, asin")
+    .eq("case_id", case_id)
+    .not("asin", "is", null);
+  if (!products || products.length === 0) return [];
+
+  const productIds = products.map((p) => p.id);
+  const asinByProductId = new Map(products.map((p) => [p.id, p.asin ?? ""]));
+
+  // 2. 모든 product의 sales_snapshot 시계열 fetch
+  const bsrByProduct = new Map<
+    string,
+    Array<{ collected_at: string; bsr: number }>
+  >();
+  const SNAP_CHUNK = 1000;
+  // product별 limit 큼 (lifetime 시계열 전체)
+  for (const pid of productIds) {
+    const { data: snaps } = await supabase
+      .from("sales_snapshot")
+      .select("collected_at, bsr")
+      .eq("product_id", pid)
+      .eq("channel", "amazon")
+      .not("bsr", "is", null)
+      .order("collected_at", { ascending: true })
+      .limit(SNAP_CHUNK);
+    if (!snaps || snaps.length === 0) continue;
+    bsrByProduct.set(
+      pid,
+      snaps
+        .filter((s): s is { collected_at: string; bsr: number } =>
+          typeof s.bsr === "number" && typeof s.collected_at === "string",
+        )
+        .map((s) => ({ collected_at: s.collected_at.slice(0, 10), bsr: s.bsr })),
+    );
+  }
+  if (bsrByProduct.size === 0) return [];
+
+  // 3. brand+country contents fetch (uploaded_at + views + url + caption)
+  const allContents: Array<{
+    uploaded_at: string;
+    views: number;
+    url: string;
+    caption: string | null;
+  }> = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("contents")
+      .select("uploaded_at, views, url, caption")
+      .eq("brand_id", brand_id)
+      .eq("country", country)
+      .not("uploaded_at", "is", null)
+      .range(from, from + SNAP_CHUNK - 1);
+    if (error) break;
+    if (!data || data.length === 0) break;
+    for (const r of data) {
+      if (!r.uploaded_at || !r.url) continue;
+      allContents.push({
+        uploaded_at: String(r.uploaded_at).slice(0, 10),
+        views: r.views ?? 0,
+        url: r.url,
+        caption: r.caption ?? null,
+      });
+    }
+    if (data.length < SNAP_CHUNK) break;
+    from += SNAP_CHUNK;
+  }
+  if (allContents.length === 0) return [];
+
+  // 4. 각 SKU별 inflection 계산
+  const inflections: BsrInflection[] = [];
+  for (const [pid, series] of bsrByProduct.entries()) {
+    if (series.length < 8) continue; // 7일 비교 못 함
+    const asin = asinByProductId.get(pid) ?? "";
+
+    // dedupe by date (마지막 값 유지)
+    const byDate = new Map<string, number>();
+    for (const s of series) byDate.set(s.collected_at, s.bsr);
+    const sorted = Array.from(byDate.entries())
+      .map(([date, bsr]) => ({ date, bsr }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // 5. 7일 차이 비교: 같은 SKU에서 한 inflection의 ±7일 안에 또 다른 inflection 안 잡히게
+    let lastFlaggedDate = "";
+    for (let i = 7; i < sorted.length; i++) {
+      const after = sorted[i]!;
+      const before = sorted[i - 7]!;
+      // 두 시점 사이 실제 일 차이가 7일 이상이어야 (sparse 시계열 보호)
+      const dayDiff =
+        (Date.parse(after.date) - Date.parse(before.date)) / 86_400_000;
+      if (dayDiff < 5 || dayDiff > 10) continue;
+      const improvement = (before.bsr - after.bsr) / before.bsr;
+      if (improvement < RANK_IMPROVE_THRESHOLD) continue;
+      // 같은 SKU에서 14일 내 직전 flag와 중복이면 skip
+      if (lastFlaggedDate) {
+        const since =
+          (Date.parse(after.date) - Date.parse(lastFlaggedDate)) / 86_400_000;
+        if (since < 14) continue;
+      }
+      lastFlaggedDate = after.date;
+
+      const tMs = Date.parse(after.date);
+      const w0Start = new Date(tMs - 7 * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      const w0End = after.date;
+      const wPrevStart = new Date(tMs - 14 * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      const wPrevEnd = w0Start;
+
+      let viewsWindow = 0;
+      let viewsCompare = 0;
+      const inWindow: typeof allContents = [];
+      for (const c of allContents) {
+        if (c.uploaded_at >= w0Start && c.uploaded_at < w0End) {
+          viewsWindow += c.views;
+          inWindow.push(c);
+        } else if (c.uploaded_at >= wPrevStart && c.uploaded_at < wPrevEnd) {
+          viewsCompare += c.views;
+        }
+      }
+      const viewsRatio =
+        viewsCompare > 0
+          ? viewsWindow / viewsCompare
+          : viewsWindow > 0
+            ? Infinity
+            : 0;
+      const isMegaVolume =
+        viewsCompare > 0 && viewsRatio >= VOLUME_RATIO_THRESHOLD;
+
+      const top3: BsrInflectionVideo[] = inWindow
+        .sort((a, b) => b.views - a.views)
+        .slice(0, TOP_VIDEOS_PER_INFLECTION)
+        .map((c) => ({
+          url: c.url,
+          views: c.views,
+          caption: c.caption,
+        }));
+
+      inflections.push({
+        asin,
+        date: after.date,
+        rank_before: before.bsr,
+        rank_after: after.bsr,
+        rank_improvement_pct: improvement * 100,
+        views_window: viewsWindow,
+        views_compare: viewsCompare,
+        views_ratio: viewsRatio === Infinity ? 999 : viewsRatio,
+        is_mega_volume: isMegaVolume,
+        top_videos: top3,
+      });
+    }
+  }
+
+  // 6. 최신순 정렬, max 50개
+  return inflections
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 50);
 }

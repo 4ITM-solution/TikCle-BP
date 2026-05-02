@@ -403,6 +403,25 @@ export type UspKeywordEntry = {
   pct: number; // count / total_captions × 100
 };
 
+export type BsrInflectionVideo = {
+  url: string;
+  views: number;
+  caption: string | null;
+};
+
+export type BsrInflection = {
+  asin: string;
+  date: string; // YYYY-MM-DD (BSR 급등 시점 t)
+  rank_before: number; // t-7일 시점 rank
+  rank_after: number; // t 시점 rank
+  rank_improvement_pct: number; // (before - after) / before * 100
+  views_window: number; // [t-7, t] 콘텐츠 뷰 합계
+  views_compare: number; // [t-14, t-7] 콘텐츠 뷰 합계
+  views_ratio: number; // views_window / views_compare (1+로 잘라둠)
+  is_mega_volume: boolean; // views_ratio >= 2
+  top_videos: BsrInflectionVideo[]; // [t-7, t] 영상 중 뷰 desc top 3
+};
+
 export type Phase5Stats = {
   // 히트맵 — case_video_analyses의 pass3_meta_id 기반 (sample 영상)
   heatmap: HeatmapRow[];
@@ -415,6 +434,8 @@ export type Phase5Stats = {
   // USP 키워드 — 캡션 빈도 분석 (1-3 word n-grams)
   usp_keywords: UspKeywordEntry[];
   total_captions: number;
+  // BSR 급등 시점 + 동반된 콘텐츠 분석 (Amazon 케이스만 채워짐)
+  bsr_inflections?: BsrInflection[];
   computed_at: string;
   skipped_reason?: string;
 };

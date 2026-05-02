@@ -1,6 +1,7 @@
 import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
+import { BsrTrendChart } from "./BsrTrendChart";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import type {
   DisplayedVideoEntry,
@@ -106,7 +107,12 @@ export function MiniDashboard({
             }
           />
           <SkuSalesModule stats={phase2} />
-          {phase2.bsr_series.length > 0 && <BsrSeriesModule stats={phase2} />}
+          {phase2.bsr_series.length > 0 && (
+            <BsrTrendChart
+              bsrSeries={phase2.bsr_series}
+              inflections={phase5?.bsr_inflections}
+            />
+          )}
         </>
       )}
 
@@ -2001,135 +2007,3 @@ function SkuSalesModule({ stats }: { stats: Phase2Stats }) {
   );
 }
 
-// =============================================================================
-// Module: BSR 추이 (간단한 SVG 라인)
-// =============================================================================
-function BsrSeriesModule({ stats }: { stats: Phase2Stats }) {
-  const allPoints = stats.bsr_series.flatMap((s) => s.points);
-  if (allPoints.length === 0) return null;
-
-  const minDate = allPoints.reduce(
-    (min, p) => (p.date < min ? p.date : min),
-    allPoints[0]!.date,
-  );
-  const maxDate = allPoints.reduce(
-    (max, p) => (p.date > max ? p.date : max),
-    allPoints[0]!.date,
-  );
-  const minBsr = Math.max(
-    1,
-    allPoints.reduce((m, p) => Math.min(m, p.bsr), Infinity),
-  );
-  const maxBsr = allPoints.reduce((m, p) => Math.max(m, p.bsr), 0);
-
-  const minTs = new Date(minDate).getTime();
-  const maxTs = new Date(maxDate).getTime();
-  const dateRange = Math.max(1, maxTs - minTs);
-
-  const W = 800;
-  const H = 240;
-  const xOf = (d: string) => ((new Date(d).getTime() - minTs) / dateRange) * W;
-  // BSR은 낮을수록 좋음 → log scale + invert
-  const logMin = Math.log(minBsr);
-  const logMax = Math.log(maxBsr);
-  const logRange = Math.max(0.001, logMax - logMin);
-  const yOf = (b: number) => ((Math.log(b) - logMin) / logRange) * (H - 20) + 10;
-
-  const colors = [
-    "var(--color-accent)",
-    "var(--color-ink)",
-    "var(--color-info)",
-    "var(--color-warn)",
-    "var(--color-pos)",
-  ];
-
-  return (
-    <div className="section-card">
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>SKU별 BSR 추이</div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--color-g400)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          매출 Top {stats.bsr_series.length} SKU · 일별 (낮을수록 좋음, log scale)
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: "var(--color-g25)",
-          borderRadius: 6,
-          padding: 16,
-          height: 280,
-          position: "relative",
-        }}
-      >
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          style={{ width: "100%", height: "100%" }}
-        >
-          {/* 배경 가로선 */}
-          {[0, 0.25, 0.5, 0.75, 1].map((p) => (
-            <line
-              key={p}
-              x1="0"
-              y1={p * H}
-              x2={W}
-              y2={p * H}
-              stroke="var(--color-g100)"
-              strokeWidth="1"
-            />
-          ))}
-          {stats.bsr_series.map((s, i) => {
-            const pts = s.points
-              .map((p) => `${xOf(p.date)},${yOf(p.bsr)}`)
-              .join(" ");
-            return (
-              <polyline
-                key={s.asin}
-                points={pts}
-                fill="none"
-                stroke={colors[i % colors.length]}
-                strokeWidth="1.8"
-              />
-            );
-          })}
-        </svg>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 10,
-          fontSize: 10,
-          fontFamily: "var(--font-mono)",
-          marginTop: 10,
-          paddingTop: 10,
-          borderTop: "1px solid var(--color-g100)",
-        }}
-      >
-        {stats.bsr_series.map((s, i) => (
-          <span
-            key={s.asin}
-            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-          >
-            <span
-              style={{
-                width: 12,
-                height: 2,
-                background: colors[i % colors.length],
-              }}
-            />
-            {s.asin} · {s.name.slice(0, 30)}
-            {s.name.length > 30 ? "…" : ""}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
