@@ -24,42 +24,54 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-03 새벽 (상희님 첫 사용 + QA 세션)
+> **갱신 시점**: 2026-05-03 새벽 (상희님 첫 사용 + QA 세션 — 자정 무렵 마무리)
 
 ### 진행 중인 케이스
 
 - **EQQUALBERRY · US · Amazon** (case_id `5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56`)
-- 7 SKU sales/BSR 적재 완료. Phase 1.5/2/3/3.5/3.7/4a/4b.1/4b.2 다 정상 완주
-- **Phase 4b.3 (Vision)부터 stuck** — Anthropic 잔고 sync 이슈 (아래 참고)
+- 7 SKU sales/BSR 적재 완료
+- Phase 1.5/2/3/3.5/3.7/4a/4b.1/4b.2/5 다 정상 완주 (B-1~B-5 새 필드 다 채워짐)
+- **Phase 4b.3 (Vision)만 stuck** — Anthropic 잔고 sync 미해결 (~2시간 경과)
 
-### 데이터 정합 검증 끝난 것
+### 데이터 정합 검증 끝난 것 (B-1~B-5 모두 검증)
 
 | 검증 | 결과 |
 |---|---|
 | exolyt 4,829 contents 적재 | ✓ |
-| 7 ASIN sales (SellerSprite-style header) | ✓ |
-| 7 ASIN BSR 시계열 (Keepa 한국 포맷) | ✓ |
-| Phase 1~4a 결과 | ✓ |
-| Phase 4b.3 Vision | ✗ — 잔고 부족 에러 |
+| 7 ASIN sales | ✓ |
+| 7 ASIN BSR 시계열 | ✓ |
+| **B-3** Phase 3 `tier_dist_by_month` (월별 인플 unique) | ✓ |
+| **B-2** Phase 2 `top_videos` (인플별 top 3 영상) | ✓ |
+| **B-5** Phase 4a DTC 분류 (eqqualberry 자사몰 128건 잡힘) | ✓ |
+| **B-4** Phase 5 `bsr_inflections` (BSR 급등 + 동반 콘텐츠) | ✓ |
+| **B-1** Phase 5 `franc-min` 언어 detect | ✓ — 4291/4825 (89%) detected. 영어 67% / 스페인어 7% / 프랑스어 2.5% 등 |
+| **Phase 4b.3 Vision** | ✗ — Anthropic 잔고 sync (213/213 fail) |
 
 ### 막혀있는 것 — Anthropic 잔고 sync 버그
 
-- 사용자 console에 잔고 $50 표시. API key도 정상. workspace 1개. spend limit 정상.
-- 그런데 모든 vision API 호출이 `credit balance is too low` 400 에러
-- 노트북에서 직접 curl로도 동일 (vercel 환경 무관)
-- console **사용량 logs에 호출 자체가 안 잡힘** = 키 organization과 표시되는 organization이 시스템상 어긋남
-- GitHub [anthropics/claude-code#31537](https://github.com/anthropics/claude-code/issues/31537) 등 다수 사용자 동일 보고. 보통 **1~2시간 후 자동 sync**. 또는 personal account 우회.
+- 사용자 console에 잔고 $50 표시. API key 정상. workspace 1개. spend limit 정상.
+- 모든 vision API 호출이 `credit balance is too low` 400 에러
+- 노트북 curl 직접 호출도 동일 (vercel 환경 무관)
+- console **사용량 logs에 호출 자체가 안 잡힘** = key organization 시스템 mismatch
+- GitHub [anthropics/claude-code#31537](https://github.com/anthropics/claude-code/issues/31537) 등 다수 동일 보고. 보통 90분 자동 sync인데 **이번 케이스는 2시간 넘게 미해결**. 자고 일어나면 풀릴 가능성 높음.
 
-### 진행 가능한 다음 단계
+### 다음 세션 시작 단계
 
-1. **잔고 sync 풀린 후** — 케이스 페이지 "분석 재실행" 누르면 cache hit으로 phase 4b.3부터만 새로 돌아감. 비용 ~$5-6.
-2. **새 코드 결과 검증** — phase 2/3/4a/5 cache 비워야 새 코드 (B-3/B-2/B-5/B-4) 결과 채워짐. 잔고 풀리기 전에도 가능. SQL:
+1. **잔고 sync 풀렸나 확인** — phase4b_vision keys 비워두고 (이미 비워둠) 분석 재실행 누르고 vision step 결과 봄. SQL로:
    ```sql
-   UPDATE cases
-   SET key_stats = key_stats - 'phase2' - 'phase3' - 'phase4a' - 'phase5'
-   WHERE id = '5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56';
+   SELECT key_stats->'phase4b_vision'->'total_with_tags' AS tags,
+          key_stats->'phase4b_vision'->'failure_reasons'->0->>'reason' AS first_reason
+   FROM cases WHERE id = '5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56';
    ```
-   → 그 후 분석 재실행. phase 4b.3은 잔고 풀리기 전엔 또 막힘.
+   - tags > 0 → 잔고 풀림. cluster/sku/heatmap 다 살아남
+   - tags = 0 + reason `credit balance` → 아직 미해결 (또 기다림 또는 personal account 우회)
+
+2. **잔고 풀린 후** vision/cluster/sku 자동으로 cascade로 채워짐. ~$5-6.
+
+3. **마무리 polish 후보**:
+   - **ISO 639-3 → ISO 639-1 매핑 확장**: phase5 언어 detect에서 `ron, nld, arb, plt, qug, mya, hau, swe, ceb, sun, zyb, fuv, hnj, hms, jav, mad, som, nya, uzn, lin, tgl, hun, ckb, pes, srp, kin, ilo, zlm, run, pbu, urd, ces, swh, bos, ukr, ibo, pol, zul, bul` 같은 마이너 언어가 대문자 코드 그대로 표시됨. `LANGUAGE_LABELS` 또는 `FRANC_TO_ISO1` 맵 늘리면 됨. [phase5-position.ts](src/lib/inngest/aggregators/phase5-position.ts) 참고.
+   - **B-6 GMV** — TTS 케이스 QA할 때 같이.
+   - **Helium10 시계열 → SellerSprite 형식 자동 변환 파서** (버그 #3) — 다음 사용자도 같은 변환 필요. `parsers/helium10-trendster.ts` 후보.
 
 ### 이번 세션 코드 변경 (5/2-3 push, main에 모두 반영)
 
@@ -77,13 +89,12 @@
 | **`dc36044`** | **B-2** TopCreator `top_videos` (top 3 영상 lazy iframe expand) |
 | **`07c327b`** | **B-5** Meta 광고 DTC 분류 + 월별 필터 + 더보기 browser |
 | **`8c15f20`** | **B-4** BSR x축 month tick + 급등 marker + 동반 콘텐츠 |
+| `46a2f54` | docs: 이 "현재 진행 상황" 섹션 추가 |
+| `2234ac6` | phase 3.5 fix (tier_dist_by_month 덮어쓰기 방지) + BSR SKU dropdown + Meta 광고 본사만 디폴트 + 랜딩 필터 |
+| `eb508d1` | Meta 광고 LandingBreakdown 카드 복구 + BSR 단일점 SKU circle 처리 |
+| **`74b1240`** | **B-1** Phase 5 franc-min 언어 detect (caption 기반 폴백) |
 
-(굵게 표시된 4개가 슬랙 9 항목 vs 실제 구현 gap을 메우는 변경)
-
-### 다음에 할 작업 후보 (B-1, B-6은 다른 트리거)
-
-- **B-1 언어 detect** — Phase 5에서 sample 영상 ASR text + caption으로 `franc` lib detect. **선행 조건: vision 정상 작동 (sample 영상 있어야 의미 있음)**.
-- **B-6 GMV TTS 노출** — TikTok Shop 케이스 QA할 때 같이.
+(굵게: 슬랙 9 항목 vs 실제 구현 gap 메우는 변경 5개. B-6 GMV는 TTS 케이스용으로 보류)
 
 ### 참고 파일
 
