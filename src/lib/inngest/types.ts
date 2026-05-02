@@ -245,6 +245,8 @@ export type Phase4bVisionStats = {
   tokens_cache_read: number;
   // 디버그: 처음 5개 실패의 사유 (reason 메시지 + cover_url sample)
   failure_reasons?: Array<{ reason: string; cover_url?: string }>;
+  // 디버그: vercel env에 박힌 키의 prefix + suffix (사용자가 console에서 매칭 가능)
+  api_key_preview?: string;
   computed_at: string;
   skipped_reason?: string;
 };

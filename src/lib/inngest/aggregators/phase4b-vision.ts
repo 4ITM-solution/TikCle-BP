@@ -129,6 +129,13 @@ export async function runPhase4bVision(
     tokens_cache_write: tokens_cache_w,
   });
 
+  // 디버그용: 사용 중인 키의 prefix(앞 16자) + suffix(뒤 6자) — 사용자가 console에서 매칭 검증
+  const rawKey = process.env.ANTHROPIC_API_KEY ?? "";
+  const keyPreview =
+    rawKey.length > 0
+      ? `${rawKey.slice(0, 16)}…${rawKey.slice(-6)} (len=${rawKey.length})`
+      : "(empty)";
+
   return {
     total_attempted,
     total_with_tags,
@@ -139,6 +146,7 @@ export async function runPhase4bVision(
     tokens_output: tokens_out,
     tokens_cache_read: tokens_cache_r,
     failure_reasons: failure_reasons.length > 0 ? failure_reasons : undefined,
+    api_key_preview: keyPreview,
     computed_at: new Date().toISOString(),
   };
 }
