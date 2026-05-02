@@ -43,12 +43,20 @@ export type VideosPerCreator = Record<VideosPerCreatorBucket, number> & {
   total_creators: number;
 };
 
+export type TopCreatorVideo = {
+  url: string;
+  views: number;
+  caption: string | null;
+};
+
 export type TopCreator = {
   handle: string;
   video_count: number;
   max_views: number;
   follower_count: number | null;
   is_shop_creator: boolean | null;
+  // 그 인플의 영상 중 view 기준 top 3 (UI에서 row 펼치면 임베드)
+  top_videos?: TopCreatorVideo[];
 };
 
 export type SalesSummary = {

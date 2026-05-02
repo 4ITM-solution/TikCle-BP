@@ -89,6 +89,8 @@ type ContentRow = {
   is_ad: boolean;
   views: number | null;
   influencer_id: string | null;
+  url: string;
+  caption: string | null;
 };
 
 async function fetchShopCreatorIds(
@@ -127,7 +129,7 @@ async function fetchAllContents(
   while (true) {
     const { data, error } = await supabase
       .from("contents")
-      .select("id, uploaded_at, is_ad, views, influencer_id")
+      .select("id, uploaded_at, is_ad, views, influencer_id, url, caption")
       .eq("brand_id", brand_id)
       .eq("country", country)
       .range(from, from + FETCH_PAGE - 1);
@@ -191,23 +193,36 @@ type CreatorAgg = {
   influencer_id: string;
   video_count: number;
   max_views: number;
+  top_videos: Array<{ url: string; views: number; caption: string | null }>;
 };
 
 function aggregateTopCreators(contents: ContentRow[]): CreatorAgg[] {
-  const map = new Map<string, CreatorAgg>();
+  // 인플별로 contents 수집 (top 3 영상 결정 위해 전체 list 필요)
+  const byInfluencer = new Map<string, ContentRow[]>();
   for (const c of contents) {
     if (!c.influencer_id) continue;
-    const cur = map.get(c.influencer_id) ?? {
-      influencer_id: c.influencer_id,
-      video_count: 0,
-      max_views: 0,
-    };
-    cur.video_count += 1;
-    if ((c.views ?? 0) > cur.max_views) cur.max_views = c.views ?? 0;
-    map.set(c.influencer_id, cur);
+    if (!byInfluencer.has(c.influencer_id))
+      byInfluencer.set(c.influencer_id, []);
+    byInfluencer.get(c.influencer_id)!.push(c);
   }
-  return Array.from(map.values())
-    .filter((c) => c.video_count >= 20)
+
+  const result: CreatorAgg[] = [];
+  for (const [id, items] of byInfluencer.entries()) {
+    if (items.length < 20) continue;
+    const sorted = [...items].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+    const top3 = sorted.slice(0, 3).map((c) => ({
+      url: c.url,
+      views: c.views ?? 0,
+      caption: c.caption ?? null,
+    }));
+    result.push({
+      influencer_id: id,
+      video_count: items.length,
+      max_views: sorted[0]?.views ?? 0,
+      top_videos: top3,
+    });
+  }
+  return result
     .sort((a, b) => b.video_count - a.video_count)
     .slice(0, 30);
 }
@@ -231,6 +246,7 @@ async function enrichTopCreators(
       max_views: c.max_views,
       follower_count: i?.follower_count ?? null,
       is_shop_creator: i?.is_tiktok_shop_creator ?? null,
+      top_videos: c.top_videos,
     };
   });
 }

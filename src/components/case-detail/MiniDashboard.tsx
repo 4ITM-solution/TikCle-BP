@@ -1,4 +1,5 @@
 import { TierDistributionModule } from "./TierDistributionModule";
+import { TopCreatorsList } from "./TopCreatorsList";
 import type {
   DisplayedVideoEntry,
   HeatmapRow,
@@ -1748,97 +1749,7 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
           >
             20+ 영상 반복 작성자 ({stats.top_creators.length}명)
           </div>
-          {stats.top_creators.length === 0 ? (
-            <div
-              style={{
-                padding: 16,
-                fontSize: 11,
-                color: "var(--color-g400)",
-                background: "var(--color-g25)",
-                borderRadius: 6,
-              }}
-            >
-              20개 이상 작성자 없음
-            </div>
-          ) : (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: 6 }}
-            >
-              {stats.top_creators.slice(0, 6).map((c) => (
-                <div
-                  key={c.handle}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto auto",
-                    gap: 10,
-                    alignItems: "center",
-                    padding: "10px 12px",
-                    background: "var(--color-g25)",
-                    borderRadius: 6,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
-                      @{c.handle}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: "var(--color-g500)",
-                        fontFamily: "var(--font-mono)",
-                        marginTop: 2,
-                      }}
-                    >
-                      {c.follower_count != null
-                        ? `${formatFans(c.follower_count)} fans · `
-                        : "fans 미조회 · "}
-                      max {formatFans(c.max_views)} views
-                    </div>
-                  </div>
-                  <span
-                    className="font-mono"
-                    style={{ fontSize: 11, fontWeight: 700 }}
-                  >
-                    {c.video_count} 영상
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: "3px 8px",
-                      borderRadius: 9,
-                      background:
-                        c.is_shop_creator === true
-                          ? "var(--color-info-soft)"
-                          : "var(--color-g50)",
-                      color:
-                        c.is_shop_creator === true
-                          ? "var(--color-info)"
-                          : "var(--color-g400)",
-                    }}
-                  >
-                    {c.is_shop_creator === true
-                      ? "Shop"
-                      : c.is_shop_creator === false
-                        ? "non-Shop"
-                        : "?"}
-                  </span>
-                </div>
-              ))}
-              {stats.top_creators.length > 6 && (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "6px 0",
-                    fontSize: 11,
-                    color: "var(--color-g400)",
-                  }}
-                >
-                  + {stats.top_creators.length - 6}명 더
-                </div>
-              )}
-            </div>
-          )}
+          <TopCreatorsList creators={stats.top_creators} />
         </div>
       </div>
     </div>
