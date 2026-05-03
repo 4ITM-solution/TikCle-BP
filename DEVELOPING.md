@@ -24,54 +24,74 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-03 새벽 (상희님 첫 사용 + QA 세션 — 자정 무렵 마무리)
+> **갱신 시점**: 2026-05-03 늦은 오후 (잔고 sync 풀린 후 분석 끝까지 + mockup 비교 마무리 직전)
 
 ### 진행 중인 케이스
 
 - **EQQUALBERRY · US · Amazon** (case_id `5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56`)
 - 7 SKU sales/BSR 적재 완료
-- Phase 1.5/2/3/3.5/3.7/4a/4b.1/4b.2/5 다 정상 완주 (B-1~B-5 새 필드 다 채워짐)
-- **Phase 4b.3 (Vision)만 stuck** — Anthropic 잔고 sync 미해결 (~2시간 경과)
+- Phase 1.5/2/3/3.5/3.7/4a/4b.* / 5 다 정상 완주. **Vision 213/213 + cluster 6개 메타 + SKU 매칭 17/18 + heatmap 151 영상**
 
-### 데이터 정합 검증 끝난 것 (B-1~B-5 모두 검증)
+### 데이터 정합 검증 끝난 것 (B-1~B-5 + Vision/Cluster/SKU 모두 ✓)
 
 | 검증 | 결과 |
 |---|---|
-| exolyt 4,829 contents 적재 | ✓ |
-| 7 ASIN sales | ✓ |
-| 7 ASIN BSR 시계열 | ✓ |
-| **B-3** Phase 3 `tier_dist_by_month` (월별 인플 unique) | ✓ |
-| **B-2** Phase 2 `top_videos` (인플별 top 3 영상) | ✓ |
-| **B-5** Phase 4a DTC 분류 (eqqualberry 자사몰 128건 잡힘) | ✓ |
-| **B-4** Phase 5 `bsr_inflections` (BSR 급등 + 동반 콘텐츠) | ✓ |
-| **B-1** Phase 5 `franc-min` 언어 detect | ✓ — 4291/4825 (89%) detected. 영어 67% / 스페인어 7% / 프랑스어 2.5% 등 |
-| **Phase 4b.3 Vision** | ✗ — Anthropic 잔고 sync (213/213 fail) |
+| exolyt 4,829 contents | ✓ |
+| 7 ASIN sales / BSR 시계열 | ✓ |
+| **B-3** Phase 3 `tier_dist_by_month` | ✓ |
+| **B-2** Phase 2 `top_videos` | ✓ |
+| **B-5** Phase 4a DTC 분류 (자사몰 128건) | ✓ |
+| **B-4** Phase 5 `bsr_inflections` (21개 marker) | ✓ |
+| **B-1** Phase 5 franc-min 언어 detect | ✓ 89% (4291/4825). 영어 67%/스페인어 7% |
+| **Phase 4b.3 Vision** | ✓ 213/213 tagged ($1.5) |
+| **Phase 4b.4 cluster** | ✓ Pass1 26 → Pass2 14 → Pass3 6 메타 |
+| **Phase 4b.5 SKU** | ✓ 17/18 영상 매칭 |
+| **Heatmap** | ✓ 151 영상 in heatmap (sub-nano 43 + unknown 2 = 45 빠짐, 의도된 디자인) |
 
-### 막혀있는 것 — Anthropic 잔고 sync 버그
+### 다음 세션 즉시 시작할 폴리시 (사용자 컨펌 받음)
 
-- 사용자 console에 잔고 $50 표시. API key 정상. workspace 1개. spend limit 정상.
-- 모든 vision API 호출이 `credit balance is too low` 400 에러
-- 노트북 curl 직접 호출도 동일 (vercel 환경 무관)
-- console **사용량 logs에 호출 자체가 안 잡힘** = key organization 시스템 mismatch
-- GitHub [anthropics/claude-code#31537](https://github.com/anthropics/claude-code/issues/31537) 등 다수 동일 보고. 보통 90분 자동 sync인데 **이번 케이스는 2시간 넘게 미해결**. 자고 일어나면 풀릴 가능성 높음.
+mockup [biodance_case_detail.html](../brain/bp-playbook/frontend-mockup/biodance_case_detail.html) 비교 후 사용자가 명시적으로 추가 요청한 4개:
 
-### 다음 세션 시작 단계
+1. **Top creator에 outlier 추가** — 현재 `video_count >= 20` 기준만. mockup의 Q2 "Organic Top 3 (TTS 미등록 슈퍼 viral)"처럼 **단일 viral outlier** (예: jooshica 13.7M, video_count=1) 별도 카테고리로 표시 필요.
+   - 후보 기준: `views >= mega_threshold` (1M+) **AND** `video_count < 20`
+   - Phase 2의 `top_creators` 옆에 별도 list 추가 (또는 `top_creators` 안 outlier 플래그)
 
-1. **잔고 sync 풀렸나 확인** — phase4b_vision keys 비워두고 (이미 비워둠) 분석 재실행 누르고 vision step 결과 봄. SQL로:
-   ```sql
-   SELECT key_stats->'phase4b_vision'->'total_with_tags' AS tags,
-          key_stats->'phase4b_vision'->'failure_reasons'->0->>'reason' AS first_reason
-   FROM cases WHERE id = '5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56';
-   ```
-   - tags > 0 → 잔고 풀림. cluster/sku/heatmap 다 살아남
-   - tags = 0 + reason `credit balance` → 아직 미해결 (또 기다림 또는 personal account 우회)
+2. **Meta 광고 라이브러리 썸네일 짤림** — 현재 [MetaAdsBrowser](src/components/case-detail/MetaAdsBrowser.tsx)의 AdCard `aspect-ratio: 9/16` + `objectFit: cover`로 잘림. mockup `ad-board` 디자인은 다 보였음. card 사이즈 또는 objectFit 조정.
 
-2. **잔고 풀린 후** vision/cluster/sku 자동으로 cascade로 채워짐. ~$5-6.
+3. **우측 사이드바 TOC** — mockup의 `<aside class="side-toc">` 패턴. A/B/C/D/E 섹션 점프 sticky sidebar.
 
-3. **마무리 polish 후보**:
-   - **ISO 639-3 → ISO 639-1 매핑 확장**: phase5 언어 detect에서 `ron, nld, arb, plt, qug, mya, hau, swe, ceb, sun, zyb, fuv, hnj, hms, jav, mad, som, nya, uzn, lin, tgl, hun, ckb, pes, srp, kin, ilo, zlm, run, pbu, urd, ces, swh, bos, ukr, ibo, pol, zul, bul` 같은 마이너 언어가 대문자 코드 그대로 표시됨. `LANGUAGE_LABELS` 또는 `FRANC_TO_ISO1` 맵 늘리면 됨. [phase5-position.ts](src/lib/inngest/aggregators/phase5-position.ts) 참고.
-   - **B-6 GMV** — TTS 케이스 QA할 때 같이.
-   - **Helium10 시계열 → SellerSprite 형식 자동 변환 파서** (버그 #3) — 다음 사용자도 같은 변환 필요. `parsers/helium10-trendster.ts` 후보.
+4. **맨 위 PhaseProgress 토글로** — 현재 항상 펼쳐져있어서 화면 차지 큼. 디폴트 닫힘 + "분석 단계 ▼" 버튼으로 펼치게.
+
+### 후속 polish (mockup 비교 시 발견됨, 사용자 컨펌 필요)
+
+mockup 대비 추가로 빠진 것 (사용자가 위 4개 외 진행 의향 보일 때):
+
+🔴 **핵심 (가설 부합에 결정적)**:
+- 함정·한계 섹션 (자동화 분석 인용 시 함께 읽을 8개 항목 정리)
+- 가설 (사람 작성) 섹션 — "왜 작동했는가" 사람 입력 자리. 메소드론 7-9 ("자동 초안 X")
+- Class A~E 정밀 분류 (현재 is_shop_creator boolean만)
+- 각 phase 한 줄 결론 (자동 생성)
+
+🟡 **중요**:
+- 시즈널리티 이벤트 매트릭스 (Prime Day / BFCM / Sephora 런칭 등 × 참여 수준 × 결과)
+- 브랜드 고유 트리거 입력 자리 (TTS 런칭일 / paid collab 시작 등)
+- Advertiser Type 분류 (본사 / 유통 / 인플 — 현재 boolean만)
+- 캠페인 group + 광고 보드 (예: "Sephora 런칭 11건" grouping)
+- 3사 비교 표 (case detail 안에 mini)
+- 경쟁사 공유 affiliate 풀 (다른 케이스의 인플과 교집합)
+- 메가 viral 발행 시점 ↔ 매출 라인 직접 매칭 (현재 BSR ↔ 콘텐츠만)
+- 히어로 집중도 분석 ("히어로 1개 88% 집중" 같은 자동 해석)
+
+🟢 **마이너 polish**:
+- 오버뷰 9Q 카드 (한눈 요약)
+- Cluster 대표 영상 iframe (top creators는 있는데 cluster는 placeholder)
+- ISO 639-3 → ISO 639-1 매핑 확장 (마이너 언어가 대문자 코드로 표시)
+
+### 다음 세션 즉시 진행 순서
+
+1. **현재 진행 상황 섹션** + `/Users/sanghui/티클/bp_bugs.md` 읽기
+2. 사용자한테 "위 4개 부터 갈까요?" 확인 → 진행
+3. 끝나면 🔴 핵심 4개 (함정/가설/Class A~E/한 줄 결론) 진행 의향 확인
 
 ### 이번 세션 코드 변경 (5/2-3 push, main에 모두 반영)
 
@@ -93,12 +113,16 @@
 | `2234ac6` | phase 3.5 fix (tier_dist_by_month 덮어쓰기 방지) + BSR SKU dropdown + Meta 광고 본사만 디폴트 + 랜딩 필터 |
 | `eb508d1` | Meta 광고 LandingBreakdown 카드 복구 + BSR 단일점 SKU circle 처리 |
 | **`74b1240`** | **B-1** Phase 5 franc-min 언어 detect (caption 기반 폴백) |
+| `b089e15` | docs: DEVELOPING.md 진행 상황 섹션 갱신 |
+| `97402a7` | UTF-16 surrogate pair sanitize (clusterer/sku-matcher/vision-tagger) — Anthropic JSON serialize fail 방지 |
+| `2c4ca6f` | Inngest fail 시 case status 자동 'ready' reset + key_stats.last_error + UI alert |
 
-(굵게: 슬랙 9 항목 vs 실제 구현 gap 메우는 변경 5개. B-6 GMV는 TTS 케이스용으로 보류)
+(굵게: 슬랙 9 항목 vs 실제 구현 gap 메우는 변경 5개)
 
 ### 참고 파일
 
-- **버그 누적 리포트**: `/Users/sanghui/티클/bp_bugs.md` (12건). 모든 발견 버그 + 원인 + 적용된 fix 정리. 신규 발견 시 #13부터 추가.
+- **버그 누적 리포트**: `/Users/sanghui/티클/bp_bugs.md` (15건). 모든 발견 버그 + 원인 + 적용된 fix 정리. 신규 발견 시 #16부터 추가.
+- **mockup 참고**: `/Users/sanghui/티클/brain/bp-playbook/frontend-mockup/biodance_case_detail.html` — 사용자가 상상한 시딩 a-to-z dashboard 원본. 9 Q + 함정 + 가설 섹션 구조.
 - **변환 스크립트**: 다운로드 폴더 Helium10 sales-30d.csv → SellerSprite 형식 변환 1회용 코드는 chat 세션 안에. 다음 사용자도 비슷한 변환 필요하면 `parsers/helium10-trendster.ts`로 정식 통합 후보 (버그 #3 참고).
 
 ---
