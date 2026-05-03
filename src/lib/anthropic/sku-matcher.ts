@@ -121,9 +121,10 @@ export async function matchSkuOne(opts: {
     }
   }
 
+  const { sanitizeUtf16 } = await import("./sanitize");
   const userContent: Anthropic.ContentBlockParam[] = [];
   if (imageBlock) userContent.push(imageBlock);
-  userContent.push({ type: "text", text: userText });
+  userContent.push({ type: "text", text: sanitizeUtf16(userText) });
 
   const response = await getClient().messages.create({
     model: MODEL,

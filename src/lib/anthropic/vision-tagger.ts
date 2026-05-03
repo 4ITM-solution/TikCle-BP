@@ -71,9 +71,12 @@ export async function visionTagOne(opts: {
   // 이전엔 vercel에서 base64로 변환해서 보냈는데, TikTok CDN이 AWS IP를 차단해서
   // vercel serverless의 fetch가 모두 fail. URL source로 바꾸면 Anthropic 서버가
   // 자체 fetch하므로 차단 우회.
-  const userText = `Caption:\n${opts.caption ?? "(none)"}\n\nASR transcript:\n${
-    opts.asr_text ?? "(none)"
-  }`;
+  const { sanitizeUtf16 } = await import("./sanitize");
+  const userText = sanitizeUtf16(
+    `Caption:\n${opts.caption ?? "(none)"}\n\nASR transcript:\n${
+      opts.asr_text ?? "(none)"
+    }`,
+  );
 
   const response = await getClient().messages.create({
     model: MODEL,

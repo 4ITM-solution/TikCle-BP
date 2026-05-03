@@ -430,17 +430,18 @@ async function callAnthropicJson(
   userText: string,
   maxTokens: number,
 ): Promise<{ json: unknown; usage: TokenUsage }> {
+  const { sanitizeUtf16 } = await import("./sanitize");
   const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: maxTokens,
     system: [
       {
         type: "text",
-        text: systemPrompt,
+        text: sanitizeUtf16(systemPrompt),
         cache_control: { type: "ephemeral" },
       },
     ],
-    messages: [{ role: "user", content: userText }],
+    messages: [{ role: "user", content: sanitizeUtf16(userText) }],
   });
 
   const u = response.usage;
