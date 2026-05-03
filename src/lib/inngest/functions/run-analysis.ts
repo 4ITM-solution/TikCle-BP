@@ -494,7 +494,7 @@ export const runAnalysis = inngest.createFunction(
     });
 
     // tiktok_shop이면 phase2Final 갱신 (이후 save에 반영)
-    const phase2Effective = phase2Refiltered;
+    const phase2Effective = phase2Refiltered as Phase2Stats;
 
     if (phase37New) {
       await step.run("phase-2-refilter-save", async () => {

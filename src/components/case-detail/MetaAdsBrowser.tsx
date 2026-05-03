@@ -328,9 +328,12 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
       <div
         style={{
           width: "100%",
-          aspectRatio: "9 / 16",
-          background: "var(--color-g100)",
+          aspectRatio: "1 / 1",
+          background: "var(--color-g50)",
           position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
         {ad.thumbnail_url ? (
@@ -339,9 +342,9 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
             src={ad.thumbnail_url}
             alt={ad.page_name ?? "ad"}
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
               display: "block",
             }}
             onError={(e) => {

@@ -11,7 +11,8 @@ import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButto
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
-import { PhaseProgress } from "@/components/case-detail/PhaseProgress";
+import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
+import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   Phase2Stats,
@@ -460,25 +461,76 @@ export default async function CaseDetailPage({
                     </div>
                   </div>
                 )}
-                <PhaseProgress
+                <PhaseProgressToggle
                   case_id={c.id}
                   keyStats={ks as KeyStats}
                 />
                 <div style={{ height: 14 }} />
-                <MiniDashboard
-                  phase2={ks.phase2}
-                  phase3={ks.phase3}
-                  phase35={ks.phase35}
-                  phase37={ks.phase37}
-                  phase4a={ks.phase4a}
-                  phase4bSample={ks.phase4b_sample}
-                  phase4bAsr={ks.phase4b_asr}
-                  phase4bVision={ks.phase4b_vision}
-                  phase4bClusters={ks.phase4b_clusters}
-                  phase4bSku={ks.phase4b_sku}
-                  phase5={ks.phase5}
-                  metaAdsList={metaAdsList}
-                />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 24,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <MiniDashboard
+                      phase2={ks.phase2}
+                      phase3={ks.phase3}
+                      phase35={ks.phase35}
+                      phase37={ks.phase37}
+                      phase4a={ks.phase4a}
+                      phase4bSample={ks.phase4b_sample}
+                      phase4bAsr={ks.phase4b_asr}
+                      phase4bVision={ks.phase4b_vision}
+                      phase4bClusters={ks.phase4b_clusters}
+                      phase4bSku={ks.phase4b_sku}
+                      phase5={ks.phase5}
+                      metaAdsList={metaAdsList}
+                    />
+                  </div>
+                  <SectionTOC
+                    items={[
+                      { id: "section-a", letter: "A", label: "콘텐츠 활동" },
+                      ...(ks.phase3
+                        ? [
+                            {
+                              id: "section-b",
+                              letter: "B",
+                              label: "인플루언서 활동",
+                            },
+                          ]
+                        : []),
+                      ...(ks.phase4b_sample
+                        ? [
+                            {
+                              id: "section-c",
+                              letter: "C",
+                              label: "콘텐츠 포맷 분석",
+                            },
+                          ]
+                        : []),
+                      ...(ks.phase2.sales_summary
+                        ? [
+                            {
+                              id: "section-d",
+                              letter: "D",
+                              label: "매출 & 랭킹",
+                            },
+                          ]
+                        : []),
+                      ...(ks.phase4a
+                        ? [
+                            {
+                              id: "section-e",
+                              letter: "E",
+                              label: "Meta 광고",
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
               </>
             );
           })()}

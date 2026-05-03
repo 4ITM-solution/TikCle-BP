@@ -76,6 +76,9 @@ export type Phase2Stats = {
   bsr_series: BsrSeries[]; // 매출 Top SKU만
   videos_per_creator: VideosPerCreator;
   top_creators: TopCreator[]; // 20+ 영상 작성자
+  // 단일 viral outlier — video_count<20인데 max_views >= 1M인 인플 (mockup의
+  // "Organic Top 3" 패턴: jooshica 13.7M views with 1 video). top 10.
+  outlier_creators?: TopCreator[];
   total_contents: number;
   total_unique_creators: number;
   computed_at: string;

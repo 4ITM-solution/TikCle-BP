@@ -19,7 +19,13 @@ function extractTikTokVideoId(url: string): string | null {
   return m?.[1] ?? null;
 }
 
-export function TopCreatorsList({ creators }: { creators: TopCreator[] }) {
+export function TopCreatorsList({
+  creators,
+  emptyMessage = "20개 이상 작성자 없음",
+}: {
+  creators: TopCreator[];
+  emptyMessage?: string;
+}) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
 
@@ -34,7 +40,7 @@ export function TopCreatorsList({ creators }: { creators: TopCreator[] }) {
           borderRadius: 6,
         }}
       >
-        20개 이상 작성자 없음
+        {emptyMessage}
       </div>
     );
   }

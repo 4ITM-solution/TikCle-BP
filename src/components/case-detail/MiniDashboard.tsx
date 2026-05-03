@@ -1437,11 +1437,13 @@ function SectionHeader({
 }) {
   return (
     <div
+      id={`section-${letter.toLowerCase()}`}
       style={{
         display: "flex",
         alignItems: "baseline",
         gap: 12,
         marginTop: 14,
+        scrollMarginTop: 80,
       }}
     >
       <span
@@ -1724,21 +1726,63 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
           })}
         </div>
 
-        {/* 우: Top 작성자 */}
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--color-g500)",
-              textTransform: "uppercase",
-              letterSpacing: ".05em",
-              marginBottom: 10,
-            }}
-          >
-            20+ 영상 반복 작성자 ({stats.top_creators.length}명)
+        {/* 우: Top 작성자 + 단일 viral outlier */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--color-g500)",
+                textTransform: "uppercase",
+                letterSpacing: ".05em",
+                marginBottom: 10,
+              }}
+            >
+              20+ 영상 반복 작성자 ({stats.top_creators.length}명)
+            </div>
+            <TopCreatorsList creators={stats.top_creators} />
           </div>
-          <TopCreatorsList creators={stats.top_creators} />
+
+          {(stats.outlier_creators?.length ?? 0) > 0 && (
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--color-accent)",
+                  textTransform: "uppercase",
+                  letterSpacing: ".05em",
+                  marginBottom: 4,
+                }}
+              >
+                단일 Viral Outlier · 1M+ Views
+                <span
+                  style={{
+                    color: "var(--color-g400)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {" "}
+                  ({stats.outlier_creators!.length}명)
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-g500)",
+                  marginBottom: 10,
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                반복 협업 X · 단일 viral 영상으로 1M+ 도달한 인플
+              </div>
+              <TopCreatorsList
+                creators={stats.outlier_creators!}
+                emptyMessage="1M+ 단일 viral 인플 없음"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -53,12 +53,14 @@ export async function runPhase2(
   // 3. 월별 영상 수 (paid/organic)
   const monthly = aggregateMonthlyVideoCounts(contents);
 
-  // 4. 1인당 영상 분포 + Top 작성자
+  // 4. 1인당 영상 분포 + Top 작성자 + 단일 viral outlier
   const distribution = aggregateVideosPerCreator(contents);
-  const top_creators_raw = aggregateTopCreators(contents);
+  const { top_creators: top_creators_raw, outliers: outlier_raw } =
+    aggregateCreators(contents);
 
   // 5. influencers 테이블에서 follower / shop creator 정보 조인 (있는 만큼)
   const top_creators = await enrichTopCreators(supabase, top_creators_raw);
+  const outlier_creators = await enrichTopCreators(supabase, outlier_raw);
 
   // 6. SKU 매출 + BSR (amazon: 30일 매출 + BSR / tiktok_shop: 누적 매출, BSR 없음)
   const { sales_summary, sku_sales, bsr_series } =
@@ -73,6 +75,7 @@ export async function runPhase2(
     bsr_series,
     videos_per_creator: distribution,
     top_creators,
+    outlier_creators,
     total_contents: contents.length,
     total_unique_creators: distribution.total_creators,
     computed_at: new Date().toISOString(),
@@ -196,8 +199,15 @@ type CreatorAgg = {
   top_videos: Array<{ url: string; views: number; caption: string | null }>;
 };
 
-function aggregateTopCreators(contents: ContentRow[]): CreatorAgg[] {
-  // 인플별로 contents 수집 (top 3 영상 결정 위해 전체 list 필요)
+// 단일 viral outlier 임계: max_views >= 1M (Mega tier)
+const OUTLIER_VIEWS_THRESHOLD = 1_000_000;
+const OUTLIER_VIDEO_COUNT_MAX = 20; // 반복 작성자(>=20)는 top_creators에서 다룸
+
+function aggregateCreators(contents: ContentRow[]): {
+  top_creators: CreatorAgg[];
+  outliers: CreatorAgg[];
+} {
+  // 인플별로 contents 수집
   const byInfluencer = new Map<string, ContentRow[]>();
   for (const c of contents) {
     if (!c.influencer_id) continue;
@@ -206,25 +216,42 @@ function aggregateTopCreators(contents: ContentRow[]): CreatorAgg[] {
     byInfluencer.get(c.influencer_id)!.push(c);
   }
 
-  const result: CreatorAgg[] = [];
+  const topCreators: CreatorAgg[] = [];
+  const outliers: CreatorAgg[] = [];
+
   for (const [id, items] of byInfluencer.entries()) {
-    if (items.length < 20) continue;
     const sorted = [...items].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+    const maxViews = sorted[0]?.views ?? 0;
     const top3 = sorted.slice(0, 3).map((c) => ({
       url: c.url,
       views: c.views ?? 0,
       caption: c.caption ?? null,
     }));
-    result.push({
+    const agg: CreatorAgg = {
       influencer_id: id,
       video_count: items.length,
-      max_views: sorted[0]?.views ?? 0,
+      max_views: maxViews,
       top_videos: top3,
-    });
+    };
+
+    if (items.length >= 20) {
+      // 반복 작성자
+      topCreators.push(agg);
+    } else if (maxViews >= OUTLIER_VIEWS_THRESHOLD) {
+      // 단일 viral outlier (적은 영상 수인데 mega views)
+      outliers.push(agg);
+    }
   }
-  return result
-    .sort((a, b) => b.video_count - a.video_count)
-    .slice(0, 30);
+
+  return {
+    top_creators: topCreators
+      .sort((a, b) => b.video_count - a.video_count)
+      .slice(0, 30),
+    outliers: outliers
+      .filter((o) => o.video_count < OUTLIER_VIDEO_COUNT_MAX)
+      .sort((a, b) => b.max_views - a.max_views)
+      .slice(0, 10),
+  };
 }
 
 async function enrichTopCreators(
