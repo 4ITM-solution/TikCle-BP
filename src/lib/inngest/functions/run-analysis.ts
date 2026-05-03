@@ -67,6 +67,37 @@ export const runAnalysis = inngest.createFunction(
   {
     id: "case-run-analysis",
     retries: 1,
+    onFailure: async ({ event, error }) => {
+      // 모든 retry 소진 후 호출. case status가 'running'에 stuck되지 않게
+      // 'ready'로 reset + key_stats에 last_error 저장 → UI에서 alert + 재실행 가능
+      const wrappedData = (event.data as { event?: { data?: unknown } })
+        ?.event?.data;
+      const failedCaseId = (wrappedData as { case_id?: string } | undefined)
+        ?.case_id;
+      if (!failedCaseId) return;
+      const supabase = inngestSupabase();
+      const { data: existing } = await supabase
+        .from("cases")
+        .select("key_stats")
+        .eq("id", failedCaseId)
+        .single();
+      const ks = (existing?.key_stats ?? {}) as Record<string, unknown>;
+      const errorMsg =
+        error instanceof Error ? error.message : String(error ?? "unknown");
+      await supabase
+        .from("cases")
+        .update({
+          status: "ready",
+          key_stats: {
+            ...ks,
+            last_error: {
+              message: errorMsg.slice(0, 500),
+              at: new Date().toISOString(),
+            },
+          },
+        })
+        .eq("id", failedCaseId);
+    },
   },
   { event: "case/start.analysis" },
   async ({ event, step, logger }) => {

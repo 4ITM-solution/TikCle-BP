@@ -403,7 +403,9 @@ export default async function CaseDetailPage({
               phase4b_clusters?: Phase4bClusterStats;
               phase4b_sku?: Phase4bSkuStats;
               phase5?: Phase5Stats;
+              last_error?: { message: string; at: string };
             } | null;
+            const lastError = ks?.last_error;
             if (!ks?.phase2) {
               return (
                 <div
@@ -421,6 +423,43 @@ export default async function CaseDetailPage({
             }
             return (
               <>
+                {lastError && (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      marginBottom: 14,
+                      background: "var(--color-accent-soft)",
+                      border: "1px solid var(--color-accent)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--color-accent)",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                      ⚠ 직전 분석 실행이 실패했어요
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        color: "var(--color-g600)",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {lastError.message}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "var(--color-g400)",
+                        marginTop: 4,
+                      }}
+                    >
+                      {lastError.at} · 아래 PhaseProgress의 "분석 재실행"
+                      또는 개별 phase 재실행 버튼으로 다시 시도하세요
+                    </div>
+                  </div>
+                )}
                 <PhaseProgress
                   case_id={c.id}
                   keyStats={ks as KeyStats}
