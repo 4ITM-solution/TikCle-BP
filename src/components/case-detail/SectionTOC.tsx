@@ -39,13 +39,7 @@ export function SectionTOC({
   if (items.length === 0) return null;
 
   return (
-    <aside
-      style={{
-        width: 160,
-        flexShrink: 0,
-        alignSelf: "stretch",
-      }}
-    >
+    <aside style={{ width: "100%" }}>
       <div
         style={{
           position: "sticky",

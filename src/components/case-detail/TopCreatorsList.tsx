@@ -74,7 +74,7 @@ export function TopCreatorsList({
               onClick={() => hasVideos && toggle(c.handle)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr auto auto auto",
+                gridTemplateColumns: "1fr auto auto",
                 gap: 10,
                 alignItems: "center",
                 padding: "10px 12px",
@@ -105,28 +105,6 @@ export function TopCreatorsList({
                 style={{ fontSize: 11, fontWeight: 700 }}
               >
                 {c.video_count} 영상
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "3px 8px",
-                  borderRadius: 9,
-                  background:
-                    c.is_shop_creator === true
-                      ? "var(--color-info-soft)"
-                      : "var(--color-g50)",
-                  color:
-                    c.is_shop_creator === true
-                      ? "var(--color-info)"
-                      : "var(--color-g400)",
-                }}
-              >
-                {c.is_shop_creator === true
-                  ? "Shop"
-                  : c.is_shop_creator === false
-                    ? "non-Shop"
-                    : "?"}
               </span>
               <span
                 style={{

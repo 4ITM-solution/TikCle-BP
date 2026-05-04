@@ -248,7 +248,7 @@ export default async function CaseDetailPage({
   });
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1100 }}>
+    <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
       <nav className="breadcrumb">
         <Link href="/cases">My Cases</Link>
         <span className="sep">/</span>
@@ -486,12 +486,12 @@ export default async function CaseDetailPage({
                 <div style={{ height: 14 }} />
                 <div
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr) 180px",
                     gap: 24,
-                    alignItems: "flex-start",
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }}>
                     <MiniDashboard
                       phase2={ks.phase2}
                       phase3={ks.phase3}
