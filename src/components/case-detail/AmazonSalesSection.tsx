@@ -4,6 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UploadDropzone } from "./UploadDropzone";
 import { uploadAmazonSales } from "@/app/cases/[id]/upload-actions";
+import {
+  COUNTRY_OPTIONS,
+  countriesInRegion,
+  isRegionCode,
+  type Region,
+} from "@/lib/case-detail/countries";
 
 export type SkuRow = {
   asin: string;
@@ -11,20 +17,35 @@ export type SkuRow = {
   url: string | null;
   units_30d: number | null;
   revenue_30d: number | null;
+  currency: string;
+  country: string | null;
   hasBsr: boolean;
 };
 
 export function AmazonSalesSection({
   case_id,
   skuRows,
+  caseCountry,
 }: {
   case_id: string;
   skuRows: SkuRow[];
+  caseCountry: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
+  );
+
+  // 권역 case면 marketplace select 노출. 단일이면 case.country 그대로 박힘.
+  const isRegion = isRegionCode(caseCountry);
+  const marketplaceOptions = isRegion
+    ? countriesInRegion(caseCountry as Region)
+        .map((c) => COUNTRY_OPTIONS.find((o) => o.code === c)!)
+        .filter(Boolean)
+    : [];
+  const [marketplaceCountry, setMarketplaceCountry] = useState<string>(
+    marketplaceOptions[0]?.code ?? "",
   );
 
   function onFile(f: File) {
@@ -40,11 +61,17 @@ export function AmazonSalesSection({
       (document.getElementById("period_end") as HTMLInputElement | null)
         ?.value || today;
 
+    if (isRegion && !marketplaceCountry) {
+      setMsg({ type: "err", text: "권역 case는 marketplace 국가를 먼저 선택하세요" });
+      return;
+    }
+
     start(async () => {
       const fd = new FormData();
       fd.append("file", f);
       fd.append("period_start", period_start);
       fd.append("period_end", period_end);
+      if (isRegion) fd.append("marketplace_country", marketplaceCountry);
       const r = await uploadAmazonSales(case_id, fd);
       setMsg(
         r.ok
@@ -62,6 +89,42 @@ export function AmazonSalesSection({
       <label className="field-label">
         아마존 30일 매출 데이터 <span className="req">*</span>
       </label>
+
+      {isRegion && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "12px 14px",
+            background: "var(--color-g25)",
+            border: "1px solid var(--color-g100)",
+            borderRadius: 6,
+          }}
+        >
+          <label
+            className="field-label"
+            style={{ display: "block", marginBottom: 8 }}
+          >
+            Marketplace 국가 <span className="req">*</span>
+          </label>
+          <select
+            className="field-select"
+            value={marketplaceCountry}
+            onChange={(e) => setMarketplaceCountry(e.target.value)}
+          >
+            {marketplaceOptions.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.flag} {c.code} ({c.label}) · {c.currency}
+              </option>
+            ))}
+          </select>
+          <span
+            className="field-help"
+            style={{ display: "block", marginTop: 6 }}
+          >
+            업로드 csv가 어느 마켓플레이스 export인지. {caseCountry} 권역 안 marketplace별로 SKU/매출 분리 박힘.
+          </span>
+        </div>
+      )}
 
       <div
         style={{
@@ -255,8 +318,26 @@ export function AmazonSalesSection({
                     fontWeight: 600,
                     color: "var(--color-g600)",
                   }}
+                  title={r.country ? `${r.country} marketplace` : ""}
                 >
-                  ${(r.revenue_30d ?? 0).toLocaleString()}
+                  {r.currency === "USD"
+                    ? `$${(r.revenue_30d ?? 0).toLocaleString()}`
+                    : `${r.currency} ${(r.revenue_30d ?? 0).toLocaleString()}`}
+                  {isRegion && r.country && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: "1px 5px",
+                        borderRadius: 3,
+                        background: "var(--color-g50)",
+                        color: "var(--color-g500)",
+                      }}
+                    >
+                      {r.country}
+                    </span>
+                  )}
                 </span>
                 <span
                   style={{

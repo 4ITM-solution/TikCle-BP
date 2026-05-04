@@ -11,30 +11,48 @@ import { MetaPagesInput } from "@/components/case-create/MetaPagesInput";
 import { createCaseDraft, type ActionResult } from "./actions";
 import {
   COUNTRY_OPTIONS,
-  REGION_LABEL,
-  type Region,
+  isRegionCode,
 } from "@/lib/case-detail/countries";
 
-// 드롭다운: 권역별로 그룹핑해서 표시. 케이스는 단일 국가에만 박힘.
-// 권역 view (cases 리스트 그룹 / 브랜드 페이지 권역 카드 / 권역 리포트)는
-// 같은 region을 가진 case들을 N개 묶어 처리.
-const COUNTRY_GROUPS: { region: Region; countries: typeof COUNTRY_OPTIONS }[] =
-  (() => {
-    const order: Region[] = [
-      "AMERICAS",
-      "EU",
-      "APAC_KR",
-      "APAC_JP",
-      "LATAM_ES",
-      "LATAM_BR",
-      "SEA",
-      "MENA",
-    ];
-    return order.map((r) => ({
-      region: r,
-      countries: COUNTRY_OPTIONS.filter((o) => o.region === r),
-    }));
-  })();
+// 드롭다운 구조:
+//   - 단일 (헤더 X): US/KR/JP/EU/BR
+//   - 권역 통합 case (Hybrid): MENA/LATAM_ES — 시딩 통합 + 매출 marketplace별 sub
+//   - 동남아 SEA (국가별): SG/TH/MY/ID/PH/VN — 무조건 단일 case
+//   - MENA 안 단일 분석: SA/AE
+//   - LATAM_ES 안 단일 분석: MX/AR/CO/CL/PE
+type DropdownGroup = {
+  label: string | null; // null = optgroup 없이 평면 노출
+  countries: typeof COUNTRY_OPTIONS;
+};
+
+const COUNTRY_GROUPS: DropdownGroup[] = [
+  {
+    label: null,
+    countries: COUNTRY_OPTIONS.filter((o) =>
+      ["US", "KR", "JP", "EU", "BR"].includes(o.code),
+    ),
+  },
+  {
+    label: "권역 통합 case (Hybrid — 시딩 통합 + 매출 국가별)",
+    countries: COUNTRY_OPTIONS.filter((o) => isRegionCode(o.code)),
+  },
+  {
+    label: "동남아 SEA (국가별)",
+    countries: COUNTRY_OPTIONS.filter((o) => o.region === "SEA"),
+  },
+  {
+    label: "MENA 안 단일 분석",
+    countries: COUNTRY_OPTIONS.filter(
+      (o) => o.region === "MENA" && !isRegionCode(o.code),
+    ),
+  },
+  {
+    label: "LATAM_ES 안 단일 분석",
+    countries: COUNTRY_OPTIONS.filter(
+      (o) => o.region === "LATAM_ES" && !isRegionCode(o.code),
+    ),
+  },
+];
 
 export default function NewCasePage() {
   const [platform, setPlatform] = useState<PlatformValue>("amazon");
@@ -83,13 +101,15 @@ export default function NewCasePage() {
                 국가 <span className="req">*</span>
               </label>
               <select className="field-select" name="country" defaultValue="US">
-                {COUNTRY_GROUPS.map((g) =>
-                  g.countries.length === 1 ? (
-                    <option key={g.countries[0]!.code} value={g.countries[0]!.code}>
-                      {g.countries[0]!.flag} {g.countries[0]!.code} ({g.countries[0]!.label})
-                    </option>
+                {COUNTRY_GROUPS.map((g, gi) =>
+                  g.label === null ? (
+                    g.countries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code} ({c.label})
+                      </option>
+                    ))
                   ) : (
-                    <optgroup key={g.region} label={REGION_LABEL[g.region]}>
+                    <optgroup key={gi} label={g.label}>
                       {g.countries.map((c) => (
                         <option key={c.code} value={c.code}>
                           {c.flag} {c.code} ({c.label})
@@ -99,6 +119,9 @@ export default function NewCasePage() {
                   ),
                 )}
               </select>
+              <span className="field-help">
+                권역 코드(MENA/LATAM_ES)는 시딩 통합 + 매출 국가별 분리. 단일 국가는 시딩·매출 모두 단일.
+              </span>
             </div>
           </div>
 

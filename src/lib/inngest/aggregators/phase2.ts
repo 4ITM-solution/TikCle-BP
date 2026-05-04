@@ -287,10 +287,10 @@ async function aggregateAmazonSalesAndBsr(
   sku_sales: SkuSalesEntry[];
   bsr_series: BsrSeries[];
 }> {
-  // products (case scope)
+  // products (case scope) — country 포함 (권역 case의 SA/AE 분리용)
   const { data: prods } = await supabase
     .from("products")
-    .select("id, asin, external_product_id, name, product_url")
+    .select("id, asin, external_product_id, name, product_url, country")
     .eq("case_id", case_id);
 
   if (!prods || prods.length === 0) {
@@ -303,7 +303,7 @@ async function aggregateAmazonSalesAndBsr(
   // 가장 최근 period의 case_product_sales만 사용
   const { data: salesAll } = await supabase
     .from("case_product_sales")
-    .select("product_id, units_30d, revenue_30d, period_start, period_end")
+    .select("product_id, units_30d, revenue_30d, currency, country, period_start, period_end")
     .eq("case_id", case_id)
     .order("period_end", { ascending: false });
 
@@ -313,6 +313,8 @@ async function aggregateAmazonSalesAndBsr(
     {
       units_30d: number | null;
       revenue_30d: number | null;
+      currency: string;
+      country: string | null;
       period_start: string | null;
       period_end: string | null;
     }
@@ -338,7 +340,7 @@ async function aggregateAmazonSalesAndBsr(
     }
   }
 
-  // SKU 매출 entries (asin 또는 external_product_id를 식별자로)
+  // SKU 매출 entries (asin 또는 external_product_id를 식별자로). country/currency 포함.
   const sku_sales: SkuSalesEntry[] = prods
     .map((p) => {
       const s = latestByProduct.get(p.id);
@@ -353,18 +355,36 @@ async function aggregateAmazonSalesAndBsr(
             : null),
         units: s?.units_30d ?? 0,
         revenue: s?.revenue_30d ?? 0,
+        currency: s?.currency ?? "USD",
+        country: p.country ?? null,
         bsr_latest: latestBsrByProduct.get(p.id) ?? null,
       };
     })
     .sort((a, b) => b.revenue - a.revenue);
 
-  // sales_summary
+  // sales_summary — currency 단위로 합산 (혼합 통화면 USD 환산은 UI 단계에서)
+  // 권역 case는 by_country sub로 보조 분포 계산.
   const total_revenue = sku_sales.reduce((acc, s) => acc + s.revenue, 0);
   const total_units = sku_sales.reduce((acc, s) => acc + s.units, 0);
   const top1 = sku_sales[0]?.revenue ?? 0;
   const top3 = sku_sales
     .slice(0, 3)
     .reduce((acc, s) => acc + s.revenue, 0);
+
+  const by_country: SalesSummary["by_country"] = {};
+  for (const s of sku_sales) {
+    const k = s.country ?? "_unknown";
+    const cur = by_country![k] ?? {
+      revenue: 0,
+      units: 0,
+      sku_count: 0,
+      currency: s.currency,
+    };
+    cur.revenue += s.revenue;
+    cur.units += s.units;
+    cur.sku_count += 1;
+    by_country![k] = cur;
+  }
 
   // 가장 최근 period 기준
   const latestPeriod = Array.from(latestByProduct.values())[0];
@@ -376,6 +396,7 @@ async function aggregateAmazonSalesAndBsr(
     sku_count: sku_sales.length,
     top1_revenue_share: total_revenue > 0 ? top1 / total_revenue : 0,
     top3_revenue_share: total_revenue > 0 ? top3 / total_revenue : 0,
+    by_country,
   };
 
   // BSR series (Amazon만 — 매출 Top 5 SKU)

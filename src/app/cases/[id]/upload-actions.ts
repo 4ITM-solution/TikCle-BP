@@ -8,7 +8,7 @@ import { parseAmazonSales } from "@/lib/parsers/amazon-sales";
 import { parseBsr } from "@/lib/parsers/bsr";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
-import { defaultCurrency } from "@/lib/case-detail/countries";
+import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
 
 type Result =
   | { ok: true; message: string }
@@ -239,6 +239,7 @@ export async function uploadAmazonSales(
   const file = formData.get("file");
   const period_start = formData.get("period_start");
   const period_end = formData.get("period_end");
+  const marketplaceCountryRaw = formData.get("marketplace_country");
 
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "파일이 첨부되지 않았습니다" };
@@ -252,16 +253,30 @@ export async function uploadAmazonSales(
     return { ok: false, error: "Amazon 케이스에서만 사용 가능" };
   }
 
+  // 권역 case면 marketplace_country select 필수, 단일이면 case.country fallback.
+  const productCountry =
+    typeof marketplaceCountryRaw === "string" && marketplaceCountryRaw.length > 0
+      ? marketplaceCountryRaw
+      : c.country;
+  if (isRegionCode(c.country) && productCountry === c.country) {
+    return {
+      ok: false,
+      error: `권역 case(${c.country})는 marketplace 국가 선택 필수입니다.`,
+    };
+  }
+  const currency = defaultCurrency(productCountry);
+
   const text = await file.text();
   const { rows, errors } = parseAmazonSales(text);
   if (rows.length === 0) {
     return { ok: false, error: `파싱된 행 0개. ${errors[0] ?? ""}` };
   }
 
-  // 1. products 업서트 (case_id, asin 유니크)
+  // 1. products 업서트 — (case_id, country, asin) 유니크
   const productInserts = rows.map((r) => ({
     case_id: c.id,
     brand_id: c.brand_id,
+    country: productCountry,
     name: r.name,
     asin: r.asin,
     product_url: r.url,
@@ -272,19 +287,20 @@ export async function uploadAmazonSales(
   }));
   const { error: prodErr } = await supabase
     .from("products")
-    .upsert(productInserts, { onConflict: "case_id,asin" });
+    .upsert(productInserts, { onConflict: "case_id,country,asin" });
   if (prodErr) return { ok: false, error: `product upsert: ${prodErr.message}` };
 
-  // 2. product.id 매핑
+  // 2. product.id 매핑 — 같은 ASIN이 권역 case의 다른 country에도 있을 수 있어
+  //    (case_id, country, asin) 키로 fetch.
   const { data: prodRows, error: prodFetchErr } = await supabase
     .from("products")
-    .select("id, asin")
-    .eq("case_id", c.id);
+    .select("id, asin, country")
+    .eq("case_id", c.id)
+    .eq("country", productCountry);
   if (prodFetchErr) return { ok: false, error: prodFetchErr.message };
   const asinToId = new Map((prodRows ?? []).map((p) => [p.asin, p.id]));
 
   // 3. case_product_sales 업서트
-  const currency = defaultCurrency(c.country);
   const salesInserts = rows
     .map((r) => {
       const product_id = asinToId.get(r.asin);
@@ -292,6 +308,7 @@ export async function uploadAmazonSales(
       return {
         case_id: c.id,
         product_id,
+        country: productCountry,
         units_30d: r.units_30d,
         revenue_30d: r.revenue_30d,
         currency,
@@ -308,7 +325,10 @@ export async function uploadAmazonSales(
   if (salesErr) return { ok: false, error: `sales upsert: ${salesErr.message}` };
 
   revalidatePath(`/cases/${case_id}`);
-  return { ok: true, message: `${rows.length}개 SKU 적재 완료 (${period_start} ~ ${period_end})` };
+  return {
+    ok: true,
+    message: `${rows.length}개 SKU 적재 완료 (${productCountry} · ${currency} · ${period_start} ~ ${period_end})`,
+  };
 }
 
 // =============================================================================
@@ -347,20 +367,32 @@ export async function uploadBsr(
 
   const { supabase, c } = await getCase(case_id);
 
-  // 1. product 찾기
-  const { data: prod, error: prodErr } = await supabase
+  // 1. product 찾기 — 권역 case면 같은 ASIN이 SA/AE 두 country에 박힐 수 있어
+  //    formData에 country가 와있으면 그걸로 좁힘. 없으면 첫 매칭 row.
+  const explicitCountry = formData.get("country");
+  let productQuery = supabase
     .from("products")
-    .select("id, brand_id")
+    .select("id, brand_id, country")
     .eq("case_id", c.id)
-    .eq("asin", asin)
-    .maybeSingle();
+    .eq("asin", asin);
+  if (typeof explicitCountry === "string" && explicitCountry) {
+    productQuery = productQuery.eq("country", explicitCountry);
+  }
+  const { data: prods, error: prodErr } = await productQuery.limit(2);
   if (prodErr) return { ok: false, error: prodErr.message };
-  if (!prod) {
+  if (!prods || prods.length === 0) {
     return {
       ok: false,
       error: `ASIN ${asin}의 product가 없습니다. 매출 CSV 먼저 업로드.`,
     };
   }
+  if (prods.length > 1) {
+    return {
+      ok: false,
+      error: `ASIN ${asin}이 권역 case의 여러 country에 박혀있어요 (${prods.map((p) => p.country).join(", ")}). 슬롯에 country 추가 후 다시 시도.`,
+    };
+  }
+  const prod = prods[0]!;
 
   // 2. 파싱
   const text = await file.text();
@@ -387,11 +419,13 @@ export async function uploadBsr(
     .eq("channel", "amazon");
   if (resetErr) return { ok: false, error: `bsr reset: ${resetErr.message}` };
 
-  // 4. sales_snapshot 업서트
-  const bsrCurrency = defaultCurrency(c.country);
+  // 4. sales_snapshot 업서트 — product의 country/currency 그대로 박음 (권역 case 분리)
+  const bsrCountry = prod.country ?? c.country;
+  const bsrCurrency = defaultCurrency(bsrCountry);
   const inserts = dedupedRows.map((r) => ({
     brand_id: prod.brand_id,
     product_id: prod.id,
+    country: bsrCountry,
     channel: "amazon",
     bsr: r.bsr,
     new_price: r.new_price,

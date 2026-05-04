@@ -120,6 +120,7 @@ export type Database = {
           id: string;
           case_id: string | null;
           brand_id: string;
+          country: string | null;
           name: string;
           asin: string | null;
           external_product_id: string | null;
@@ -135,6 +136,7 @@ export type Database = {
           id?: string;
           case_id?: string | null;
           brand_id: string;
+          country?: string | null;
           name: string;
           asin?: string | null;
           external_product_id?: string | null;
@@ -150,6 +152,7 @@ export type Database = {
           id?: string;
           case_id?: string | null;
           brand_id?: string;
+          country?: string | null;
           name?: string;
           asin?: string | null;
           external_product_id?: string | null;
@@ -242,6 +245,7 @@ export type Database = {
           id: string;
           case_id: string;
           product_id: string;
+          country: string | null;
           units_30d: number | null;
           revenue_30d: number | null;
           currency: string;
@@ -254,6 +258,7 @@ export type Database = {
           id?: string;
           case_id: string;
           product_id: string;
+          country?: string | null;
           units_30d?: number | null;
           revenue_30d?: number | null;
           currency?: string;
@@ -266,6 +271,7 @@ export type Database = {
           id?: string;
           case_id?: string;
           product_id?: string;
+          country?: string | null;
           units_30d?: number | null;
           revenue_30d?: number | null;
           currency?: string;
@@ -282,6 +288,7 @@ export type Database = {
           id: string;
           brand_id: string;
           product_id: string;
+          country: string | null;
           channel: string;
           bsr: number | null;
           new_price: number | null;
@@ -295,6 +302,7 @@ export type Database = {
           id?: string;
           brand_id: string;
           product_id: string;
+          country?: string | null;
           channel: string;
           bsr?: number | null;
           new_price?: number | null;
@@ -308,6 +316,7 @@ export type Database = {
           id?: string;
           brand_id?: string;
           product_id?: string;
+          country?: string | null;
           channel?: string;
           bsr?: number | null;
           new_price?: number | null;

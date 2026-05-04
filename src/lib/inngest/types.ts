@@ -17,6 +17,8 @@ export type SkuSalesEntry = {
   url: string | null;
   units: number;
   revenue: number;
+  currency: string; // USD/KRW/SAR/...
+  country: string | null; // 권역 case의 sub-marketplace 분리 키
   bsr_latest: number | null;
 };
 
@@ -67,6 +69,16 @@ export type SalesSummary = {
   sku_count: number;
   top1_revenue_share: number; // 0~1
   top3_revenue_share: number;
+  // 권역 case의 by-country sub. country 코드(SA/AE/...)가 키. 단일 case는 키 1개만.
+  by_country?: Record<
+    string,
+    {
+      revenue: number;
+      units: number;
+      sku_count: number;
+      currency: string;
+    }
+  >;
 };
 
 export type Phase2Stats = {

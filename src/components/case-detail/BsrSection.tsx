@@ -8,9 +8,11 @@ import type { SkuRow } from "./AmazonSalesSection";
 export function BsrSection({
   case_id,
   skuRows,
+  caseCountry: _caseCountry,
 }: {
   case_id: string;
   skuRows: SkuRow[];
+  caseCountry: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -19,12 +21,13 @@ export function BsrSection({
     null,
   );
 
-  function uploadFor(asin: string, file: File) {
-    setPendingAsin(asin);
+  function uploadFor(asin: string, file: File, country?: string | null) {
+    setPendingAsin(`${asin}:${country ?? ""}`);
     start(async () => {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("asin", asin);
+      if (country) fd.append("country", country);
       const r = await uploadBsr(case_id, fd);
       setPendingAsin(null);
       if (!r.ok) {
@@ -88,14 +91,17 @@ export function BsrSection({
       <div
         style={{ display: "flex", flexDirection: "column", gap: 8 }}
       >
-        {skuRows.map((r) => (
-          <BsrRow
-            key={r.asin}
-            sku={r}
-            pending={pendingAsin === r.asin && pending}
-            onPick={(file) => uploadFor(r.asin, file)}
-          />
-        ))}
+        {skuRows.map((r) => {
+          const slotKey = `${r.asin}:${r.country ?? ""}`;
+          return (
+            <BsrRow
+              key={slotKey}
+              sku={r}
+              pending={pendingAsin === slotKey && pending}
+              onPick={(file) => uploadFor(r.asin, file, r.country)}
+            />
+          );
+        })}
       </div>
 
       <div
@@ -171,32 +177,48 @@ function BsrRow({
         cursor: pending ? "default" : "pointer",
       }}
     >
-      {sku.url ? (
-        <a
-          href={sku.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="font-mono"
-          style={{
-            fontWeight: 700,
-            fontSize: 11,
-            color: "var(--color-info)",
-            textDecoration: "underline",
-            textUnderlineOffset: 2,
-          }}
-          title={sku.url}
-        >
-          {sku.asin} ↗
-        </a>
-      ) : (
-        <span
-          className="font-mono"
-          style={{ fontWeight: 700, fontSize: 11 }}
-        >
-          {sku.asin}
-        </span>
-      )}
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {sku.url ? (
+          <a
+            href={sku.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono"
+            style={{
+              fontWeight: 700,
+              fontSize: 11,
+              color: "var(--color-info)",
+              textDecoration: "underline",
+              textUnderlineOffset: 2,
+            }}
+            title={sku.url}
+          >
+            {sku.asin} ↗
+          </a>
+        ) : (
+          <span
+            className="font-mono"
+            style={{ fontWeight: 700, fontSize: 11 }}
+          >
+            {sku.asin}
+          </span>
+        )}
+        {sku.country && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "1px 5px",
+              borderRadius: 3,
+              background: "var(--color-g50)",
+              color: "var(--color-g500)",
+            }}
+          >
+            {sku.country}
+          </span>
+        )}
+      </span>
       <span
         style={{
           fontSize: 11,

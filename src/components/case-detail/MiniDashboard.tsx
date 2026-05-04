@@ -5,8 +5,13 @@ import { BsrTrendChart } from "./BsrTrendChart";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import {
   formatLocalAndUsd,
+  toUsd,
   type ExchangeRates,
 } from "@/lib/case-detail/exchange-rates";
+import {
+  countryOption,
+  isRegionCode,
+} from "@/lib/case-detail/countries";
 import type {
   DisplayedVideoEntry,
   HeatmapRow,
@@ -43,6 +48,7 @@ export function MiniDashboard({
   phase5,
   metaAdsList,
   currency,
+  caseCountry,
   exchangeRates,
 }: {
   phase2: Phase2Stats;
@@ -58,12 +64,18 @@ export function MiniDashboard({
   phase5?: Phase5Stats;
   metaAdsList?: MetaAdListItem[];
   currency: string;
+  caseCountry: string;
   exchangeRates: ExchangeRates;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* KPI strip */}
-      <KpiStrip stats={phase2} currency={currency} exchangeRates={exchangeRates} />
+      <KpiStrip
+        stats={phase2}
+        currency={currency}
+        caseCountry={caseCountry}
+        exchangeRates={exchangeRates}
+      />
 
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
@@ -114,7 +126,12 @@ export function MiniDashboard({
                 : ""
             }
           />
-          <SkuSalesModule stats={phase2} currency={currency} exchangeRates={exchangeRates} />
+          <SkuSalesModule
+            stats={phase2}
+            currency={currency}
+            caseCountry={caseCountry}
+            exchangeRates={exchangeRates}
+          />
           {phase2.bsr_series.length > 0 && (
             <BsrTrendChart
               bsrSeries={phase2.bsr_series}
@@ -1349,36 +1366,69 @@ function AdPreviewCard({
 function KpiStrip({
   stats,
   currency,
+  caseCountry,
   exchangeRates,
 }: {
   stats: Phase2Stats;
   currency: string;
+  caseCountry: string;
   exchangeRates: ExchangeRates;
 }) {
   const peak = [...stats.monthly_video_counts].sort(
     (a, b) => b.total - a.total,
   )[0];
 
-  const cards = [
-    stats.sales_summary && {
-      label: "30일 매출",
-      value: formatLocalAndUsd(
-        stats.sales_summary.total_revenue,
-        currency,
-        exchangeRates,
-      ),
-      sub: `${stats.sales_summary.sku_count} SKU · ${stats.sales_summary.total_units.toLocaleString()}개`,
-    },
+  // 권역 case면 by_country로 USD 합산. 단일이면 currency 단위 그대로.
+  const isRegion = isRegionCode(caseCountry);
+  const byCountry = stats.sales_summary?.by_country;
+  const salesValue = (() => {
+    if (!stats.sales_summary) return null;
+    if (isRegion && byCountry) {
+      const usdSum = Object.values(byCountry).reduce(
+        (acc, v) => acc + (toUsd(v.revenue, v.currency, exchangeRates) ?? 0),
+        0,
+      );
+      return `$${Math.round(usdSum).toLocaleString()}`;
+    }
+    return formatLocalAndUsd(
+      stats.sales_summary.total_revenue,
+      currency,
+      exchangeRates,
+    );
+  })();
+  const salesSub = (() => {
+    if (!stats.sales_summary) return "";
+    if (isRegion && byCountry) {
+      const parts = Object.entries(byCountry).map(([cc, v]) => {
+        const flag = countryOption(cc)?.flag ?? "";
+        return `${flag} ${cc} ${v.currency} ${Math.round(v.revenue).toLocaleString()}`;
+      });
+      return parts.join(" · ");
+    }
+    return `${stats.sales_summary.sku_count} SKU · ${stats.sales_summary.total_units.toLocaleString()}개`;
+  })();
+
+  type Card = { label: string; value: string; sub: string };
+  const rawCards: (Card | null)[] = [
+    stats.sales_summary && salesValue
+      ? {
+          label: isRegion ? "30일 매출 (USD 환산 합계)" : "30일 매출",
+          value: salesValue,
+          sub: salesSub,
+        }
+      : null,
     {
       label: "콘텐츠",
       value: stats.total_contents.toLocaleString(),
       sub: `인플 ${stats.total_unique_creators.toLocaleString()}명`,
     },
-    peak && {
-      label: "피크 월 영상",
-      value: peak.total.toLocaleString(),
-      sub: `${peak.month} · paid ${Math.round((peak.paid / peak.total) * 100)}%`,
-    },
+    peak
+      ? {
+          label: "피크 월 영상",
+          value: peak.total.toLocaleString(),
+          sub: `${peak.month} · paid ${Math.round((peak.paid / peak.total) * 100)}%`,
+        }
+      : null,
     stats.sales_summary && stats.sales_summary.top1_revenue_share > 0
       ? {
           label: "Top SKU 점유",
@@ -1386,7 +1436,8 @@ function KpiStrip({
           sub: `Top 3: ${Math.round(stats.sales_summary.top3_revenue_share * 100)}%`,
         }
       : null,
-  ].filter((c): c is NonNullable<typeof c> => !!c);
+  ];
+  const cards: Card[] = rawCards.filter((c): c is Card => c !== null);
 
   return (
     <div
@@ -1820,14 +1871,34 @@ function formatFans(n: number): string {
 function SkuSalesModule({
   stats,
   currency,
+  caseCountry,
   exchangeRates,
 }: {
   stats: Phase2Stats;
   currency: string;
+  caseCountry: string;
   exchangeRates: ExchangeRates;
 }) {
   if (!stats.sales_summary) return null;
   const max = Math.max(...stats.sku_sales.map((s) => s.revenue), 1);
+  const isRegion = isRegionCode(caseCountry);
+  const byCountry = stats.sales_summary.by_country;
+
+  // 헤더 총 매출: 권역이면 USD 환산 합계, 단일이면 currency raw + USD
+  const headerTotal = (() => {
+    if (isRegion && byCountry) {
+      const usdSum = Object.values(byCountry).reduce(
+        (acc, v) => acc + (toUsd(v.revenue, v.currency, exchangeRates) ?? 0),
+        0,
+      );
+      return `$${Math.round(usdSum).toLocaleString()} (USD 환산 합계)`;
+    }
+    return formatLocalAndUsd(
+      stats.sales_summary.total_revenue,
+      currency,
+      exchangeRates,
+    );
+  })();
 
   return (
     <div className="section-card">
@@ -1849,6 +1920,17 @@ function SkuSalesModule({
             }}
           >
             매출 내림차순 · {stats.sales_summary.sku_count} SKU
+            {isRegion && byCountry && (
+              <>
+                {" · "}
+                {Object.entries(byCountry)
+                  .map(([cc, v]) => {
+                    const flag = countryOption(cc)?.flag ?? "";
+                    return `${flag} ${cc} ${v.currency} ${Math.round(v.revenue).toLocaleString()}`;
+                  })
+                  .join(" / ")}
+              </>
+            )}
           </div>
         </div>
         <div
@@ -1860,11 +1942,7 @@ function SkuSalesModule({
         >
           총 매출{" "}
           <b style={{ color: "var(--color-ink)", fontSize: 14 }}>
-            {formatLocalAndUsd(
-              stats.sales_summary.total_revenue,
-              currency,
-              exchangeRates,
-            )}
+            {headerTotal}
           </b>
           {" · "}
           {stats.sales_summary.total_units.toLocaleString()}개
@@ -1957,26 +2035,42 @@ function SkuSalesModule({
                     borderBottom: "1px solid var(--color-g100)",
                   }}
                 >
-                  {s.url ? (
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono"
-                      style={{
-                        fontWeight: 700,
-                        color: "var(--color-info)",
-                        textDecoration: "underline",
-                        textUnderlineOffset: 2,
-                      }}
-                    >
-                      {s.asin} ↗
-                    </a>
-                  ) : (
-                    <span className="font-mono" style={{ fontWeight: 700 }}>
-                      {s.asin}
-                    </span>
-                  )}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {s.url ? (
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono"
+                        style={{
+                          fontWeight: 700,
+                          color: "var(--color-info)",
+                          textDecoration: "underline",
+                          textUnderlineOffset: 2,
+                        }}
+                      >
+                        {s.asin} ↗
+                      </a>
+                    ) : (
+                      <span className="font-mono" style={{ fontWeight: 700 }}>
+                        {s.asin}
+                      </span>
+                    )}
+                    {isRegion && s.country && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          background: "var(--color-g50)",
+                          color: "var(--color-g500)",
+                        }}
+                      >
+                        {s.country}
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td
                   style={{
@@ -2033,7 +2127,7 @@ function SkuSalesModule({
                       s.revenue > 0 ? "var(--color-ink)" : "var(--color-g300)",
                   }}
                 >
-                  {formatLocalAndUsd(s.revenue, currency, exchangeRates)}
+                  {formatLocalAndUsd(s.revenue, s.currency, exchangeRates)}
                 </td>
                 <td
                   className="font-mono"

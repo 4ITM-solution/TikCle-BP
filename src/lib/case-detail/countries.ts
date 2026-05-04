@@ -60,7 +60,24 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
   // MENA (중동/북아프리카)
   { code: "AE", flag: "🇦🇪", label: "UAE", region: "MENA", currency: "AED" },
   { code: "SA", flag: "🇸🇦", label: "Saudi Arabia", region: "MENA", currency: "SAR" },
+
+  // 권역 통합 case (시딩=권역 통합, 매출=marketplace별 sub).
+  // 자기 region이 자기 자신. currency=USD fallback (실 매출은 sub-row의 country별 currency).
+  { code: "MENA", flag: "🌍", label: "중동·북아프리카 (시딩 통합)", region: "MENA", currency: "USD" },
+  { code: "LATAM_ES", flag: "🌎", label: "스페인어권 라틴 (시딩 통합)", region: "LATAM_ES", currency: "USD" },
 ];
+
+/**
+ * 권역 통합 case로 운영되는 country 코드 (case.country가 이 값이면 옵션 H 모델).
+ * - 시딩(contents/meta_ads) = 통합 fetch (country=권역 코드 그대로)
+ * - 매출(products/sales) = 자식 country = 진짜 marketplace 국가 (SA/AE/MX/...)
+ */
+export const REGION_CODES = ["MENA", "LATAM_ES"] as const;
+export type RegionCode = typeof REGION_CODES[number];
+
+export function isRegionCode(code: string): boolean {
+  return (REGION_CODES as readonly string[]).includes(code);
+}
 
 /**
  * country → currency. 케이스 country로 default currency 추정용.

@@ -131,7 +131,7 @@ export default async function CaseDetailPage({
   if (c.channel === "amazon") {
     const { data: prods } = await supabase
       .from("products")
-      .select("id, asin, name, product_url")
+      .select("id, asin, name, product_url, country")
       .eq("case_id", c.id);
 
     const productIds = (prods ?? []).map((p) => p.id);
@@ -139,13 +139,14 @@ export default async function CaseDetailPage({
     const { data: salesRows } = productIds.length
       ? await supabase
           .from("case_product_sales")
-          .select("product_id, units_30d, revenue_30d, period_end")
+          .select("product_id, units_30d, revenue_30d, currency, period_end")
           .eq("case_id", c.id)
       : {
           data: [] as Array<{
             product_id: string;
             units_30d: number | null;
             revenue_30d: number | null;
+            currency: string;
             period_end: string | null;
           }>,
         };
@@ -172,7 +173,7 @@ export default async function CaseDetailPage({
     const salesByProduct = new Map(
       (salesRows ?? []).map((s) => [
         s.product_id,
-        { units_30d: s.units_30d, revenue_30d: s.revenue_30d },
+        { units_30d: s.units_30d, revenue_30d: s.revenue_30d, currency: s.currency },
       ]),
     );
 
@@ -187,6 +188,8 @@ export default async function CaseDetailPage({
             (p.asin ? `https://www.amazon.com/dp/${p.asin}` : null),
           units_30d: sales?.units_30d ?? null,
           revenue_30d: sales?.revenue_30d ?? null,
+          currency: sales?.currency ?? "USD",
+          country: p.country ?? null,
           hasBsr: bsrSet.has(p.id),
         };
       })
@@ -344,8 +347,8 @@ export default async function CaseDetailPage({
 
             {c.channel === "amazon" && (
               <>
-                <AmazonSalesSection case_id={c.id} skuRows={skuRows} />
-                <BsrSection case_id={c.id} skuRows={skuRows} />
+                <AmazonSalesSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
+                <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
               </>
             )}
 
@@ -512,6 +515,7 @@ export default async function CaseDetailPage({
                       phase5={ks.phase5}
                       metaAdsList={metaAdsList}
                       currency={caseCurrency}
+                      caseCountry={c.country}
                       exchangeRates={exchangeRates}
                     />
                   </div>
