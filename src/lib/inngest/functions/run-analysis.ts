@@ -984,11 +984,27 @@ export const runAnalysis = inngest.createFunction(
       });
     }
 
-    // ─── Final: status = ready ───
+    // ─── Final: status = ready + 직전 last_error 클리어 ───
     await step.run("mark-ready", async () => {
+      // 분석 성공 시 옛 last_error key 삭제 — 직전 실패 메시지가 ready 화면에 잔존하지 않게.
+      // key_stats가 jsonb라 직접 fetch + delete + update.
+      const { data: row } = await supabase
+        .from("cases")
+        .select("key_stats")
+        .eq("id", case_id)
+        .single();
+      const ks = (row?.key_stats ?? {}) as Record<string, unknown>;
+      if ("last_error" in ks) {
+        delete ks.last_error;
+      }
+
       const { error } = await supabase
         .from("cases")
-        .update({ status: "ready", analyzed_at: new Date().toISOString() })
+        .update({
+          status: "ready",
+          analyzed_at: new Date().toISOString(),
+          key_stats: ks as never,
+        })
         .eq("id", case_id);
       if (error) throw new Error(`mark-ready: ${error.message}`);
     });
