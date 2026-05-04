@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { fetchMetaAds, type MetaAdRaw } from "@/lib/apify/meta-ads";
+import {
+  countriesInRegion,
+  isRegionCode,
+  type Region,
+} from "@/lib/case-detail/countries";
 import type { LandingType, MetaAdEntry, Phase4aStats } from "../types";
 
 type SupaClient = SupabaseClient<Database>;
@@ -33,11 +38,15 @@ export async function runPhase4a(
     return emptyPhase4a("Amazon 케이스가 아님");
   }
 
-  // 2. Apify 호출
+  // 2. Apify 호출 — 권역 case면 권역 안 단일 국가들로 풀어서 N번 fetch (Facebook
+  //    Ads Library는 ISO 2자 country 코드만 인식). 단일 case는 그대로 한 국가.
+  const targetCountries = isRegionCode(c.country)
+    ? countriesInRegion(c.country as Region)
+    : [c.country];
   const result = await fetchMetaAds({
     brand_meta_pages: c.brand_meta_pages ?? [],
     brand_keyword: c.brand_keyword,
-    country: c.country,
+    countries: targetCountries,
     cap: 1000,
   });
 

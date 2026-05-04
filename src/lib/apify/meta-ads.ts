@@ -56,11 +56,15 @@ function buildLibraryUrl(query: string, country: string): string {
 /**
  * Apify run-sync-get-dataset-items 호출.
  * 결과 1000개 cap 안에서 ads 반환.
+ *
+ * countries 파라미터: 권역 case면 권역 안 단일 국가들 (e.g., MENA → ["AE","SA"]).
+ * 단일 case면 한 국가 (e.g., ["US"]). Facebook Ads Library URL의 country
+ * 파라미터에 ISO 2자 코드만 박혀야 actor가 정상 scrape.
  */
 export async function fetchMetaAds(opts: {
   brand_meta_pages: string[];
   brand_keyword: string | null;
-  country: string;
+  countries: string[];
   cap?: number;
 }): Promise<MetaAdsResult> {
   const token = process.env.APIFY_TOKEN;
@@ -76,15 +80,31 @@ export async function fetchMetaAds(opts: {
 
   const cap = opts.cap ?? 1000;
 
-  // URL 생성 — brand_meta_pages 우선, 부족하면 keyword
-  const urls: string[] = [];
-  for (const page of opts.brand_meta_pages ?? []) {
-    if (!page.trim()) continue;
-    urls.push(buildLibraryUrl(page.trim(), opts.country));
+  if (!opts.countries || opts.countries.length === 0) {
+    return {
+      ads: [],
+      source_urls: [],
+      total_fetched: 0,
+      cost_estimate_usd: 0,
+      skipped_reason: "countries 비어있음",
+    };
   }
-  if (opts.brand_keyword) {
-    for (const kw of opts.brand_keyword.split(",").map((s) => s.trim()).filter(Boolean)) {
-      urls.push(buildLibraryUrl(kw, opts.country));
+
+  // URL 생성 — countries × (brand_meta_pages 우선, 부족하면 keyword).
+  // 권역 case면 같은 keyword/page를 권역 안 모든 마켓플레이스 country로 N번 검색.
+  const urls: string[] = [];
+  for (const country of opts.countries) {
+    for (const page of opts.brand_meta_pages ?? []) {
+      if (!page.trim()) continue;
+      urls.push(buildLibraryUrl(page.trim(), country));
+    }
+    if (opts.brand_keyword) {
+      for (const kw of opts.brand_keyword
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)) {
+        urls.push(buildLibraryUrl(kw, country));
+      }
     }
   }
 
