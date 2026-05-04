@@ -9,17 +9,32 @@ import {
 } from "@/components/case-create/PlatformPicker";
 import { MetaPagesInput } from "@/components/case-create/MetaPagesInput";
 import { createCaseDraft, type ActionResult } from "./actions";
+import {
+  COUNTRY_OPTIONS,
+  REGION_LABEL,
+  type Region,
+} from "@/lib/case-detail/countries";
 
-const COUNTRIES = [
-  { code: "US", flag: "🇺🇸", label: "United States" },
-  { code: "KR", flag: "🇰🇷", label: "Korea" },
-  { code: "JP", flag: "🇯🇵", label: "Japan" },
-  { code: "EU", flag: "🇪🇺", label: "Europe 통합" },
-  { code: "LATAM_ES", flag: "🌎", label: "스페인어권 라틴" },
-  { code: "LATAM_BR", flag: "🇧🇷", label: "브라질" },
-  { code: "SEA", flag: "🌏", label: "동남아 통합" },
-  { code: "MENA", flag: "🌍", label: "중동/북아프리카" },
-];
+// 드롭다운: 권역별로 그룹핑해서 표시. 케이스는 단일 국가에만 박힘.
+// 권역 view (cases 리스트 그룹 / 브랜드 페이지 권역 카드 / 권역 리포트)는
+// 같은 region을 가진 case들을 N개 묶어 처리.
+const COUNTRY_GROUPS: { region: Region; countries: typeof COUNTRY_OPTIONS }[] =
+  (() => {
+    const order: Region[] = [
+      "AMERICAS",
+      "EU",
+      "APAC_KR",
+      "APAC_JP",
+      "LATAM_ES",
+      "LATAM_BR",
+      "SEA",
+      "MENA",
+    ];
+    return order.map((r) => ({
+      region: r,
+      countries: COUNTRY_OPTIONS.filter((o) => o.region === r),
+    }));
+  })();
 
 export default function NewCasePage() {
   const [platform, setPlatform] = useState<PlatformValue>("amazon");
@@ -68,11 +83,21 @@ export default function NewCasePage() {
                 국가 <span className="req">*</span>
               </label>
               <select className="field-select" name="country" defaultValue="US">
-                {COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.code} ({c.label})
-                  </option>
-                ))}
+                {COUNTRY_GROUPS.map((g) =>
+                  g.countries.length === 1 ? (
+                    <option key={g.countries[0]!.code} value={g.countries[0]!.code}>
+                      {g.countries[0]!.flag} {g.countries[0]!.code} ({g.countries[0]!.label})
+                    </option>
+                  ) : (
+                    <optgroup key={g.region} label={REGION_LABEL[g.region]}>
+                      {g.countries.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.code} ({c.label})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ),
+                )}
               </select>
             </div>
           </div>
