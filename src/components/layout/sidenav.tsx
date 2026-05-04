@@ -5,11 +5,26 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/cases", label: "Browse", icon: "🏠" },
+  { href: "/cases/compare", label: "Compare", icon: "⚖" },
   { href: "/settings/exchange-rates", label: "환율 설정", icon: "$" },
 ];
 
 export function Sidenav() {
   const pathname = usePathname();
+
+  // 가장 긴 prefix 매칭이 우선 (/cases/compare가 /cases와 동시 active 안 되게).
+  // 또 /cases는 /cases/[id], /brands/[id]에서도 active 표시 (Browse 흐름 동일 contex).
+  const matchedHref = (() => {
+    const candidates = items.filter(
+      (i) => pathname === i.href || pathname.startsWith(i.href + "/"),
+    );
+    candidates.sort((a, b) => b.href.length - a.href.length);
+    if (candidates[0]) return candidates[0].href;
+    if (pathname.startsWith("/brands/") || pathname.startsWith("/cases/")) {
+      return "/cases";
+    }
+    return null;
+  })();
 
   return (
     <nav
@@ -17,7 +32,7 @@ export function Sidenav() {
       style={{ borderColor: "var(--color-g100)" }}
     >
       {items.map((item) => {
-        const active = pathname.startsWith(item.href);
+        const active = matchedHref === item.href;
         return (
           <Link
             key={item.href}
