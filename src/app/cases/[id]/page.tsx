@@ -409,17 +409,35 @@ export default async function CaseDetailPage({
             const lastError = ks?.last_error;
             if (!ks?.phase2) {
               return (
-                <div
-                  style={{
-                    padding: 18,
-                    background: "var(--color-warn-soft)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: "var(--color-warn)",
-                  }}
-                >
-                  status는 ready인데 phase2 결과가 비어있어요. 다시 분석 시작 필요.
-                </div>
+                <>
+                  <div
+                    style={{
+                      padding: 18,
+                      marginBottom: 14,
+                      background: "var(--color-warn-soft)",
+                      border: "1px solid var(--color-warn)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--color-warn)",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                      ⚠ key_stats에 phase2 결과가 없어요
+                    </div>
+                    다른 phase 결과(3 / 4a / 4b.* / 5)는 살아 있는데 phase2만 누락. 아래 PhaseProgress 펼쳐서{" "}
+                    <b>Phase 2만 재실행</b>하면 다른 결과는 보존된 채 phase2가 채워져요.
+                  </div>
+                  <PhaseProgressToggle
+                    case_id={c.id}
+                    keyStats={(ks ?? {}) as KeyStats}
+                  />
+                  <DevTestActions
+                    case_id={c.id}
+                    status={c.status}
+                    costEstimate={costEstimate}
+                  />
+                </>
               );
             }
             return (
