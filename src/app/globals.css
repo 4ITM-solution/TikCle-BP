@@ -215,3 +215,8 @@ a {
 .status-pill.running { background: var(--color-warn-soft); color: var(--color-warn); }
 .status-pill.ready { background: var(--color-pos-soft); color: var(--color-pos); }
 .status-pill.failed { background: var(--color-accent-soft); color: var(--color-accent); }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
