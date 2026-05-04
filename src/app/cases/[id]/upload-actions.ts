@@ -8,6 +8,7 @@ import { parseAmazonSales } from "@/lib/parsers/amazon-sales";
 import { parseBsr } from "@/lib/parsers/bsr";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
+import { defaultCurrency } from "@/lib/case-detail/countries";
 
 type Result =
   | { ok: true; message: string }
@@ -283,6 +284,7 @@ export async function uploadAmazonSales(
   const asinToId = new Map((prodRows ?? []).map((p) => [p.asin, p.id]));
 
   // 3. case_product_sales 업서트
+  const currency = defaultCurrency(c.country);
   const salesInserts = rows
     .map((r) => {
       const product_id = asinToId.get(r.asin);
@@ -292,6 +294,7 @@ export async function uploadAmazonSales(
         product_id,
         units_30d: r.units_30d,
         revenue_30d: r.revenue_30d,
+        currency,
         period_start,
         period_end,
         source: "manual_csv",
@@ -385,6 +388,7 @@ export async function uploadBsr(
   if (resetErr) return { ok: false, error: `bsr reset: ${resetErr.message}` };
 
   // 4. sales_snapshot 업서트
+  const bsrCurrency = defaultCurrency(c.country);
   const inserts = dedupedRows.map((r) => ({
     brand_id: prod.brand_id,
     product_id: prod.id,
@@ -392,6 +396,7 @@ export async function uploadBsr(
     bsr: r.bsr,
     new_price: r.new_price,
     list_price: r.list_price,
+    currency: bsrCurrency,
     source: "keepa",
     collected_at: r.collected_at,
   }));

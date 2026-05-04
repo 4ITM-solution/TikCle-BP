@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/cases", label: "My Cases", icon: "★" },
+  { href: "/settings/exchange-rates", label: "환율 설정", icon: "$" },
 ];
 
 export function Sidenav() {

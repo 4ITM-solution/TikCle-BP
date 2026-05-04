@@ -3,6 +3,10 @@ import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart } from "./BsrTrendChart";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
+import {
+  formatLocalAndUsd,
+  type ExchangeRates,
+} from "@/lib/case-detail/exchange-rates";
 import type {
   DisplayedVideoEntry,
   HeatmapRow,
@@ -38,6 +42,8 @@ export function MiniDashboard({
   phase4bSku,
   phase5,
   metaAdsList,
+  currency,
+  exchangeRates,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -51,11 +57,13 @@ export function MiniDashboard({
   phase4bSku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
   metaAdsList?: MetaAdListItem[];
+  currency: string;
+  exchangeRates: ExchangeRates;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* KPI strip */}
-      <KpiStrip stats={phase2} />
+      <KpiStrip stats={phase2} currency={currency} exchangeRates={exchangeRates} />
 
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
@@ -106,7 +114,7 @@ export function MiniDashboard({
                 : ""
             }
           />
-          <SkuSalesModule stats={phase2} />
+          <SkuSalesModule stats={phase2} currency={currency} exchangeRates={exchangeRates} />
           {phase2.bsr_series.length > 0 && (
             <BsrTrendChart
               bsrSeries={phase2.bsr_series}
@@ -1338,7 +1346,15 @@ function AdPreviewCard({
 // =============================================================================
 // KPI strip
 // =============================================================================
-function KpiStrip({ stats }: { stats: Phase2Stats }) {
+function KpiStrip({
+  stats,
+  currency,
+  exchangeRates,
+}: {
+  stats: Phase2Stats;
+  currency: string;
+  exchangeRates: ExchangeRates;
+}) {
   const peak = [...stats.monthly_video_counts].sort(
     (a, b) => b.total - a.total,
   )[0];
@@ -1346,7 +1362,11 @@ function KpiStrip({ stats }: { stats: Phase2Stats }) {
   const cards = [
     stats.sales_summary && {
       label: "30일 매출",
-      value: `$${Math.round(stats.sales_summary.total_revenue).toLocaleString()}`,
+      value: formatLocalAndUsd(
+        stats.sales_summary.total_revenue,
+        currency,
+        exchangeRates,
+      ),
       sub: `${stats.sales_summary.sku_count} SKU · ${stats.sales_summary.total_units.toLocaleString()}개`,
     },
     {
@@ -1797,7 +1817,15 @@ function formatFans(n: number): string {
 // =============================================================================
 // Module: SKU 매출
 // =============================================================================
-function SkuSalesModule({ stats }: { stats: Phase2Stats }) {
+function SkuSalesModule({
+  stats,
+  currency,
+  exchangeRates,
+}: {
+  stats: Phase2Stats;
+  currency: string;
+  exchangeRates: ExchangeRates;
+}) {
   if (!stats.sales_summary) return null;
   const max = Math.max(...stats.sku_sales.map((s) => s.revenue), 1);
 
@@ -1832,7 +1860,11 @@ function SkuSalesModule({ stats }: { stats: Phase2Stats }) {
         >
           총 매출{" "}
           <b style={{ color: "var(--color-ink)", fontSize: 14 }}>
-            ${Math.round(stats.sales_summary.total_revenue).toLocaleString()}
+            {formatLocalAndUsd(
+              stats.sales_summary.total_revenue,
+              currency,
+              exchangeRates,
+            )}
           </b>
           {" · "}
           {stats.sales_summary.total_units.toLocaleString()}개
@@ -2001,7 +2033,7 @@ function SkuSalesModule({ stats }: { stats: Phase2Stats }) {
                       s.revenue > 0 ? "var(--color-ink)" : "var(--color-g300)",
                   }}
                 >
-                  ${Math.round(s.revenue).toLocaleString()}
+                  {formatLocalAndUsd(s.revenue, currency, exchangeRates)}
                 </td>
                 <td
                   className="font-mono"

@@ -6,6 +6,7 @@ import {
   type ShopProductItem,
 } from "@/lib/apify/tiktok-shop-scraper";
 import type { Phase15Stats } from "../types";
+import { defaultCurrency } from "@/lib/case-detail/countries";
 
 type SupaClient = SupabaseClient<Database>;
 
@@ -148,11 +149,13 @@ export async function processPhase15Products(
     product_id: string;
     units_30d: number;
     revenue_30d: number;
+    currency: string;
     period_start: string | null;
     period_end: string;
     source: string;
   }> = [];
 
+  const currency = defaultCurrency(setup.region.toUpperCase());
   for (const ip of insertedProducts) {
     if (!ip.external_product_id) continue;
     const sold = idToSold.get(ip.external_product_id);
@@ -165,6 +168,7 @@ export async function processPhase15Products(
       product_id: ip.id,
       units_30d: sold,
       revenue_30d: revenue,
+      currency,
       period_start: null,
       period_end: now,
       source: "tiktok_shop_scraper",
@@ -310,11 +314,13 @@ export async function runPhase15Shop(
     product_id: string;
     units_30d: number;
     revenue_30d: number;
+    currency: string;
     period_start: string | null;
     period_end: string;
     source: string;
   }> = [];
 
+  const currency2 = defaultCurrency((c.country ?? "US").toUpperCase());
   for (const ip of insertedProducts) {
     if (!ip.external_product_id) continue;
     const sold = idToSold.get(ip.external_product_id);
@@ -327,6 +333,7 @@ export async function runPhase15Shop(
       product_id: ip.id,
       units_30d: sold,
       revenue_30d: revenue,
+      currency: currency2,
       period_start: null, // null = 누적 (TikTok Shop)
       period_end: now,
       source: "tiktok_shop_scraper",

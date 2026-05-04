@@ -28,6 +28,8 @@ import type {
   Phase5Stats,
 } from "@/lib/inngest/types";
 import { estimateCost } from "@/lib/cost-estimate";
+import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates";
+import { defaultCurrency } from "@/lib/case-detail/countries";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +238,10 @@ export default async function CaseDetailPage({
     if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
     else if (c.channel === "tiktok_shop") reason = "TikTok Shop 스토어 URL 필요";
   }
+
+  // 5a-1. 통화 + 환율 (ready 케이스에서 SKU 매출/단가 표시용)
+  const caseCurrency = defaultCurrency(c.country);
+  const exchangeRates = await fetchExchangeRates();
 
   // 5b. 비용 추정
   const costEstimate = estimateCost({
@@ -505,6 +511,8 @@ export default async function CaseDetailPage({
                       phase4bSku={ks.phase4b_sku}
                       phase5={ks.phase5}
                       metaAdsList={metaAdsList}
+                      currency={caseCurrency}
+                      exchangeRates={exchangeRates}
                     />
                   </div>
                   <SectionTOC

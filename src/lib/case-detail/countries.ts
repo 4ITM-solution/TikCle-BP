@@ -24,6 +24,8 @@ export type CountryOption = {
   flag: string;
   label: string;
   region: Region;
+  /** 그 마켓플레이스의 default 매출/단가 통화 (Helium10 export 기준). */
+  currency: string;
 };
 
 /**
@@ -32,33 +34,40 @@ export type CountryOption = {
  */
 export const COUNTRY_OPTIONS: CountryOption[] = [
   // 단일 (권역 묶지 않음)
-  { code: "US", flag: "🇺🇸", label: "United States", region: "AMERICAS" },
-  { code: "KR", flag: "🇰🇷", label: "Korea", region: "APAC_KR" },
-  { code: "JP", flag: "🇯🇵", label: "Japan", region: "APAC_JP" },
-  { code: "EU", flag: "🇪🇺", label: "Europe 통합", region: "EU" },
+  { code: "US", flag: "🇺🇸", label: "United States", region: "AMERICAS", currency: "USD" },
+  { code: "KR", flag: "🇰🇷", label: "Korea", region: "APAC_KR", currency: "KRW" },
+  { code: "JP", flag: "🇯🇵", label: "Japan", region: "APAC_JP", currency: "JPY" },
+  { code: "EU", flag: "🇪🇺", label: "Europe 통합", region: "EU", currency: "EUR" },
 
   // LATAM_ES (스페인어권 라틴아메리카)
-  { code: "MX", flag: "🇲🇽", label: "Mexico", region: "LATAM_ES" },
-  { code: "AR", flag: "🇦🇷", label: "Argentina", region: "LATAM_ES" },
-  { code: "CO", flag: "🇨🇴", label: "Colombia", region: "LATAM_ES" },
-  { code: "CL", flag: "🇨🇱", label: "Chile", region: "LATAM_ES" },
-  { code: "PE", flag: "🇵🇪", label: "Peru", region: "LATAM_ES" },
+  { code: "MX", flag: "🇲🇽", label: "Mexico", region: "LATAM_ES", currency: "MXN" },
+  { code: "AR", flag: "🇦🇷", label: "Argentina", region: "LATAM_ES", currency: "USD" }, // AR 페소 통제로 Helium10 USD 노출
+  { code: "CO", flag: "🇨🇴", label: "Colombia", region: "LATAM_ES", currency: "USD" }, // 동일 (이커머스 USD)
+  { code: "CL", flag: "🇨🇱", label: "Chile", region: "LATAM_ES", currency: "USD" },
+  { code: "PE", flag: "🇵🇪", label: "Peru", region: "LATAM_ES", currency: "USD" },
 
   // LATAM_BR (포르투갈어권 — 사실상 BR 단독)
-  { code: "BR", flag: "🇧🇷", label: "Brazil", region: "LATAM_BR" },
+  { code: "BR", flag: "🇧🇷", label: "Brazil", region: "LATAM_BR", currency: "BRL" },
 
   // SEA (동남아)
-  { code: "SG", flag: "🇸🇬", label: "Singapore", region: "SEA" },
-  { code: "TH", flag: "🇹🇭", label: "Thailand", region: "SEA" },
-  { code: "MY", flag: "🇲🇾", label: "Malaysia", region: "SEA" },
-  { code: "ID", flag: "🇮🇩", label: "Indonesia", region: "SEA" },
-  { code: "PH", flag: "🇵🇭", label: "Philippines", region: "SEA" },
-  { code: "VN", flag: "🇻🇳", label: "Vietnam", region: "SEA" },
+  { code: "SG", flag: "🇸🇬", label: "Singapore", region: "SEA", currency: "SGD" },
+  { code: "TH", flag: "🇹🇭", label: "Thailand", region: "SEA", currency: "THB" },
+  { code: "MY", flag: "🇲🇾", label: "Malaysia", region: "SEA", currency: "MYR" },
+  { code: "ID", flag: "🇮🇩", label: "Indonesia", region: "SEA", currency: "IDR" },
+  { code: "PH", flag: "🇵🇭", label: "Philippines", region: "SEA", currency: "PHP" },
+  { code: "VN", flag: "🇻🇳", label: "Vietnam", region: "SEA", currency: "VND" },
 
   // MENA (중동/북아프리카)
-  { code: "AE", flag: "🇦🇪", label: "UAE", region: "MENA" },
-  { code: "SA", flag: "🇸🇦", label: "Saudi Arabia", region: "MENA" },
+  { code: "AE", flag: "🇦🇪", label: "UAE", region: "MENA", currency: "AED" },
+  { code: "SA", flag: "🇸🇦", label: "Saudi Arabia", region: "MENA", currency: "SAR" },
 ];
+
+/**
+ * country → currency. 케이스 country로 default currency 추정용.
+ */
+export function defaultCurrency(countryCode: string): string {
+  return BY_CODE.get(countryCode)?.currency ?? "USD";
+}
 
 const BY_CODE = new Map<string, CountryOption>(
   COUNTRY_OPTIONS.map((o) => [o.code, o]),

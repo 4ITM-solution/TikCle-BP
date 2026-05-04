@@ -244,6 +244,7 @@ export type Database = {
           product_id: string;
           units_30d: number | null;
           revenue_30d: number | null;
+          currency: string;
           period_start: string | null;
           period_end: string | null;
           source: string | null;
@@ -255,6 +256,7 @@ export type Database = {
           product_id: string;
           units_30d?: number | null;
           revenue_30d?: number | null;
+          currency?: string;
           period_start?: string | null;
           period_end?: string | null;
           source?: string | null;
@@ -266,6 +268,7 @@ export type Database = {
           product_id?: string;
           units_30d?: number | null;
           revenue_30d?: number | null;
+          currency?: string;
           period_start?: string | null;
           period_end?: string | null;
           source?: string | null;
@@ -283,6 +286,7 @@ export type Database = {
           bsr: number | null;
           new_price: number | null;
           list_price: number | null;
+          currency: string;
           source: string | null;
           collected_at: string;
           created_at: string;
@@ -295,6 +299,7 @@ export type Database = {
           bsr?: number | null;
           new_price?: number | null;
           list_price?: number | null;
+          currency?: string;
           source?: string | null;
           collected_at: string;
           created_at?: string;
@@ -307,9 +312,32 @@ export type Database = {
           bsr?: number | null;
           new_price?: number | null;
           list_price?: number | null;
+          currency?: string;
           source?: string | null;
           collected_at?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+
+      app_settings: {
+        Row: {
+          key: string;
+          value: unknown;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          value: unknown;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          key?: string;
+          value?: unknown;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
