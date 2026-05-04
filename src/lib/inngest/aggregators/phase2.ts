@@ -325,19 +325,23 @@ async function aggregateAmazonSalesAndBsr(
     }
   }
 
-  // 최신 BSR 한 점 (Amazon만 — tiktok_shop은 BSR 개념 없음)
+  // 최신 BSR 한 점 (Amazon만 — tiktok_shop은 BSR 개념 없음).
+  // .in() + default limit 1000 회피: product별 분리 호출 (각 1 row만).
   const latestBsrByProduct = new Map<string, number | null>();
   if (isAmazon) {
-    const { data: bsrLatest } = await supabase
-      .from("sales_snapshot")
-      .select("product_id, bsr, collected_at")
-      .in("product_id", productIds)
-      .order("collected_at", { ascending: false });
-    for (const b of bsrLatest ?? []) {
-      if (!latestBsrByProduct.has(b.product_id)) {
-        latestBsrByProduct.set(b.product_id, b.bsr);
-      }
-    }
+    const checks = await Promise.all(
+      productIds.map(async (pid) => {
+        const { data } = await supabase
+          .from("sales_snapshot")
+          .select("bsr")
+          .eq("product_id", pid)
+          .order("collected_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return [pid, data?.bsr ?? null] as const;
+      }),
+    );
+    for (const [pid, bsr] of checks) latestBsrByProduct.set(pid, bsr);
   }
 
   // SKU 매출 entries (asin 또는 external_product_id를 식별자로). country/currency 포함.
@@ -413,22 +417,26 @@ async function aggregateAmazonSalesAndBsr(
         .filter((x): x is string => !!x)
     : [];
   if (isAmazon && topProductIds.length > 0) {
-    const { data: bsrRows } = await supabase
-      .from("sales_snapshot")
-      .select("product_id, collected_at, bsr")
-      .in("product_id", topProductIds)
-      .order("collected_at", { ascending: true });
-
+    // 주의: .in("product_id", N개) + default limit 1000 → 5개 SKU 합쳐 ascending 1000 row만
+    // 잡혀 옛 시점만 차트에 들어가는 bug 발생. product별 분리 호출로 각 SKU 전체 시계열 fetch.
     const seriesByProduct = new Map<
       string,
       { date: string; bsr: number }[]
     >();
-    for (const r of bsrRows ?? []) {
-      if (r.bsr === null) continue;
-      const arr = seriesByProduct.get(r.product_id) ?? [];
-      arr.push({ date: r.collected_at, bsr: r.bsr });
-      seriesByProduct.set(r.product_id, arr);
-    }
+    await Promise.all(
+      topProductIds.map(async (pid) => {
+        const { data } = await supabase
+          .from("sales_snapshot")
+          .select("collected_at, bsr")
+          .eq("product_id", pid)
+          .order("collected_at", { ascending: true })
+          .range(0, 9999);
+        const points = (data ?? [])
+          .filter((r): r is { collected_at: string; bsr: number } => r.bsr !== null)
+          .map((r) => ({ date: r.collected_at, bsr: r.bsr }));
+        seriesByProduct.set(pid, points);
+      }),
+    );
 
     for (const sku of topSkus) {
       const prod = findProd(sku.asin, sku.country);
