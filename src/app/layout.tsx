@@ -23,12 +23,14 @@ export default function RootLayout({
       </head>
       <body>
         <div
-          className="grid min-h-screen"
+          className="grid h-screen overflow-hidden"
           style={{ gridTemplateRows: "56px 1fr", gridTemplateColumns: "200px 1fr" }}
         >
           <Topbar />
           <Sidenav />
-          <main className="overflow-y-auto">{children}</main>
+          <main className="overflow-y-auto" style={{ minHeight: 0 }}>
+            {children}
+          </main>
         </div>
       </body>
     </html>
