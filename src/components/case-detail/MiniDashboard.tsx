@@ -2,6 +2,7 @@ import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart } from "./BsrTrendChart";
+import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import {
   formatLocalAndUsd,
@@ -130,6 +131,12 @@ export function MiniDashboard({
             stats={phase2}
             currency={currency}
             caseCountry={caseCountry}
+            exchangeRates={exchangeRates}
+          />
+          <HeroSkuMegaVideos
+            phase2={phase2}
+            phase4bSku={phase4bSku}
+            currency={currency}
             exchangeRates={exchangeRates}
           />
           {phase2.bsr_series.length > 0 && (

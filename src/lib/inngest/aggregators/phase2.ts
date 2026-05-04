@@ -425,15 +425,17 @@ async function aggregateAmazonSalesAndBsr(
     >();
     await Promise.all(
       topProductIds.map(async (pid) => {
+        // SKU별 최근 1000 row만 (≈ 2.7년치). inflection은 최근 시점에서 잡혀 다 포함.
         const { data } = await supabase
           .from("sales_snapshot")
           .select("collected_at, bsr")
           .eq("product_id", pid)
-          .order("collected_at", { ascending: true })
-          .range(0, 9999);
+          .order("collected_at", { ascending: false })
+          .limit(1000);
         const points = (data ?? [])
           .filter((r): r is { collected_at: string; bsr: number } => r.bsr !== null)
-          .map((r) => ({ date: r.collected_at, bsr: r.bsr }));
+          .map((r) => ({ date: r.collected_at, bsr: r.bsr }))
+          .reverse(); // 차트는 ascending 시계열 필요
         seriesByProduct.set(pid, points);
       }),
     );
