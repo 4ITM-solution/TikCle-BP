@@ -13,6 +13,7 @@ import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
+import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   Phase2Stats,
@@ -572,6 +573,7 @@ export default async function CaseDetailPage({
         </>
       ) : (
         <>
+          <AutoRefresh enabled intervalMs={5000} />
           <div
             style={{
               padding: 18,
@@ -581,7 +583,7 @@ export default async function CaseDetailPage({
               color: "var(--color-warn)",
             }}
           >
-            ⟳ 분석 진행 중 (status: <b>{c.status}</b>) — 새로고침으로 진행 확인.
+            ⟳ 분석 진행 중 (status: <b>{c.status}</b>) — 5초마다 자동 갱신됨. 완료 시 자동 표시.
             로컬 dev라면 Inngest dev server (
             <span className="font-mono">localhost:8288</span>) → Runs 탭에서 실시간 진행 추적.
           </div>
