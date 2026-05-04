@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UploadDropzone } from "./UploadDropzone";
-import { uploadAmazonSales } from "@/app/cases/[id]/upload-actions";
+import {
+  rollbackLatestSalesBatch,
+  uploadAmazonSales,
+} from "@/app/cases/[id]/upload-actions";
 import {
   COUNTRY_OPTIONS,
   countriesInRegion,
@@ -53,6 +56,25 @@ export function AmazonSalesSection({
   const [marketplaceCountry, setMarketplaceCountry] = useState<string>(
     marketplaceOptions[0]?.code ?? "",
   );
+
+  function onRollback() {
+    if (
+      !window.confirm(
+        "가장 최근 매출 업로드 1번을 삭제합니다 (이전 업로드는 보존). 계속할까요?",
+      )
+    ) {
+      return;
+    }
+    start(async () => {
+      const r = await rollbackLatestSalesBatch(case_id);
+      setMsg(
+        r.ok
+          ? { type: "ok", text: r.message }
+          : { type: "err", text: r.error },
+      );
+      if (r.ok) router.refresh();
+    });
+  }
 
   function onFile(f: File) {
     const today = new Date().toISOString().slice(0, 10);
@@ -221,15 +243,39 @@ export function AmazonSalesSection({
             style={{
               display: "flex",
               justifyContent: "space-between",
+              alignItems: "center",
               fontSize: 11,
               fontWeight: 700,
               color: "var(--color-g500)",
               textTransform: "uppercase",
               letterSpacing: ".04em",
               marginBottom: 10,
+              gap: 10,
             }}
           >
-            <span>감지된 SKU</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              감지된 SKU
+              <button
+                type="button"
+                onClick={onRollback}
+                disabled={pending}
+                title="가장 최근 매출 업로드 1번 삭제 (이전 업로드는 보존)"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  background: "transparent",
+                  color: "var(--color-accent)",
+                  border: "1px solid var(--color-accent)",
+                  cursor: pending ? "wait" : "pointer",
+                }}
+              >
+                ↶ 최근 업로드 롤백
+              </button>
+            </span>
             <span>
               <b style={{ color: "var(--color-ink)", fontSize: 13 }}>
                 {skuRows.length}

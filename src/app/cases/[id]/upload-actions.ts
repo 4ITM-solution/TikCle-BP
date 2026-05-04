@@ -16,6 +16,48 @@ type Result =
 
 const BATCH = 500;
 
+/**
+ * 가장 최근 매출 업로드 batch 1개 롤백.
+ * captured_at 시점 기준 — 같은 csv 업로드는 거의 동시에 박혀 같은 captured_at(±1초).
+ * 직전 batch는 그대로 보존. period_end 잘못 박은 경우 1단계 undo용.
+ */
+export async function rollbackLatestSalesBatch(
+  case_id: string,
+): Promise<Result> {
+  const supabase = await createServer();
+
+  const { data: latest, error: fetchErr } = await supabase
+    .from("case_product_sales")
+    .select("captured_at, period_start, period_end")
+    .eq("case_id", case_id)
+    .order("captured_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (fetchErr) return { ok: false, error: fetchErr.message };
+  if (!latest) {
+    return { ok: false, error: "삭제할 매출 업로드가 없습니다" };
+  }
+
+  // 가장 최근 captured_at의 ±2초 범위가 같은 batch 1번 업로드.
+  const lastTs = new Date(latest.captured_at).getTime();
+  const lo = new Date(lastTs - 2_000).toISOString();
+  const hi = new Date(lastTs + 2_000).toISOString();
+
+  const { error: delErr, count } = await supabase
+    .from("case_product_sales")
+    .delete({ count: "exact" })
+    .eq("case_id", case_id)
+    .gte("captured_at", lo)
+    .lte("captured_at", hi);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `최근 매출 업로드 ${count ?? 0}건 롤백 (기간 ${latest.period_start ?? "?"} ~ ${latest.period_end ?? "?"}). 이전 업로드는 보존됨.`,
+  };
+}
+
 async function getCase(case_id: string) {
   const supabase = await createServer();
   const { data, error } = await supabase
