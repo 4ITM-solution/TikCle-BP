@@ -14,7 +14,11 @@ const COUNTRIES = [
   { code: "US", flag: "🇺🇸", label: "United States" },
   { code: "KR", flag: "🇰🇷", label: "Korea" },
   { code: "JP", flag: "🇯🇵", label: "Japan" },
-  { code: "SG", flag: "🇸🇬", label: "Singapore" },
+  { code: "EU", flag: "🇪🇺", label: "Europe 통합" },
+  { code: "LATAM_ES", flag: "🌎", label: "스페인어권 라틴" },
+  { code: "LATAM_BR", flag: "🇧🇷", label: "브라질" },
+  { code: "SEA", flag: "🌏", label: "동남아 통합" },
+  { code: "MENA", flag: "🌍", label: "중동/북아프리카" },
 ];
 
 export default function NewCasePage() {
