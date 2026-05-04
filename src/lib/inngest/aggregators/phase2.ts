@@ -399,12 +399,17 @@ async function aggregateAmazonSalesAndBsr(
     by_country,
   };
 
-  // BSR series (Amazon만 — 매출 Top 5 SKU)
+  // BSR series (Amazon만 — 매출 Top 5 SKU).
+  // 권역 case는 같은 ASIN이 SA/AE 두 product로 박혀있어 (asin, country) 조합으로 매칭.
   const bsr_series: BsrSeries[] = [];
   const topSkus = sku_sales.slice(0, 5);
+  const findProd = (asin: string, country: string | null) =>
+    prods.find(
+      (p) => p.asin === asin && (p.country ?? null) === country,
+    );
   const topProductIds = isAmazon
     ? topSkus
-        .map((s) => prods.find((p) => p.asin === s.asin)?.id)
+        .map((s) => findProd(s.asin, s.country)?.id)
         .filter((x): x is string => !!x)
     : [];
   if (isAmazon && topProductIds.length > 0) {
@@ -426,12 +431,13 @@ async function aggregateAmazonSalesAndBsr(
     }
 
     for (const sku of topSkus) {
-      const prod = prods.find((p) => p.asin === sku.asin);
+      const prod = findProd(sku.asin, sku.country);
       if (!prod) continue;
       const points = seriesByProduct.get(prod.id) ?? [];
       bsr_series.push({
         asin: sku.asin,
         name: sku.name,
+        country: sku.country,
         points,
       });
     }

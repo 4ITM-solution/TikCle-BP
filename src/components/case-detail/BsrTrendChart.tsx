@@ -34,23 +34,29 @@ export function BsrTrendChart({
   bsrSeries: BsrSeries[];
   inflections?: BsrInflection[];
 }) {
-  const [selectedAsin, setSelectedAsin] = useState<string>("all");
+  // 권역 case는 같은 ASIN이 SA/AE 두 시계열로 나옴. asin 단독으론 unique 안 됨.
+  // key = `${asin}@${country}`로 분리.
+  const keyOf = (s: BsrSeries) => `${s.asin}@${s.country ?? ""}`;
+  const labelOf = (s: BsrSeries) =>
+    s.country ? `${s.country} · ${s.asin}` : s.asin;
+
+  const [selectedKey, setSelectedKey] = useState<string>("all");
   const [selectedInflection, setSelectedInflection] =
     useState<BsrInflection | null>(null);
 
   // 드롭다운 선택에 따라 시계열 필터링 (단 색상 인덱스는 전체 기준 유지)
   const bsrSeries = useMemo(
     () =>
-      selectedAsin === "all"
+      selectedKey === "all"
         ? bsrSeriesAll
-        : bsrSeriesAll.filter((s) => s.asin === selectedAsin),
-    [bsrSeriesAll, selectedAsin],
+        : bsrSeriesAll.filter((s) => keyOf(s) === selectedKey),
+    [bsrSeriesAll, selectedKey],
   );
 
   // 색상 매핑은 전체 시계열 기준 (필터 후에도 SKU 색상 일관)
   const colorByAsinAll = useMemo(() => {
     const m = new Map<string, string>();
-    bsrSeriesAll.forEach((s, i) => m.set(s.asin, COLORS[i % COLORS.length]!));
+    bsrSeriesAll.forEach((s, i) => m.set(keyOf(s), COLORS[i % COLORS.length]!));
     return m;
   }, [bsrSeriesAll]);
 
@@ -141,9 +147,9 @@ export function BsrTrendChart({
               fontFamily: "var(--font-mono)",
             }}
           >
-            {selectedAsin === "all"
+            {selectedKey === "all"
               ? `매출 Top ${bsrSeriesAll.length} SKU`
-              : `${selectedAsin}만 표시`}
+              : `${selectedKey.replace("@", " · ")}만 표시`}
             {" · 일별 (낮을수록 좋음, log scale)"}
             {visibleInflections.length > 0 && (
               <>
@@ -169,9 +175,9 @@ export function BsrTrendChart({
             SKU
           </span>
           <select
-            value={selectedAsin}
+            value={selectedKey}
             onChange={(e) => {
-              setSelectedAsin(e.target.value);
+              setSelectedKey(e.target.value);
               setSelectedInflection(null);
             }}
             style={{
@@ -183,14 +189,14 @@ export function BsrTrendChart({
               background: "white",
               color: "var(--color-ink)",
               cursor: "pointer",
-              maxWidth: 320,
+              maxWidth: 360,
             }}
           >
             <option value="all">전체 ({bsrSeriesAll.length})</option>
             {bsrSeriesAll.map((s) => (
-              <option key={s.asin} value={s.asin}>
-                {s.asin} · {s.name.slice(0, 30)}
-                {s.name.length > 30 ? "…" : ""}
+              <option key={keyOf(s)} value={keyOf(s)}>
+                {labelOf(s)} · {s.name.slice(0, 28)}
+                {s.name.length > 28 ? "…" : ""}
                 {s.points.length < 2
                   ? ` (데이터 ${s.points.length}일)`
                   : ""}
@@ -250,14 +256,14 @@ export function BsrTrendChart({
           ))}
           {/* line series */}
           {bsrSeries.map((s) => {
-            const color = colorByAsinAll.get(s.asin) ?? COLORS[0]!;
+            const color = colorByAsinAll.get(keyOf(s)) ?? COLORS[0]!;
             // points < 2면 polyline 안 그려져서 단일 circle로 표시
             if (s.points.length < 2) {
               if (s.points.length === 0) return null;
               const p = s.points[0]!;
               return (
                 <circle
-                  key={s.asin}
+                  key={keyOf(s)}
                   cx={xOf(p.date)}
                   cy={yOf(p.bsr)}
                   r={4}
@@ -270,7 +276,7 @@ export function BsrTrendChart({
               .join(" ");
             return (
               <polyline
-                key={s.asin}
+                key={keyOf(s)}
                 points={pts}
                 fill="none"
                 stroke={color}
@@ -333,18 +339,18 @@ export function BsrTrendChart({
       >
         {bsrSeries.map((s) => (
           <span
-            key={s.asin}
+            key={keyOf(s)}
             style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
           >
             <span
               style={{
                 width: 12,
                 height: 2,
-                background: colorByAsinAll.get(s.asin) ?? COLORS[0],
+                background: colorByAsinAll.get(keyOf(s)) ?? COLORS[0],
               }}
             />
-            {s.asin} · {s.name.slice(0, 30)}
-            {s.name.length > 30 ? "…" : ""}
+            {labelOf(s)} · {s.name.slice(0, 28)}
+            {s.name.length > 28 ? "…" : ""}
           </span>
         ))}
         {visibleInflections.length > 0 && (

@@ -30,6 +30,7 @@ export type BsrSeriesPoint = {
 export type BsrSeries = {
   asin: string;
   name: string;
+  country: string | null; // 권역 case의 SA/AE 분리. 단일 case면 case.country.
   points: BsrSeriesPoint[];
 };
 
