@@ -32,6 +32,16 @@ export function parseAmazonSales(raw: string): {
     (e) => `[row ${e.row}] ${e.message}`,
   );
 
+  // Helium10 export 컬럼명이 marketplace/옵션에 따라 다름.
+  // 알려진 변형: "ASIN Sales / ASIN Revenue" (default), "Monthly Sales / Monthly Revenue" (일부 marketplace 또는 다른 export 모드).
+  // 새 변형 발견 시 여기 추가.
+  function pickFirst(r: Record<string, string>, keys: string[]): string | undefined {
+    for (const k of keys) {
+      if (r[k] !== undefined && r[k] !== "") return r[k];
+    }
+    return undefined;
+  }
+
   const rows: AmazonSalesRow[] = [];
   for (const r of parsed.data) {
     const asin = r.ASIN?.trim();
@@ -48,8 +58,8 @@ export function parseAmazonSales(raw: string): {
       price: toNum(r.Price),
       category: r.Category?.trim() || r.Subcategory?.trim() || null,
       bsr: toNum(r.BSR),
-      units_30d: toNum(r["ASIN Sales"]),
-      revenue_30d: toNum(r["ASIN Revenue"]),
+      units_30d: toNum(pickFirst(r, ["ASIN Sales", "Monthly Sales", "Sales (Last 30 Days)"])),
+      revenue_30d: toNum(pickFirst(r, ["ASIN Revenue", "Monthly Revenue", "Revenue (Last 30 Days)"])),
       raw: r,
     });
   }
