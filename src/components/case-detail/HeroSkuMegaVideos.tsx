@@ -35,20 +35,27 @@ export function HeroSkuMegaVideos({
   currency: string;
   exchangeRates: ExchangeRates;
 }) {
-  if (!phase2.sales_summary || phase2.sku_sales.length === 0) return null;
+  if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
+    return null;
+  }
   const top3 = phase2.sku_sales.slice(0, 3);
   const allDisplayed = phase4bSku?.displayed_videos ?? [];
 
   const sections = top3.map((sku) => {
-    const matched = allDisplayed
-      .filter(
-        (v) =>
-          v.views >= MEGA_VIEWS_THRESHOLD &&
-          v.confidence === "high" &&
-          v.matched_skus.includes(sku.asin),
-      )
-      .sort((a, b) => b.views - a.views)
-      .slice(0, MAX_VIDEOS_PER_SKU);
+    const skuAsin = sku.asin ?? "";
+    const matched = !skuAsin
+      ? []
+      : allDisplayed
+          .filter(
+            (v) =>
+              v &&
+              (v.views ?? 0) >= MEGA_VIEWS_THRESHOLD &&
+              v.confidence === "high" &&
+              Array.isArray(v.matched_skus) &&
+              v.matched_skus.includes(skuAsin),
+          )
+          .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+          .slice(0, MAX_VIDEOS_PER_SKU);
     return { sku, matched };
   });
 
