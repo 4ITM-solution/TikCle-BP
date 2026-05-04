@@ -9,9 +9,17 @@
  */
 export function sanitizeUtf16(s: string | null | undefined): string {
   if (!s) return "";
-  return s
+  // 1차: regex로 unpaired surrogate 제거
+  const stage1 = s
     .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
     .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+  // 2차: Buffer round-trip — regex로 잡히지 않은 invalid byte sequence를 U+FFFD로 정규화.
+  // Inngest cloud의 JCS canonicalize가 strict UTF-8을 요구해 1차만으로 부족했던 케이스 대응.
+  // emoji 같은 정상 surrogate pair는 valid 4-byte UTF-8이라 보존됨.
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(stage1, "utf8").toString("utf8");
+  }
+  return stage1;
 }
 
 /**
