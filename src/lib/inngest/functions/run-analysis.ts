@@ -38,6 +38,7 @@ import { runPhase4bClusters } from "@/lib/inngest/aggregators/phase4b-clusters";
 import { runPhase4bSku } from "@/lib/inngest/aggregators/phase4b-sku";
 import { runPhase5 } from "@/lib/inngest/aggregators/phase5-position";
 import { downloadAndStore } from "@/lib/storage/asset-downloader";
+import { sanitizeDeep } from "@/lib/anthropic/sanitize";
 import type {
   KeyStats,
   Phase2Stats,
@@ -947,7 +948,10 @@ export const runAnalysis = inngest.createFunction(
         without_lang: stats.total_without_language,
         skipped: stats.skipped_reason,
       });
-      return stats;
+      // Inngest step result는 cloud에 JSON serialize되어 저장됨. raw caption/USP 키워드
+      // 등에 surrogate pair 깨진 char가 섞이면 "JCS: Missing surrogate" 에러로 transport
+      // 실패. step return 직전 sanitize.
+      return sanitizeDeep(stats);
     });
 
     const phase5New =
