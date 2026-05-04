@@ -8,7 +8,6 @@ import {
 } from "@/lib/case-detail/exchange-rates";
 import {
   countryOption,
-  isRegionCode,
   regionOf,
   REGION_LABEL,
   type Region,
@@ -205,7 +204,6 @@ function CaseCard({
   const summary = phase2?.sales_summary ?? null;
   const cOpt = countryOption(row.country);
   const region = regionOf(row.country);
-  const isRegion = isRegionCode(row.country);
   const tier = tierLabel(row.revenue_tier);
 
   // 권역 case면 currency=USD (자식 row는 SAR/AED 등). 단일은 그 country의 currency.
@@ -266,21 +264,6 @@ function CaseCard({
             {cOpt.flag} {cOpt.label}
           </span>
         )}
-        {isRegion && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "2px 8px",
-              borderRadius: 9,
-              background: "var(--color-info-soft)",
-              color: "var(--color-info)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            Hybrid
-          </span>
-        )}
         {tier && (
           <span
             style={{
@@ -296,7 +279,7 @@ function CaseCard({
             {tier}
           </span>
         )}
-        {region && !isRegion && (
+        {region && cOpt && !cOpt.label.includes("통합") && (
           <span
             style={{
               fontSize: 9,
