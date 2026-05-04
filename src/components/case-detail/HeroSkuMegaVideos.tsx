@@ -270,9 +270,6 @@ function VideoCard({ v }: { v: DisplayedVideoEntry }) {
               objectFit: "cover",
               display: "block",
             }}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
           />
         ) : null}
         <span
