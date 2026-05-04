@@ -39,71 +39,69 @@ export function SectionTOC({
   if (items.length === 0) return null;
 
   return (
-    <aside style={{ width: "100%" }}>
+    <aside
+      style={{
+        position: "sticky",
+        top: 16,
+        alignSelf: "start",
+        width: "100%",
+        fontSize: 11,
+        fontFamily: "var(--font-mono)",
+        padding: "12px 0",
+        borderLeft: "1px solid var(--color-g100)",
+        paddingLeft: 14,
+      }}
+    >
       <div
         style={{
-          position: "sticky",
-          top: 16,
-          fontSize: 11,
-          fontFamily: "var(--font-mono)",
-          padding: "12px 0",
-          borderLeft: "1px solid var(--color-g100)",
-          paddingLeft: 14,
-          maxHeight: "calc(100vh - 80px)",
-          overflowY: "auto",
+          fontSize: 10,
+          fontWeight: 700,
+          color: "var(--color-g400)",
+          textTransform: "uppercase",
+          letterSpacing: ".06em",
+          marginBottom: 10,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--color-g400)",
-            textTransform: "uppercase",
-            letterSpacing: ".06em",
-            marginBottom: 10,
-          }}
-        >
-          섹션 이동
-        </div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {items.map((it) => {
-            const isActive = active === it.id;
-            return (
-              <a
-                key={it.id}
-                href={`#${it.id}`}
+        섹션 이동
+      </div>
+      <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map((it) => {
+          const isActive = active === it.id;
+          return (
+            <a
+              key={it.id}
+              href={`#${it.id}`}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 8,
+                padding: "5px 8px",
+                borderRadius: 4,
+                background: isActive ? "var(--color-g50)" : "transparent",
+                color: isActive
+                  ? "var(--color-ink)"
+                  : "var(--color-g500)",
+                fontWeight: isActive ? 700 : 500,
+                textDecoration: "none",
+                transition: "background 80ms",
+              }}
+            >
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: 8,
-                  padding: "5px 8px",
-                  borderRadius: 4,
-                  background: isActive ? "var(--color-g50)" : "transparent",
+                  width: 12,
                   color: isActive
-                    ? "var(--color-ink)"
-                    : "var(--color-g500)",
-                  fontWeight: isActive ? 700 : 500,
-                  textDecoration: "none",
-                  transition: "background 80ms",
+                    ? "var(--color-accent)"
+                    : "var(--color-g400)",
+                  fontWeight: 700,
                 }}
               >
-                <span
-                  style={{
-                    width: 12,
-                    color: isActive
-                      ? "var(--color-accent)"
-                      : "var(--color-g400)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {it.letter}
-                </span>
-                {it.label}
-              </a>
-            );
-          })}
-        </nav>
-      </div>
+                {it.letter}
+              </span>
+              {it.label}
+            </a>
+          );
+        })}
+      </nav>
     </aside>
   );
 }
