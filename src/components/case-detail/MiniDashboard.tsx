@@ -1720,7 +1720,7 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
             fontFamily: "var(--font-mono)",
           }}
         >
-          전체 {total.toLocaleString()}명 · 20+ 작성자 펼치기 (뷰 Top 영상)
+          전체 {total.toLocaleString()}명 · Class A(50+) / B(30-49) / C(10-29) — 카드 펼치면 뷰 Top 3 영상
         </div>
       </div>
 
@@ -1810,7 +1810,7 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
               marginBottom: 10,
             }}
           >
-            20+ 영상 반복 작성자 ({stats.top_creators.length}명)
+            10+ 영상 반복 작성자 · Class A/B/C ({stats.top_creators.length}명)
           </div>
           <TopCreatorsList creators={stats.top_creators} />
         </div>

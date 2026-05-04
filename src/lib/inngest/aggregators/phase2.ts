@@ -234,8 +234,8 @@ function aggregateCreators(contents: ContentRow[]): {
       top_videos: top3,
     };
 
-    if (items.length >= 20) {
-      // 반복 작성자
+    if (items.length >= 10) {
+      // 반복 작성자 (Class A: 50+, B: 30-49, C: 10-29)
       topCreators.push(agg);
     } else if (maxViews >= OUTLIER_VIEWS_THRESHOLD) {
       // 단일 viral outlier (적은 영상 수인데 mega views)

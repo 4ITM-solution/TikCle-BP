@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import type { TopCreator, TopCreatorVideo } from "@/lib/inngest/types";
+import {
+  classifyCreator,
+  CLASS_COLOR,
+  CLASS_LABEL,
+} from "@/lib/case-detail/creator-class";
 
 function formatFans(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -21,7 +26,7 @@ function extractTikTokVideoId(url: string): string | null {
 
 export function TopCreatorsList({
   creators,
-  emptyMessage = "20개 이상 작성자 없음",
+  emptyMessage = "10개 이상 영상 작성자 없음",
 }: {
   creators: TopCreator[];
   emptyMessage?: string;
@@ -101,10 +106,35 @@ export function TopCreatorsList({
                 </div>
               </div>
               <span
-                className="font-mono"
-                style={{ fontSize: 11, fontWeight: 700 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
               >
-                {c.video_count} 영상
+                {(() => {
+                  const cls = classifyCreator(c.video_count);
+                  if (!cls) return null;
+                  const color = CLASS_COLOR[cls];
+                  return (
+                    <span
+                      title={CLASS_LABEL[cls]}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "2px 6px",
+                        borderRadius: 9,
+                        background: color.bg,
+                        color: color.fg,
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
+                      {cls}
+                    </span>
+                  );
+                })()}
+                <span
+                  className="font-mono"
+                  style={{ fontSize: 11, fontWeight: 700 }}
+                >
+                  {c.video_count} 영상
+                </span>
               </span>
               <span
                 style={{
