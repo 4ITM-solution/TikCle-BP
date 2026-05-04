@@ -2,41 +2,49 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback } from "react";
+import {
+  COUNTRY_OPTIONS,
+  isRegionCode,
+} from "@/lib/case-detail/countries";
+import { REVENUE_TIERS } from "@/lib/case-detail/revenue-tiers";
 
-type FilterOption = { value: string; label: string; count: number };
+// 케이스 생성 form (src/app/cases/new/page.tsx)과 동일 구조
+const COUNTRY_GROUPS: { label: string | null; codes: string[] }[] = [
+  { label: null, codes: ["US", "KR", "JP", "EU", "BR"] },
+  { label: "권역 통합 case (Hybrid)", codes: ["MENA", "LATAM_ES"] },
+  { label: "동남아 SEA (국가별)", codes: ["SG", "TH", "MY", "ID", "PH", "VN"] },
+  { label: "MENA 안 단일 분석", codes: ["SA", "AE"] },
+  {
+    label: "LATAM_ES 안 단일 분석",
+    codes: ["MX", "AR", "CO", "CL", "PE"],
+  },
+];
+
+const CHANNEL_OPTIONS: { value: string; label: string }[] = [
+  { value: "amazon", label: "Amazon" },
+  { value: "tiktok_shop", label: "TikTok Shop" },
+];
 
 export function BrowseFilters({
-  regions,
-  channels,
-  tiers,
-  selectedRegions,
-  selectedChannels,
-  selectedTiers,
+  selectedRegion,
+  selectedChannel,
+  selectedTier,
 }: {
-  regions: FilterOption[];
-  channels: FilterOption[];
-  tiers: FilterOption[];
-  selectedRegions: string[];
-  selectedChannels: string[];
-  selectedTiers: string[];
+  selectedRegion: string;
+  selectedChannel: string;
+  selectedTier: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const toggle = useCallback(
+  const setParam = useCallback(
     (key: "region" | "channel" | "tier", value: string) => {
       const sp = new URLSearchParams(searchParams.toString());
-      const current = (sp.get(key) ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const next = current.includes(value)
-        ? current.filter((v) => v !== value)
-        : [...current, value];
-      if (next.length > 0) sp.set(key, next.join(","));
+      if (value) sp.set(key, value);
       else sp.delete(key);
-      router.replace(`${pathname}?${sp.toString()}`);
+      const qs = sp.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
     },
     [router, pathname, searchParams],
   );
@@ -50,156 +58,144 @@ export function BrowseFilters({
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [router, pathname, searchParams]);
 
-  const hasAny =
-    selectedRegions.length > 0 ||
-    selectedChannels.length > 0 ||
-    selectedTiers.length > 0;
+  const hasAny = !!(selectedRegion || selectedChannel || selectedTier);
 
   return (
     <div
       style={{
+        display: "flex",
+        gap: 10,
+        flexWrap: "wrap",
+        alignItems: "center",
+        padding: "12px 14px",
         background: "white",
         border: "1px solid var(--color-g100)",
         borderRadius: 8,
-        padding: "14px 16px",
       }}
     >
-      <FilterRow
-        label="권역"
-        options={regions}
-        selected={selectedRegions}
-        onToggle={(v) => toggle("region", v)}
-      />
-      <FilterRow
-        label="판매 플랫폼"
-        options={channels}
-        selected={selectedChannels}
-        onToggle={(v) => toggle("channel", v)}
-      />
-      <FilterRow
-        label="매출 티어"
-        options={tiers}
-        selected={selectedTiers}
-        onToggle={(v) => toggle("tier", v)}
-        emptyHint="아직 태그 단 케이스 없음 — case detail에서 박을 수 있어요"
-      />
+      <FilterSelect
+        label="국가"
+        value={selectedRegion}
+        onChange={(v) => setParam("region", v)}
+      >
+        <option value="">전체</option>
+        {COUNTRY_GROUPS.map((g, gi) =>
+          g.label === null ? (
+            g.codes.map((code) => {
+              const o = COUNTRY_OPTIONS.find((c) => c.code === code);
+              if (!o) return null;
+              return (
+                <option key={code} value={code}>
+                  {o.flag} {o.code} ({o.label})
+                </option>
+              );
+            })
+          ) : (
+            <optgroup key={gi} label={g.label}>
+              {g.codes.map((code) => {
+                const o = COUNTRY_OPTIONS.find((c) => c.code === code);
+                if (!o) return null;
+                return (
+                  <option key={code} value={code}>
+                    {o.flag} {o.code} ({o.label})
+                  </option>
+                );
+              })}
+            </optgroup>
+          ),
+        )}
+      </FilterSelect>
+
+      <FilterSelect
+        label="플랫폼"
+        value={selectedChannel}
+        onChange={(v) => setParam("channel", v)}
+      >
+        <option value="">전체</option>
+        {CHANNEL_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </FilterSelect>
+
+      <FilterSelect
+        label="티어"
+        value={selectedTier}
+        onChange={(v) => setParam("tier", v)}
+      >
+        <option value="">전체</option>
+        {REVENUE_TIERS.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </FilterSelect>
+
       {hasAny && (
-        <div
+        <button
+          type="button"
+          onClick={clearAll}
           style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginTop: 6,
+            marginLeft: "auto",
+            fontSize: 11,
+            color: "var(--color-info)",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: 600,
           }}
         >
-          <button
-            type="button"
-            onClick={clearAll}
-            style={{
-              fontSize: 11,
-              color: "var(--color-info)",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 600,
-              padding: "4px 8px",
-            }}
-          >
-            모든 필터 해제
-          </button>
-        </div>
+          모든 필터 해제
+        </button>
       )}
     </div>
   );
 }
 
-function FilterRow({
+function FilterSelect({
   label,
-  options,
-  selected,
-  onToggle,
-  emptyHint,
+  value,
+  onChange,
+  children,
 }: {
   label: string;
-  options: FilterOption[];
-  selected: string[];
-  onToggle: (v: string) => void;
-  emptyHint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
 }) {
   return (
-    <div
+    <label
       style={{
-        display: "grid",
-        gridTemplateColumns: "100px 1fr",
-        gap: 12,
+        display: "inline-flex",
         alignItems: "center",
-        padding: "8px 0",
-        borderBottom: "1px solid var(--color-g50)",
+        gap: 6,
+        fontSize: 11,
+        color: "var(--color-g500)",
+        fontFamily: "var(--font-mono)",
       }}
     >
-      <span
+      <span>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: "var(--color-g500)",
-          textTransform: "uppercase",
-          letterSpacing: ".05em",
+          fontSize: 12,
+          fontFamily: "inherit",
+          padding: "5px 10px",
+          border: "1px solid var(--color-g200)",
+          borderRadius: 4,
+          background: "white",
+          color: "var(--color-ink)",
+          cursor: "pointer",
+          minWidth: 140,
         }}
       >
-        {label}
-      </span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.length === 0 ? (
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--color-g400)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {emptyHint ?? "(없음)"}
-          </span>
-        ) : (
-          options.map((o) => {
-            const isOn = selected.includes(o.value);
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => onToggle(o.value)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 10px",
-                  borderRadius: 14,
-                  border: isOn
-                    ? "1px solid var(--color-ink)"
-                    : "1px solid var(--color-g200)",
-                  background: isOn ? "var(--color-ink)" : "white",
-                  color: isOn ? "white" : "var(--color-g600)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "background 80ms",
-                }}
-              >
-                {o.label}
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: isOn
-                      ? "rgba(255,255,255,.7)"
-                      : "var(--color-g400)",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {o.count}
-                </span>
-              </button>
-            );
-          })
-        )}
-      </div>
-    </div>
+        {children}
+      </select>
+    </label>
   );
 }
+
+// 사용 안 하지만 import 유지 — UI 라벨 추가 시 재사용 여지
+void isRegionCode;

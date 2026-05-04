@@ -5,16 +5,6 @@ import {
   type CaseListItem,
 } from "@/components/case-detail/CasesListWithCompare";
 import { BrowseFilters } from "@/components/case-detail/BrowseFilters";
-import {
-  REGION_LABEL,
-  countryOption,
-  regionOf,
-  type Region,
-} from "@/lib/case-detail/countries";
-import {
-  REVENUE_TIERS,
-  type RevenueTier,
-} from "@/lib/case-detail/revenue-tiers";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +12,6 @@ type Search = Promise<{
   region?: string;
   channel?: string;
   tier?: string;
-  q?: string;
 }>;
 
 export default async function CasesPage({
@@ -31,18 +20,9 @@ export default async function CasesPage({
   searchParams: Search;
 }) {
   const sp = await searchParams;
-  const selectedRegions = (sp.region ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const selectedChannels = (sp.channel ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const selectedTiers = (sp.tier ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const selectedRegion = (sp.region ?? "").trim();
+  const selectedChannel = (sp.channel ?? "").trim();
+  const selectedTier = (sp.tier ?? "").trim();
 
   const supabase = await createServer();
 
@@ -66,38 +46,11 @@ export default async function CasesPage({
 
   const allCases = cases ?? [];
 
-  // 권역 / 채널 / 티어별 count (chip에 숫자 표시용)
-  const regionCounts = new Map<string, number>();
-  const channelCounts = new Map<string, number>();
-  const tierCounts = new Map<string, number>();
-  for (const c of allCases) {
-    const region = regionOf(c.country) ?? null;
-    if (region) {
-      regionCounts.set(region, (regionCounts.get(region) ?? 0) + 1);
-    }
-    channelCounts.set(c.channel, (channelCounts.get(c.channel) ?? 0) + 1);
-    if (c.revenue_tier) {
-      tierCounts.set(c.revenue_tier, (tierCounts.get(c.revenue_tier) ?? 0) + 1);
-    }
-  }
-
-  // 필터링
+  // 필터 — country/channel/tier 정확 매칭 (case.country와 selected 값 직접 비교)
   const filtered = allCases.filter((c) => {
-    if (selectedRegions.length > 0) {
-      const region = regionOf(c.country);
-      if (!region || !selectedRegions.includes(region)) return false;
-    }
-    if (
-      selectedChannels.length > 0 &&
-      !selectedChannels.includes(c.channel)
-    ) {
-      return false;
-    }
-    if (selectedTiers.length > 0) {
-      if (!c.revenue_tier || !selectedTiers.includes(c.revenue_tier)) {
-        return false;
-      }
-    }
+    if (selectedRegion && c.country !== selectedRegion) return false;
+    if (selectedChannel && c.channel !== selectedChannel) return false;
+    if (selectedTier && c.revenue_tier !== selectedTier) return false;
     return true;
   });
 
@@ -112,35 +65,7 @@ export default async function CasesPage({
     updated_at: c.updated_at,
   }));
 
-  const allRegions = Array.from(regionCounts.entries())
-    .filter(([r]) => r !== "AMERICAS" && r !== "APAC_KR" && r !== "APAC_JP" && r !== "EU"
-      ? true
-      : true) // 모든 region 노출
-    .sort((a, b) => b[1] - a[1])
-    .map(([r, count]) => ({
-      value: r,
-      label: REGION_LABEL[r as Region] ?? r,
-      count,
-    }));
-
-  const allChannels = Array.from(channelCounts.entries()).map(
-    ([ch, count]) => ({
-      value: ch,
-      label: ch === "amazon" ? "Amazon" : ch === "tiktok_shop" ? "TikTok Shop" : ch,
-      count,
-    }),
-  );
-
-  const allTiers = REVENUE_TIERS.map((t) => ({
-    value: t.value,
-    label: t.label,
-    count: tierCounts.get(t.value) ?? 0,
-  }));
-
-  const hasAnyFilter =
-    selectedRegions.length > 0 ||
-    selectedChannels.length > 0 ||
-    selectedTiers.length > 0;
+  const hasAnyFilter = !!(selectedRegion || selectedChannel || selectedTier);
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
@@ -152,14 +77,14 @@ export default async function CasesPage({
         }}
       >
         <div>
-          <h1 className="page-title">Browse · BP 레퍼런스 케이스</h1>
+          <h1 className="page-title">Browse</h1>
           <p
             style={{
               fontSize: 13,
               color: "var(--color-g500)",
             }}
           >
-            권역 · 판매 플랫폼 · 매출 티어로 필터링. 체크박스로 최대 4개까지 비교 가능.
+            국가 · 플랫폼 · 티어로 필터링. 체크박스로 최대 4개까지 비교 가능.
           </p>
         </div>
         <Link
@@ -172,12 +97,9 @@ export default async function CasesPage({
       </div>
 
       <BrowseFilters
-        regions={allRegions}
-        channels={allChannels}
-        tiers={allTiers}
-        selectedRegions={selectedRegions}
-        selectedChannels={selectedChannels}
-        selectedTiers={selectedTiers}
+        selectedRegion={selectedRegion}
+        selectedChannel={selectedChannel}
+        selectedTier={selectedTier}
       />
 
       <div
@@ -242,6 +164,3 @@ export default async function CasesPage({
     </div>
   );
 }
-
-// 사용 안 하지만 import 유지 — 향후 country별 표시 helper에서 활용 여지
-void countryOption;
