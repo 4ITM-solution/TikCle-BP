@@ -3,13 +3,6 @@ import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart } from "./BsrTrendChart";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
-import {
-  summarizeSectionA,
-  summarizeSectionB,
-  summarizeSectionC,
-  summarizeSectionD,
-  summarizeSectionE,
-} from "@/lib/case-detail/section-summaries";
 import type {
   DisplayedVideoEntry,
   HeatmapRow,
@@ -65,19 +58,11 @@ export function MiniDashboard({
       <KpiStrip stats={phase2} />
 
       {/* Section A: 콘텐츠 활동 */}
-      <SectionHeader
-        letter="A"
-        title="콘텐츠 활동"
-        summary={summarizeSectionA(phase2)}
-      />
+      <SectionHeader letter="A" title="콘텐츠 활동" />
       <MonthlyVideosModule stats={phase2} />
 
       {/* Section B: 인플루언서 활동 */}
-      <SectionHeader
-        letter="B"
-        title="인플루언서 활동"
-        summary={summarizeSectionB(phase2, phase3, phase37)}
-      />
+      <SectionHeader letter="B" title="인플루언서 활동" />
       {phase3 && (
         <TierDistributionModule
           phase3={phase3}
@@ -90,17 +75,7 @@ export function MiniDashboard({
       {/* Section C: 콘텐츠 포맷 분석 (Phase 4b) */}
       {phase4bSample && (
         <>
-          <SectionHeader
-            letter="C"
-            title="콘텐츠 포맷 분석"
-            summary={summarizeSectionC(
-              phase4bSample,
-              phase4bVision,
-              phase4bClusters,
-              phase5,
-              phase4bSku,
-            )}
-          />
+          <SectionHeader letter="C" title="콘텐츠 포맷 분석" />
           {phase4bClusters && phase4bClusters.meta_clusters.length > 0 ? (
             <MetaClustersModule
               clusters={phase4bClusters}
@@ -130,7 +105,6 @@ export function MiniDashboard({
                 ? `${phase2.sales_summary.period_start} ~ ${phase2.sales_summary.period_end}`
                 : ""
             }
-            summary={summarizeSectionD(phase2)}
           />
           <SkuSalesModule stats={phase2} />
           {phase2.bsr_series.length > 0 && (
@@ -145,11 +119,7 @@ export function MiniDashboard({
       {/* Section E: Meta 광고 */}
       {phase4a && (
         <>
-          <SectionHeader
-            letter="E"
-            title="Meta 광고"
-            summary={summarizeSectionE(phase4a)}
-          />
+          <SectionHeader letter="E" title="Meta 광고" />
           <MetaAdsModule phase4a={phase4a} />
           {metaAdsList && metaAdsList.length > 0 && (
             <MetaAdsBrowser ads={metaAdsList} phase4a={phase4a} />
@@ -1460,31 +1430,43 @@ function SectionHeader({
   letter,
   title,
   subtitle,
-  summary,
 }: {
   letter: string;
   title: string;
   subtitle?: string;
-  summary?: string | null;
 }) {
   return (
     <div
       id={`section-${letter.toLowerCase()}`}
       style={{
         display: "flex",
-        flexDirection: "column",
-        gap: 6,
+        alignItems: "baseline",
+        gap: 12,
         marginTop: 14,
         scrollMarginTop: 80,
       }}
     >
-      <div
+      <span
         style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 12,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--color-g400)",
         }}
       >
+        {letter}
+      </span>
+      <h2
+        style={{
+          fontSize: 13,
+          fontWeight: 800,
+          letterSpacing: ".05em",
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </h2>
+      <div style={{ flex: 1, height: 1, background: "var(--color-g100)" }} />
+      {subtitle && (
         <span
           style={{
             fontFamily: "var(--font-mono)",
@@ -1492,46 +1474,8 @@ function SectionHeader({
             color: "var(--color-g400)",
           }}
         >
-          {letter}
+          {subtitle}
         </span>
-        <h2
-          style={{
-            fontSize: 13,
-            fontWeight: 800,
-            letterSpacing: ".05em",
-            textTransform: "uppercase",
-          }}
-        >
-          {title}
-        </h2>
-        <div style={{ flex: 1, height: 1, background: "var(--color-g100)" }} />
-        {subtitle && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--color-g400)",
-            }}
-          >
-            {subtitle}
-          </span>
-        )}
-      </div>
-      {summary && (
-        <div
-          style={{
-            fontSize: 12,
-            lineHeight: 1.55,
-            color: "var(--color-g600)",
-            background: "var(--color-g25)",
-            border: "1px solid var(--color-g100)",
-            borderLeft: "3px solid var(--color-info)",
-            borderRadius: 4,
-            padding: "8px 12px",
-          }}
-        >
-          {summary}
-        </div>
       )}
     </div>
   );
