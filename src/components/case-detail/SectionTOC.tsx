@@ -41,68 +41,75 @@ export function SectionTOC({
   return (
     <aside
       style={{
-        position: "sticky",
-        top: 80,
-        alignSelf: "flex-start",
         width: 160,
         flexShrink: 0,
-        fontSize: 11,
-        fontFamily: "var(--font-mono)",
-        padding: "12px 0",
-        borderLeft: "1px solid var(--color-g100)",
-        paddingLeft: 14,
+        alignSelf: "stretch",
       }}
     >
       <div
         style={{
-          fontSize: 10,
-          fontWeight: 700,
-          color: "var(--color-g400)",
-          textTransform: "uppercase",
-          letterSpacing: ".06em",
-          marginBottom: 10,
+          position: "sticky",
+          top: 16,
+          fontSize: 11,
+          fontFamily: "var(--font-mono)",
+          padding: "12px 0",
+          borderLeft: "1px solid var(--color-g100)",
+          paddingLeft: 14,
+          maxHeight: "calc(100vh - 80px)",
+          overflowY: "auto",
         }}
       >
-        섹션 이동
-      </div>
-      <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {items.map((it) => {
-          const isActive = active === it.id;
-          return (
-            <a
-              key={it.id}
-              href={`#${it.id}`}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 8,
-                padding: "5px 8px",
-                borderRadius: 4,
-                background: isActive ? "var(--color-g50)" : "transparent",
-                color: isActive
-                  ? "var(--color-ink)"
-                  : "var(--color-g500)",
-                fontWeight: isActive ? 700 : 500,
-                textDecoration: "none",
-                transition: "background 80ms",
-              }}
-            >
-              <span
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--color-g400)",
+            textTransform: "uppercase",
+            letterSpacing: ".06em",
+            marginBottom: 10,
+          }}
+        >
+          섹션 이동
+        </div>
+        <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {items.map((it) => {
+            const isActive = active === it.id;
+            return (
+              <a
+                key={it.id}
+                href={`#${it.id}`}
                 style={{
-                  width: 12,
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 8,
+                  padding: "5px 8px",
+                  borderRadius: 4,
+                  background: isActive ? "var(--color-g50)" : "transparent",
                   color: isActive
-                    ? "var(--color-accent)"
-                    : "var(--color-g400)",
-                  fontWeight: 700,
+                    ? "var(--color-ink)"
+                    : "var(--color-g500)",
+                  fontWeight: isActive ? 700 : 500,
+                  textDecoration: "none",
+                  transition: "background 80ms",
                 }}
               >
-                {it.letter}
-              </span>
-              {it.label}
-            </a>
-          );
-        })}
-      </nav>
+                <span
+                  style={{
+                    width: 12,
+                    color: isActive
+                      ? "var(--color-accent)"
+                      : "var(--color-g400)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {it.letter}
+                </span>
+                {it.label}
+              </a>
+            );
+          })}
+        </nav>
+      </div>
     </aside>
   );
 }

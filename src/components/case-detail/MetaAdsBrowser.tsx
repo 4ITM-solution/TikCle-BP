@@ -336,7 +336,22 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
           justifyContent: "center",
         }}
       >
-        {ad.thumbnail_url ? (
+        {ad.video_url ? (
+          <video
+            src={ad.video_url}
+            poster={ad.thumbnail_url ?? undefined}
+            controls
+            playsInline
+            preload="metadata"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              display: "block",
+              background: "black",
+            }}
+          />
+        ) : ad.thumbnail_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={ad.thumbnail_url}

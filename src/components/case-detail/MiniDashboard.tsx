@@ -1653,137 +1653,136 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
         </div>
       </div>
 
+      {/* 상단: 분포 막대 (전체 너비) */}
+      <div style={{ marginBottom: 18 }}>
+        {buckets.map((b) => {
+          const v = Number(dist[b.key]) || 0;
+          const pct = total > 0 ? (v / total) * 100 : 0;
+          const w = (v / max) * 100;
+          return (
+            <div
+              key={b.key}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "70px 1fr 80px",
+                gap: 10,
+                padding: "4px 0",
+                alignItems: "center",
+                fontSize: 11,
+              }}
+            >
+              <span
+                className="font-mono"
+                style={{ color: "var(--color-g500)" }}
+              >
+                {b.label}
+              </span>
+              <div
+                style={{
+                  height: 18,
+                  background: "var(--color-g50)",
+                  borderRadius: 3,
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${w}%`,
+                    borderRadius: 3,
+                    background: b.warn
+                      ? "var(--color-accent)"
+                      : "var(--color-ink)",
+                    display: "flex",
+                    alignItems: "center",
+                    paddingLeft: 8,
+                    color: "white",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {v > 0 && w > 8 ? `${v.toLocaleString()}명` : ""}
+                </div>
+              </div>
+              <span
+                className="font-mono"
+                style={{
+                  textAlign: "right",
+                  color: "var(--color-g400)",
+                }}
+              >
+                {pct.toFixed(1)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 하단: Top 반복 작성자 (좌) | 단일 viral outlier (우) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns:
+            (stats.outlier_creators?.length ?? 0) > 0 ? "1fr 1fr" : "1fr",
           gap: 24,
           alignItems: "start",
         }}
       >
-        {/* 좌: 분포 */}
         <div>
-          {buckets.map((b) => {
-            const v = Number(dist[b.key]) || 0;
-            const pct = total > 0 ? (v / total) * 100 : 0;
-            const w = (v / max) * 100;
-            return (
-              <div
-                key={b.key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "70px 1fr 80px",
-                  gap: 10,
-                  padding: "4px 0",
-                  alignItems: "center",
-                  fontSize: 11,
-                }}
-              >
-                <span
-                  className="font-mono"
-                  style={{ color: "var(--color-g500)" }}
-                >
-                  {b.label}
-                </span>
-                <div
-                  style={{
-                    height: 18,
-                    background: "var(--color-g50)",
-                    borderRadius: 3,
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${w}%`,
-                      borderRadius: 3,
-                      background: b.warn
-                        ? "var(--color-accent)"
-                        : "var(--color-ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      paddingLeft: 8,
-                      color: "white",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      fontFamily: "var(--font-mono)",
-                    }}
-                  >
-                    {v > 0 && w > 8 ? `${v.toLocaleString()}명` : ""}
-                  </div>
-                </div>
-                <span
-                  className="font-mono"
-                  style={{
-                    textAlign: "right",
-                    color: "var(--color-g400)",
-                  }}
-                >
-                  {pct.toFixed(1)}%
-                </span>
-              </div>
-            );
-          })}
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--color-g500)",
+              textTransform: "uppercase",
+              letterSpacing: ".05em",
+              marginBottom: 10,
+            }}
+          >
+            20+ 영상 반복 작성자 ({stats.top_creators.length}명)
+          </div>
+          <TopCreatorsList creators={stats.top_creators} />
         </div>
 
-        {/* 우: Top 작성자 + 단일 viral outlier */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {(stats.outlier_creators?.length ?? 0) > 0 && (
           <div>
             <div
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "var(--color-g500)",
+                color: "var(--color-accent)",
                 textTransform: "uppercase",
                 letterSpacing: ".05em",
-                marginBottom: 10,
+                marginBottom: 4,
               }}
             >
-              20+ 영상 반복 작성자 ({stats.top_creators.length}명)
+              단일 Viral Outlier · 1M+ Views
+              <span
+                style={{
+                  color: "var(--color-g400)",
+                  fontWeight: 500,
+                }}
+              >
+                {" "}
+                ({stats.outlier_creators!.length}명)
+              </span>
             </div>
-            <TopCreatorsList creators={stats.top_creators} />
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--color-g500)",
+                marginBottom: 10,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              반복 협업 X · 단일 viral 영상으로 1M+ 도달한 인플
+            </div>
+            <TopCreatorsList
+              creators={stats.outlier_creators!}
+              emptyMessage="1M+ 단일 viral 인플 없음"
+            />
           </div>
-
-          {(stats.outlier_creators?.length ?? 0) > 0 && (
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "var(--color-accent)",
-                  textTransform: "uppercase",
-                  letterSpacing: ".05em",
-                  marginBottom: 4,
-                }}
-              >
-                단일 Viral Outlier · 1M+ Views
-                <span
-                  style={{
-                    color: "var(--color-g400)",
-                    fontWeight: 500,
-                  }}
-                >
-                  {" "}
-                  ({stats.outlier_creators!.length}명)
-                </span>
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--color-g500)",
-                  marginBottom: 10,
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
-                반복 협업 X · 단일 viral 영상으로 1M+ 도달한 인플
-              </div>
-              <TopCreatorsList
-                creators={stats.outlier_creators!}
-                emptyMessage="1M+ 단일 viral 인플 없음"
-              />
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
