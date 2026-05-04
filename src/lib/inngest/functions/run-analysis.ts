@@ -531,7 +531,7 @@ export const runAnalysis = inngest.createFunction(
         cost: stats.cost_actual_usd,
         skipped: stats.skipped_reason,
       });
-      return stats;
+      return sanitizeDeep(stats);
     });
 
     const phase4aNew = !existing.phase4a || force("phase4a");
@@ -605,7 +605,7 @@ export const runAnalysis = inngest.createFunction(
         stored_thumbs: stored_thumb_count,
         total: updated.length,
       });
-      return result;
+      return sanitizeDeep(result);
     });
 
     if (phase4aNew || force("phase4a_assets")) {
@@ -647,7 +647,7 @@ export const runAnalysis = inngest.createFunction(
         total: stats.total_picked,
         cutoff: stats.cutoff_date,
       });
-      return stats;
+      return sanitizeDeep(stats);
     });
 
     const phase4bSampleNew =
@@ -693,7 +693,7 @@ export const runAnalysis = inngest.createFunction(
       );
       if (setup.skipped_reason) {
         phase4bAsr = await step.run("phase-4b-asr-finalize", async () =>
-          finalizePhase4bAsr([], setup.skipped_reason),
+          sanitizeDeep(finalizePhase4bAsr([], setup.skipped_reason)),
         );
       } else {
         const total = setup.contents.length;
@@ -705,12 +705,12 @@ export const runAnalysis = inngest.createFunction(
             (i + 1) * PHASE4B_ASR_BATCH_SIZE,
           );
           const r = await step.run(`phase-4b-asr-batch-${i}`, async () =>
-            processPhase4bAsrBatch(supabase, case_id, slice),
+            sanitizeDeep(await processPhase4bAsrBatch(supabase, case_id, slice)),
           );
           batchResults.push(r);
         }
         phase4bAsr = await step.run("phase-4b-asr-finalize", async () =>
-          finalizePhase4bAsr(batchResults),
+          sanitizeDeep(finalizePhase4bAsr(batchResults)),
         );
       }
       logger.info("[Phase 4b.2] done", {
@@ -775,7 +775,7 @@ export const runAnalysis = inngest.createFunction(
         cache_hits: stats.tokens_cache_read,
         skipped: stats.skipped_reason,
       });
-      return stats;
+      return sanitizeDeep(stats);
     });
 
     const phase4bVisionNew =
@@ -830,7 +830,7 @@ export const runAnalysis = inngest.createFunction(
         cost: stats.cost_actual_usd,
         skipped: stats.skipped_reason,
       });
-      return stats;
+      return sanitizeDeep(stats);
     });
 
     const phase4bClustersNew =
@@ -888,7 +888,7 @@ export const runAnalysis = inngest.createFunction(
         cost: stats.cost_actual_usd,
         skipped: stats.skipped_reason,
       });
-      return stats;
+      return sanitizeDeep(stats);
     });
 
     const phase4bSkuNew =
