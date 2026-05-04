@@ -66,6 +66,7 @@ export type Database = {
           country: string;
           channel: string;
           status: CaseStatus;
+          revenue_tier: string | null;
           brand_keyword: string | null;
           brand_meta_pages: string[] | null;
           tiktok_shop_store_url: string | null;
@@ -81,6 +82,7 @@ export type Database = {
           country: string;
           channel: string;
           status?: CaseStatus;
+          revenue_tier?: string | null;
           brand_keyword?: string | null;
           brand_meta_pages?: string[] | null;
           tiktok_shop_store_url?: string | null;
@@ -96,6 +98,7 @@ export type Database = {
           country?: string;
           channel?: string;
           status?: CaseStatus;
+          revenue_tier?: string | null;
           brand_keyword?: string | null;
           brand_meta_pages?: string[] | null;
           tiktok_shop_store_url?: string | null;

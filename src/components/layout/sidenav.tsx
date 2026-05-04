@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/cases", label: "My Cases", icon: "★" },
+  { href: "/cases", label: "Browse", icon: "🏠" },
   { href: "/settings/exchange-rates", label: "환율 설정", icon: "$" },
 ];
 

@@ -14,6 +14,7 @@ import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
+import { RevenueTierPicker } from "@/components/case-detail/RevenueTierPicker";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   Phase2Stats,
@@ -66,7 +67,7 @@ export default async function CaseDetailPage({
   const { data: c, error } = await supabase
     .from("cases")
     .select(
-      "id, country, channel, status, brand_keyword, brand_meta_pages, tiktok_shop_store_url, options, key_stats, created_at, updated_at, brand:brands(name)",
+      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, options, key_stats, created_at, updated_at, brand:brands(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -292,6 +293,10 @@ export default async function CaseDetailPage({
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
           <span className="case-tag country">{c.country}</span>
           <span className="case-tag platform">{c.channel.toUpperCase()}</span>
+          <RevenueTierPicker
+            case_id={c.id}
+            current={c.revenue_tier ?? null}
+          />
         </div>
 
         <div

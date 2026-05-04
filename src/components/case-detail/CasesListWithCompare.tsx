@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { tierLabel } from "@/lib/case-detail/revenue-tiers";
 
 export type CaseListItem = {
   id: string;
@@ -10,6 +11,7 @@ export type CaseListItem = {
   country: string;
   channel: string;
   status: string;
+  revenue_tier: string | null;
   updated_at: string;
 };
 
@@ -113,8 +115,8 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
               key={c.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "32px 1fr auto auto auto",
-                gap: 16,
+                gridTemplateColumns: "32px 1fr auto auto auto auto",
+                gap: 12,
                 alignItems: "center",
                 padding: "14px 18px",
                 borderBottom: "1px solid var(--color-g100)",
@@ -162,6 +164,31 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
               <span className="case-tag platform">
                 {c.channel.toUpperCase()}
               </span>
+              {c.revenue_tier ? (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "3px 8px",
+                    borderRadius: 9,
+                    background: "var(--color-info-soft)",
+                    color: "var(--color-info)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {tierLabel(c.revenue_tier)}
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--color-g300)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  —
+                </span>
+              )}
               <span className={`status-pill ${c.status}`}>{c.status}</span>
             </div>
           );
