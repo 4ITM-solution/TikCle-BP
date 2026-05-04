@@ -348,7 +348,12 @@ export default async function CaseDetailPage({
 
             {c.channel === "amazon" && (
               <>
-                <AmazonSalesSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
+                <AmazonSalesSection
+                  case_id={c.id}
+                  skuRows={skuRows}
+                  caseCountry={c.country}
+                  exchangeRates={exchangeRates}
+                />
                 <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
               </>
             )}

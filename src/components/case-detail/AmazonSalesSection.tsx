@@ -10,6 +10,10 @@ import {
   isRegionCode,
   type Region,
 } from "@/lib/case-detail/countries";
+import {
+  toUsd,
+  type ExchangeRates,
+} from "@/lib/case-detail/exchange-rates";
 
 export type SkuRow = {
   asin: string;
@@ -26,10 +30,12 @@ export function AmazonSalesSection({
   case_id,
   skuRows,
   caseCountry,
+  exchangeRates,
 }: {
   case_id: string;
   skuRows: SkuRow[];
   caseCountry: string;
+  exchangeRates: ExchangeRates;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -235,12 +241,47 @@ export function AmazonSalesSection({
                   .toLocaleString()}
               </b>
               개 · 총 매출{" "}
-              <b style={{ color: "var(--color-ink)" }}>
-                $
-                {skuRows
-                  .reduce((s, r) => s + (r.revenue_30d ?? 0), 0)
-                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </b>
+              {(() => {
+                // currency별 sum (권역 case는 SA/AE 통화 다름)
+                const byCurrency = new Map<string, number>();
+                for (const r of skuRows) {
+                  const c = r.currency || "USD";
+                  byCurrency.set(c, (byCurrency.get(c) ?? 0) + (r.revenue_30d ?? 0));
+                }
+                const usdTotal = Array.from(byCurrency.entries()).reduce(
+                  (acc, [cur, v]) => acc + (toUsd(v, cur, exchangeRates) ?? 0),
+                  0,
+                );
+                const curParts = Array.from(byCurrency.entries())
+                  .map(([cur, v]) =>
+                    cur === "USD"
+                      ? `$${Math.round(v).toLocaleString()}`
+                      : `${cur} ${Math.round(v).toLocaleString()}`,
+                  )
+                  .join(" / ");
+                const showUsdEnvelope =
+                  byCurrency.size > 1 ||
+                  (byCurrency.size === 1 && !byCurrency.has("USD"));
+                return (
+                  <>
+                    {showUsdEnvelope && (
+                      <b style={{ color: "var(--color-ink)" }}>
+                        ${Math.round(usdTotal).toLocaleString()}
+                      </b>
+                    )}
+                    {showUsdEnvelope && (
+                      <span style={{ color: "var(--color-g400)", fontWeight: 500 }}>
+                        {" ("}
+                        {curParts}
+                        {")"}
+                      </span>
+                    )}
+                    {!showUsdEnvelope && (
+                      <b style={{ color: "var(--color-ink)" }}>{curParts}</b>
+                    )}
+                  </>
+                );
+              })()}
             </span>
           </div>
 
