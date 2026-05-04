@@ -1,9 +1,12 @@
-import { createServer } from "@/lib/supabase/server";
+/**
+ * Client-safe 환율 helper. server-only 코드(supabase/server)는 사용하지 않음.
+ * fetchExchangeRates()는 server에서만 동작 — server-import 통해 호출.
+ */
 
 export type ExchangeRates = Record<string, number>;
 
 /** USD = 1 baseline. 다른 통화는 "1 unit = X USD"의 X. */
-const FALLBACK_RATES: ExchangeRates = {
+export const FALLBACK_RATES: ExchangeRates = {
   USD: 1,
   KRW: 0.000667, // 1 USD = 1500 KRW (사용자 기본값)
   JPY: 0.00641,
@@ -21,27 +24,7 @@ const FALLBACK_RATES: ExchangeRates = {
 };
 
 /**
- * app_settings에서 환율 fetch. 못 찾으면 정적 fallback.
- * 운영자가 /settings/exchange-rates 페이지에서 수정 → app_settings.exchange_rates 갱신.
- */
-export async function fetchExchangeRates(): Promise<ExchangeRates> {
-  const supabase = await createServer();
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "exchange_rates")
-    .maybeSingle();
-
-  if (error || !data?.value) return FALLBACK_RATES;
-  if (typeof data.value !== "object" || Array.isArray(data.value)) {
-    return FALLBACK_RATES;
-  }
-  return data.value as ExchangeRates;
-}
-
-/**
  * amount(local currency) → USD. 환율 없으면 amount 그대로 반환 (즉 1:1로 가정).
- * Caller가 환율 미상 케이스 따로 다루고 싶으면 fetchExchangeRates에서 currency 키 존재 확인.
  */
 export function toUsd(
   amount: number | null,

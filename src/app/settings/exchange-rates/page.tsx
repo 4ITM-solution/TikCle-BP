@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates";
+import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates-server";
 import { ExchangeRatesForm } from "./ExchangeRatesForm";
 
 export const dynamic = "force-dynamic";

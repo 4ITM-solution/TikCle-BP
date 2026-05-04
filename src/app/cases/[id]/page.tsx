@@ -30,7 +30,7 @@ import type {
   Phase5Stats,
 } from "@/lib/inngest/types";
 import { estimateCost } from "@/lib/cost-estimate";
-import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates";
+import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates-server";
 import { defaultCurrency } from "@/lib/case-detail/countries";
 
 export const dynamic = "force-dynamic";
