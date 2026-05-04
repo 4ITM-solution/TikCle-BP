@@ -29,7 +29,7 @@ export default async function CasesPage({
   const { data: cases, error } = await supabase
     .from("cases")
     .select(
-      "id, country, channel, status, revenue_tier, created_at, updated_at, brand:brands(name)",
+      "id, brand_id, country, channel, status, revenue_tier, created_at, updated_at, brand:brands(name)",
     )
     .order("updated_at", { ascending: false });
 
@@ -58,6 +58,7 @@ export default async function CasesPage({
     id: c.id,
     brand:
       (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)",
+    brand_id: c.brand_id ?? null,
     country: c.country,
     channel: c.channel,
     status: c.status,

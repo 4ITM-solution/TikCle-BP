@@ -8,6 +8,7 @@ import { tierLabel } from "@/lib/case-detail/revenue-tiers";
 export type CaseListItem = {
   id: string;
   brand: string;
+  brand_id: string | null;
   country: string;
   channel: string;
   status: string;
@@ -140,26 +141,41 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
                   cantSelect ? `최대 ${MAX_COMPARE}개까지 비교 가능` : ""
                 }
               />
-              <Link
-                href={`/cases/${c.id}`}
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  display: "block",
-                }}
-              >
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{c.brand}</div>
-                <div
+              <div>
+                {c.brand_id ? (
+                  <Link
+                    href={`/brands/${c.brand_id}`}
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                    title={`${c.brand} 브랜드 페이지`}
+                  >
+                    {c.brand}
+                  </Link>
+                ) : (
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>
+                    {c.brand}
+                  </span>
+                )}
+                <Link
+                  href={`/cases/${c.id}`}
                   style={{
+                    display: "block",
                     fontSize: 10,
                     color: "var(--color-g400)",
                     fontFamily: "var(--font-mono)",
                     marginTop: 2,
+                    textDecoration: "none",
                   }}
                 >
-                  {new Date(c.updated_at).toLocaleString("ko-KR")}
-                </div>
-              </Link>
+                  {c.country}/{c.channel.toUpperCase()} ·{" "}
+                  {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스
+                  열기
+                </Link>
+              </div>
               <span className="case-tag country">{c.country}</span>
               <span className="case-tag platform">
                 {c.channel.toUpperCase()}

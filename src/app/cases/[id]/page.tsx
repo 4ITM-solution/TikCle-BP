@@ -261,10 +261,16 @@ export default async function CaseDetailPage({
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
       <nav className="breadcrumb">
-        <Link href="/cases">My Cases</Link>
+        <Link href="/cases">Browse</Link>
+        <span className="sep">/</span>
+        {brand_id ? (
+          <Link href={`/brands/${brand_id}`}>{brand}</Link>
+        ) : (
+          <span>{brand}</span>
+        )}
         <span className="sep">/</span>
         <span>
-          {brand} · {c.country}/{c.channel.toUpperCase()}
+          {c.country}/{c.channel.toUpperCase()}
         </span>
       </nav>
 
