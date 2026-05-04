@@ -522,7 +522,7 @@ export const runAnalysis = inngest.createFunction(
           computed_at: existing.phase4a.computed_at,
           total_ads: existing.phase4a.total_ads,
         });
-        return existing.phase4a;
+        return sanitizeDeep(existing.phase4a);
       }
       logger.info("[Phase 4a] Meta ads scraper", { case_id });
       const stats = await runPhase4a(supabase, case_id);
@@ -552,7 +552,7 @@ export const runAnalysis = inngest.createFunction(
         )
       ) {
         logger.info("[Phase 4a.5] cached (storage URLs already in ads_preview)");
-        return existing.phase4a;
+        return sanitizeDeep(existing.phase4a);
       }
       logger.info("[Phase 4a.5] downloading ad assets to storage", {
         case_id,
@@ -639,7 +639,7 @@ export const runAnalysis = inngest.createFunction(
           total: existing.phase4b_sample.total_picked,
           computed_at: existing.phase4b_sample.computed_at,
         });
-        return existing.phase4b_sample;
+        return sanitizeDeep(existing.phase4b_sample);
       }
       logger.info("[Phase 4b.1] selecting analysis sample", { case_id });
       const stats = await runPhase4bSample(supabase, case_id);
@@ -759,7 +759,7 @@ export const runAnalysis = inngest.createFunction(
         logger.info("[Phase 4b.3] cached", {
           with_tags: existing.phase4b_vision.total_with_tags,
         });
-        return existing.phase4b_vision;
+        return sanitizeDeep(existing.phase4b_vision);
       }
       logger.info("[Phase 4b.3] vision tagging via Sonnet", {
         case_id,
@@ -817,7 +817,7 @@ export const runAnalysis = inngest.createFunction(
         logger.info("[Phase 4b.4] cached", {
           meta: existing.phase4b_clusters.pass3_meta,
         });
-        return existing.phase4b_clusters;
+        return sanitizeDeep(existing.phase4b_clusters);
       }
       logger.info("[Phase 4b.4] 3-pass clustering", { case_id });
       const stats = await runPhase4bClusters(supabase, case_id, phase4bSample);
@@ -876,7 +876,7 @@ export const runAnalysis = inngest.createFunction(
         logger.info("[Phase 4b.5] cached", {
           matched: existing.phase4b_sku.total_matched,
         });
-        return existing.phase4b_sku;
+        return sanitizeDeep(existing.phase4b_sku);
       }
       logger.info("[Phase 4b.5] SKU matching", { case_id });
       const stats = await runPhase4bSku(supabase, case_id, phase4bSample);
@@ -935,7 +935,7 @@ export const runAnalysis = inngest.createFunction(
         logger.info("[Phase 5] cached", {
           computed_at: existing.phase5.computed_at,
         });
-        return existing.phase5;
+        return sanitizeDeep(existing.phase5);
       }
       logger.info("[Phase 5] positioning analysis", { case_id });
       const stats = await runPhase5(supabase, case_id, phase4bClusters);
