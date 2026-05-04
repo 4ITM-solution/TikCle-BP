@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { createServer } from "@/lib/supabase/server";
+import {
+  CasesListWithCompare,
+  type CaseListItem,
+} from "@/components/case-detail/CasesListWithCompare";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +28,15 @@ export default async function CasesPage() {
     );
   }
 
-  const list = cases ?? [];
+  const list: CaseListItem[] = (cases ?? []).map((c) => ({
+    id: c.id,
+    brand:
+      (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)",
+    country: c.country,
+    channel: c.channel,
+    status: c.status,
+    updated_at: c.updated_at,
+  }));
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
@@ -43,7 +55,7 @@ export default async function CasesPage() {
               color: "var(--color-g500)",
             }}
           >
-            전체 {list.length}개 케이스 · 최근 업데이트순
+            전체 {list.length}개 케이스 · 최근 업데이트순 · 체크박스로 최대 4개까지 비교 가능
           </p>
         </div>
         <Link
@@ -82,50 +94,7 @@ export default async function CasesPage() {
           </Link>
         </div>
       ) : (
-        <div
-          style={{
-            background: "white",
-            border: "1px solid var(--color-g100)",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
-          {list.map((c) => {
-            const brand = (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)";
-            return (
-              <Link
-                key={c.id}
-                href={`/cases/${c.id}`}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto auto",
-                  gap: 16,
-                  alignItems: "center",
-                  padding: "14px 18px",
-                  borderBottom: "1px solid var(--color-g100)",
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{brand}</div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--color-g400)",
-                      fontFamily: "var(--font-mono)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {new Date(c.updated_at).toLocaleString("ko-KR")}
-                  </div>
-                </div>
-                <span className="case-tag country">{c.country}</span>
-                <span className="case-tag platform">{c.channel.toUpperCase()}</span>
-                <span className={`status-pill ${c.status}`}>{c.status}</span>
-              </Link>
-            );
-          })}
-        </div>
+        <CasesListWithCompare cases={list} />
       )}
     </div>
   );
