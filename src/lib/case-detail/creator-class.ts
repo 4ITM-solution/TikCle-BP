@@ -1,33 +1,61 @@
 /**
- * 동일 브랜드 영상 수 기반 Class 분류.
- * 사용자 메소드론 룰 (2026-05-04):
- *   - Class A: 50개+ 영상 (브랜드와 깊은 반복 협업)
- *   - Class B: 30~49개
- *   - Class C: 10~29개
- *   - 그 외: 분류 없음 (long tail)
+ * Class A~E 분류 — bp-playbook 메소드론 (classify_creators.py) 그대로.
  *
- * lemur GMV 호출 없이 Phase 2의 video_count 기반으로 즉시 산출.
+ * Shop creator 여부 + PROMOTED 영상 수 기반:
+ *   A: Shop creator + promoted ≥ 5      (반복 협업 슈퍼 affiliate)
+ *   B: Shop creator + promoted 2~4      (정기 협업)
+ *   C: Shop creator + promoted = 1      (단발 협업)
+ *   D: not Shop + promoted ≥ 1          (외부 직접 딜 — Organic은 아님)
+ *   E: 그 외                            (long tail / 미분류)
+ *
+ * "promoted 영상" = contents.is_ad = true 또는 Exolyt 'promoted' 컬럼.
+ * Shop creator = influencers.is_tiktok_shop_creator = true.
+ *
+ * 📌 옛 영상 수 50/30/10 (Class A/B/C)는 보조 라벨로 따로 둠. 메소드론 정공법은 이거.
  */
-export type CreatorClass = "A" | "B" | "C" | null;
+export type CreatorClass = "A" | "B" | "C" | "D" | "E";
 
-export function classifyCreator(videoCount: number): CreatorClass {
-  if (videoCount >= 50) return "A";
-  if (videoCount >= 30) return "B";
-  if (videoCount >= 10) return "C";
-  return null;
+export function classifyCreator(
+  isShopCreator: boolean | null,
+  promotedCount: number,
+): CreatorClass {
+  if (isShopCreator === true) {
+    if (promotedCount >= 5) return "A";
+    if (promotedCount >= 2) return "B";
+    if (promotedCount === 1) return "C";
+    return "E"; // shop이지만 promoted 0 — long tail
+  }
+  if (promotedCount >= 1) return "D";
+  return "E";
 }
 
-export const CLASS_LABEL: Record<NonNullable<CreatorClass>, string> = {
-  A: "Class A · 50+",
-  B: "Class B · 30+",
-  C: "Class C · 10+",
+export const CLASS_LABEL: Record<CreatorClass, string> = {
+  A: "Class A · Shop+5+",
+  B: "Class B · Shop+2~4",
+  C: "Class C · Shop+1",
+  D: "Class D · 직접 딜",
+  E: "Class E · long tail",
 };
 
-export const CLASS_COLOR: Record<
-  NonNullable<CreatorClass>,
-  { bg: string; fg: string }
-> = {
+export const CLASS_COLOR: Record<CreatorClass, { bg: string; fg: string }> = {
   A: { bg: "var(--color-pos-soft)", fg: "var(--color-pos)" },
   B: { bg: "var(--color-info-soft)", fg: "var(--color-info)" },
-  C: { bg: "var(--color-g50)", fg: "var(--color-g600)" },
+  C: { bg: "var(--color-warn-soft)", fg: "var(--color-warn)" },
+  D: { bg: "var(--color-g50)", fg: "var(--color-g600)" },
+  E: { bg: "var(--color-g25)", fg: "var(--color-g400)" },
 };
+
+/**
+ * 옛 영상 수 기반 보조 분류 (legacy — UI 보조 라벨용).
+ * - heavy: 50+ 영상
+ * - mid: 30~49
+ * - light: 10~29
+ */
+export function classifyByVideoCount(
+  videoCount: number,
+): "heavy" | "mid" | "light" | null {
+  if (videoCount >= 50) return "heavy";
+  if (videoCount >= 30) return "mid";
+  if (videoCount >= 10) return "light";
+  return null;
+}

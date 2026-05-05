@@ -165,6 +165,17 @@ export async function processPhase37Batch(
       is_tiktok_shop_creator: item.is_shop_creator,
       shop_creator_class: item.shop_creator_class,
       tiktok_shop_checked_at: now,
+      // GMV / performance (lemur stats — Shop creator만 채워짐)
+      lifetime_gmv_usd: item.lifetime_gmv_usd,
+      gpm_usd: item.gpm_usd,
+      post_rate: item.post_rate,
+      total_brand_collabs: item.total_brand_collabs,
+      top_brands: item.top_brands as never,
+      shop_creator_gmv_range: item.gmv_range,
+      // follower_count는 phase3.5도 박는 컬럼 — 응답에 있을 때만 update (덮어쓰기 방지)
+      ...(item.follower_count != null
+        ? { follower_count: item.follower_count }
+        : {}),
     };
 
     const { error } = await supabase

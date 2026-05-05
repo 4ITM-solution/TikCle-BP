@@ -367,6 +367,11 @@ export type Database = {
           tiktok_shop_checked_at: string | null;
           shop_creator_class: string | null;
           shop_creator_gmv_range: string | null;
+          lifetime_gmv_usd: number | null;
+          gpm_usd: number | null;
+          post_rate: number | null;
+          total_brand_collabs: number | null;
+          top_brands: unknown | null;
           bio: string | null;
           region: string | null;
           created_at: string;
@@ -384,6 +389,11 @@ export type Database = {
           tiktok_shop_checked_at?: string | null;
           shop_creator_class?: string | null;
           shop_creator_gmv_range?: string | null;
+          lifetime_gmv_usd?: number | null;
+          gpm_usd?: number | null;
+          post_rate?: number | null;
+          total_brand_collabs?: number | null;
+          top_brands?: unknown | null;
           bio?: string | null;
           region?: string | null;
           created_at?: string;
@@ -401,6 +411,11 @@ export type Database = {
           tiktok_shop_checked_at?: string | null;
           shop_creator_class?: string | null;
           shop_creator_gmv_range?: string | null;
+          lifetime_gmv_usd?: number | null;
+          gpm_usd?: number | null;
+          post_rate?: number | null;
+          total_brand_collabs?: number | null;
+          top_brands?: unknown | null;
           bio?: string | null;
           region?: string | null;
           created_at?: string;

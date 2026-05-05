@@ -55,9 +55,16 @@ export type TopCreatorVideo = {
 export type TopCreator = {
   handle: string;
   video_count: number;
+  promoted_count?: number; // is_ad=true 영상 수 (Class A~E 분류 입력)
   max_views: number;
   follower_count: number | null;
   is_shop_creator: boolean | null;
+  // GMV / performance (lemur stats — Shop creator만 채워짐, 옛 phase37엔 없음)
+  lifetime_gmv_usd?: number | null;
+  gpm_usd?: number | null;
+  post_rate?: number | null;
+  total_brand_collabs?: number | null;
+  shop_creator_gmv_range?: string | null;
   // 그 인플의 영상 중 view 기준 top 3 (UI에서 row 펼치면 임베드)
   top_videos?: TopCreatorVideo[];
 };

@@ -103,14 +103,37 @@ export function TopCreatorsList({
                     ? `${formatFans(c.follower_count)} fans · `
                     : "fans 미조회 · "}
                   max {formatFans(c.max_views)} views
+                  {c.lifetime_gmv_usd != null && c.lifetime_gmv_usd > 0 && (
+                    <>
+                      {" · "}
+                      <b style={{ color: "var(--color-pos)" }}>
+                        GMV ${formatFans(c.lifetime_gmv_usd)}
+                      </b>
+                    </>
+                  )}
+                  {c.shop_creator_gmv_range && (
+                    <>
+                      {" · "}
+                      <span style={{ color: "var(--color-info)" }}>
+                        {c.shop_creator_gmv_range}
+                      </span>
+                    </>
+                  )}
+                  {c.total_brand_collabs != null && c.total_brand_collabs > 0 && (
+                    <>
+                      {" · "}collabs {c.total_brand_collabs}
+                    </>
+                  )}
                 </div>
               </div>
               <span
                 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
               >
                 {(() => {
-                  const cls = classifyCreator(c.video_count);
-                  if (!cls) return null;
+                  const cls = classifyCreator(
+                    c.is_shop_creator ?? null,
+                    c.promoted_count ?? 0,
+                  );
                   const color = CLASS_COLOR[cls];
                   return (
                     <span
@@ -132,8 +155,9 @@ export function TopCreatorsList({
                 <span
                   className="font-mono"
                   style={{ fontSize: 11, fontWeight: 700 }}
+                  title={`promoted ${c.promoted_count ?? 0} / 전체 ${c.video_count}`}
                 >
-                  {c.video_count} 영상
+                  {c.promoted_count ?? 0}/{c.video_count}
                 </span>
               </span>
               <span

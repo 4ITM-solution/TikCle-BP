@@ -195,6 +195,7 @@ function aggregateVideosPerCreator(contents: ContentRow[]): VideosPerCreator {
 type CreatorAgg = {
   influencer_id: string;
   video_count: number;
+  promoted_count: number; // is_ad=true 영상 수 (Class A~E 분류 입력)
   max_views: number;
   top_videos: Array<{ url: string; views: number; caption: string | null }>;
 };
@@ -227,9 +228,11 @@ function aggregateCreators(contents: ContentRow[]): {
       views: c.views ?? 0,
       caption: c.caption ?? null,
     }));
+    const promoted = items.filter((c) => c.is_ad === true).length;
     const agg: CreatorAgg = {
       influencer_id: id,
       video_count: items.length,
+      promoted_count: promoted,
       max_views: maxViews,
       top_videos: top3,
     };
@@ -262,17 +265,36 @@ async function enrichTopCreators(
   const ids = raw.map((c) => c.influencer_id);
   const { data: infls } = await supabase
     .from("influencers")
-    .select("id, handle, follower_count, is_tiktok_shop_creator")
+    .select(
+      "id, handle, follower_count, is_tiktok_shop_creator, lifetime_gmv_usd, gpm_usd, post_rate, total_brand_collabs, shop_creator_gmv_range",
+    )
     .in("id", ids);
   const byId = new Map((infls ?? []).map((i) => [i.id, i]));
   return raw.map((c) => {
-    const i = byId.get(c.influencer_id);
+    const i = byId.get(c.influencer_id) as
+      | {
+          handle: string | null;
+          follower_count: number | null;
+          is_tiktok_shop_creator: boolean | null;
+          lifetime_gmv_usd: number | null;
+          gpm_usd: number | null;
+          post_rate: number | null;
+          total_brand_collabs: number | null;
+          shop_creator_gmv_range: string | null;
+        }
+      | undefined;
     return {
       handle: i?.handle ?? "(unknown)",
       video_count: c.video_count,
+      promoted_count: c.promoted_count,
       max_views: c.max_views,
       follower_count: i?.follower_count ?? null,
       is_shop_creator: i?.is_tiktok_shop_creator ?? null,
+      lifetime_gmv_usd: i?.lifetime_gmv_usd ?? null,
+      gpm_usd: i?.gpm_usd ?? null,
+      post_rate: i?.post_rate ?? null,
+      total_brand_collabs: i?.total_brand_collabs ?? null,
+      shop_creator_gmv_range: i?.shop_creator_gmv_range ?? null,
       top_videos: c.top_videos,
     };
   });
