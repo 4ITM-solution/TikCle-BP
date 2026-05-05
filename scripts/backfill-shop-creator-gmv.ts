@@ -6,9 +6,11 @@
  * GMV 등 stats 다 버림. 새 코드(commit 0995b1b)부턴 다 받지만 옛 인플은 GMV NULL.
  *
  * 사용:
- *   npx tsx scripts/backfill-shop-creator-gmv.ts                     # 전체 Shop creator
- *   npx tsx scripts/backfill-shop-creator-gmv.ts <case_id>           # 특정 case scope
- *   npx tsx scripts/backfill-shop-creator-gmv.ts <case_id> --dry-run
+ *   npm run backfill:gmv -- <case_id> --class-a   # Class A (Shop+promoted≥5) 만 — 추천
+ *   npm run backfill:gmv -- <case_id> --class-ab  # Class A+B (Shop+promoted≥2)
+ *   npm run backfill:gmv -- <case_id>             # 그 case scope의 모든 Shop creator
+ *   npm run backfill:gmv                          # 전체 Shop creator (전 brand 통틀어)
+ *   npm run backfill:gmv -- <case_id> --class-a --dry-run   # 비용 추정만
  *
  * 환경변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APIFY_TOKEN (.env.local 또는 export)
  */
@@ -24,6 +26,17 @@ async function main() {
   const args = process.argv.slice(2);
   const caseIdArg = args.find((a) => !a.startsWith("--"));
   const dryRun = args.includes("--dry-run");
+  // Class 필터 — promoted 영상 수 minimum
+  const minPromoted = args.includes("--class-a")
+    ? 5
+    : args.includes("--class-ab")
+      ? 2
+      : 0;
+  if (minPromoted > 0 && !caseIdArg) {
+    throw new Error(
+      "--class-a/--class-ab 옵션은 case_id 필수 (promoted 영상 수가 brand+country scope 기준)",
+    );
+  }
 
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -52,23 +65,44 @@ async function main() {
       .single();
     if (!c) throw new Error(`case ${caseIdArg} 없음`);
 
+    // contents fetch + (옵션) is_ad 같이 받아 promoted_count 계산
+    const promotedMap = new Map<string, number>();
+    const allMap = new Set<string>();
     let from = 0;
-    const set = new Set<string>();
     while (true) {
       const { data } = await supabase
         .from("contents")
-        .select("influencer_id")
+        .select("influencer_id, is_ad")
         .eq("brand_id", c.brand_id)
         .eq("country", c.country)
         .not("influencer_id", "is", null)
         .range(from, from + FETCH_CHUNK - 1);
       if (!data || data.length === 0) break;
-      for (const r of data) if (r.influencer_id) set.add(r.influencer_id);
+      for (const r of data) {
+        if (!r.influencer_id) continue;
+        allMap.add(r.influencer_id);
+        if (r.is_ad === true) {
+          promotedMap.set(
+            r.influencer_id,
+            (promotedMap.get(r.influencer_id) ?? 0) + 1,
+          );
+        }
+      }
       if (data.length < FETCH_CHUNK) break;
       from += FETCH_CHUNK;
     }
-    candidateIds = Array.from(set);
-    console.log(`[scope] case scope에 unique 인플 ${candidateIds.length}명`);
+
+    if (minPromoted > 0) {
+      candidateIds = Array.from(allMap).filter(
+        (id) => (promotedMap.get(id) ?? 0) >= minPromoted,
+      );
+      console.log(
+        `[scope] case scope unique 인플 ${allMap.size}명 → promoted≥${minPromoted} ${candidateIds.length}명`,
+      );
+    } else {
+      candidateIds = Array.from(allMap);
+      console.log(`[scope] case scope에 unique 인플 ${candidateIds.length}명`);
+    }
   }
 
   // is_tiktok_shop_creator=true + lifetime_gmv_usd IS NULL 인 인플만 backfill 대상

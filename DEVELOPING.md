@@ -1132,12 +1132,19 @@ aggregator 파일도 setup/processBatch/finalize/legacy 4개로 export하는 형
 
 ```bash
 # .env.local에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APIFY_TOKEN 박혀있어야
-npm run backfill:gmv -- <case_id>           # 그 case scope의 인플만
-npm run backfill:gmv                         # 전체 Shop creator
-npm run backfill:gmv -- <case_id> --dry-run  # 비용 추정만
+npm run backfill:gmv -- <case_id> --class-a   # ★ 추천 — Class A (Shop+promoted≥5) 만
+npm run backfill:gmv -- <case_id> --class-ab  # Class A+B (Shop+promoted≥2)
+npm run backfill:gmv -- <case_id>              # 그 case scope의 모든 Shop creator
+npm run backfill:gmv                            # 전체 Shop creator (전 brand 통틀어)
+npm run backfill:gmv -- <case_id> --class-a --dry-run  # 비용 추정만
 ```
 
 비용: 대상 인플 × $0.005. dry-run으로 먼저 비용 확인 권장.
+
+**비용 가이드 (NOONI 1,852명 Shop 기준)**:
+- `--class-a` (Shop+promoted≥5): 127명 → ~$0.64 ★ Top GMV 5명만 보면 충분
+- `--class-ab` (Shop+promoted≥2): 635명 → ~$3.18
+- 옵션 없음: 1,852명 전체 → ~$9.26
 
 대상 조건:
 - `is_tiktok_shop_creator = true`
