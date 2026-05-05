@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:types": "supabase gen types typescript --project-id dxjodlxkynjirldpumxr --schema public > src/lib/supabase/types.gen.ts"
+    "db:types": "supabase gen types typescript --project-id dxjodlxkynjirldpumxr --schema public > src/lib/supabase/types.gen.ts",
+    "backfill:gmv": "tsx scripts/backfill-shop-creator-gmv.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -33,6 +34,7 @@
     "eslint-config-next": "^15.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2"
   }
 }

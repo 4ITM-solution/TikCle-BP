@@ -1124,6 +1124,29 @@ aggregator 파일도 setup/processBatch/finalize/legacy 4개로 export하는 형
 
 ---
 
+## 백필 스크립트
+
+### Shop Creator GMV 백필 (`backfill:gmv`)
+
+`scripts/backfill-shop-creator-gmv.ts` — 옛 phase37(commit 0995b1b 이전)에서 박힌 Shop creator 중 `lifetime_gmv_usd IS NULL`인 인플의 GMV/GPM/post_rate/brand_collabs/range를 lemur로 backfill.
+
+```bash
+# .env.local에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APIFY_TOKEN 박혀있어야
+npm run backfill:gmv -- <case_id>           # 그 case scope의 인플만
+npm run backfill:gmv                         # 전체 Shop creator
+npm run backfill:gmv -- <case_id> --dry-run  # 비용 추정만
+```
+
+비용: 대상 인플 × $0.005. dry-run으로 먼저 비용 확인 권장.
+
+대상 조건:
+- `is_tiktok_shop_creator = true`
+- `lifetime_gmv_usd IS NULL` (이미 채워진 인플 skip)
+
+batch 50명씩 lemur 호출. update 시 `shop_creator_class`도 새로 박힘 (옛 character(1) 제약으로 fail했던 것까지 정정).
+
+---
+
 ## DB 마이그레이션
 
 `/Users/suna/Desktop/claude/bp_v2/db/`에 SQL 파일 위치 (현재 1~8). 새 마이그레이션 추가:
