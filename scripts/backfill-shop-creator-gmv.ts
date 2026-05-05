@@ -15,6 +15,27 @@
  * 환경변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APIFY_TOKEN (.env.local 또는 export)
  */
 
+import { existsSync, readFileSync } from "node:fs";
+
+// .env.local 자동 로드 (tsx --env-file 안 먹는 환경 대비)
+const envPath = ".env.local";
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (!m) continue;
+    const key = m[1]!;
+    if (process.env[key]) continue;
+    let val = m[2]!.trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    process.env[key] = val;
+  }
+}
+
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { checkShopCreators } from "../src/lib/apify/lemur-shop-creators";
