@@ -15,6 +15,10 @@ import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggl
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
 import { RevenueTierPicker } from "@/components/case-detail/RevenueTierPicker";
+import {
+  TopGmvShopCreators,
+  type TopGmvCreator,
+} from "@/components/case-detail/TopGmvShopCreators";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   Phase2Stats,
@@ -223,6 +227,81 @@ export default async function CaseDetailPage({
       video_url: a.video_url ?? null,
       is_brand_official: a.is_brand_official ?? false,
     }));
+  }
+
+  // 4c. Top GMV Shop creator 5명 + 각자 top 3 영상 (TikTok Shop case + ready 한정)
+  let topGmvCreators: TopGmvCreator[] = [];
+  if (c.channel === "tiktok_shop" && c.status === "ready" && brand_id) {
+    // 1) brand+country scope의 Shop creator 중 GMV 큰 순 5명
+    const { data: gmvInfls } = await supabase
+      .from("influencers")
+      .select(
+        "id, handle, follower_count, lifetime_gmv_usd, gpm_usd, post_rate, total_brand_collabs, shop_creator_gmv_range",
+      )
+      .eq("is_tiktok_shop_creator", true)
+      .gt("lifetime_gmv_usd", 0)
+      .in(
+        "id",
+        await (async () => {
+          const { data } = await supabase
+            .from("contents")
+            .select("influencer_id")
+            .eq("brand_id", brand_id)
+            .eq("country", c.country)
+            .not("influencer_id", "is", null)
+            .limit(20000);
+          const set = new Set<string>();
+          for (const r of data ?? []) if (r.influencer_id) set.add(r.influencer_id);
+          return Array.from(set);
+        })(),
+      )
+      .order("lifetime_gmv_usd", { ascending: false })
+      .limit(5);
+
+    // 2) 각 인플의 top 3 영상 (brand scope)
+    if (gmvInfls && gmvInfls.length > 0) {
+      const topPromises = gmvInfls.map(async (i) => {
+        const { data: vids } = await supabase
+          .from("contents")
+          .select("url, views, caption, is_ad")
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .eq("influencer_id", i.id)
+          .order("views", { ascending: false, nullsFirst: false })
+          .limit(3);
+        const { count: total } = await supabase
+          .from("contents")
+          .select("id", { count: "exact", head: true })
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .eq("influencer_id", i.id);
+        const { count: promoted } = await supabase
+          .from("contents")
+          .select("id", { count: "exact", head: true })
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .eq("influencer_id", i.id)
+          .eq("is_ad", true);
+        return {
+          handle: i.handle,
+          follower_count: i.follower_count,
+          lifetime_gmv_usd: i.lifetime_gmv_usd,
+          gpm_usd: i.gpm_usd,
+          post_rate: i.post_rate,
+          total_brand_collabs: i.total_brand_collabs,
+          shop_creator_gmv_range: i.shop_creator_gmv_range,
+          top_videos: (vids ?? []).map((v) => ({
+            url: v.url,
+            views: v.views ?? 0,
+            caption: v.caption,
+            is_ad: v.is_ad ?? false,
+          })),
+          total_videos: total ?? 0,
+          promoted_videos: promoted ?? 0,
+        } as TopGmvCreator;
+      });
+      topGmvCreators = await Promise.all(topPromises);
+    }
   }
 
   // 5. 분석 시작 가능 여부
@@ -534,6 +613,7 @@ export default async function CaseDetailPage({
                       currency={caseCurrency}
                       caseCountry={c.country}
                       exchangeRates={exchangeRates}
+                      topGmvCreators={topGmvCreators}
                     />
                   </div>
                   <SectionTOC

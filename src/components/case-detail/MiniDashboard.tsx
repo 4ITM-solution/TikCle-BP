@@ -3,6 +3,10 @@ import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart } from "./BsrTrendChart";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
+import {
+  TopGmvShopCreators,
+  type TopGmvCreator,
+} from "./TopGmvShopCreators";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import {
   formatLocalAndUsd,
@@ -51,6 +55,7 @@ export function MiniDashboard({
   currency,
   caseCountry,
   exchangeRates,
+  topGmvCreators,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -67,6 +72,7 @@ export function MiniDashboard({
   currency: string;
   caseCountry: string;
   exchangeRates: ExchangeRates;
+  topGmvCreators?: TopGmvCreator[];
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -90,6 +96,9 @@ export function MiniDashboard({
           phase35={phase35}
           phase37={phase37}
         />
+      )}
+      {topGmvCreators && topGmvCreators.length > 0 && (
+        <TopGmvShopCreators creators={topGmvCreators} />
       )}
       <CreatorActivityModule stats={phase2} />
 
