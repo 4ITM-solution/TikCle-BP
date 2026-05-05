@@ -10,6 +10,8 @@ import type { Phase37Stats } from "../types";
 type SupaClient = SupabaseClient<Database>;
 
 const FETCH_CHUNK = 200;
+/** Shop creator 데이터 TTL — 이 일수 지난 데이터는 lemur 재호출. */
+const SHOP_CREATOR_TTL_DAYS = 30;
 
 /**
  * Phase 3.7 — Shop Creator 판별 (tiktok_shop 채널 전용)
@@ -89,15 +91,21 @@ export async function fetchPhase37Setup(
     };
   }
 
-  // is_tiktok_shop_creator IS NULL인 후보만
+  // 후보: is_tiktok_shop_creator IS NULL (한 번도 판별 안 됨)
+  // OR tiktok_shop_checked_at이 TTL일 전 (오래된 데이터 — 인플의 Shop 활동/GMV 변할 수 있음)
+  const ttlCutoff = new Date(
+    Date.now() - SHOP_CREATOR_TTL_DAYS * 24 * 3600 * 1000,
+  ).toISOString();
   const candidates: Array<{ id: string; handle: string }> = [];
   for (let i = 0; i < inflIds.length; i += FETCH_CHUNK) {
     const slice = inflIds.slice(i, i + FETCH_CHUNK);
     const { data, error } = await supabase
       .from("influencers")
-      .select("id, handle, is_tiktok_shop_creator")
+      .select("id, handle, is_tiktok_shop_creator, tiktok_shop_checked_at")
       .in("id", slice)
-      .is("is_tiktok_shop_creator", null);
+      .or(
+        `is_tiktok_shop_creator.is.null,tiktok_shop_checked_at.lt.${ttlCutoff}`,
+      );
     if (error) throw new Error(`influencers fetch: ${error.message}`);
     for (const r of data ?? []) {
       if (r.handle) candidates.push({ id: r.id, handle: r.handle });
