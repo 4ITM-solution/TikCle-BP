@@ -429,7 +429,7 @@ export const runAnalysis = inngest.createFunction(
         }
 
         phase37 = await step.run("phase-3-7-finalize", async () =>
-          finalizePhase37(setup, batchResults),
+          finalizePhase37(supabase, setup, batchResults),
         );
       }
 

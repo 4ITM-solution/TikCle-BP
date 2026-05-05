@@ -26,6 +26,8 @@ const FETCH_CHUNK = 200;
 export type Phase37Setup = {
   total_inflids: number;
   candidates: Array<{ id: string; handle: string }>;
+  /** 이 case scope의 모든 unique influencer ids (DB count 시 사용). candidates는 NULL 인플만 — 다름. */
+  all_inflids: string[];
   skipped_reason?: string;
 };
 
@@ -49,7 +51,12 @@ export async function fetchPhase37Setup(
   case_id: string,
 ): Promise<Phase37Setup> {
   if (!process.env.APIFY_TOKEN) {
-    return { total_inflids: 0, candidates: [], skipped_reason: "APIFY_TOKEN 미설정" };
+    return {
+      total_inflids: 0,
+      candidates: [],
+      all_inflids: [],
+      skipped_reason: "APIFY_TOKEN 미설정",
+    };
   }
 
   const { data: c, error: cErr } = await supabase
@@ -63,6 +70,7 @@ export async function fetchPhase37Setup(
     return {
       total_inflids: 0,
       candidates: [],
+      all_inflids: [],
       skipped_reason: "tiktok_shop 채널 아님 (skip)",
     };
   }
@@ -73,7 +81,12 @@ export async function fetchPhase37Setup(
     c.country,
   );
   if (inflIds.length === 0) {
-    return { total_inflids: 0, candidates: [], skipped_reason: "인플 0명" };
+    return {
+      total_inflids: 0,
+      candidates: [],
+      all_inflids: [],
+      skipped_reason: "인플 0명",
+    };
   }
 
   // is_tiktok_shop_creator IS NULL인 후보만
@@ -95,11 +108,16 @@ export async function fetchPhase37Setup(
     return {
       total_inflids: inflIds.length,
       candidates: [],
+      all_inflids: inflIds,
       skipped_reason: "이미 모든 인플 판별 완료",
     };
   }
 
-  return { total_inflids: inflIds.length, candidates };
+  return {
+    total_inflids: inflIds.length,
+    candidates,
+    all_inflids: inflIds,
+  };
 }
 
 /**
@@ -181,31 +199,30 @@ export async function processPhase37Batch(
 }
 
 /**
- * Finalize — 모든 batch 결과 합산 → Phase37Stats 반환.
+ * Finalize — batch 결과 합산 + DB count로 stats 재산출.
+ *
+ * batch local 카운트는 update error로 누락 가능 (옛 ver: 3197/3719가 update fail로
+ * stats total_shop=37만 박힘). DB의 is_tiktok_shop_creator 분포가 진실 — case scope
+ * 전체 인플 풀에서 직접 count.
  */
-export function finalizePhase37(
+export async function finalizePhase37(
+  supabase: SupaClient,
   setup: Phase37Setup,
   batchResults: Phase37BatchResult[],
-): Phase37Stats {
+): Promise<Phase37Stats> {
   if (setup.skipped_reason) {
     return empty37(setup.skipped_reason);
   }
 
-  let total_shop = 0;
-  let total_non_shop = 0;
   let total_update_errors = 0;
   let totalCost = 0;
-  const matchedHandles = new Set<string>();
   const sample_update_errors: string[] = [];
   let debug_first_item_keys: string[] | undefined;
   let debug_first_item_sample: string | undefined;
 
   for (const r of batchResults) {
-    total_shop += r.total_shop_local;
-    total_non_shop += r.total_non_shop_local;
     total_update_errors += r.total_update_errors_local;
     totalCost += r.cost_estimate_usd;
-    for (const item of r.items) matchedHandles.add(item.handle);
     for (const e of r.sample_update_errors) {
       if (sample_update_errors.length < 5) sample_update_errors.push(e);
     }
@@ -215,14 +232,30 @@ export function finalizePhase37(
     }
   }
 
-  const total_unmatched = setup.candidates.length - matchedHandles.size;
+  // case scope 전체 인플 풀 (all_inflids) 기반 DB count.
+  // 이게 사용자가 보고 싶은 "이 brand+country 인플 중 Shop인 사람 수".
+  let total_shop = 0;
+  let total_non_shop = 0;
+  let total_null = 0;
+  for (let i = 0; i < setup.all_inflids.length; i += FETCH_CHUNK) {
+    const slice = setup.all_inflids.slice(i, i + FETCH_CHUNK);
+    const { data } = await supabase
+      .from("influencers")
+      .select("is_tiktok_shop_creator")
+      .in("id", slice);
+    for (const r of data ?? []) {
+      if (r.is_tiktok_shop_creator === true) total_shop += 1;
+      else if (r.is_tiktok_shop_creator === false) total_non_shop += 1;
+      else total_null += 1;
+    }
+  }
 
   return {
-    total_candidates: setup.candidates.length,
+    total_candidates: setup.all_inflids.length,
     total_attempted: setup.candidates.length,
     total_shop_creators: total_shop,
-    total_non_shop: total_non_shop,
-    total_unmatched,
+    total_non_shop,
+    total_unmatched: total_null, // null = lemur 응답 없음 또는 update fail로 미반영
     total_update_errors,
     sample_update_errors,
     cost_actual_usd: totalCost,
@@ -261,5 +294,5 @@ export async function runPhase37ShopCreator(
     return empty37("이미 모든 인플 판별 완료");
   }
   const result = await processPhase37Batch(supabase, setup.candidates);
-  return finalizePhase37(setup, [result]);
+  return finalizePhase37(supabase, setup, [result]);
 }

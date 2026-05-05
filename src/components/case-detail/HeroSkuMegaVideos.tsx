@@ -9,6 +9,7 @@ import {
 } from "@/lib/case-detail/exchange-rates";
 
 const MEGA_VIEWS_THRESHOLD = 1_000_000;
+const FALLBACK_VIEWS_THRESHOLD = 500_000; // 1M+ 매칭 0건이면 500K+로 내려감
 const MAX_VIDEOS_PER_SKU = 6;
 
 /**
@@ -43,20 +44,26 @@ export function HeroSkuMegaVideos({
 
   const sections = top3.map((sku) => {
     const skuAsin = sku.asin ?? "";
-    const matched = !skuAsin
-      ? []
-      : allDisplayed
-          .filter(
-            (v) =>
-              v &&
-              (v.views ?? 0) >= MEGA_VIEWS_THRESHOLD &&
-              v.confidence === "high" &&
-              Array.isArray(v.matched_skus) &&
-              v.matched_skus.includes(skuAsin),
-          )
-          .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-          .slice(0, MAX_VIDEOS_PER_SKU);
-    return { sku, matched };
+    if (!skuAsin) return { sku, matched: [], threshold: MEGA_VIEWS_THRESHOLD };
+    const baseFilter = (threshold: number) =>
+      allDisplayed
+        .filter(
+          (v) =>
+            v &&
+            (v.views ?? 0) >= threshold &&
+            v.confidence === "high" &&
+            Array.isArray(v.matched_skus) &&
+            v.matched_skus.includes(skuAsin),
+        )
+        .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+        .slice(0, MAX_VIDEOS_PER_SKU);
+    // 1M+ 매칭 없으면 500K+로 fallback
+    const mega = baseFilter(MEGA_VIEWS_THRESHOLD);
+    if (mega.length > 0) {
+      return { sku, matched: mega, threshold: MEGA_VIEWS_THRESHOLD };
+    }
+    const fallback = baseFilter(FALLBACK_VIEWS_THRESHOLD);
+    return { sku, matched: fallback, threshold: FALLBACK_VIEWS_THRESHOLD };
   });
 
   return (
@@ -80,12 +87,13 @@ export function HeroSkuMegaVideos({
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {sections.map(({ sku, matched }, i) => (
+        {sections.map(({ sku, matched, threshold }, i) => (
           <SkuRow
             key={sku.asin}
             rank={i + 1}
             sku={sku}
             matched={matched}
+            threshold={threshold}
             currency={currency}
             exchangeRates={exchangeRates}
           />
@@ -116,12 +124,14 @@ function SkuRow({
   rank,
   sku,
   matched,
+  threshold,
   currency,
   exchangeRates,
 }: {
   rank: number;
   sku: Phase2Stats["sku_sales"][number];
   matched: DisplayedVideoEntry[];
+  threshold: number;
   currency: string;
   exchangeRates: ExchangeRates;
 }) {
@@ -213,9 +223,25 @@ function SkuRow({
             fontFamily: "var(--font-mono)",
           }}
         >
-          매칭된 메가 영상 없음 (views ≥ 1M + confidence high 기준)
+          매칭된 메가 영상 없음 (views ≥ 500K + confidence high 기준)
         </div>
       ) : (
+        <>
+          {threshold === FALLBACK_VIEWS_THRESHOLD && (
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--color-g500)",
+                background: "var(--color-warn-soft)",
+                padding: "4px 8px",
+                borderRadius: 3,
+                marginBottom: 8,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              ℹ 1M+ 메가 영상 없어 500K+로 fallback
+            </div>
+          )}
         <div
           style={{
             display: "grid",
@@ -228,6 +254,7 @@ function SkuRow({
             <VideoCard key={v.content_id} v={v} />
           ))}
         </div>
+        </>
       )}
     </div>
   );
