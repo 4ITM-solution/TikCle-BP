@@ -85,17 +85,29 @@ export const runAnalysis = inngest.createFunction(
       const ks = (existing?.key_stats ?? {}) as Record<string, unknown>;
       const errorMsg =
         error instanceof Error ? error.message : String(error ?? "unknown");
+      // 모든 필수 phase가 완료된 상태에서 마지막 ack/finalize에서만 fail한 경우
+      // (e.g., http_unreachable from Inngest) — 분석은 실제로 성공했으니
+      // last_error 박지 않고 status만 ready로 reset.
+      const hasFinalPhase = !!(ks as { phase5?: { computed_at?: string } })
+        .phase5?.computed_at;
+      const isPostCompletionAckError =
+        hasFinalPhase &&
+        (errorMsg.includes("http_unreachable") ||
+          errorMsg.includes("Unexpected ending response") ||
+          errorMsg.includes("connection reset"));
       await supabase
         .from("cases")
         .update({
           status: "ready",
-          key_stats: {
-            ...ks,
-            last_error: {
-              message: errorMsg.slice(0, 500),
-              at: new Date().toISOString(),
-            },
-          },
+          key_stats: isPostCompletionAckError
+            ? ks
+            : {
+                ...ks,
+                last_error: {
+                  message: errorMsg.slice(0, 500),
+                  at: new Date().toISOString(),
+                },
+              },
         })
         .eq("id", failedCaseId);
     },
