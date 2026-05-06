@@ -5,8 +5,13 @@ import type {
   Phase37Stats,
   Phase4aStats,
   Phase4bClusterStats,
+  Phase4bSkuStats,
   Phase5Stats,
 } from "@/lib/inngest/types";
+import {
+  ClusterTopToggle,
+  HeroSkuToggle,
+} from "./CompareCellInteractive";
 
 export type CompareCase = {
   id: string;
@@ -23,6 +28,7 @@ type KS = {
   phase37?: Phase37Stats;
   phase4a?: Phase4aStats;
   phase4b_clusters?: Phase4bClusterStats;
+  phase4b_sku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
 };
 
@@ -210,18 +216,32 @@ export function CompareGrid({ cases }: { cases: CompareCase[] }) {
       },
     },
     {
-      label: "메타 클러스터",
+      label: "히어로 SKU Top 3",
+      cells: (ks) => {
+        const skus = ks.phase2?.sku_sales ?? [];
+        if (skus.length === 0) return "—";
+        const allDisplayed = ks.phase4b_sku?.displayed_videos ?? [];
+        const channelCurrency = skus[0]?.currency ?? "USD";
+        return (
+          <HeroSkuToggle
+            skus={skus}
+            allDisplayed={allDisplayed}
+            currency={channelCurrency}
+          />
+        );
+      },
+    },
+    {
+      label: "메타 클러스터 Top 3",
       section: "D 콘텐츠 포맷",
       cells: (ks) => {
         const cl = ks.phase4b_clusters;
         if (!cl || cl.skipped_reason) return "—";
         return (
-          <div>
-            <b>{cl.pass3_meta}</b> 메타
-            <div style={{ color: "var(--color-g500)", fontSize: 11 }}>
-              입력 {cl.total_input_videos} · 후보 {cl.pass1_candidates}
-            </div>
-          </div>
+          <ClusterTopToggle
+            clusters={cl.meta_clusters}
+            clusterReps={ks.phase4b_sku?.cluster_representatives ?? {}}
+          />
         );
       },
     },
