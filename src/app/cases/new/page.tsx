@@ -15,11 +15,11 @@ import {
 } from "@/lib/case-detail/countries";
 
 // 드롭다운 구조:
-//   - 단일 (헤더 X): US/KR/JP/EU/BR
-//   - 권역 통합 case (Hybrid): MENA/LATAM_ES — 시딩 통합 + 매출 marketplace별 sub
+//   - 단일 (헤더 X): US/KR/JP/EU
+//   - 권역 통합 case (Hybrid): MENA/LATAM — 시딩 통합 + 매출 marketplace별 sub
 //   - 동남아 SEA (국가별): SG/TH/MY/ID/PH/VN — 무조건 단일 case
 //   - MENA 안 단일 분석: SA/AE
-//   - LATAM_ES 안 단일 분석: MX/AR/CO/CL/PE
+//   - LATAM 안 단일 분석: MX/AR/CO/CL/PE/BR (BR 포함 통합)
 type DropdownGroup = {
   label: string | null; // null = optgroup 없이 평면 노출
   countries: typeof COUNTRY_OPTIONS;
@@ -29,7 +29,7 @@ const COUNTRY_GROUPS: DropdownGroup[] = [
   {
     label: null,
     countries: COUNTRY_OPTIONS.filter((o) =>
-      ["US", "KR", "JP", "EU", "BR"].includes(o.code),
+      ["US", "KR", "JP", "EU"].includes(o.code),
     ),
   },
   {
@@ -47,9 +47,9 @@ const COUNTRY_GROUPS: DropdownGroup[] = [
     ),
   },
   {
-    label: "LATAM_ES 안 단일 분석",
+    label: "LATAM 안 단일 분석",
     countries: COUNTRY_OPTIONS.filter(
-      (o) => o.region === "LATAM_ES" && !isRegionCode(o.code),
+      (o) => o.region === "LATAM" && !isRegionCode(o.code),
     ),
   },
 ];
@@ -120,7 +120,7 @@ export default function NewCasePage() {
                 )}
               </select>
               <span className="field-help">
-                권역 코드(MENA/LATAM_ES)는 시딩 통합 + 매출 국가별 분리. 단일 국가는 시딩·매출 모두 단일.
+                권역 코드(MENA/LATAM)는 시딩 통합 + 매출 국가별 분리. 단일 국가는 시딩·매출 모두 단일.
               </span>
             </div>
           </div>

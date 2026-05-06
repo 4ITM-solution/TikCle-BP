@@ -9,7 +9,10 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:types": "supabase gen types typescript --project-id dxjodlxkynjirldpumxr --schema public > src/lib/supabase/types.gen.ts",
-    "backfill:gmv": "tsx --env-file=.env.local scripts/backfill-shop-creator-gmv.ts"
+    "backfill:gmv": "tsx --env-file=.env.local scripts/backfill-shop-creator-gmv.ts",
+    "test:apify": "tsx scripts/test-apify-tiktok-search.ts",
+    "validate:apify": "tsx scripts/validate-apify-vs-exolyt.ts",
+    "validate:apidojo": "tsx scripts/validate-apidojo-vs-exolyt.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

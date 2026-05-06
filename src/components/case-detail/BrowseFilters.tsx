@@ -10,13 +10,13 @@ import { REVENUE_TIERS } from "@/lib/case-detail/revenue-tiers";
 
 // 케이스 생성 form (src/app/cases/new/page.tsx)과 동일 구조
 const COUNTRY_GROUPS: { label: string | null; codes: string[] }[] = [
-  { label: null, codes: ["US", "KR", "JP", "EU", "BR"] },
-  { label: "권역 통합 case (Hybrid)", codes: ["MENA", "LATAM_ES"] },
+  { label: null, codes: ["US", "KR", "JP", "EU"] },
+  { label: "권역 통합 case (Hybrid)", codes: ["MENA", "LATAM"] },
   { label: "동남아 SEA (국가별)", codes: ["SG", "TH", "MY", "ID", "PH", "VN"] },
   { label: "MENA 안 단일 분석", codes: ["SA", "AE"] },
   {
-    label: "LATAM_ES 안 단일 분석",
-    codes: ["MX", "AR", "CO", "CL", "PE"],
+    label: "LATAM 안 단일 분석",
+    codes: ["MX", "AR", "CO", "CL", "PE", "BR"],
   },
 ];
 
