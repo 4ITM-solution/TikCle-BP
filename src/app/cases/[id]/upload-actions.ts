@@ -596,6 +596,37 @@ export async function startAnalysis(
 ): Promise<Result> {
   const { supabase } = await getCase(case_id);
 
+  // skipped_reason 박힌 phase는 자동으로 force에 포함.
+  // 이유: 옛 케이스 (brand_keyword 비어있어 phase4a skip, max_tokens 부족으로 phase4b_clusters
+  // skip 등)는 cached skip 결과 그대로 반환돼 글로벌 재실행 눌러도 갱신 안 됨.
+  // skipped_reason 있으면 "재시도해야 함"으로 간주.
+  const { data: ksRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const ks =
+    (ksRow?.key_stats as Record<string, { skipped_reason?: string } | undefined>) ??
+    {};
+  const phaseKeysToCheck: PhaseKey[] = [
+    "phase1_5",
+    "phase2",
+    "phase3",
+    "phase35",
+    "phase37",
+    "phase4a",
+    "phase4b_sample",
+    "phase4b_asr",
+    "phase4b_vision",
+    "phase4b_clusters",
+    "phase4b_sku",
+    "phase5",
+  ];
+  const autoForced = phaseKeysToCheck.filter((k) => ks[k]?.skipped_reason);
+  const merged = Array.from(
+    new Set([...(force_phases ?? []), ...autoForced]),
+  );
+
   const { error } = await supabase
     .from("cases")
     .update({ status: "running" })
@@ -608,7 +639,7 @@ export async function startAnalysis(
       data: {
         case_id,
         with_video: false,
-        ...(force_phases && force_phases.length > 0 ? { force_phases } : {}),
+        ...(merged.length > 0 ? { force_phases: merged } : {}),
       },
     });
   } catch (e) {
@@ -619,11 +650,18 @@ export async function startAnalysis(
   }
 
   revalidatePath(`/cases/${case_id}`);
+  const msgParts: string[] = [];
+  if (force_phases && force_phases.length > 0) {
+    msgParts.push(`수동 강제: ${force_phases.join(", ")}`);
+  }
+  if (autoForced.length > 0) {
+    msgParts.push(`skipped 자동 재시도: ${autoForced.join(", ")}`);
+  }
   return {
     ok: true,
     message:
-      force_phases && force_phases.length > 0
-        ? `Phase 강제 재실행: ${force_phases.join(", ")}`
+      msgParts.length > 0
+        ? msgParts.join(" · ")
         : "분석 시작 — 캐시된 phase는 skip, 누락된 것만 실행",
   };
 }
