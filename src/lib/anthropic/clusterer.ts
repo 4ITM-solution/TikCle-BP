@@ -295,7 +295,10 @@ export async function pass2Validate(
   );
   const userText = `Candidate clusters (${candidates.length} total):\n${lines.join("\n")}`;
 
-  const result = await callAnthropicJson(PASS2_SYSTEM, userText, 6000);
+  // Pass 2 — 최대 15개 cluster × ~400 tokens(이름+description+hook+body+merged_from)
+  // = ~6K. Claude verbose 시 8K+. truncation 안 일어나게 16K 박음 (Dr. Reju-all 케이스에서
+  // 5,276/6000 거의 max라 JSON 끊겨 parse 실패한 사례 — 5/6).
+  const result = await callAnthropicJson(PASS2_SYSTEM, userText, 16000);
   addUsage(usage, result.usage);
   diag.output_tokens = result.usage.output;
   if (!result.json) {
@@ -389,7 +392,9 @@ export async function pass3Meta(
   );
   const userText = `Validated clusters:\n${lines.join("\n")}`;
 
-  const result = await callAnthropicJson(PASS3_SYSTEM, userText, 1500);
+  // Pass 3 — 4-8 meta × ~300 tok(name+description+child_indexes) = ~2.4K.
+  // Pass 2가 truncation으로 fail한 전례 있어서 여유 있게 4K.
+  const result = await callAnthropicJson(PASS3_SYSTEM, userText, 4000);
   addUsage(usage, result.usage);
   if (!result.json) {
     console.warn(
