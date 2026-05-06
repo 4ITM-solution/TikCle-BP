@@ -7,6 +7,10 @@ import {
   TopGmvShopCreators,
   type TopGmvCreator,
 } from "./TopGmvShopCreators";
+import {
+  ShopCreatorGmvDistribution,
+  type ShopGmvDistribution,
+} from "./ShopCreatorGmvDistribution";
 import type { MetaAdListItem } from "@/app/cases/[id]/page";
 import {
   formatLocalAndUsd,
@@ -56,6 +60,7 @@ export function MiniDashboard({
   caseCountry,
   exchangeRates,
   topGmvCreators,
+  shopGmvDistribution,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -73,6 +78,7 @@ export function MiniDashboard({
   caseCountry: string;
   exchangeRates: ExchangeRates;
   topGmvCreators?: TopGmvCreator[];
+  shopGmvDistribution?: ShopGmvDistribution | null;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -96,6 +102,9 @@ export function MiniDashboard({
           phase35={phase35}
           phase37={phase37}
         />
+      )}
+      {shopGmvDistribution && (
+        <ShopCreatorGmvDistribution data={shopGmvDistribution} />
       )}
       {topGmvCreators && topGmvCreators.length > 0 && (
         <TopGmvShopCreators creators={topGmvCreators} />

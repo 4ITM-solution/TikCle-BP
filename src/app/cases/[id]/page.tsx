@@ -19,6 +19,7 @@ import {
   TopGmvShopCreators,
   type TopGmvCreator,
 } from "@/components/case-detail/TopGmvShopCreators";
+import type { ShopGmvDistribution } from "@/components/case-detail/ShopCreatorGmvDistribution";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   Phase2Stats,
@@ -229,9 +230,23 @@ export default async function CaseDetailPage({
     }));
   }
 
-  // 4c. Top GMV Shop creator 5명 + 각자 top 3 영상 (TikTok Shop case + ready 한정)
+  // 4c. Top GMV Shop creator + Shop GMV 분포 (TikTok Shop case + ready 한정)
   let topGmvCreators: TopGmvCreator[] = [];
+  let shopGmvDistribution: ShopGmvDistribution | null = null;
+  let caseInfluencerIds: string[] = [];
   if (c.channel === "tiktok_shop" && c.status === "ready" && brand_id) {
+    // 0) case scope unique influencer ids — 두 모듈 공용
+    const { data: ic } = await supabase
+      .from("contents")
+      .select("influencer_id")
+      .eq("brand_id", brand_id)
+      .eq("country", c.country)
+      .not("influencer_id", "is", null)
+      .limit(20000);
+    const idSet = new Set<string>();
+    for (const r of ic ?? []) if (r.influencer_id) idSet.add(r.influencer_id);
+    caseInfluencerIds = Array.from(idSet);
+
     // 1) brand+country scope의 Shop creator 중 GMV 큰 순 5명
     const { data: gmvInfls } = await supabase
       .from("influencers")
@@ -240,21 +255,7 @@ export default async function CaseDetailPage({
       )
       .eq("is_tiktok_shop_creator", true)
       .gt("lifetime_gmv_usd", 0)
-      .in(
-        "id",
-        await (async () => {
-          const { data } = await supabase
-            .from("contents")
-            .select("influencer_id")
-            .eq("brand_id", brand_id)
-            .eq("country", c.country)
-            .not("influencer_id", "is", null)
-            .limit(20000);
-          const set = new Set<string>();
-          for (const r of data ?? []) if (r.influencer_id) set.add(r.influencer_id);
-          return Array.from(set);
-        })(),
-      )
+      .in("id", caseInfluencerIds)
       .order("lifetime_gmv_usd", { ascending: false })
       .limit(5);
 
@@ -301,6 +302,45 @@ export default async function CaseDetailPage({
         } as TopGmvCreator;
       });
       topGmvCreators = await Promise.all(topPromises);
+    }
+
+    // 2) Shop creator GMV 분포 — case scope의 모든 Shop creator
+    const buckets = { zero: 0, b1: 0, b2: 0, b3: 0, b4: 0 };
+    let totalShop = 0;
+    let nullGmv = 0;
+    for (let i = 0; i < caseInfluencerIds.length; i += 1000) {
+      const slice = caseInfluencerIds.slice(i, i + 1000);
+      const { data: dist } = await supabase
+        .from("influencers")
+        .select("lifetime_gmv_usd")
+        .eq("is_tiktok_shop_creator", true)
+        .in("id", slice);
+      for (const r of dist ?? []) {
+        totalShop += 1;
+        if (r.lifetime_gmv_usd == null) {
+          nullGmv += 1;
+          continue;
+        }
+        const g = Number(r.lifetime_gmv_usd);
+        if (g === 0) buckets.zero += 1;
+        else if (g < 1000) buckets.b1 += 1;
+        else if (g < 10000) buckets.b2 += 1;
+        else if (g < 100000) buckets.b3 += 1;
+        else buckets.b4 += 1;
+      }
+    }
+    if (totalShop > 0) {
+      shopGmvDistribution = {
+        total_shop_creators: totalShop,
+        not_yet_backfilled: nullGmv,
+        buckets: [
+          { label: "$0 (역대 0건)", count: buckets.zero, color: "#9ca3af" },
+          { label: "$1~$1K", count: buckets.b1, color: "#facc15" },
+          { label: "$1K~$10K", count: buckets.b2, color: "#84cc16" },
+          { label: "$10K~$100K", count: buckets.b3, color: "#10b981" },
+          { label: "$100K+ (검증)", count: buckets.b4, color: "#0ea5e9" },
+        ],
+      };
     }
   }
 
@@ -614,6 +654,7 @@ export default async function CaseDetailPage({
                       caseCountry={c.country}
                       exchangeRates={exchangeRates}
                       topGmvCreators={topGmvCreators}
+                      shopGmvDistribution={shopGmvDistribution}
                     />
                   </div>
                   <SectionTOC
