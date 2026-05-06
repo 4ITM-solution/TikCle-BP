@@ -95,19 +95,20 @@ export const runAnalysis = inngest.createFunction(
         (errorMsg.includes("http_unreachable") ||
           errorMsg.includes("Unexpected ending response") ||
           errorMsg.includes("connection reset"));
+      const newKs = isPostCompletionAckError
+        ? ks
+        : {
+            ...ks,
+            last_error: {
+              message: errorMsg.slice(0, 500),
+              at: new Date().toISOString(),
+            },
+          };
       await supabase
         .from("cases")
         .update({
           status: "ready",
-          key_stats: isPostCompletionAckError
-            ? ks
-            : {
-                ...ks,
-                last_error: {
-                  message: errorMsg.slice(0, 500),
-                  at: new Date().toISOString(),
-                },
-              },
+          key_stats: newKs as never,
         })
         .eq("id", failedCaseId);
     },
