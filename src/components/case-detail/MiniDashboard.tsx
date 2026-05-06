@@ -1745,7 +1745,7 @@ function CreatorActivityModule({ stats }: { stats: Phase2Stats }) {
             fontFamily: "var(--font-mono)",
           }}
         >
-          전체 {total.toLocaleString()}명 · Class A(50+) / B(30-49) / C(10-29) — 카드 펼치면 뷰 Top 3 영상
+          전체 {total.toLocaleString()}명 · Class A (Shop+promoted≥5) / B (Shop+promoted≥2) / C (Shop+1) / D (non-Shop+promoted≥1) — 카드 펼치면 뷰 Top 3 영상
         </div>
       </div>
 
