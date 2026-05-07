@@ -407,7 +407,32 @@ export default async function CaseDetailPage({
             {brand}
           </h1>
           <span className={`status-pill ${c.status}`}>{c.status}</span>
-          <div style={{ marginLeft: "auto" }}>
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <a
+              href={`/cases/${c.id}/influencers.csv`}
+              download
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "6px 10px",
+                background: "var(--color-info-soft)",
+                color: "var(--color-info)",
+                border: "1px solid var(--color-info)",
+                borderRadius: 4,
+                textDecoration: "none",
+                fontFamily: "var(--font-mono)",
+              }}
+              title="이 케이스 협업 인플 전체 CSV 다운로드"
+            >
+              ⬇ 인플 CSV
+            </a>
             <DeleteCaseButton
               case_id={c.id}
               brand_label={`${brand} · ${c.country} · ${c.channel.toUpperCase()}`}
