@@ -91,9 +91,9 @@ export async function GET(
       lifetime_gmv_usd: number | null;
     }
   >();
-  // chunk 200 — UUID×36chars×1000 = 37KB로 .in() URL 길이 한계 초과해서 Bad Request
-  for (let i = 0; i < ids.length; i += 200) {
-    const slice = ids.slice(i, i + 200);
+  // chunk 50 — Supabase .in()이 큰 UUID 배열에서 400 발생하는 경우 있음
+  for (let i = 0; i < ids.length; i += 50) {
+    const slice = ids.slice(i, i + 50);
     const { data, error } = await supabase
       .from("influencers")
       .select(
@@ -101,9 +101,10 @@ export async function GET(
       )
       .in("id", slice);
     if (error) {
-      return new NextResponse(`influencers fetch: ${error.message}`, {
-        status: 500,
-      });
+      return new NextResponse(
+        `influencers fetch (chunk ${i / 50 + 1}/${Math.ceil(ids.length / 50)}, size ${slice.length}): ${error.message} — code:${error.code ?? "?"} hint:${error.hint ?? "?"} details:${error.details ?? "?"}`,
+        { status: 500 },
+      );
     }
     for (const r of data ?? []) {
       inflMap.set(r.id, {
