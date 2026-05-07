@@ -91,8 +91,9 @@ export async function GET(
       lifetime_gmv_usd: number | null;
     }
   >();
-  for (let i = 0; i < ids.length; i += 1000) {
-    const slice = ids.slice(i, i + 1000);
+  // chunk 200 — UUID×36chars×1000 = 37KB로 .in() URL 길이 한계 초과해서 Bad Request
+  for (let i = 0; i < ids.length; i += 200) {
+    const slice = ids.slice(i, i + 200);
     const { data, error } = await supabase
       .from("influencers")
       .select(
