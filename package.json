@@ -12,7 +12,8 @@
     "backfill:gmv": "tsx --env-file=.env.local scripts/backfill-shop-creator-gmv.ts",
     "test:apify": "tsx scripts/test-apify-tiktok-search.ts",
     "validate:apify": "tsx scripts/validate-apify-vs-exolyt.ts",
-    "validate:apidojo": "tsx scripts/validate-apidojo-vs-exolyt.ts"
+    "validate:apidojo": "tsx scripts/validate-apidojo-vs-exolyt.ts",
+    "validate:novi": "tsx scripts/validate-novi-vs-exolyt.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
