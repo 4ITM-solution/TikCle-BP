@@ -416,8 +416,7 @@ export default async function CaseDetailPage({
             }}
           >
             <a
-              href={`/cases/${c.id}/influencers.csv`}
-              download
+              href={`/api/cases/${c.id}/creators-csv`}
               style={{
                 fontSize: 11,
                 fontWeight: 600,
