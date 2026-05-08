@@ -122,8 +122,17 @@ export async function processPhase35Batch(
   supabase: SupaClient,
   pairs: Array<{ inflId: string; url: string }>,
 ): Promise<Phase35BatchResult> {
-  const urlToInflId = new Map<string, string>();
-  for (const p of pairs) urlToInflId.set(p.url, p.inflId);
+  // video_id 기반 매칭 — clockworks가 webVideoUrl(canonical)로 반환해서
+  // 우리가 보낸 contents.url(쿼리·trailing slash 등 변형)과 정확 매칭 안 되는 경우 많음.
+  const videoIdOf = (u: string): string | null => {
+    const m = u.match(/\/(?:video|photo)\/(\d+)/);
+    return m?.[1] ?? null;
+  };
+  const idToInflId = new Map<string, string>();
+  for (const p of pairs) {
+    const vid = videoIdOf(p.url);
+    if (vid) idToInflId.set(vid, p.inflId);
+  }
 
   const result = await fetchTikTokVideos({
     postURLs: pairs.map((p) => p.url),
@@ -134,7 +143,8 @@ export async function processPhase35Batch(
 
   let filled = 0;
   for (const item of result.items) {
-    const inflId = urlToInflId.get(item.url);
+    const vid = videoIdOf(item.url);
+    const inflId = vid ? idToInflId.get(vid) : undefined;
     if (!inflId || item.fans == null) continue;
 
     const tier = classifyTier(item.fans);
@@ -290,8 +300,16 @@ export async function runPhase35Fans(
   }
 
   // 4. clockworks 배치 호출
-  const urlToInflId = new Map<string, string>();
-  for (const [inflId, url] of idToUrl.entries()) urlToInflId.set(url, inflId);
+  // video_id 기반 매칭 (clockworks canonical URL과 contents.url 변형 차이 우회)
+  const videoIdOf = (u: string): string | null => {
+    const m = u.match(/\/(?:video|photo)\/(\d+)/);
+    return m?.[1] ?? null;
+  };
+  const idToInflId = new Map<string, string>();
+  for (const [inflId, url] of idToUrl.entries()) {
+    const vid = videoIdOf(url);
+    if (vid) idToInflId.set(vid, inflId);
+  }
 
   let totalCost = 0;
   let total_filled = 0;
@@ -308,7 +326,8 @@ export async function runPhase35Fans(
 
     // 각 응답 → influencer 업데이트
     for (const item of result.items) {
-      const inflId = urlToInflId.get(item.url);
+      const vid = videoIdOf(item.url);
+      const inflId = vid ? idToInflId.get(vid) : undefined;
       if (!inflId || item.fans == null) continue;
 
       const tier = classifyTier(item.fans);
