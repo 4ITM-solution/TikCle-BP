@@ -32,7 +32,12 @@ const LANGUAGE_LABELS: Record<string, string> = {
   th: "태국어",
   vi: "베트남어",
   id: "인도네시아어",
-  unknown: "미분류",
+  ar: "아랍어",
+  ru: "러시아어",
+  it: "이탈리아어",
+  tr: "터키어",
+  ms: "말레이어",
+  unknown: "확인 불가",
 };
 
 /**
@@ -344,9 +349,15 @@ function computeLanguageDistribution(rows: ContentRow[]): {
   for (const r of rows) {
     // contents.language가 채워져있으면 그걸 우선, 아니면 caption에서 detect
     const stored = r.language?.trim().toLowerCase();
-    const lang = stored || detectLanguageFromCaption(r.caption);
-    if (!lang) total_without += 1;
-    else counts.set(lang, (counts.get(lang) ?? 0) + 1);
+    const detected = stored || detectLanguageFromCaption(r.caption);
+    if (!detected) {
+      total_without += 1;
+      continue;
+    }
+    // franc-min이 짧은 캡션·이모지 영상에서 SWE/LIN/HAU/HNJ 등 false positive 자주 발생.
+    // K-beauty 시장에 의미 있는 언어만 그대로 두고, 나머지는 'unknown' 버킷으로 통합.
+    const lang = LANGUAGE_LABELS[detected] ? detected : "unknown";
+    counts.set(lang, (counts.get(lang) ?? 0) + 1);
   }
   const total_with = Array.from(counts.values()).reduce((s, n) => s + n, 0);
   const total = total_with + total_without;
@@ -354,7 +365,7 @@ function computeLanguageDistribution(rows: ContentRow[]): {
   const languages: LanguageEntry[] = Array.from(counts.entries())
     .map(([code, count]) => ({
       code,
-      label: LANGUAGE_LABELS[code] ?? code.toUpperCase(),
+      label: LANGUAGE_LABELS[code] ?? "확인 불가",
       count,
       pct: total > 0 ? (count / total) * 100 : 0,
     }))
