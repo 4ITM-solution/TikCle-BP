@@ -76,6 +76,17 @@ export async function fetchPhase37Setup(
       skipped_reason: "tiktok_shop 채널 아님 (skip)",
     };
   }
+  // 비-US tiktok_shop은 lemur DB가 SEA/MENA TT Shop creator를 거의 안 가져
+  // (Indonesia 케이스 9%만 매칭). 호출해봐야 무의미하니 skip하고 모든 인플을
+  // shop creator로 가정 (SEA TT Shop은 사실상 모든 큰 활동 인플이 Shop 등록).
+  if (c.country !== "US") {
+    return {
+      total_inflids: 0,
+      candidates: [],
+      all_inflids: [],
+      skipped_reason: `비-US tiktok_shop (country=${c.country}) — lemur가 SEA/MENA TT Shop을 안 인덱싱해서 skip. 모든 인플을 Shop creator로 간주.`,
+    };
+  }
 
   const inflIds = await fetchUniqueInfluencerIds(
     supabase,

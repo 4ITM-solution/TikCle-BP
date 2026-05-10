@@ -487,17 +487,26 @@ export const runAnalysis = inngest.createFunction(
     // Phase 2 처음엔 전체 contents로 집계됨. tiktok_shop은 Phase 3.7 이후
     // is_tiktok_shop_creator=true 인플의 contents만 다시 aggregate.
     const phase2Refiltered = await step.run("phase-2-refilter-shop", async () => {
-      // 케이스 채널 확인
+      // 케이스 채널 + country 확인
       const { data: caseRow } = await supabase
         .from("cases")
-        .select("channel")
+        .select("channel, country")
         .eq("id", case_id)
         .single();
       if (caseRow?.channel !== "tiktok_shop") {
         return phase2Final; // 그대로
       }
-      // tiktok_shop이면 shop creator 필터로 재집계
-      logger.info("[Phase 2 refilter] tiktok_shop → shop creator only");
+      // 비-US tiktok_shop: lemur가 SEA/MENA TT Shop creator DB를 거의 안 가져
+      // (Indonesia 케이스 9%만 매칭). shopCreatorOnly 필터 적용하면 화면에 표시되는
+      // 인플 수가 비현실적으로 작아짐. 비-US는 전체 인플 그대로 사용.
+      if (caseRow?.country !== "US") {
+        logger.info("[Phase 2 refilter] non-US tiktok_shop → 필터 skip (lemur SEA 한계)", {
+          country: caseRow?.country,
+        });
+        return phase2Final;
+      }
+      // US tiktok_shop만 shop creator 필터로 재집계
+      logger.info("[Phase 2 refilter] tiktok_shop US → shop creator only");
       const stats = await runPhase2(supabase, case_id, {
         shopCreatorOnly: true,
       });
