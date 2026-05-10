@@ -56,6 +56,18 @@ export async function fetchPhase15Setup(
       skipped_reason: "tiktok_shop_store_url 비어있음",
     };
   }
+  // pro100chok actor는 region:"us"만 지원. SEA/MENA/LATAM 등 다른 국가는 skip.
+  // (수동 데이터 입력 또는 다른 데이터 소스로 보완 필요).
+  const region = (c.country ?? "us").toLowerCase();
+  if (region !== "us") {
+    return {
+      brand_id: c.brand_id,
+      channel: c.channel,
+      storeUrl: c.tiktok_shop_store_url,
+      region,
+      skipped_reason: `Phase 1.5 actor (pro100chok)는 US만 지원 — country=${c.country} 케이스는 자동 수집 skip (Kalodata 등 외부 데이터 수동 입력 필요)`,
+    };
+  }
   if (!process.env.APIFY_TOKEN) {
     return {
       brand_id: c.brand_id,
