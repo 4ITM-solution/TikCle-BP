@@ -323,7 +323,9 @@ export const runAnalysis = inngest.createFunction(
 
     // ─── Phase 3.5: Clockworks 폴백으로 unknown 인플 fans 채우기 ───
     // Step-level batch 처리. 200 URL씩 batch.
-    const PHASE35_BATCH_SIZE = 200;
+    // 200 → 50: 단일 actor run에 200 URLs 보내면 actor 자체 timeout (TIMED-OUT) 발생.
+    // clockworks가 일부 영상 처리에 시간 걸리거나 hang 시 batch 전체 fail. 50으로 안전.
+    const PHASE35_BATCH_SIZE = 50;
     const phase35CacheHit =
       existing.phase35 && !force("phase35") && !phase3New;
 

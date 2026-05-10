@@ -54,7 +54,7 @@ export async function fetchTikTokVideos(opts: {
     return { items: [], cost_estimate_usd: 0, skipped_reason: "URL 0개" };
   }
 
-  const apiUrl = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${token}&timeout=${SYNC_TIMEOUT_SEC}`;
+  // Async run + poll 패턴 — sync API 5분 한도 + actor TIMED-OUT 회피
   const body = {
     postURLs: opts.postURLs,
     resultsPerPage: 1,
@@ -66,18 +66,57 @@ export async function fetchTikTokVideos(opts: {
     shouldDownloadVideos: false,
   };
 
-  const response = await fetch(apiUrl, {
+  const startUrl = `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${token}`;
+  const startRes = await fetch(startUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Apify clockworks ${response.status}: ${text.slice(0, 300)}`);
+  if (!startRes.ok) {
+    const text = await startRes.text().catch(() => "");
+    throw new Error(
+      `Apify clockworks start ${startRes.status}: ${text.slice(0, 300)}`,
+    );
+  }
+  const startJson = (await startRes.json()) as {
+    data?: { id?: string; defaultDatasetId?: string };
+  };
+  const runId = startJson.data?.id;
+  const datasetId = startJson.data?.defaultDatasetId;
+  if (!runId || !datasetId) {
+    throw new Error("Apify clockworks: run start response missing id");
   }
 
-  const raw = (await response.json()) as unknown[];
+  // Poll status
+  const runUrl = `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`;
+  const maxWaitMs = SYNC_TIMEOUT_SEC * 1000; // 280s default — 단일 batch 안전선
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const r = await fetch(runUrl);
+    if (!r.ok) continue;
+    const j = (await r.json()) as { data?: { status?: string } };
+    const status = j.data?.status;
+    if (status === "SUCCEEDED") break;
+    if (
+      status === "FAILED" ||
+      status === "ABORTED" ||
+      status === "TIMED-OUT"
+    ) {
+      throw new Error(`Apify clockworks: actor run ${status}`);
+    }
+  }
+
+  // Fetch dataset
+  const dsUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&format=json`;
+  const dsRes = await fetch(dsUrl);
+  if (!dsRes.ok) {
+    const text = await dsRes.text().catch(() => "");
+    throw new Error(
+      `Apify clockworks dataset ${dsRes.status}: ${text.slice(0, 300)}`,
+    );
+  }
+  const raw = (await dsRes.json()) as unknown[];
 
   // 디버그: 첫 항목의 키 구조 로그 (cover_url 추출 검증용)
   if (raw[0] && typeof raw[0] === "object") {
