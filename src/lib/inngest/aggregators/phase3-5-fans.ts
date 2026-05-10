@@ -13,7 +13,9 @@ import type { Phase35Stats, Phase3Stats, TopCreator } from "../types";
 
 type SupaClient = SupabaseClient<Database>;
 
-const CLOCKWORKS_BATCH = 200;
+// 200 → 50: 단일 batch가 300s sync 한도 초과해 fail하는 케이스 방지.
+// 1,988명 unknown 기준 200 batch = 10 (단일 fail 위험 큼) / 50 batch = 40 (안전).
+const CLOCKWORKS_BATCH = 50;
 const CONTENTS_FETCH_CHUNK = 200;
 
 /**

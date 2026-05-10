@@ -9,7 +9,9 @@
  */
 
 const ACTOR_ID = "clockworks~tiktok-scraper";
-const SYNC_TIMEOUT_SEC = 600; // 10분 cap
+// Apify sync API의 maxClientWaitMillis는 보통 300s (5분) — 그 이상은 408 timeout.
+// 안전 cap = 280s (Apify 측에서 endpoint별 한도 다양). batch size 줄여서 단일 호출 짧게 유지.
+const SYNC_TIMEOUT_SEC = 280;
 const COST_PER_RESULT = 0.0017;
 
 export type ClockworksItem = {
