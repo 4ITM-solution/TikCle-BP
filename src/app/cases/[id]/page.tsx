@@ -344,6 +344,25 @@ export default async function CaseDetailPage({
     }
   }
 
+  // 4d. brand_view_trends (Exolyt social listener 주간 viral views)
+  let weeklyViews: Array<{
+    week_start: string;
+    total_views: number;
+    total_videos: number;
+  }> = [];
+  if (brand_id) {
+    const { data: bvt } = await supabase
+      .from("brand_view_trends")
+      .select("week_start, total_views, total_videos")
+      .eq("brand_id", brand_id)
+      .order("week_start", { ascending: true });
+    weeklyViews = (bvt ?? []).map((r) => ({
+      week_start: r.week_start,
+      total_views: Number(r.total_views),
+      total_videos: Number(r.total_videos),
+    }));
+  }
+
   // 5. 분석 시작 가능 여부
   // tiktok_shop은 스토어 URL만 있으면 분석 시작 가능 (Phase 1.5에서 자동 수집)
   const exolytDone = (contentCount ?? 0) > 0 || reusedAlready;
@@ -679,6 +698,7 @@ export default async function CaseDetailPage({
                       exchangeRates={exchangeRates}
                       topGmvCreators={topGmvCreators}
                       shopGmvDistribution={shopGmvDistribution}
+                      weeklyViews={weeklyViews}
                     />
                   </div>
                   <SectionTOC

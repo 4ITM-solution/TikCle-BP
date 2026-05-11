@@ -59,6 +59,48 @@ export type Database = {
         Relationships: [];
       };
 
+      brand_view_trends: {
+        Row: {
+          id: string;
+          brand_id: string;
+          country: string | null;
+          week_start: string;
+          total_views: number;
+          total_videos: number;
+          source: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          brand_id: string;
+          country?: string | null;
+          week_start: string;
+          total_views: number;
+          total_videos: number;
+          source?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          brand_id?: string;
+          country?: string | null;
+          week_start?: string;
+          total_views?: number;
+          total_videos?: number;
+          source?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_view_trends_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
       cases: {
         Row: {
           id: string;

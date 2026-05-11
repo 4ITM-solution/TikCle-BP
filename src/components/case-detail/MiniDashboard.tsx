@@ -1,7 +1,7 @@
 import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
-import { BsrTrendChart } from "./BsrTrendChart";
+import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -61,6 +61,7 @@ export function MiniDashboard({
   exchangeRates,
   topGmvCreators,
   shopGmvDistribution,
+  weeklyViews,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -79,6 +80,7 @@ export function MiniDashboard({
   exchangeRates: ExchangeRates;
   topGmvCreators?: TopGmvCreator[];
   shopGmvDistribution?: ShopGmvDistribution | null;
+  weeklyViews?: WeeklyViewPoint[];
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -161,6 +163,7 @@ export function MiniDashboard({
             <BsrTrendChart
               bsrSeries={phase2.bsr_series}
               inflections={phase5?.bsr_inflections}
+              weeklyViews={weeklyViews}
             />
           )}
         </>

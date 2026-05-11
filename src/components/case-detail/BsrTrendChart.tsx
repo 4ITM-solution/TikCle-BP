@@ -27,12 +27,20 @@ function formatViews(n: number): string {
   return String(n);
 }
 
+export type WeeklyViewPoint = {
+  week_start: string; // YYYY-MM-DD
+  total_views: number;
+  total_videos: number;
+};
+
 export function BsrTrendChart({
   bsrSeries: bsrSeriesAll,
   inflections,
+  weeklyViews,
 }: {
   bsrSeries: BsrSeries[];
   inflections?: BsrInflection[];
+  weeklyViews?: WeeklyViewPoint[];
 }) {
   // 권역 case는 같은 ASIN이 SA/AE 두 시계열로 나옴. asin 단독으론 unique 안 됨.
   // key = `${asin}@${country}`로 분리.
@@ -254,6 +262,60 @@ export function BsrTrendChart({
               </text>
             </g>
           ))}
+          {/* weekly views overlay — 우측 Y축 스케일, 반투명 bar */}
+          {(() => {
+            if (!weeklyViews || weeklyViews.length === 0) return null;
+            // 차트 시간 범위 안 포함되는 주간만
+            const inRange = weeklyViews.filter((w) => {
+              const t = new Date(w.week_start).getTime();
+              return t >= minTs && t <= maxTs;
+            });
+            if (inRange.length === 0) return null;
+            const maxViews = Math.max(...inRange.map((w) => w.total_views));
+            const minWeekTs = inRange.reduce(
+              (m, w) => Math.min(m, new Date(w.week_start).getTime()),
+              Infinity,
+            );
+            const otherWeekTs = inRange.find(
+              (w) => new Date(w.week_start).getTime() > minWeekTs,
+            );
+            const weekWidth = otherWeekTs
+              ? ((new Date(otherWeekTs.week_start).getTime() - minWeekTs) /
+                  dateRange) *
+                W *
+                0.8
+              : 10;
+            return (
+              <g>
+                {inRange.map((w) => {
+                  const x = xOf(w.week_start);
+                  const barH = (w.total_views / maxViews) * (H - 30);
+                  return (
+                    <rect
+                      key={w.week_start}
+                      x={x - weekWidth / 2}
+                      y={H - barH}
+                      width={weekWidth}
+                      height={barH}
+                      fill="var(--color-info)"
+                      opacity="0.18"
+                    />
+                  );
+                })}
+                {/* right Y axis label */}
+                <text
+                  x={W - 5}
+                  y={12}
+                  fontSize="9"
+                  fill="var(--color-info)"
+                  textAnchor="end"
+                  fontFamily="var(--font-mono)"
+                >
+                  {formatViews(maxViews)} views/주
+                </text>
+              </g>
+            );
+          })()}
           {/* line series */}
           {bsrSeries.map((s) => {
             const color = colorByAsinAll.get(keyOf(s)) ?? COLORS[0]!;
