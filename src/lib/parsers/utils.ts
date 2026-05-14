@@ -27,10 +27,20 @@ function buildUtcIso(
 
 function applyAmPm(hour: number, ampm: string | undefined): number {
   if (!ampm) return hour;
-  const u = ampm.toUpperCase();
-  if ((u === "PM" || u === "오후") && hour !== 12) return hour + 12;
-  if ((u === "AM" || u === "오전") && hour === 12) return 0;
+  // "a.m." / "p.m." / "am" / "AM" 등 정규화: 점·공백 제거 후 대문자.
+  const u = ampm.replace(/[.\s]/g, "").toUpperCase();
+  if ((u === "PM" || ampm === "오후") && hour !== 12) return hour + 12;
+  if ((u === "AM" || ampm === "오전") && hour === 12) return 0;
   return hour;
+}
+
+// 정규식 alternation 단편: 모든 AM/PM 변형 (대소문자 + 점 포함). 캡쳐 그룹.
+const AMPM_RE = "(a\\.m\\.|p\\.m\\.|A\\.M\\.|P\\.M\\.|am|pm|AM|PM)";
+
+// 마커가 점 찍힌 소문자면 UK/AU/NZ locale → DD/MM/YYYY 강제.
+function isUkLocaleMarker(ampm: string | undefined): boolean {
+  if (!ampm) return false;
+  return ampm === "a.m." || ampm === "p.m.";
 }
 
 /**
@@ -77,7 +87,9 @@ export function parseKeepaDateTime(s: string): string | null {
 
   // 4) 영문 월명 + 일 + 년: "Aug 22, 2025 12:00:00 PM" / "August 22, 2025, 12:00 PM"
   m = str.match(
-    /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|am|pm))?$/,
+    new RegExp(
+      `^([A-Za-z]+)\\s+(\\d{1,2}),?\\s+(\\d{4})[,\\s]+(\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s*${AMPM_RE})?$`,
+    ),
   );
   if (m) {
     const [, mon, da, yy, hh, mi, se, ampm] = m;
@@ -89,7 +101,9 @@ export function parseKeepaDateTime(s: string): string | null {
 
   // 5) 일 + 영문 월명 + 년: "22 Aug 2025 14:30:00"
   m = str.match(
-    /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|am|pm))?$/,
+    new RegExp(
+      `^(\\d{1,2})\\s+([A-Za-z]+)\\s+(\\d{4})\\s+(\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s*${AMPM_RE})?$`,
+    ),
   );
   if (m) {
     const [, da, mon, yy, hh, mi, se, ampm] = m;
@@ -99,16 +113,20 @@ export function parseKeepaDateTime(s: string): string | null {
     return buildUtcIso(+yy!, moNum, +da!, h, +mi!, se ? +se : 0);
   }
 
-  // 6) 슬래시 (US): M/D/YYYY HH:MM(:SS)? (AM|PM)?
+  // 6) 슬래시 (US/UK/AU/NZ): M/D/YYYY 또는 D/M/YYYY + 시간 + (AM|PM|a.m.|p.m.)?
   m = str.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|am|pm))?$/,
+    new RegExp(
+      `^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})[,\\s]+(\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s*${AMPM_RE})?$`,
+    ),
   );
   if (m) {
     const [, mo, da, yy, hh, mi, se, ampm] = m;
     const moN = parseInt(mo!, 10);
     const daN = parseInt(da!, 10);
-    // EU 포맷 (D/M/YYYY) 보완: 첫 숫자가 12 초과면 일자.
-    const isEu = moN > 12 && daN <= 12;
+    // UK/AU/NZ locale 시그널: "a.m." "p.m." (소문자+점) → DD/MM/YYYY 강제.
+    // 그 외엔 첫 숫자 > 12면 자동으로 EU 포맷.
+    const forceDmy = isUkLocaleMarker(ampm);
+    const isEu = forceDmy || (moN > 12 && daN <= 12);
     const month = isEu ? daN : moN;
     const day = isEu ? moN : daN;
     const h = applyAmPm(parseInt(hh!, 10), ampm);
