@@ -349,6 +349,30 @@ function ClusterEmptyFallback({ clusters }: { clusters: Phase4bClusterStats }) {
               <b>{clusters.pass2_debug.invalid_indexes}</b>
             </>
           )}
+          {clusters.pass2_debug.stop_reason && (
+            <>
+              {" · stop="}
+              <b>{clusters.pass2_debug.stop_reason}</b>
+            </>
+          )}
+          {clusters.pass2_debug.parse_error_tail && (
+            <div
+              style={{
+                marginTop: 6,
+                padding: "6px 8px",
+                background: "var(--color-g50)",
+                borderRadius: 4,
+                fontSize: 10,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                color: "var(--color-g700)",
+              }}
+            >
+              LLM 출력 tail (마지막 200자):
+              {"\n"}
+              {clusters.pass2_debug.parse_error_tail}
+            </div>
+          )}
         </div>
       )}
 

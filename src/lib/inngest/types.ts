@@ -332,6 +332,8 @@ export type Phase4bClusterStats = {
     dropped_too_small: number; // union 후 멤버 < 3
     invalid_indexes: number; // out-of-range candidate index 수
     output_tokens: number; // truncation 진단용
+    parse_error_tail?: string; // parse 실패시 LLM 출력 끝부분
+    stop_reason?: string; // end_turn / max_tokens 등
   };
 };
 

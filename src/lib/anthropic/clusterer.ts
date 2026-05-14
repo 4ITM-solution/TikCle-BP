@@ -268,6 +268,8 @@ export type Pass2Diagnostics = {
   dropped_too_small: number;
   invalid_indexes: number;
   output_tokens: number;
+  parse_error_tail?: string; // parse 실패시 LLM 출력 끝 200자
+  stop_reason?: string; // end_turn / max_tokens / stop_sequence 등
 };
 
 export async function pass2Validate(
@@ -301,10 +303,12 @@ export async function pass2Validate(
   const result = await callAnthropicJson(PASS2_SYSTEM, userText, 16000);
   addUsage(usage, result.usage);
   diag.output_tokens = result.usage.output;
+  diag.stop_reason = result.stop_reason;
   if (!result.json) {
     diag.parse_failed = true;
+    diag.parse_error_tail = result.parse_error_tail;
     console.warn(
-      `[clusterer pass2] JSON parse failed (input_clusters=${candidates.length}, output_tokens=${result.usage.output})`,
+      `[clusterer pass2] JSON parse failed (input_clusters=${candidates.length}, output_tokens=${result.usage.output}, stop=${result.stop_reason})`,
     );
     return { validated: [], usage, diagnostics: diag };
   }
@@ -430,11 +434,30 @@ export async function pass3Meta(
 // =============================================================================
 // helpers
 // =============================================================================
+// JSON 추출 — 첫 `{` 부터 마지막 `}` 까지. 중간에 commentary나 fence 변형이 있어도 통과.
+function extractJsonEnvelope(s: string): string | null {
+  const firstBrace = s.indexOf("{");
+  const lastBrace = s.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) return null;
+  return s.slice(firstBrace, lastBrace + 1);
+}
+
+// JSON5 cleanup — trailing commas 제거. 다른 변형들은 의도적으로 다루지 않음
+// (string 내부 변형 처리는 위험해서).
+function looseJsonCleanup(s: string): string {
+  return s.replace(/,(\s*[}\]])/g, "$1");
+}
+
 async function callAnthropicJson(
   systemPrompt: string,
   userText: string,
   maxTokens: number,
-): Promise<{ json: unknown; usage: TokenUsage }> {
+): Promise<{
+  json: unknown;
+  usage: TokenUsage;
+  parse_error_tail?: string;
+  stop_reason?: string;
+}> {
   const { sanitizeUtf16 } = await import("./sanitize");
   const response = await getClient().messages.create({
     model: MODEL,
@@ -462,22 +485,49 @@ async function callAnthropicJson(
   );
   if (!block) return { json: null, usage };
 
+  const stop = (response as { stop_reason?: string }).stop_reason ?? "?";
+
+  // 1차: fence 떼고 시도
+  const stripped = block.text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
   try {
-    const cleaned = block.text
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-    return { json: JSON.parse(cleaned), usage };
-  } catch (e) {
-    // 디버그: 끝 80자 + stop_reason으로 truncation 여부 판단
-    const tail = block.text.slice(-120);
-    const stop = (response as { stop_reason?: string }).stop_reason ?? "?";
-    console.warn(
-      `[clusterer] JSON parse error (stop=${stop}, len=${block.text.length}): ...${tail}`,
-      e instanceof Error ? e.message : String(e),
-    );
-    return { json: null, usage };
+    return { json: JSON.parse(stripped), usage, stop_reason: stop };
+  } catch {
+    /* fallthrough */
   }
+
+  // 2차: 첫 `{` ~ 마지막 `}` 구간만 추출 (앞뒤 commentary 제거)
+  const envelope = extractJsonEnvelope(stripped);
+  if (envelope) {
+    try {
+      return { json: JSON.parse(envelope), usage, stop_reason: stop };
+    } catch {
+      /* fallthrough */
+    }
+    // 3차: trailing comma 제거 후 재시도
+    try {
+      return {
+        json: JSON.parse(looseJsonCleanup(envelope)),
+        usage,
+        stop_reason: stop,
+      };
+    } catch (e) {
+      const tail = envelope.slice(-200);
+      console.warn(
+        `[clusterer] JSON parse error (stop=${stop}, envelope_len=${envelope.length}): ...${tail}`,
+        e instanceof Error ? e.message : String(e),
+      );
+      return { json: null, usage, parse_error_tail: tail, stop_reason: stop };
+    }
+  }
+
+  const tail = block.text.slice(-200);
+  console.warn(
+    `[clusterer] No JSON envelope (stop=${stop}, len=${block.text.length}): ...${tail}`,
+  );
+  return { json: null, usage, parse_error_tail: tail, stop_reason: stop };
 }
 
 function addUsage(acc: TokenUsage, add: TokenUsage): void {
