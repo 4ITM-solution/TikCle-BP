@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { parseKoreanDateTime, stripBom, toNum } from "./utils";
+import { parseKeepaDateTime, stripBom, toNum } from "./utils";
 
 export type BsrRow = {
   collected_at: string; // YYYY-MM-DD
@@ -32,7 +32,7 @@ export function parseBsr(raw: string): {
 
   const rows: BsrRow[] = [];
   for (const r of parsed.data) {
-    const iso = parseKoreanDateTime(r.Time ?? "");
+    const iso = parseKeepaDateTime(r.Time ?? "");
     if (!iso) continue;
 
     const bsrRaw = toNum(r["Sales Rank"]);
