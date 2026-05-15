@@ -217,6 +217,65 @@ async function processExolytText(
     new Map(contentInsertsRaw.map((item) => [item.url, item])).values(),
   );
 
+  // 기존 contents의 metric을 미리 조회 — 과거 데이터 CSV를 올려도 조회수 등이
+  // 후퇴하지 않도록, url 충돌 시 단조증가 metric은 GREATEST(기존, 신규)로 머지.
+  // (조회수·좋아요·댓글·공유·저장수는 시간이 지나며 누적 증가만 함)
+  const csvUrls = contentInserts.map((r) => r.url);
+  const existingMetrics = new Map<
+    string,
+    {
+      views: number | null;
+      likes: number | null;
+      comments: number | null;
+      shares: number | null;
+      collect_count: number | null;
+    }
+  >();
+  // url은 ~70자 → PostgREST URL 8KB 제한 회피 위해 작은 청크.
+  const URL_LOOKUP_CHUNK = 100;
+  for (let i = 0; i < csvUrls.length; i += URL_LOOKUP_CHUNK) {
+    const urlChunk = csvUrls.slice(i, i + URL_LOOKUP_CHUNK);
+    const { data: exRows, error: exErr } = await supabase
+      .from("contents")
+      .select("url, views, likes, comments, shares, collect_count")
+      .eq("brand_id", c.brand_id)
+      .eq("country", c.country)
+      .in("url", urlChunk);
+    if (exErr) {
+      return {
+        ok: false,
+        error: `기존 content 조회 실패 (chunk ${i}): ${exErr.message || JSON.stringify(exErr)}`,
+      };
+    }
+    for (const r of exRows ?? []) {
+      existingMetrics.set(r.url, {
+        views: r.views,
+        likes: r.likes,
+        comments: r.comments,
+        shares: r.shares,
+        collect_count: r.collect_count,
+      });
+    }
+  }
+
+  const maxNum = (a: number | null, b: number | null): number | null => {
+    if (a == null) return b;
+    if (b == null) return a;
+    return Math.max(a, b);
+  };
+
+  let metricMerged = 0;
+  for (const row of contentInserts) {
+    const prev = existingMetrics.get(row.url);
+    if (!prev) continue;
+    metricMerged += 1;
+    row.views = maxNum(row.views, prev.views);
+    row.likes = maxNum(row.likes, prev.likes);
+    row.comments = maxNum(row.comments, prev.comments);
+    row.shares = maxNum(row.shares, prev.shares);
+    row.collect_count = maxNum(row.collect_count, prev.collect_count);
+  }
+
   let inserted = 0;
   for (let i = 0; i < contentInserts.length; i += BATCH) {
     const batch = contentInserts.slice(i, i + BATCH);
@@ -237,9 +296,13 @@ async function processExolytText(
     skippedNoUsername + skippedNoUrl + duplicateUrls > 0
       ? ` (CSV ${totalLines}행 중: 적재 ${contentInserts.length}, 중복url ${duplicateUrls}, username결측 ${skippedNoUsername}, url결측 ${skippedNoUrl})`
       : "";
+  const mergeNote =
+    metricMerged > 0
+      ? ` · 기존 영상 ${metricMerged}개는 metric 큰 값으로 머지(후퇴 방지)`
+      : "";
   return {
     ok: true,
-    message: `exolyt ${inserted}행 적재 완료${skipNote}`,
+    message: `exolyt ${inserted}행 적재 완료${skipNote}${mergeNote}`,
   };
 }
 
