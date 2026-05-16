@@ -2,6 +2,8 @@ import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
+import { WeeklyTrendChart } from "./WeeklyTrendChart";
+import { MonthlyTrendChart } from "./MonthlyTrendChart";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -158,6 +160,15 @@ export function MiniDashboard({
             phase4bSku={phase4bSku}
             currency={currency}
             exchangeRates={exchangeRates}
+          />
+          <WeeklyTrendChart
+            weeklyViews={weeklyViews}
+            bsrSeries={phase2.bsr_series}
+          />
+          <MonthlyTrendChart
+            tierByMonth={phase3?.tier_dist_by_month}
+            monthlyVideoCounts={phase2.monthly_video_counts}
+            bsrSeries={phase2.bsr_series}
           />
           {phase2.bsr_series.length > 0 && (
             <BsrTrendChart
