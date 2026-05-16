@@ -64,6 +64,7 @@ export function MiniDashboard({
   topGmvCreators,
   shopGmvDistribution,
   weeklyViews,
+  skuMeta,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -83,6 +84,10 @@ export function MiniDashboard({
   topGmvCreators?: TopGmvCreator[];
   shopGmvDistribution?: ShopGmvDistribution | null;
   weeklyViews?: WeeklyViewPoint[];
+  skuMeta?: Record<
+    string,
+    { subcategory: string | null; launch_date: string | null }
+  >;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -154,6 +159,7 @@ export function MiniDashboard({
             currency={currency}
             caseCountry={caseCountry}
             exchangeRates={exchangeRates}
+            skuMeta={skuMeta}
           />
           <HeroSkuMegaVideos
             phase2={phase2}
@@ -1931,16 +1937,32 @@ function formatFans(n: number): string {
 // =============================================================================
 // Module: SKU 매출
 // =============================================================================
+function formatLaunch(launchDate: string | null | undefined): string | null {
+  if (!launchDate) return null;
+  const d = new Date(launchDate);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  const months =
+    (now.getFullYear() - d.getFullYear()) * 12 +
+    (now.getMonth() - d.getMonth());
+  return `출시 ~${launchDate.slice(0, 7)} (${months}개월 전)`;
+}
+
 function SkuSalesModule({
   stats,
   currency,
   caseCountry,
   exchangeRates,
+  skuMeta,
 }: {
   stats: Phase2Stats;
   currency: string;
   caseCountry: string;
   exchangeRates: ExchangeRates;
+  skuMeta?: Record<
+    string,
+    { subcategory: string | null; launch_date: string | null }
+  >;
 }) {
   if (!stats.sales_summary) return null;
   const max = Math.max(...stats.sku_sales.map((s) => s.revenue), 1);
@@ -2148,6 +2170,28 @@ function SkuSalesModule({
                   title={s.name}
                 >
                   {s.name}
+                  {(() => {
+                    const meta = skuMeta?.[s.asin];
+                    const launch = formatLaunch(meta?.launch_date);
+                    if (!meta?.subcategory && !launch) return null;
+                    return (
+                      <div
+                        style={{
+                          marginTop: 2,
+                          fontSize: 10,
+                          color: "var(--color-g400)",
+                          fontFamily: "var(--font-mono)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {meta?.subcategory ?? ""}
+                        {meta?.subcategory && launch ? " · " : ""}
+                        {launch ?? ""}
+                      </div>
+                    );
+                  })()}
                   <div
                     style={{
                       marginTop: 3,

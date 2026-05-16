@@ -7,6 +7,8 @@ export type AmazonSalesRow = {
   url: string | null;
   price: number | null;
   category: string | null;
+  subcategory: string | null;
+  listing_age_months: number | null; // Black Box "Listing Age (Months)"
   bsr: number | null;
   units_30d: number | null;
   revenue_30d: number | null;
@@ -57,6 +59,10 @@ export function parseAmazonSales(raw: string): {
       url,
       price: toNum(r.Price),
       category: r.Category?.trim() || r.Subcategory?.trim() || null,
+      subcategory: r.Subcategory?.trim() || null,
+      listing_age_months: toNum(
+        pickFirst(r, ["Listing Age (Months)", "Listing Age"]),
+      ),
       bsr: toNum(r.BSR),
       units_30d: toNum(pickFirst(r, ["ASIN Sales", "Monthly Sales", "Sales (Last 30 Days)"])),
       revenue_30d: toNum(pickFirst(r, ["ASIN Revenue", "Monthly Revenue", "Revenue (Last 30 Days)"])),

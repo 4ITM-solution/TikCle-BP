@@ -174,6 +174,8 @@ export type Database = {
           channel: string;
           price: number | null;
           category: string | null;
+          subcategory: string | null;
+          launch_date: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -190,6 +192,8 @@ export type Database = {
           channel: string;
           price?: number | null;
           category?: string | null;
+          subcategory?: string | null;
+          launch_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -206,6 +210,8 @@ export type Database = {
           channel?: string;
           price?: number | null;
           category?: string | null;
+          subcategory?: string | null;
+          launch_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };

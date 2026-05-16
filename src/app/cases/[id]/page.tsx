@@ -135,11 +135,25 @@ export default async function CaseDetailPage({
 
   // 4. SKU + BSR 상태 (Amazon 케이스)
   let skuRows: SkuRow[] = [];
+  // asin → 제품 메타 (서브카테고리·출시 시기). 매출 표에 표시용.
+  const skuMeta: Record<
+    string,
+    { subcategory: string | null; launch_date: string | null }
+  > = {};
   if (c.channel === "amazon") {
     const { data: prods } = await supabase
       .from("products")
-      .select("id, asin, name, product_url, country")
+      .select("id, asin, name, product_url, country, subcategory, launch_date")
       .eq("case_id", c.id);
+
+    for (const p of prods ?? []) {
+      if (p.asin) {
+        skuMeta[p.asin] = {
+          subcategory: p.subcategory,
+          launch_date: p.launch_date,
+        };
+      }
+    }
 
     const productIds = (prods ?? []).map((p) => p.id);
 
@@ -699,6 +713,7 @@ export default async function CaseDetailPage({
                       topGmvCreators={topGmvCreators}
                       shopGmvDistribution={shopGmvDistribution}
                       weeklyViews={weeklyViews}
+                      skuMeta={skuMeta}
                     />
                   </div>
                   <SectionTOC

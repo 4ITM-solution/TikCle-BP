@@ -377,6 +377,18 @@ export async function uploadAmazonSales(
     return { ok: false, error: `파싱된 행 0개. ${errors[0] ?? ""}` };
   }
 
+  // Listing Age (Months) → launch_date 역산. period_end 기준 N개월 전, day=1.
+  // Black Box는 월 단위 나이만 줘서 일자 정밀도는 없음 (월초로 고정).
+  const launchDateFromAge = (months: number | null): string | null => {
+    if (months == null || months < 0) return null;
+    const ref = new Date(period_end);
+    if (Number.isNaN(ref.getTime())) return null;
+    const d = new Date(
+      Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - Math.round(months), 1),
+    );
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  };
+
   // 1. products 업서트 — (case_id, country, asin) 유니크
   const productInserts = rows.map((r) => ({
     case_id: c.id,
@@ -389,6 +401,8 @@ export async function uploadAmazonSales(
     channel: "amazon",
     price: r.price,
     category: r.category,
+    subcategory: r.subcategory,
+    launch_date: launchDateFromAge(r.listing_age_months),
   }));
   const { error: prodErr } = await supabase
     .from("products")
