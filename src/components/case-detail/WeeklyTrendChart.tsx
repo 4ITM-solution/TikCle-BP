@@ -41,6 +41,7 @@ export function WeeklyTrendChart({
     videos: true,
     bsr: false,
   });
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const weekly = useMemo(
     () =>
@@ -217,12 +218,28 @@ export function WeeklyTrendChart({
           background: "var(--color-g25)",
           borderRadius: 6,
           padding: "16px 16px 30px 16px",
+          position: "relative",
         }}
       >
         <svg
           viewBox={`0 0 ${W} ${H + 20}`}
           preserveAspectRatio="none"
           style={{ width: "100%", height: 250, display: "block" }}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const svgX = ((e.clientX - rect.left) / rect.width) * W;
+            let best = 0;
+            let bestD = Infinity;
+            weekly.forEach((w, i) => {
+              const d = Math.abs(xOf(w.week_start) - svgX);
+              if (d < bestD) {
+                bestD = d;
+                best = i;
+              }
+            });
+            setHoverIdx(best);
+          }}
+          onMouseLeave={() => setHoverIdx(null)}
         >
           {[0, 0.25, 0.5, 0.75, 1].map((p) => (
             <line
@@ -301,7 +318,92 @@ export function WeeklyTrendChart({
               strokeDasharray="4 3"
             />
           )}
+
+          {/* 호버 가이드라인 */}
+          {hoverIdx !== null && weekly[hoverIdx] && (
+            <line
+              x1={xOf(weekly[hoverIdx]!.week_start)}
+              y1={0}
+              x2={xOf(weekly[hoverIdx]!.week_start)}
+              y2={H}
+              stroke="var(--color-g500)"
+              strokeWidth="1"
+            />
+          )}
         </svg>
+
+        {/* 호버 툴팁 */}
+        {hoverIdx !== null &&
+          weekly[hoverIdx] &&
+          (() => {
+            const w = weekly[hoverIdx]!;
+            const leftPct = (xOf(w.week_start) / W) * 100;
+            const flip = leftPct > 58;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  left: `${leftPct}%`,
+                  transform: flip
+                    ? "translateX(-100%) translateX(-10px)"
+                    : "translateX(10px)",
+                  background: "white",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 6,
+                  padding: "8px 10px",
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+                  pointerEvents: "none",
+                  zIndex: 5,
+                  minWidth: 140,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    marginBottom: 5,
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  {w.week_start} 주
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    color: "var(--color-g600)",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  <span style={{ color: SERIES_META.views.color }}>
+                    ■ 조회수
+                  </span>
+                  <b style={{ color: "var(--color-ink)" }}>
+                    {formatNum(w.total_views)}
+                  </b>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    color: "var(--color-g600)",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  <span style={{ color: SERIES_META.videos.color }}>
+                    — 영상수
+                  </span>
+                  <b style={{ color: "var(--color-ink)" }}>
+                    {w.total_videos.toLocaleString()}개
+                  </b>
+                </div>
+              </div>
+            );
+          })()}
       </div>
 
       {/* 범례 + 시리즈별 현재 스케일 */}

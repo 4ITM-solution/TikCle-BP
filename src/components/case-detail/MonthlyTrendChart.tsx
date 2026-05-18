@@ -39,6 +39,7 @@ export function MonthlyTrendChart({
   bsrSeries: BsrSeries[];
 }) {
   const [show, setShow] = useState({ tier: true, ad: true, bsr: false });
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   // 월별 BSR 평균 (전 SKU)
   const bsrByMonth = useMemo(() => {
@@ -205,12 +206,28 @@ export function MonthlyTrendChart({
           background: "var(--color-g25)",
           borderRadius: 6,
           padding: "16px 16px 30px 16px",
+          position: "relative",
         }}
       >
         <svg
           viewBox={`0 0 ${W} ${H + 20}`}
           preserveAspectRatio="none"
           style={{ width: "100%", height: 260, display: "block" }}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const svgX = ((e.clientX - rect.left) / rect.width) * W;
+            let best = 0;
+            let bestD = Infinity;
+            months.forEach((mo, i) => {
+              const d = Math.abs(xOf(mo) - svgX);
+              if (d < bestD) {
+                bestD = d;
+                best = i;
+              }
+            });
+            setHoverIdx(best);
+          }}
+          onMouseLeave={() => setHoverIdx(null)}
         >
           {[0, 0.25, 0.5, 0.75, 1].map((p) => (
             <line
@@ -285,7 +302,133 @@ export function MonthlyTrendChart({
               strokeDasharray="4 3"
             />
           )}
+
+          {/* 호버 가이드라인 */}
+          {hoverIdx !== null && months[hoverIdx] && (
+            <line
+              x1={xOf(months[hoverIdx]!)}
+              y1={0}
+              x2={xOf(months[hoverIdx]!)}
+              y2={H}
+              stroke="var(--color-g500)"
+              strokeWidth="1"
+            />
+          )}
         </svg>
+
+        {/* 호버 툴팁 */}
+        {hoverIdx !== null &&
+          months[hoverIdx] &&
+          (() => {
+            const mo = months[hoverIdx]!;
+            const d = tierByMonth?.[mo];
+            const total = d ? tierTotal(d) : 0;
+            const ad = adByMonth.get(mo);
+            const bsr = bsrByMonth.get(mo);
+            const leftPct = (xOf(mo) / W) * 100;
+            const flip = leftPct > 58;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  left: `${leftPct}%`,
+                  transform: flip
+                    ? "translateX(-100%) translateX(-10px)"
+                    : "translateX(10px)",
+                  background: "white",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 6,
+                  padding: "8px 10px",
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+                  pointerEvents: "none",
+                  zIndex: 5,
+                  minWidth: 150,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    marginBottom: 5,
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  {mo}
+                </div>
+                {total > 0 ? (
+                  TIERS.filter((t) => (d![t.key] ?? 0) > 0).map((t) => {
+                    const n = d![t.key] ?? 0;
+                    return (
+                      <div
+                        key={t.key}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          color: "var(--color-g600)",
+                          lineHeight: 1.7,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 2,
+                              background: t.color,
+                            }}
+                          />
+                          {t.label}
+                        </span>
+                        <b style={{ color: "var(--color-ink)" }}>
+                          {n}명 ({Math.round((n / total) * 100)}%)
+                        </b>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ color: "var(--color-g400)" }}>
+                    티어 데이터 없음
+                  </div>
+                )}
+                {(ad !== undefined || bsr !== undefined) && (
+                  <div
+                    style={{
+                      marginTop: 5,
+                      paddingTop: 5,
+                      borderTop: "1px solid var(--color-g100)",
+                      color: "var(--color-g600)",
+                    }}
+                  >
+                    {ad !== undefined && (
+                      <div>
+                        광고 비중{" "}
+                        <b style={{ color: "var(--color-warn)" }}>
+                          {Math.round(ad * 100)}%
+                        </b>
+                      </div>
+                    )}
+                    {bsr !== undefined && (
+                      <div>
+                        BSR{" "}
+                        <b style={{ color: "var(--color-accent)" }}>
+                          #{Math.round(bsr).toLocaleString()}
+                        </b>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
       </div>
 
       {/* 범례 */}

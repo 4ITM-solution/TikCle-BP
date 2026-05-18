@@ -102,6 +102,10 @@ export function MiniDashboard({
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
       <MonthlyVideosModule stats={phase2} />
+      <WeeklyTrendChart
+        weeklyViews={weeklyViews}
+        bsrSeries={phase2.bsr_series}
+      />
 
       {/* Section B: 인플루언서 활동 */}
       <SectionHeader letter="B" title="인플루언서 활동" />
@@ -119,6 +123,11 @@ export function MiniDashboard({
         <TopGmvShopCreators creators={topGmvCreators} />
       )}
       <CreatorActivityModule stats={phase2} />
+      <MonthlyTrendChart
+        tierByMonth={phase3?.tier_dist_by_month}
+        monthlyVideoCounts={phase2.monthly_video_counts}
+        bsrSeries={phase2.bsr_series}
+      />
 
       {/* Section C: 콘텐츠 포맷 분석 (Phase 4b) */}
       {phase4bSample && (
@@ -166,15 +175,6 @@ export function MiniDashboard({
             phase4bSku={phase4bSku}
             currency={currency}
             exchangeRates={exchangeRates}
-          />
-          <WeeklyTrendChart
-            weeklyViews={weeklyViews}
-            bsrSeries={phase2.bsr_series}
-          />
-          <MonthlyTrendChart
-            tierByMonth={phase3?.tier_dist_by_month}
-            monthlyVideoCounts={phase2.monthly_video_counts}
-            bsrSeries={phase2.bsr_series}
           />
           {phase2.bsr_series.length > 0 && (
             <BsrTrendChart
