@@ -2,7 +2,6 @@ import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
-import { WeeklyTrendChart } from "./WeeklyTrendChart";
 import { MonthlyTrendChart } from "./MonthlyTrendChart";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
@@ -102,10 +101,6 @@ export function MiniDashboard({
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
       <MonthlyVideosModule stats={phase2} />
-      <WeeklyTrendChart
-        weeklyViews={weeklyViews}
-        bsrSeries={phase2.bsr_series}
-      />
 
       {/* Section B: 인플루언서 활동 */}
       <SectionHeader letter="B" title="인플루언서 활동" />
@@ -125,6 +120,7 @@ export function MiniDashboard({
       <CreatorActivityModule stats={phase2} />
       <MonthlyTrendChart
         tierByMonth={phase3?.tier_dist_by_month}
+        adTierByMonth={phase3?.ad_by_month_tier}
         monthlyVideoCounts={phase2.monthly_video_counts}
         bsrSeries={phase2.bsr_series}
       />

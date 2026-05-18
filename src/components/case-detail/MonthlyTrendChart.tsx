@@ -31,10 +31,15 @@ function tierTotal(d: TierDistribution): number {
  */
 export function MonthlyTrendChart({
   tierByMonth,
+  adTierByMonth,
   monthlyVideoCounts,
   bsrSeries,
 }: {
   tierByMonth?: Record<string, TierDistribution>;
+  adTierByMonth?: Record<
+    string,
+    Record<TierBucket, { paid: number; total: number }>
+  >;
   monthlyVideoCounts: MonthlyVideoCount[];
   bsrSeries: BsrSeries[];
 }) {
@@ -360,6 +365,11 @@ export function MonthlyTrendChart({
                 {total > 0 ? (
                   TIERS.filter((t) => (d![t.key] ?? 0) > 0).map((t) => {
                     const n = d![t.key] ?? 0;
+                    const adt = adTierByMonth?.[mo]?.[t.key];
+                    const adPct =
+                      adt && adt.total > 0
+                        ? Math.round((adt.paid / adt.total) * 100)
+                        : null;
                     return (
                       <div
                         key={t.key}
@@ -390,6 +400,12 @@ export function MonthlyTrendChart({
                         </span>
                         <b style={{ color: "var(--color-ink)" }}>
                           {n}명 ({Math.round((n / total) * 100)}%)
+                          {adPct !== null && (
+                            <span style={{ color: "var(--color-warn)" }}>
+                              {" "}
+                              · 광고 {adPct}%
+                            </span>
+                          )}
                         </b>
                       </div>
                     );

@@ -153,6 +153,12 @@ export type Phase3Stats = {
   // 월별 unique 인플 분포 (그 달에 영상 1개라도 만든 인플의 tier 카운트).
   // key = YYYY-MM. value = TierDistribution. 인플이 같은 달에 여러 영상 만들어도 1번.
   tier_dist_by_month?: Record<string, TierDistribution>;
+  // 월별 × 티어별 광고 영상 비율 (영상 단위 — paid/total).
+  // key = YYYY-MM. 광고율 = paid / total.
+  ad_by_month_tier?: Record<
+    string,
+    Record<TierBucket, { paid: number; total: number }>
+  >;
   computed_at: string;
 };
 

@@ -161,17 +161,23 @@ export async function fetchUniqueInfluencerIds(
  * 각 월(YYYY-MM)에 영상 1개라도 만든 unique influencer_id의 Set.
  * 한 인플이 같은 달에 5개 영상 만들어도 1번만 카운트.
  */
+/** 월별 → 인플별 영상 활동 (광고/전체 영상 수). 광고율·tier 분포 둘 다 산출용. */
+export type MonthlyActivity = Map<
+  string,
+  Map<string, { paid: number; total: number }>
+>;
+
 export async function fetchInfluencerActivityByMonth(
   supabase: SupaClient,
   brand_id: string,
   country: string,
-): Promise<Map<string, Set<string>>> {
-  const byMonth = new Map<string, Set<string>>();
+): Promise<MonthlyActivity> {
+  const byMonth: MonthlyActivity = new Map();
   let from = 0;
   while (true) {
     const { data, error } = await supabase
       .from("contents")
-      .select("influencer_id, uploaded_at")
+      .select("influencer_id, uploaded_at, is_ad")
       .eq("brand_id", brand_id)
       .eq("country", country)
       .not("influencer_id", "is", null)
@@ -183,8 +189,12 @@ export async function fetchInfluencerActivityByMonth(
     for (const r of data) {
       if (!r.influencer_id || !r.uploaded_at) continue;
       const month = String(r.uploaded_at).slice(0, 7); // "YYYY-MM"
-      if (!byMonth.has(month)) byMonth.set(month, new Set());
-      byMonth.get(month)!.add(r.influencer_id);
+      if (!byMonth.has(month)) byMonth.set(month, new Map());
+      const mm = byMonth.get(month)!;
+      const e = mm.get(r.influencer_id) ?? { paid: 0, total: 0 };
+      e.total += 1;
+      if (r.is_ad) e.paid += 1;
+      mm.set(r.influencer_id, e);
     }
     if (data.length < FETCH_PAGE) break;
     from += FETCH_PAGE;
@@ -257,6 +267,16 @@ export function classifyTier(fans: number | null): TierBucket {
   return "sub-nano";
 }
 
+const TIER_KEYS: TierBucket[] = [
+  "mega",
+  "macro",
+  "mid",
+  "micro",
+  "nano",
+  "sub-nano",
+  "unknown",
+];
+
 function emptyTierDist(): TierDistribution {
   return {
     mega: 0,
@@ -277,7 +297,7 @@ function tierOf(i: InfluencerRow): TierBucket {
 
 export function computePhase3Stats(
   influencers: InfluencerRow[],
-  activityByMonth?: Map<string, Set<string>>,
+  activityByMonth?: MonthlyActivity,
 ): Phase3Stats {
   const dist = emptyTierDist();
   const sources = {
@@ -307,17 +327,26 @@ export function computePhase3Stats(
     else if (i.fans_source) sources.other += 1;
   }
 
-  // 월별 unique 인플 분포 (전체 분포와 동일한 인플 unique 단위 기준)
+  // 월별 unique 인플 분포 + 티어별 광고율
   let tier_dist_by_month: Record<string, TierDistribution> | undefined;
+  let ad_by_month_tier:
+    | Record<string, Record<TierBucket, { paid: number; total: number }>>
+    | undefined;
   if (activityByMonth && activityByMonth.size > 0) {
     tier_dist_by_month = {};
-    for (const [month, infIds] of activityByMonth.entries()) {
+    ad_by_month_tier = {};
+    for (const [month, infMap] of activityByMonth.entries()) {
       const m = emptyTierDist();
-      for (const id of infIds) {
+      const ad = {} as Record<TierBucket, { paid: number; total: number }>;
+      for (const t of TIER_KEYS) ad[t] = { paid: 0, total: 0 };
+      for (const [id, vids] of infMap.entries()) {
         const t = tierByInfluencerId.get(id) ?? "unknown";
-        m[t] = (m[t] ?? 0) + 1;
+        m[t] = (m[t] ?? 0) + 1; // 인플 unique 수
+        ad[t].paid += vids.paid; // 영상 단위 광고/전체
+        ad[t].total += vids.total;
       }
       tier_dist_by_month[month] = m;
+      ad_by_month_tier[month] = ad;
     }
   }
 
@@ -328,6 +357,7 @@ export function computePhase3Stats(
     total_unknown: dist.unknown,
     fans_sources: sources,
     tier_dist_by_month,
+    ad_by_month_tier,
     computed_at: new Date().toISOString(),
   };
 }

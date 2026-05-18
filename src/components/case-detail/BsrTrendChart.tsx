@@ -51,6 +51,8 @@ export function BsrTrendChart({
   const [selectedKey, setSelectedKey] = useState<string>("all");
   const [selectedInflection, setSelectedInflection] =
     useState<BsrInflection | null>(null);
+  // 주간 영상 오버레이 토글 — 매출(BSR) 등락과 영상 활동을 한 차트에서 비교.
+  const [overlay, setOverlay] = useState({ views: true, videos: false });
 
   // 드롭다운 선택에 따라 시계열 필터링 (단 색상 인덱스는 전체 기준 유지)
   const bsrSeries = useMemo(
@@ -211,6 +213,39 @@ export function BsrTrendChart({
               </option>
             ))}
           </select>
+          {weeklyViews && weeklyViews.length > 0 && (
+            <>
+              {(
+                [
+                  ["views", "영상 조회수", "var(--color-info)"],
+                  ["videos", "영상 개수", "var(--color-ink)"],
+                ] as const
+              ).map(([k, label, color]) => {
+                const on = overlay[k];
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() =>
+                      setOverlay((o) => ({ ...o, [k]: !o[k] }))
+                    }
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "var(--font-mono)",
+                      padding: "4px 9px",
+                      borderRadius: 5,
+                      border: `1px solid ${on ? color : "var(--color-g200)"}`,
+                      background: on ? color : "white",
+                      color: on ? "white" : "var(--color-g500)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
@@ -285,34 +320,71 @@ export function BsrTrendChart({
                 W *
                 0.8
               : 10;
+            const maxVideos = Math.max(
+              ...inRange.map((w) => w.total_videos),
+              1,
+            );
             return (
               <g>
-                {inRange.map((w) => {
-                  const x = xOf(w.week_start);
-                  const barH = (w.total_views / maxViews) * (H - 30);
-                  return (
-                    <rect
-                      key={w.week_start}
-                      x={x - weekWidth / 2}
-                      y={H - barH}
-                      width={weekWidth}
-                      height={barH}
-                      fill="var(--color-info)"
-                      opacity="0.18"
-                    />
-                  );
-                })}
+                {/* 영상 조회수 — 반투명 막대 */}
+                {overlay.views &&
+                  inRange.map((w) => {
+                    const x = xOf(w.week_start);
+                    const barH = (w.total_views / maxViews) * (H - 30);
+                    return (
+                      <rect
+                        key={w.week_start}
+                        x={x - weekWidth / 2}
+                        y={H - barH}
+                        width={weekWidth}
+                        height={barH}
+                        fill="var(--color-info)"
+                        opacity="0.18"
+                      />
+                    );
+                  })}
+                {/* 영상 개수 — 라인 */}
+                {overlay.videos && inRange.length > 1 && (
+                  <polyline
+                    points={inRange
+                      .map(
+                        (w) =>
+                          `${xOf(w.week_start)},${
+                            H - (w.total_videos / maxVideos) * (H - 30)
+                          }`,
+                      )
+                      .join(" ")}
+                    fill="none"
+                    stroke="var(--color-ink)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 2"
+                  />
+                )}
                 {/* right Y axis label */}
-                <text
-                  x={W - 5}
-                  y={12}
-                  fontSize="9"
-                  fill="var(--color-info)"
-                  textAnchor="end"
-                  fontFamily="var(--font-mono)"
-                >
-                  {formatViews(maxViews)} views/주
-                </text>
+                {overlay.views && (
+                  <text
+                    x={W - 5}
+                    y={12}
+                    fontSize="9"
+                    fill="var(--color-info)"
+                    textAnchor="end"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {formatViews(maxViews)} views/주
+                  </text>
+                )}
+                {overlay.videos && (
+                  <text
+                    x={W - 5}
+                    y={overlay.views ? 24 : 12}
+                    fontSize="9"
+                    fill="var(--color-ink)"
+                    textAnchor="end"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {maxVideos.toLocaleString()} 영상/주
+                  </text>
+                )}
               </g>
             );
           })()}
