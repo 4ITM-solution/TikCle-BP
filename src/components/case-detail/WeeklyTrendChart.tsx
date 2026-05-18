@@ -81,10 +81,9 @@ export function WeeklyTrendChart({
   }
 
   // 시간축 = weekly + bsr 합산 범위
-  const allDates = [
-    ...weekly.map((w) => w.week_start),
-    ...bsrAvg.map((b) => b.date),
-  ];
+  // X축 = 주간 영상 데이터 범위. BSR은 3년치라 X축을 늘리지 않고,
+  // 이 범위 안에 들어오는 BSR만 오버레이로 그린다.
+  const allDates = weekly.map((w) => w.week_start);
   const minDate = allDates.reduce((m, d) => (d < m ? d : m), allDates[0]!);
   const maxDate = allDates.reduce((m, d) => (d > m ? d : m), allDates[0]!);
   const minTs = new Date(minDate).getTime();
@@ -93,10 +92,16 @@ export function WeeklyTrendChart({
   const xOf = (d: string) =>
     ((new Date(d).getTime() - minTs) / dateRange) * W;
 
+  // BSR을 X축 범위로 클립 — 범위 밖 3년치는 그리지도, 정규화에 쓰지도 않음
+  const bsrInRange = bsrAvg.filter((b) => {
+    const t = new Date(b.date).getTime();
+    return t >= minTs && t <= maxTs;
+  });
+
   // 시리즈별 정규화 (자체 min~max → 0~1)
   const viewVals = weekly.map((w) => w.total_views);
   const videoVals = weekly.map((w) => w.total_videos);
-  const bsrVals = bsrAvg.map((b) => b.bsr);
+  const bsrVals = bsrInRange.map((b) => b.bsr);
   const norm = (vals: number[]) => {
     const min = vals.length ? Math.min(...vals) : 0;
     const max = vals.length ? Math.max(...vals) : 1;
@@ -170,7 +175,7 @@ export function WeeklyTrendChart({
           {(Object.keys(SERIES_META) as SeriesKey[]).map((k) => {
             const m = SERIES_META[k];
             const on = show[k];
-            const disabled = k === "bsr" && bsrAvg.length === 0;
+            const disabled = k === "bsr" && bsrInRange.length === 0;
             return (
               <button
                 key={k}
@@ -285,9 +290,9 @@ export function WeeklyTrendChart({
           )}
 
           {/* BSR — 반전 정규화 라인 (낮을수록 위 = 좋음) */}
-          {show.bsr && bsrAvg.length > 1 && (
+          {show.bsr && bsrInRange.length > 1 && (
             <polyline
-              points={bsrAvg
+              points={bsrInRange
                 .map((b) => `${xOf(b.date)},${yOf(1 - bsrN.fn(b.bsr))}`)
                 .join(" ")}
               fill="none"
@@ -325,7 +330,7 @@ export function WeeklyTrendChart({
             {formatNum(videoN.min)} ~ {formatNum(videoN.max)}/주
           </span>
         )}
-        {show.bsr && bsrAvg.length > 0 && (
+        {show.bsr && bsrInRange.length > 0 && (
           <span>
             <b style={{ color: SERIES_META.bsr.color }}>┄ BSR</b> #
             {formatNum(bsrN.min)} ~ #{formatNum(bsrN.max)} (위로 갈수록 좋음)

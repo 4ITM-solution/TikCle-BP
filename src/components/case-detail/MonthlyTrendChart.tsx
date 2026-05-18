@@ -73,14 +73,14 @@ export function MonthlyTrendChart({
     return m;
   }, [monthlyVideoCounts]);
 
-  // X축 = 모든 소스의 월 합집합
+  // X축 = 콘텐츠 데이터(티어·광고) 월 범위. BSR은 3년치라 X축을 늘리지 않고,
+  // 이 범위 안에 들어오는 BSR 월만 오버레이로 그린다.
   const months = useMemo(() => {
     const set = new Set<string>();
     for (const [mo] of tierMonths) set.add(mo);
     for (const mo of adByMonth.keys()) set.add(mo);
-    for (const mo of bsrByMonth.keys()) set.add(mo);
     return [...set].sort();
-  }, [tierMonths, adByMonth, bsrByMonth]);
+  }, [tierMonths, adByMonth]);
 
   if (months.length === 0) {
     return (
@@ -106,8 +106,11 @@ export function MonthlyTrendChart({
   // 100% 누적 (0~1) → y. 0%=하단, 100%=상단
   const yPct = (r: number) => H - r * (H - 16) - 8;
 
-  // BSR 정규화 (반전: 낮을수록 위)
-  const bsrVals = [...bsrByMonth.values()];
+  // BSR 정규화 (반전: 낮을수록 위). X축 범위(months) 안의 BSR만으로 스케일 —
+  // 3년치 전체로 정규화하면 1년 구간 BSR이 납작해진다.
+  const bsrVals = months
+    .filter((m) => bsrByMonth.has(m))
+    .map((m) => bsrByMonth.get(m)!);
   const bsrMin = bsrVals.length ? Math.min(...bsrVals) : 0;
   const bsrMax = bsrVals.length ? Math.max(...bsrVals) : 1;
   const bsrRange = bsrMax - bsrMin || 1;
