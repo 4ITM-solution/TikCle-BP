@@ -62,9 +62,11 @@ export async function runPhase2(
   const top_creators = await enrichTopCreators(supabase, top_creators_raw);
   const outlier_creators = await enrichTopCreators(supabase, outlier_raw);
 
-  // 6. SKU 매출 + BSR (amazon: 30일 매출 + BSR / tiktok_shop: 누적 매출, BSR 없음)
+  // 6. SKU 매출 + BSR (amazon: 30일 매출 + BSR / tiktok_shop·shopee: 매출, BSR 없음)
   const { sales_summary, sku_sales, bsr_series } =
-    c.channel === "amazon" || c.channel === "tiktok_shop"
+    c.channel === "amazon" ||
+    c.channel === "tiktok_shop" ||
+    c.channel === "shopee"
       ? await aggregateAmazonSalesAndBsr(supabase, c.id, c.channel)
       : { sales_summary: null, sku_sales: [], bsr_series: [] };
 
