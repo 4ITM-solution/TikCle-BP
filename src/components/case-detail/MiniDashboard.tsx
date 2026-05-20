@@ -48,6 +48,7 @@ import type {
   KalodataBrandKpi,
   KalodataCreatorXlsxRow,
   KalodataVideoRow,
+  KalodataVideoXlsxRow,
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 
@@ -99,6 +100,7 @@ export function MiniDashboard({
     brand?: KalodataBrandKpi | null;
     creators?: KalodataCreatorXlsxRow[];
     videos?: KalodataVideoRow[];
+    videosXlsx?: KalodataVideoXlsxRow[];
     lives?: KalodataLiveRow[];
     meta?: {
       shop?: string | null;
@@ -208,6 +210,7 @@ export function MiniDashboard({
           brand={kalodata.brand}
           creators={kalodata.creators}
           videos={kalodata.videos}
+          videosXlsx={kalodata.videosXlsx}
           lives={kalodata.lives}
           meta={kalodata.meta}
         />

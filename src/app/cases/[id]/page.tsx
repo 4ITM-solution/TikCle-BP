@@ -27,6 +27,7 @@ import type {
   KalodataBrandKpi,
   KalodataCreatorXlsxRow,
   KalodataVideoRow,
+  KalodataVideoXlsxRow,
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 import type {
@@ -737,10 +738,11 @@ export default async function CaseDetailPage({
               phase4b_sku?: Phase4bSkuStats;
               phase5?: Phase5Stats;
               last_error?: { message: string; at: string };
-              // Kalodata (SEA TikTok Shop) — uploadKalodata / uploadKalodataCreatorsXlsx로 적재
+              // Kalodata (SEA TikTok Shop) — uploadKalodata / uploadKalodataCreatorsXlsx / uploadKalodataVideosXlsx로 적재
               kalodata_brand?: KalodataBrandKpi | null;
               kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
               kalodata_videos?: KalodataVideoRow[];
+              kalodata_videos_xlsx?: KalodataVideoXlsxRow[];
               kalodata_lives?: KalodataLiveRow[];
               kalodata_creators_meta?: {
                 shop?: string | null;
@@ -859,6 +861,7 @@ export default async function CaseDetailPage({
                         brand: ks.kalodata_brand,
                         creators: ks.kalodata_creators_xlsx,
                         videos: ks.kalodata_videos,
+                        videosXlsx: ks.kalodata_videos_xlsx,
                         lives: ks.kalodata_lives,
                         meta: ks.kalodata_creators_meta,
                       }}

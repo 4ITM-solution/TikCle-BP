@@ -181,6 +181,121 @@ function n(v: unknown): number | null {
 }
 
 /**
+ * Kalodata Video xlsx export (LIST_VIDEO 시트, 17개 컬럼).
+ * 영상별 매출 + 광고 데이터 + TikTokUrl(→ contents 적재용) + 영상-제품 매핑.
+ */
+export type KalodataVideoXlsxRow = {
+  video_url: string; // TikTokUrl → contents.url 직접 사용
+  description: string;
+  duration_s: number | null;
+  creator_handle: string | null;
+  publish_date: string | null; // "YYYY-MM-DD" (YYYY/MM/DD HH:mm:ss → 변환)
+  revenue_usd: number | null;
+  item_sold: number | null;
+  product_title: string | null;
+  product_category: string | null;
+  views: number | null;
+  gpm_usd: number | null; // GMV per Mille (1000 views당 매출)
+  ad_cpa_usd: number | null;
+  ad_view_ratio: number | null; // 0~1
+  ad_spend_usd: number | null;
+  ad_roas: number | null;
+  kalodata_url: string | null;
+  date_range: string | null;
+};
+
+export type KalodataVideoXlsxParsed = {
+  rows: KalodataVideoXlsxRow[];
+  meta: {
+    shop: string | null;
+    export_time: string | null;
+    sort_by: string | null;
+    period_start: string | null;
+    period_end: string | null;
+  };
+  errors: string[];
+};
+
+function pct(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const str = String(v).trim().replace("%", "");
+  const num = parseFloat(str);
+  if (!Number.isFinite(num)) return null;
+  return num > 1 ? num / 100 : num; // "63.03" → 0.6303
+}
+
+function isoDate(v: unknown): string | null {
+  if (v == null) return null;
+  const str = String(v).trim();
+  // "2025/10/01 20:29:32" / "2025-10-01" 등
+  const m = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (!m) return null;
+  return `${m[1]}-${m[2]!.padStart(2, "0")}-${m[3]!.padStart(2, "0")}`;
+}
+
+function durationFromStr(v: unknown): number | null {
+  if (v == null) return null;
+  const str = String(v).trim();
+  // "1m 20s" / "41s" / "6s"
+  const m = str.match(/^(?:(\d+)m\s*)?(\d+)s$/);
+  if (!m) return null;
+  const mins = m[1] ? parseInt(m[1], 10) : 0;
+  const secs = parseInt(m[2]!, 10);
+  return mins * 60 + secs;
+}
+
+export function parseKalodataVideoXlsx(input: {
+  list: Record<string, unknown>[];
+  intro: Record<string, unknown>[];
+}): KalodataVideoXlsxParsed {
+  const errors: string[] = [];
+  const rows: KalodataVideoXlsxRow[] = [];
+
+  for (const r of input.list ?? []) {
+    const url = s(r["TikTokUrl"]);
+    if (!url) continue;
+    rows.push({
+      video_url: url,
+      description: s(r["Video Description"]) ?? "",
+      duration_s: durationFromStr(r["Duration"]),
+      creator_handle: (s(r["Creator Handle"]) ?? "").replace(/^@/, "") || null,
+      publish_date: isoDate(r["Publish Date"]),
+      revenue_usd: n(r["Revenue($)"]),
+      item_sold: n(r["Item Sold"]),
+      // 컬럼명에 typo 가능 — "Product Tittle" 또는 "Product Title" 둘 다 시도
+      product_title: s(r["Product Tittle"]) ?? s(r["Product Title"]),
+      product_category: s(r["Product Category"]),
+      views: n(r["Views"]),
+      gpm_usd: n(r["GPM($)"]),
+      ad_cpa_usd: n(r["Ad CPA($)"]),
+      ad_view_ratio: pct(r["Ad View Ratio"]),
+      ad_spend_usd: n(r["Ad Spend($)"]),
+      ad_roas: n(r["Ad ROAS"]),
+      kalodata_url: s(r["KalodataUrl"]),
+      date_range: s(r["Date Range"]),
+    });
+  }
+
+  const introRow = input.intro?.[0] ?? {};
+  const exportFilter = s(introRow["Export Filter"]) ?? "";
+  const timeMatch = exportFilter.match(
+    /Time\s*:\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})/,
+  );
+  const meta = {
+    shop: s(introRow["Shop"]),
+    export_time: s(introRow["Export Time"]),
+    sort_by: s(introRow["Sort By"]),
+    period_start: timeMatch?.[1] ?? null,
+    period_end: timeMatch?.[2] ?? null,
+  };
+
+  if (rows.length === 0) {
+    errors.push("Video xlsx에서 유효한 row 0개 (TikTokUrl 컬럼 확인)");
+  }
+  return { rows, meta, errors };
+}
+
+/**
  * LIST_CREATOR 시트의 row[]와 Intro 시트의 메타를 합쳐 표준화.
  * SheetJS에서 sheet_to_json한 결과를 입력으로 받음.
  */

@@ -13,6 +13,7 @@ import {
 import {
   parseKalodata,
   parseKalodataCreatorXlsx,
+  parseKalodataVideoXlsx,
 } from "@/lib/parsers/kalodata";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
@@ -1246,5 +1247,211 @@ export async function uploadKalodataCreatorsXlsx(
   return {
     ok: true,
     message: `Creator xlsx ${parsed.rows.length}명 적재 (누적 ${merged.length}명)${periodStr}${filterStr} · Live ${Math.round(livePct * 100)}%`,
+  };
+}
+
+/**
+ * Kalodata Video xlsx export 업로드 — Top N 영상의 풀 데이터 적재.
+ *
+ * 핵심: TikTokUrl이 있어서 contents 테이블에 url 기반으로 적재 →
+ * Phase 4b Vision/클러스터링이 자동으로 픽업. 영상-제품 매핑, 광고 ROAS 같이.
+ *
+ * - products: Product Title 기반 upsert (external_product_id = "kalodata:<title>")
+ * - contents: TikTokUrl 기반 upsert (caption, views, is_ad, uploaded_at, product_id, influencer_id)
+ *   → Phase 4b에 들어감
+ * - influencers: Creator Handle 기반 upsert (외부 ID = handle)
+ * - cases.key_stats.kalodata_videos_xlsx: raw row[] 누적 (Ad ROAS·GPM 등 표시용)
+ */
+export async function uploadKalodataVideosXlsx(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Video xlsx 파일 비어있음" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop") {
+    return { ok: false, error: "TikTok Shop 케이스만" };
+  }
+
+  const XLSX = await import("xlsx");
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const listSheet =
+    wb.Sheets["LIST_VIDEO"] ?? wb.Sheets[wb.SheetNames[0] ?? ""];
+  const introSheet = wb.Sheets["Intro"];
+  if (!listSheet) return { ok: false, error: "LIST_VIDEO 시트 없음" };
+  const list = XLSX.utils.sheet_to_json(listSheet) as Record<string, unknown>[];
+  const intro = introSheet
+    ? (XLSX.utils.sheet_to_json(introSheet) as Record<string, unknown>[])
+    : [];
+
+  const parsed = parseKalodataVideoXlsx({ list, intro });
+  if (parsed.rows.length === 0) {
+    return { ok: false, error: parsed.errors[0] ?? "파싱 실패" };
+  }
+
+  const country = c.country;
+  const period_start = parsed.meta.period_start ?? null;
+  const period_end = parsed.meta.period_end ?? null;
+
+  // 1) Products upsert — Product Title 기준 (external_product_id = "kalodata:<title>")
+  const uniqueProducts = new Map<string, { title: string; category: string | null }>();
+  for (const r of parsed.rows) {
+    if (!r.product_title) continue;
+    const key = r.product_title;
+    if (!uniqueProducts.has(key)) {
+      uniqueProducts.set(key, {
+        title: r.product_title,
+        category: r.product_category,
+      });
+    }
+  }
+  if (uniqueProducts.size > 0) {
+    const productInserts = [...uniqueProducts.values()].map((p) => ({
+      case_id: c.id,
+      brand_id: c.brand_id,
+      country,
+      name: p.title,
+      external_product_id: `kalodata:${p.title.slice(0, 220)}`,
+      platform: "tiktok_shop",
+      channel: "tiktok_shop" as const,
+      category: p.category,
+      subcategory: p.category,
+    }));
+    await supabase
+      .from("products")
+      .upsert(productInserts, {
+        onConflict: "case_id,country,external_product_id",
+      });
+  }
+
+  // product_id 매핑
+  const { data: prodRows } = await supabase
+    .from("products")
+    .select("id, external_product_id")
+    .eq("case_id", c.id)
+    .eq("country", country);
+  const productKeyToId = new Map(
+    (prodRows ?? []).map((p) => [p.external_product_id ?? "", p.id]),
+  );
+
+  // 2) Influencers upsert — Creator Handle 기준
+  const uniqueHandles = Array.from(
+    new Set(
+      parsed.rows.map((r) => r.creator_handle).filter((h): h is string => !!h),
+    ),
+  );
+  if (uniqueHandles.length > 0) {
+    const inflInserts = uniqueHandles.map((h) => ({
+      platform: "tiktok" as const,
+      external_id: h,
+      handle: h,
+      fans_source: "kalodata_video",
+    }));
+    await supabase.from("influencers").upsert(inflInserts, {
+      onConflict: "platform,external_id",
+      ignoreDuplicates: true,
+    });
+  }
+
+  // influencer_id 매핑
+  const { data: inflRows } = await supabase
+    .from("influencers")
+    .select("id, handle")
+    .eq("platform", "tiktok")
+    .in("handle", uniqueHandles);
+  const handleToInflId = new Map(
+    (inflRows ?? []).map((i) => [i.handle, i.id]),
+  );
+
+  // 3) Contents upsert — TikTokUrl 기준 (Phase 4b가 이걸 픽업)
+  const contentInserts = parsed.rows.map((r) => {
+    const productKey = r.product_title
+      ? `kalodata:${r.product_title.slice(0, 220)}`
+      : null;
+    return {
+      brand_id: c.brand_id,
+      country,
+      url: r.video_url,
+      caption: r.description,
+      uploaded_at: r.publish_date,
+      views: r.views,
+      is_ad: (r.ad_spend_usd ?? 0) > 0,
+      influencer_id: r.creator_handle
+        ? handleToInflId.get(r.creator_handle) ?? null
+        : null,
+      product_id: productKey ? productKeyToId.get(productKey) ?? null : null,
+      duration_ms: r.duration_s != null ? r.duration_s * 1000 : null,
+    };
+  });
+
+  // url 중복 처리 — 같은 url이 batch에 두 번 등장하면 postgres가 거부
+  const dedupedContents = Array.from(
+    new Map(contentInserts.map((c) => [c.url, c])).values(),
+  );
+
+  let contentsInserted = 0;
+  for (let i = 0; i < dedupedContents.length; i += 500) {
+    const batch = dedupedContents.slice(i, i + 500);
+    const { error, count } = await supabase
+      .from("contents")
+      .upsert(batch, {
+        onConflict: "url",
+        ignoreDuplicates: false,
+        count: "exact",
+      });
+    if (error) {
+      return {
+        ok: false,
+        error: `content upsert (batch ${i}): ${error.message}`,
+      };
+    }
+    contentsInserted += count ?? batch.length;
+  }
+
+  // 4) cases.key_stats.kalodata_videos_xlsx 누적 (raw + 광고 데이터 표시용)
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", c.id)
+    .single();
+  const existingStats = (caseRow?.key_stats as Record<string, unknown>) ?? {};
+  const existingXlsxVideos =
+    (existingStats.kalodata_videos_xlsx as { video_url: string }[] | undefined) ??
+    [];
+  const existingUrls = new Set(existingXlsxVideos.map((v) => v.video_url));
+  const mergedXlsx = [
+    ...existingXlsxVideos,
+    ...parsed.rows.filter((r) => !existingUrls.has(r.video_url)),
+  ];
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existingStats,
+        kalodata_videos_xlsx: mergedXlsx,
+        kalodata_videos_meta: parsed.meta,
+      } as Record<string, unknown>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    .eq("id", c.id);
+
+  // 광고 ROAS 평균 (요약)
+  const adVideos = parsed.rows.filter((r) => (r.ad_spend_usd ?? 0) > 0);
+  const avgRoas =
+    adVideos.length > 0
+      ? adVideos.reduce((acc, r) => acc + (r.ad_roas ?? 0), 0) / adVideos.length
+      : null;
+
+  const periodStr =
+    period_start && period_end ? ` · ${period_start}~${period_end}` : "";
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `Video xlsx ${parsed.rows.length}개 적재 (누적 ${mergedXlsx.length}) · 제품 ${uniqueProducts.size} · 크리에이터 ${uniqueHandles.length}명 · 광고 ${adVideos.length}/${parsed.rows.length}${avgRoas != null ? ` (ROAS 평균 ${avgRoas.toFixed(2)})` : ""}${periodStr}`,
   };
 }

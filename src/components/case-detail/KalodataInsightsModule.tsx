@@ -4,6 +4,7 @@ import { useState } from "react";
 import type {
   KalodataBrandKpi,
   KalodataVideoRow,
+  KalodataVideoXlsxRow,
   KalodataCreatorXlsxRow,
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
@@ -21,12 +22,14 @@ export function KalodataInsightsModule({
   brand,
   creators,
   videos,
+  videosXlsx,
   lives,
   meta,
 }: {
   brand?: KalodataBrandKpi | null;
   creators?: KalodataCreatorXlsxRow[];
   videos?: KalodataVideoRow[];
+  videosXlsx?: KalodataVideoXlsxRow[];
   lives?: KalodataLiveRow[];
   meta?: {
     shop?: string | null;
@@ -35,10 +38,13 @@ export function KalodataInsightsModule({
     account_type_filter?: string | null;
   } | null;
 }) {
+  // xlsx가 있으면 그게 더 풍부한 데이터 — 텍스트 페이스트 videos는 무시
+  const useXlsxVideos = (videosXlsx?.length ?? 0) > 0;
+
   // 표시할 데이터가 하나도 없으면 모듈 자체 숨김
   const hasBrand = !!brand && brand.revenue_usd != null;
   const hasCreators = (creators?.length ?? 0) > 0;
-  const hasVideos = (videos?.length ?? 0) > 0;
+  const hasVideos = useXlsxVideos || (videos?.length ?? 0) > 0;
   const hasLives = (lives?.length ?? 0) > 0;
   if (!hasBrand && !hasCreators && !hasVideos && !hasLives) return null;
 
@@ -78,7 +84,11 @@ export function KalodataInsightsModule({
 
       {hasBrand && brand && <BrandKpiBlock brand={brand} />}
       {hasCreators && creators && <CreatorsTable creators={creators} />}
-      {hasVideos && videos && <VideosTable videos={videos} />}
+      {useXlsxVideos && videosXlsx ? (
+        <VideosXlsxTable videos={videosXlsx} />
+      ) : (
+        hasVideos && videos && <VideosTable videos={videos} />
+      )}
       {hasLives && lives && <LivesTable lives={lives} />}
     </div>
   );
@@ -443,6 +453,202 @@ function VideosTable({ videos }: { videos: KalodataVideoRow[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+function VideosXlsxTable({ videos }: { videos: KalodataVideoXlsxRow[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const sorted = [...videos].sort(
+    (a, b) => (b.revenue_usd ?? 0) - (a.revenue_usd ?? 0),
+  );
+  const visible = showAll ? sorted : sorted.slice(0, 30);
+  const adCount = sorted.filter((v) => (v.ad_spend_usd ?? 0) > 0).length;
+  const roasAvg = (() => {
+    const withRoas = sorted.filter((v) => v.ad_roas != null) as Array<
+      KalodataVideoXlsxRow & { ad_roas: number }
+    >;
+    if (withRoas.length === 0) return null;
+    return withRoas.reduce((s, v) => s + v.ad_roas, 0) / withRoas.length;
+  })();
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 8,
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700 }}>
+          매출 상위 영상 ({sorted.length}개) — 광고 {adCount}개 (
+          {Math.round((adCount / Math.max(sorted.length, 1)) * 100)}%)
+          {roasAvg != null && (
+            <span style={{ marginLeft: 8, color: "var(--color-g500)" }}>
+              · ROAS 평균 {roasAvg.toFixed(2)}x
+            </span>
+          )}
+        </div>
+        {sorted.length > 30 && (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            style={{
+              fontSize: 11,
+              background: "transparent",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              padding: "3px 8px",
+              cursor: "pointer",
+              color: "var(--color-g600)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {showAll ? "Top 30만 보기" : `전체 ${sorted.length}개 보기`}
+          </button>
+        )}
+      </div>
+      <div style={{ overflow: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            fontSize: 11,
+            borderCollapse: "collapse",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <thead>
+            <tr>
+              <Th left>#</Th>
+              <Th left>Creator / Caption</Th>
+              <Th left>Product</Th>
+              <Th>Revenue</Th>
+              <Th>Sold</Th>
+              <Th>Views</Th>
+              <Th>GPM</Th>
+              <Th>Ad Spend</Th>
+              <Th>ROAS</Th>
+              <Th>Dur</Th>
+              <Th left>Date</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((v, i) => {
+              const isAd = (v.ad_spend_usd ?? 0) > 0;
+              const goodRoas = (v.ad_roas ?? 0) >= 2;
+              return (
+                <tr key={v.video_url}>
+                  <Td>{i + 1}</Td>
+                  <Td left style={{ maxWidth: 280 }}>
+                    {v.creator_handle && (
+                      <div>
+                        <a
+                          href={`https://www.tiktok.com/@${v.creator_handle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "var(--color-info)",
+                            textDecoration: "underline",
+                            textUnderlineOffset: 2,
+                          }}
+                        >
+                          @{v.creator_handle}
+                        </a>
+                      </div>
+                    )}
+                    <a
+                      href={v.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={v.description}
+                      style={{
+                        display: "block",
+                        fontSize: 10,
+                        color: "var(--color-g500)",
+                        fontFamily: "inherit",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {v.description || "(no caption)"}
+                    </a>
+                  </Td>
+                  <Td
+                    left
+                    title={v.product_title ?? undefined}
+                    style={{
+                      maxWidth: 220,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {v.product_title ? (
+                      <>
+                        <div>{v.product_title}</div>
+                        {v.product_category && (
+                          <div
+                            style={{
+                              fontSize: 9,
+                              color: "var(--color-g400)",
+                            }}
+                          >
+                            {v.product_category}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </Td>
+                  <Td bold>{fmtUsd(v.revenue_usd ?? 0)}</Td>
+                  <Td>{fmtNum(v.item_sold ?? 0)}</Td>
+                  <Td>{fmtNum(v.views ?? 0)}</Td>
+                  <Td>{v.gpm_usd != null ? `$${v.gpm_usd.toFixed(1)}` : "—"}</Td>
+                  <Td
+                    color={isAd ? "var(--color-warn)" : undefined}
+                    bold={isAd}
+                  >
+                    {isAd ? fmtUsd(v.ad_spend_usd ?? 0) : "—"}
+                  </Td>
+                  <Td
+                    color={
+                      goodRoas
+                        ? "var(--color-pos)"
+                        : isAd
+                          ? "var(--color-accent)"
+                          : undefined
+                    }
+                    bold={isAd}
+                  >
+                    {v.ad_roas != null ? `${v.ad_roas.toFixed(2)}x` : "—"}
+                  </Td>
+                  <Td>{v.duration_s != null ? `${v.duration_s}s` : "—"}</Td>
+                  <Td left>{v.publish_date ?? "—"}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div
+        style={{
+          fontSize: 10,
+          color: "var(--color-g500)",
+          fontFamily: "var(--font-mono)",
+          marginTop: 6,
+        }}
+      >
+        💡 <b>ROAS ≥ 2x</b> = 광고비 회수 OK · <b>광고 비중 ↑</b> = 페이드
+        부스팅 의존 · TikTokUrl 박힌 영상은 Phase 4b Vision/클러스터링 자동 분석.
       </div>
     </div>
   );

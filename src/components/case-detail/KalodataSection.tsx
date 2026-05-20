@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   uploadKalodata,
   uploadKalodataCreatorsXlsx,
+  uploadKalodataVideosXlsx,
 } from "@/app/cases/[id]/upload-actions";
 
 /**
@@ -35,6 +36,13 @@ export function KalodataSection({
     text: string;
   } | null>(null);
 
+  // Video xlsx 업로드 상태
+  const [videoXlsxPending, videoXlsxStart] = useTransition();
+  const [videoXlsxMsg, setVideoXlsxMsg] = useState<{
+    type: "ok" | "err";
+    text: string;
+  } | null>(null);
+
   function submit() {
     start(async () => {
       const fd = new FormData();
@@ -58,6 +66,20 @@ export function KalodataSection({
       fd.append("file", file);
       const r = await uploadKalodataCreatorsXlsx(case_id, fd);
       setXlsxMsg(
+        r.ok
+          ? { type: "ok", text: r.message }
+          : { type: "err", text: r.error },
+      );
+      if (r.ok) router.refresh();
+    });
+  }
+
+  function submitVideoXlsx(file: File) {
+    videoXlsxStart(async () => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await uploadKalodataVideosXlsx(case_id, fd);
+      setVideoXlsxMsg(
         r.ok
           ? { type: "ok", text: r.message }
           : { type: "err", text: r.error },
@@ -241,6 +263,69 @@ export function KalodataSection({
           >
             {xlsxMsg.type === "ok" ? "✓ " : "✕ "}
             {xlsxMsg.text}
+          </div>
+        )}
+      </div>
+
+      {/* Video xlsx Export 업로드 (Top N — 영상별 매출 + ROAS + 영상-제품 매핑) */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: "14px 16px",
+          background: "var(--color-g25)",
+          borderRadius: 8,
+          border: "1px solid var(--color-g100)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--color-ink)",
+            marginBottom: 4,
+          }}
+        >
+          비디오 디테일 (xlsx Export, Top N — Video Export 4,000 크레딧 별도 풀)
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--color-g500)",
+            marginBottom: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          Kalodata → 브랜드 페이지 → Video 섹션 → <b>Export</b> 다이얼로그에서
+          Range 1~500 지정해서 xlsx 받음. <b>TikTokUrl + 영상-제품 매핑 + Ad
+          ROAS/Spend/CPA + GPM</b> 다 포함. TikTokUrl 박히면 Phase 4b Vision /
+          클러스터링 자동 분석. <b>엑솔릿이 못 잡는 Shop 영상</b>(해시태그/멘션 없음)
+          이게 유일한 경로. 추천: Top 500 (Video 풀 4,000 ÷ 500 = 8 브랜드).
+        </div>
+        <input
+          type="file"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+          disabled={videoXlsxPending}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) submitVideoXlsx(f);
+          }}
+          style={{ fontSize: 11 }}
+        />
+        {videoXlsxMsg && (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color:
+                videoXlsxMsg.type === "ok"
+                  ? "var(--color-pos)"
+                  : "var(--color-accent)",
+              fontWeight: 600,
+              lineHeight: 1.5,
+            }}
+          >
+            {videoXlsxMsg.type === "ok" ? "✓ " : "✕ "}
+            {videoXlsxMsg.text}
           </div>
         )}
       </div>
