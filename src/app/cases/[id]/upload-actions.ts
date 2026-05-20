@@ -984,7 +984,7 @@ export async function uploadKalodata(
 
   // 1) Brand KPI + Videos → case.key_stats JSONB merge
   // Videos는 contents url 매칭 어려워(Kalodata는 url X) key_stats에 raw 저장.
-  // 새 업로드 시 누적 (이전 Videos에 이번 Videos 머지 — rank 기준 중복 dedupe)
+  // 새 업로드 시 누적 (이전 Videos에 이번 Videos 머지 — caption 중복 dedupe)
   const { data: caseRow } = await supabase
     .from("cases")
     .select("key_stats")
@@ -999,12 +999,24 @@ export async function uploadKalodata(
     ...existingVideos,
     ...parsed.videos.filter((v) => !existingCaptions.has(v.caption)),
   ];
+
+  // Brand KPI 머지 — null 값은 기존값 유지 (Product/Creator/Video 페이지만 복붙한 텍스트엔
+  // Core Metrics 섹션이 없어 모든 KPI가 null로 파싱됨. 그때 기존 KPI를 null로 덮어쓰면 안 됨)
+  const existingBrand =
+    (existingStats.kalodata_brand as Record<string, unknown> | undefined) ?? {};
+  const mergedBrand: Record<string, unknown> = { ...existingBrand };
+  for (const [k, v] of Object.entries(parsed.brand_kpi)) {
+    if (v != null) mergedBrand[k] = v;
+  }
+  mergedBrand.captured_at = new Date().toISOString();
+
   const newStats = {
     ...existingStats,
-    kalodata_brand: { ...parsed.brand_kpi, captured_at: new Date().toISOString() },
+    kalodata_brand: mergedBrand,
     kalodata_videos: mergedVideos,
-  };
-  await supabase.from("cases").update({ key_stats: newStats }).eq("id", c.id);
+  } as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await supabase.from("cases").update({ key_stats: newStats as any }).eq("id", c.id);
 
   // 2) Products upsert
   let productCount = 0;
@@ -1092,10 +1104,21 @@ export async function uploadKalodata(
     }
   }
 
+  // 누적 수치 — DB 다시 조회해서 정확한 총량 표시
+  const { count: totalProducts } = await supabase
+    .from("products")
+    .select("*", { count: "exact", head: true })
+    .eq("case_id", c.id);
+  const totalCreators = parsed.creators.length; // upsert 후 정확한 누적은 brand+case scope이 아니라 일단 이번 파싱분
+  const brandRev =
+    (mergedBrand.revenue_usd as number | null | undefined) ??
+    parsed.brand_kpi.revenue_usd ??
+    0;
+
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `Kalodata 적재 완료 — 제품 ${productCount}개 · 크리에이터 ${creatorCount}명 · 영상 ${parsed.videos.length}개(누적 ${mergedVideos.length}) · 브랜드 매출 $${(parsed.brand_kpi.revenue_usd ?? 0).toLocaleString()} (${period_start} ~ ${period_end})`,
+    message: `Kalodata 적재 — 이번 [제품 ${productCount} · 크리에이터 ${creatorCount} · 영상 ${parsed.videos.length}] · 누적 [제품 ${totalProducts ?? "?"} · 영상 ${mergedVideos.length}] · 브랜드 매출 $${brandRev.toLocaleString()} (${period_start} ~ ${period_end})`,
   };
 }
 
