@@ -63,6 +63,7 @@ export default function NewCasePage() {
 
   const isAmazon = platform === "amazon";
   const isShop = platform === "tiktok_shop";
+  const isShopee = platform === "shopee";
 
   return (
     <div style={{ padding: "24px 32px 140px", maxWidth: 920 }}>
@@ -158,7 +159,9 @@ export default function NewCasePage() {
             <br />
             {isAmazon
               ? "Amazon 케이스 → exolyt CSV · 30일 매출 CSV · BSR per-product CSV"
-              : "TikTok Shop 케이스 → exolyt CSV (재사용 가능시 자동 감지)"}
+              : isShop
+                ? "TikTok Shop 케이스 → exolyt CSV (재사용 가능시 자동 감지)"
+                : "Shopee 케이스 (SEA) → exolyt CSV · Shopdora 매출 데이터는 현재 백엔드 수동 적재"}
           </p>
         </section>
 

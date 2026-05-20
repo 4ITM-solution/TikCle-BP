@@ -7,7 +7,7 @@ import { createServer } from "@/lib/supabase/server";
 const schema = z.object({
   brand_name: z.string().min(1, "브랜드명을 입력하세요").max(100).trim(),
   country: z.string().min(2).max(8),
-  platform: z.enum(["amazon", "tiktok_shop"]),
+  platform: z.enum(["amazon", "tiktok_shop", "shopee"]),
   brand_keyword: z.string().optional().default(""),
   brand_meta_pages: z.string().optional().default(""),
   tiktok_shop_store_url: z.string().optional().default(""),

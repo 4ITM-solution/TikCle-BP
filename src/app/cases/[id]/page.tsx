@@ -593,6 +593,87 @@ export default async function CaseDetailPage({
         </>
       ) : c.status === "ready" && c.key_stats ? (
         <>
+          {/* ready 케이스에도 추가 업로드 가능 — 우회 brand 만드는 패턴 차단 */}
+          <details
+            className="section-card"
+            style={{ marginBottom: 14 }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                fontWeight: 700,
+                fontSize: 13,
+                color: "var(--color-g600)",
+                listStyle: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 16 }}>📥</span>
+              데이터 추가 업로드 (분석된 케이스에 신규 데이터 머지)
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 11,
+                  color: "var(--color-g400)",
+                  fontWeight: 500,
+                }}
+              >
+                ▼ 펼치기
+              </span>
+            </summary>
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 14,
+                borderTop: "1px solid var(--color-g100)",
+              }}
+            >
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: "10px 12px",
+                  background: "var(--color-info-soft)",
+                  border: "1px solid #C7D6E8",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  lineHeight: 1.6,
+                  color: "var(--color-info)",
+                }}
+              >
+                기존 분석 결과는 그대로 유지됩니다. 데이터 추가 후
+                <b> 분석 재실행</b>을 별도로 트리거해야 새 데이터가 반영됩니다.
+                <br />⚠️ <b>새 브랜드/케이스를 만들지 마세요</b> — 같은 브랜드+국가는
+                이 케이스로 직접 업로드하면 자동 머지됩니다 (url 충돌은 GREATEST로
+                안전 머지).
+              </div>
+              <ExolytSection
+                case_id={c.id}
+                hasContents={
+                  (contentCount ?? 0) > 0 && !reusedAlready && !reusable
+                }
+                reusable={reusable}
+                reusedAlready={reusedAlready}
+                contentCount={contentCount ?? 0}
+              />
+              {c.channel === "amazon" && (
+                <>
+                  <AmazonSalesSection
+                    case_id={c.id}
+                    skuRows={skuRows}
+                    caseCountry={c.country}
+                    exchangeRates={exchangeRates}
+                  />
+                  <BsrSection
+                    case_id={c.id}
+                    skuRows={skuRows}
+                    caseCountry={c.country}
+                  />
+                </>
+              )}
+            </div>
+          </details>
           {(() => {
             const ks = c.key_stats as {
               phase2?: Phase2Stats;

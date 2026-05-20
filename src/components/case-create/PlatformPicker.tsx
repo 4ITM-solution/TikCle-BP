@@ -15,6 +15,12 @@ const platforms = [
     icon: "T",
     desc: "Shop 스토어 URL + exolyt 콘텐츠",
   },
+  {
+    value: "shopee",
+    name: "Shopee",
+    icon: "S",
+    desc: "Shopdora 매출 (SEA) + exolyt 콘텐츠",
+  },
 ] as const;
 
 export type PlatformValue = (typeof platforms)[number]["value"];
@@ -40,7 +46,13 @@ export function PlatformPicker({
   return (
     <>
       <input type="hidden" name={name} value={selected} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 10,
+        }}
+      >
         {platforms.map((p) => {
           const on = selected === p.value;
           return (
