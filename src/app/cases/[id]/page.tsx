@@ -8,6 +8,7 @@ import {
 } from "@/components/case-detail/AmazonSalesSection";
 import { BsrSection } from "@/components/case-detail/BsrSection";
 import { ShopdoraSection } from "@/components/case-detail/ShopdoraSection";
+import { KalodataSection } from "@/components/case-detail/KalodataSection";
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
@@ -141,7 +142,11 @@ export default async function CaseDetailPage({
     string,
     { subcategory: string | null; launch_date: string | null }
   > = {};
-  if (c.channel === "amazon" || c.channel === "shopee") {
+  if (
+    c.channel === "amazon" ||
+    c.channel === "shopee" ||
+    c.channel === "tiktok_shop"
+  ) {
     const { data: prods } = await supabase
       .from("products")
       .select("id, asin, external_product_id, name, product_url, country, subcategory, launch_date")
@@ -388,7 +393,9 @@ export default async function CaseDetailPage({
     c.channel === "amazon"
       ? skuRows.length > 0
       : c.channel === "tiktok_shop"
-        ? !!c.tiktok_shop_store_url
+        ? c.country === "US"
+          ? !!c.tiktok_shop_store_url
+          : skuRows.length > 0 // SEA: Kalodata 적재 필요
         : c.channel === "shopee"
           ? skuRows.length > 0
           : true;
@@ -399,7 +406,10 @@ export default async function CaseDetailPage({
   else if (!exolytDone) reason = "exolyt 데이터 업로드/재사용 필요";
   else if (!salesDone) {
     if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
-    else if (c.channel === "tiktok_shop") reason = "TikTok Shop 스토어 URL 필요";
+    else if (c.channel === "tiktok_shop" && c.country === "US")
+      reason = "TikTok Shop 스토어 URL 필요";
+    else if (c.channel === "tiktok_shop")
+      reason = "Kalodata 텍스트 업로드 필요 (SEA)";
     else if (c.channel === "shopee") reason = "Shopdora 매출 텍스트 업로드 필요";
   }
 
@@ -559,7 +569,7 @@ export default async function CaseDetailPage({
               />
             )}
 
-            {c.channel === "tiktok_shop" && (
+            {c.channel === "tiktok_shop" && c.country === "US" && (
               <div
                 style={{
                   background: "var(--color-g25)",
@@ -572,7 +582,7 @@ export default async function CaseDetailPage({
                 }}
               >
                 <b style={{ color: "var(--color-ink)" }}>
-                  TikTok Shop 매출/제품 자동 수집
+                  TikTok Shop 매출/제품 자동 수집 (US)
                 </b>
                 <br />
                 분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다.
@@ -595,6 +605,13 @@ export default async function CaseDetailPage({
                   {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
                 </div>
               </div>
+            )}
+
+            {c.channel === "tiktok_shop" && c.country !== "US" && (
+              <KalodataSection
+                case_id={c.id}
+                productCount={skuRows.length}
+              />
             )}
           </section>
 
@@ -688,6 +705,12 @@ export default async function CaseDetailPage({
               )}
               {c.channel === "shopee" && (
                 <ShopdoraSection
+                  case_id={c.id}
+                  productCount={skuRows.length}
+                />
+              )}
+              {c.channel === "tiktok_shop" && c.country !== "US" && (
+                <KalodataSection
                   case_id={c.id}
                   productCount={skuRows.length}
                 />

@@ -10,6 +10,7 @@ import {
   parseShopdoraSnapshot,
   parseShopdoraMonthly,
 } from "@/lib/parsers/shopdora";
+import { parseKalodata } from "@/lib/parsers/kalodata";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
@@ -938,5 +939,148 @@ export async function uploadShopdoraMonthly(
   return {
     ok: true,
     message: `Shopdora 월별 ${snapshots.length}행 적재 완료 (${extToId.size}개 제품)${note}`,
+  };
+}
+
+// =============================================================================
+// Kalodata — TikTok Shop SEA 분석 도구
+//
+// Brand 페이지(예: SKIN1004 Thailand) 화면 통째 텍스트 복붙 → 한 번에 적재:
+//   - Brand KPI (key_stats.kalodata_brand)
+//   - Products(Top N) → products + case_product_sales (USD)
+//   - Creators(Top N) → influencers (handle 기반, lifetime_gmv_usd 갱신)
+//
+// Kalodata는 product에 외부 ID를 노출하지 않아 제품명 자체를 식별자로 사용
+// (external_product_id = "kalodata:<name>").
+// =============================================================================
+export async function uploadKalodata(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const text = formData.get("text");
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return { ok: false, error: "Kalodata 텍스트가 비어있습니다" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop") {
+    return { ok: false, error: "TikTok Shop 케이스에서만 사용 가능" };
+  }
+
+  const parsed = parseKalodata(text);
+  if (parsed.products.length === 0 && parsed.creators.length === 0) {
+    return { ok: false, error: parsed.errors[0] ?? "파싱 실패" };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyAgo = new Date(Date.now() - 30 * 86400_000)
+    .toISOString()
+    .slice(0, 10);
+  const period_start = parsed.brand_kpi.period_start ?? thirtyAgo;
+  const period_end = parsed.brand_kpi.period_end ?? today;
+
+  // 1) Brand KPI → case.key_stats.kalodata_brand JSONB merge
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", c.id)
+    .single();
+  const existingStats = (caseRow?.key_stats as Record<string, unknown>) ?? {};
+  const newStats = {
+    ...existingStats,
+    kalodata_brand: { ...parsed.brand_kpi, captured_at: new Date().toISOString() },
+  };
+  await supabase.from("cases").update({ key_stats: newStats }).eq("id", c.id);
+
+  // 2) Products upsert
+  let productCount = 0;
+  if (parsed.products.length > 0) {
+    const productInserts = parsed.products.map((p) => ({
+      case_id: c.id,
+      brand_id: c.brand_id,
+      country: c.country,
+      name: p.name,
+      // Kalodata는 외부 product ID를 화면에 노출 안 함 — 이름을 식별자로 사용
+      external_product_id: `kalodata:${p.name.slice(0, 220)}`,
+      platform: "tiktok_shop",
+      channel: "tiktok_shop" as const,
+      price: p.avg_unit_price,
+      launch_date: p.publish_date,
+    }));
+    const { error: prodErr } = await supabase
+      .from("products")
+      .upsert(productInserts, {
+        onConflict: "case_id,country,external_product_id",
+      });
+    if (prodErr)
+      return { ok: false, error: `product upsert: ${prodErr.message}` };
+
+    // product_id 매핑
+    const { data: prodRows } = await supabase
+      .from("products")
+      .select("id, external_product_id")
+      .eq("case_id", c.id)
+      .eq("country", c.country);
+    const extToId = new Map(
+      (prodRows ?? []).map((p) => [p.external_product_id ?? "", p.id]),
+    );
+
+    const salesInserts = parsed.products
+      .map((p) => {
+        const product_id = extToId.get(`kalodata:${p.name.slice(0, 220)}`);
+        if (!product_id) return null;
+        return {
+          case_id: c.id,
+          product_id,
+          country: c.country,
+          units_30d: p.item_sold,
+          revenue_30d: p.revenue_usd,
+          price: p.avg_unit_price,
+          currency: "USD",
+          period_start,
+          period_end,
+          source: "kalodata",
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const { error: salesErr } = await supabase
+      .from("case_product_sales")
+      .upsert(salesInserts, { onConflict: "case_id,product_id,period_end" });
+    if (salesErr)
+      return { ok: false, error: `sales upsert: ${salesErr.message}` };
+    productCount = salesInserts.length;
+  }
+
+  // 3) Creators upsert (handle 기반) — influencers.lifetime_gmv_usd 갱신
+  // Kalodata 매출 = 그 케이스(국가/기간)의 합산이라 lifetime과 완전 동치는 아니지만
+  // 신호로 사용. 이미 더 큰 값 있으면 보존.
+  let creatorCount = 0;
+  if (parsed.creators.length > 0) {
+    const inflRows = parsed.creators.map((cr) => ({
+      platform: "tiktok" as const,
+      external_id: cr.handle.replace(/^@/, ""),
+      handle: cr.handle.replace(/^@/, ""),
+      fans_source: "kalodata",
+      lifetime_gmv_usd: cr.revenue_usd,
+    }));
+    const { error: inflErr } = await supabase
+      .from("influencers")
+      .upsert(inflRows, {
+        onConflict: "platform,external_id",
+        ignoreDuplicates: false,
+      });
+    if (inflErr) {
+      // 비치명적 — 매출은 이미 들어갔으니 경고만
+      console.warn("[uploadKalodata] influencer upsert:", inflErr.message);
+    } else {
+      creatorCount = inflRows.length;
+    }
+  }
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `Kalodata 적재 완료 — 제품 ${productCount}개 · 크리에이터 ${creatorCount}명 · 브랜드 매출 $${(parsed.brand_kpi.revenue_usd ?? 0).toLocaleString()} (${period_start} ~ ${period_end})`,
   };
 }
