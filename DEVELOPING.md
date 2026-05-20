@@ -24,7 +24,107 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-11 (5/5~5/11 7일간 큰 변화. SEA TT Shop 한계 검증 + Kalodata 수동 입력 path + 다수 fix)
+> **갱신 시점**: 2026-05-20 (5/13~5/20 8일간 큰 변화. SEA 마켓플레이스 풀 통합 — Shopdora/Kalodata 파서·UI + ready 케이스 추가 업로드 + 트렌드 차트 직관성 개선)
+
+### 2026-05-13 ~ 05-20 박힌 변화 요약 (최근 → 옛)
+
+**A. SEA TikTok Shop — Kalodata 풀 UI 통합 (5/20)**
+- 옛: 사용자가 Kalodata 데이터 → 내가 SQL INSERT (수동). Skin1004 ID 첫 케이스만 그렇게.
+- 새: 두 입력 경로 — **화면 텍스트 통째 복붙** + **Creator xlsx Export 업로드**
+  - 화면 텍스트 파서 ([parsers/kalodata.ts](src/lib/parsers/kalodata.ts) `parseKalodata`) — "Traffic Word Analysis" 블록 split + ID/숫자 앵커. Brand KPI + Products Top N + Creators Top N + Videos Top N (Live는 v2). 통화 자동 감지. caption dedupe로 누적 적재 (페이지네이션 복붙 가능). 크레딧 0.
+  - Creator xlsx 파서 (`parseKalodataCreatorXlsx`) — Kalodata Export 25컬럼 (LIST_CREATOR 시트). Live/Video GMV 분리, ProductCount/LiveNum/VideoNum, 컨택(Email/IG/FB/YT/X/WhatsApp/Line), CreatorDebutTime 등.
+- server actions: `uploadKalodata` (텍스트, Brand→key_stats / Products→case_product_sales / Creators→influencers) + `uploadKalodataCreatorsXlsx` (xlsx, influencers upsert + cases.key_stats.kalodata_creators_xlsx 누적)
+- UI: [KalodataSection.tsx](src/components/case-detail/KalodataSection.tsx) — textarea + xlsx 파일 슬롯. page.tsx `channel=tiktok_shop && country!=US` 분기에 노출 (draft + ready 둘 다)
+- `xlsx` (SheetJS 0.18.5) 의존성 추가
+- **운영 룰**: Kalodata Pro 4,000 크레딧/월. Brand당 Top 500 Creators Export = 500 크레딧 → **월 8 브랜드** 분석 가능. 화면 텍스트 복붙(Top 10)으로 시작 + 부족 시 xlsx Export.
+
+**B. SEA Shopee 풀 통합 — Shopdora 텍스트 파서 (5/19)**
+- 옛: Shopee SEA 매출은 시스템 입력 경로 X. Apify Shopee/Lazada 액터 검증 결과 fatihtahta/xtracto 등 후보 있지만 ToS·유지보수 부담.
+- 새: **Shopdora 화면 텍스트** 통째 복붙으로 한 번에 적재 (Apify 액터 검증 안 함)
+  - 파서 ([parsers/shopdora.ts](src/lib/parsers/shopdora.ts)) — `parseShopdoraSnapshot` ("Traffic Word Analysis" 블록 + ID 앵커 + 통화 Rp/S$/RM/฿ 자동 감지) + `parseShopdoraMonthly` (제품별 12개월 시계열, N/A 스킵)
+  - server actions: `uploadShopdoraSnapshot` (products + case_product_sales 스냅샷) + `uploadShopdoraMonthly` (sales_snapshot 시계열, channel='shopee', collected_at=월말)
+  - UI: [ShopdoraSection.tsx](src/components/case-detail/ShopdoraSection.tsx) — 스냅샷 textarea + 월별 시계열 textarea
+- `cases.channel` enum에 **`shopee`** 추가 (ALTER TYPE)
+- phase2 매출 집계 분기에 shopee 포함 ([phase2.ts L66-69](src/lib/inngest/aggregators/phase2.ts#L66-L69)) — `aggregateAmazonSalesAndBsr`는 channel 의존이 거의 없어 shopee도 그대로 작동 (BSR 한 점 조회만 amazon 한정)
+- 새 케이스 생성 화면 — [PlatformPicker](src/components/case-create/PlatformPicker.tsx)에 Shopee 카드 추가 + `createCaseDraft` schema enum 확장
+- **첫 케이스**: Skin1004 인도네시아 Shopee (`79b5a31a-ddbb-4ea0-a5b8-51b087089e25`) — 102 products + 5 제품 월별 시계열 57행. phase2 매출 잡힘 ($1.5M+ 합산).
+
+**C. ready 케이스 추가 업로드 UI (5/19)** — Sasha 우회 brand 재발 방지
+- 문제: 외부 협업자가 분석 끝난(`status=ready`) 케이스에 새 데이터 올리려고 했는데 업로드 UI가 안 보여서, "Dr. Althea - new in latam" / "Celimax - new in latam" 식으로 **새 brand를 만들어 거기에 업로드**하는 패턴 반복 (Dr. Althea·Celimax 각 2회)
+- 해결: ready 분기 상단에 `📥 데이터 추가 업로드` 접힘식 details. ExolytSection + (channel별 매출 섹션) 노출. 안내 박스에 "새 브랜드/케이스 만들지 마세요 — 같은 brand+country는 이 케이스로 직접 업로드하면 자동 머지" 명시.
+- **운영 데이터 정리**:
+  - Dr. Althea LATAM 우회 brand 통합 2회 (5/14: 4,053개 / 5/19: 3,782개) → 메인 brand LATAM 7,525개 (2025-01 ~ 2026-05)
+  - Celimax LATAM 우회 brand 통합 2회 → 11,335개 (2024-01 ~ 2026-05, 29개월)
+  - phase2+phase3 force 재실행
+- **⚠️ 미스터리 (#47)**: 5/14에 통합한 Dr. Althea 과거 4,053개가 5/18 확인 시 다시 사라짐. PT 삭제 스크립트 영향 가능성 (LATAM 과거분이 브라질 PT) — 원인 미규명, 재발 시 추적 필요.
+
+**D. 트렌드 차트 직관성 개선 (5/14-15)**
+- **두 별도 차트로 분리**: WeeklyTrendChart (영상 조회수·개수, 주간) + MonthlyTrendChart (인플 티어 100% 누적영역 + 광고 비중, 월별)
+  - 처음엔 BsrTrendChart에 흡수했지만 사용자 요청으로 "그래프 자체를 주간/월간으로 분리"
+  - 위치: Section A(콘텐츠 활동) / Section B(인플루언서 활동)로 이동. 매출 섹션(D)엔 SKU 매출표 + 기존 BsrTrendChart(SKU별 BSR 변곡점)만.
+- **X축 콘텐츠 범위 한정** (#43) — BSR 3년치라도 X축은 콘텐츠(weekly views / tier+ad) 범위로. 1년 구간이 납작해지는 문제 제거.
+- **호버 툴팁** (#44) — SVG onMouseMove + 세로 가이드라인 + 절대 위치 박스. 월간 차트엔 그 달 티어별 명수+%, 광고 %, BSR을 한 박스에. 화면 끝 근처면 툴팁 좌우 반전.
+- **주간 영상 트렌드를 BsrTrendChart에 흡수** (5/15) — 사용자 요청. SKU별 BSR 차트에 `[영상 조회수]`/`[영상 개수]` 토글 칩 추가. 별도 WeeklyTrendChart 삭제. MonthlyTrendChart만 별도 유지.
+
+**E. phase3 월별 티어별 광고 비중 (5/15, #46)**
+- 옛: phase3 `tier_dist_by_month`가 인플 unique 수 분포 + monthly_video_counts는 전체 영상 paid/organic — "메가는 광고 많고 나노는 오가닉" 같은 패턴 안 보임
+- 새: `fetchInfluencerActivityByMonth` 반환을 `Map<month, Map<inflId, {paid, total}>>`로 확장. `computePhase3Stats`가 month × tier × {paid, total} 집계 → `Phase3Stats.ad_by_month_tier`
+- MonthlyTrendChart 호버 툴팁의 각 티어 줄에 "광고 N%" 추가 — `메가 2명 (8%) · 광고 50%` 식
+- **주의**: phase3 신규 산출물이라 기존 케이스는 분석 재실행 필요
+
+**F. SKU 매출 표 서브카테고리·출시 시기 (5/15, #45)**
+- Helium10 Black Box CSV의 `Subcategory` / `Listing Age (Months)` 컬럼을 파서가 무시했음
+- 파서에 추가 ([amazon-sales.ts](src/lib/parsers/amazon-sales.ts)). `products.subcategory` 저장 + Listing Age를 period_end 기준 역산해 `launch_date` (월 정밀도)
+- SkuSalesModule 제품명 아래 "Facial Peels · 출시 ~2023-12 (29개월 전)" 표시
+- page.tsx에서 products 직접 조회 → skuMeta prop chain (재실행 불필요)
+
+**G. BSR 파서 다국적 locale (5/14, #40)**
+- Keepa 영문 locale `Aug 22, 2025 12:00:00 PM` / NZ·AU `19/12/2024, 7:45:05 a.m.` 등 모든 row reject 버그
+- `parseKoreanDateTime` → `parseKeepaDateTime`으로 개명 + 9개 패턴 (한국·영문 월명·슬래시 US/EU/JP·독일·ISO) + `a.m./p.m.` (점 찍힌 소문자) + 4자리 콤마 (`"19/12/2024, 7:45:05 a.m."` → 19DEC2024). UK/AU/NZ 마커 보이면 DD/MM/YYYY 강제.
+
+**H. Exolyt 재업로드 metric GREATEST 머지 (5/15, #41)**
+- 옛: contents url 충돌 시 무조건 새 값 덮어쓰기 — 과거 기간 CSV 재업로드 시 조회수 후퇴
+- 새: 업로드 전 기존 metric을 미리 fetch → views/likes/comments/shares/collect_count를 GREATEST(기존, 신규)로 머지. 어느 순서 업로드든 후퇴 X.
+
+**I. clusterer JSON parse robust + 진단 (5/14, #42)**
+- 옛: Pass 2가 6,747 토큰 출력 후 fence strip + JSON.parse 1회 실패 → "JSON parse 실패"만 표시
+- 새 3단계 fallback (fence strip → `{...}` envelope 추출 → trailing comma 제거) + 실패 시 envelope 끝 200자를 `pass2_debug.parse_error_tail` 저장. MiniDashboard 진단 박스에 raw tail + stop_reason 표시.
+
+**J. MISSHA 주간 데이터 brand_view_trends 적재 (5/18)**
+- Missha US 케이스에 weekly social listener CSV 데이터 INSERT — 54주 (2025-05~2026-05), 총 조회수 806M, 영상 104K개
+- 주간 영상 트렌드 차트가 정상 표시되도록 backend 적재
+
+**K. types.ts 누락 컬럼 보강 (5/19-20, #50)**
+- 손 관리 [types.ts](src/lib/supabase/types.ts)에 빠진 컬럼들 추가:
+  - `products.subcategory` / `launch_date`
+  - `case_product_sales.price`
+  - `sales_snapshot.units_sold` / `revenue` / `subcategory_bsr`
+- 장기적으로 types.gen.ts 자동 동기화 스크립트 필요
+
+### 진행 중/완료 케이스 (5/20 기준 갱신)
+
+**총 35+ 케이스 / 26+ 브랜드**. 이번 세션 신규/변경:
+
+**🇮🇩 신규 — Skin1004 인도네시아 Shopee** (`79b5a31a-ddbb-4ea0-a5b8-51b087089e25`)
+- 102 products + case_product_sales 102행 (Shopdora 스냅샷, IDR)
+- 5개 제품 × 12개월 sales_snapshot 시계열 57행 (월별 매출)
+- 매출 합산 ~Rp 15.06B/월 (~$890K), units 102,432개
+- channel=shopee, phase2 매출 잡힘. BSR 추이 차트는 sales_snapshot revenue 시계열 활용 가능 (v2)
+
+**🇧🇷+ Dr. Althea LATAM** (`be2e506f-9dd5-48dd-8889-9c33bfaada27`)
+- 7,525 contents (2025-01 ~ 2026-05). 우회 brand `Dr. Althea - new in latam` 통합 후 복원
+- phase2+phase3 force 재실행
+
+**🇧🇷+ Celimax LATAM** (`c598cf9c-62f7-49d1-8644-d3d46f52e37b`)
+- 11,335 contents (2024-01 ~ 2026-05, 29개월 연속). 우회 brand `Celimax - new in latam` 통합
+- phase2+phase3 force 재실행
+
+**🇮🇩 기존 — Skin1004 인도네시아 TikTok Shop** (`08b49329-2069-4e59-acf6-afb8086d61a6`)
+- 이제 사용자가 직접 KalodataSection으로 데이터 업로드 가능 (옛 SQL INSERT 수동 경로 → UI 정식 경로)
+- contents 14,931개 영상 + 2,184 인플루언서 (brand+country 공유로 Shopee 케이스랑 공통)
+
+**🇺🇸 Missha US** (`5a20923f-3ba4-48dc-aea0-d097b7b8ac09`)
+- brand_view_trends 54주 적재 → 주간 영상 트렌드 차트 채워짐
 
 ### 2026-05-05 ~ 05-11 박힌 변화 요약 (최근 → 옛)
 
