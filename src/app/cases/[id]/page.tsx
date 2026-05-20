@@ -24,6 +24,11 @@ import {
 import type { ShopGmvDistribution } from "@/components/case-detail/ShopCreatorGmvDistribution";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
+  KalodataBrandKpi,
+  KalodataCreatorXlsxRow,
+  KalodataVideoRow,
+} from "@/lib/parsers/kalodata";
+import type {
   Phase2Stats,
   Phase3Stats,
   Phase35Stats,
@@ -731,6 +736,16 @@ export default async function CaseDetailPage({
               phase4b_sku?: Phase4bSkuStats;
               phase5?: Phase5Stats;
               last_error?: { message: string; at: string };
+              // Kalodata (SEA TikTok Shop) — uploadKalodata / uploadKalodataCreatorsXlsx로 적재
+              kalodata_brand?: KalodataBrandKpi | null;
+              kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
+              kalodata_videos?: KalodataVideoRow[];
+              kalodata_creators_meta?: {
+                shop?: string | null;
+                period_start?: string | null;
+                period_end?: string | null;
+                account_type_filter?: string | null;
+              } | null;
             } | null;
             const lastError = ks?.last_error;
             if (!ks?.phase2) {
@@ -838,6 +853,12 @@ export default async function CaseDetailPage({
                       shopGmvDistribution={shopGmvDistribution}
                       weeklyViews={weeklyViews}
                       skuMeta={skuMeta}
+                      kalodata={{
+                        brand: ks.kalodata_brand,
+                        creators: ks.kalodata_creators_xlsx,
+                        videos: ks.kalodata_videos,
+                        meta: ks.kalodata_creators_meta,
+                      }}
                     />
                   </div>
                   <SectionTOC

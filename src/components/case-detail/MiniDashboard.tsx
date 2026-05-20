@@ -3,6 +3,7 @@ import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
 import { MonthlyTrendChart } from "./MonthlyTrendChart";
+import { KalodataInsightsModule } from "./KalodataInsightsModule";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -43,6 +44,11 @@ import {
   DisplayedVideoCard,
   MetaClusterCard,
 } from "./MetaClusterCard";
+import type {
+  KalodataBrandKpi,
+  KalodataCreatorXlsxRow,
+  KalodataVideoRow,
+} from "@/lib/parsers/kalodata";
 
 export function MiniDashboard({
   phase2,
@@ -64,6 +70,7 @@ export function MiniDashboard({
   shopGmvDistribution,
   weeklyViews,
   skuMeta,
+  kalodata,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -87,6 +94,17 @@ export function MiniDashboard({
     string,
     { subcategory: string | null; launch_date: string | null }
   >;
+  kalodata?: {
+    brand?: KalodataBrandKpi | null;
+    creators?: KalodataCreatorXlsxRow[];
+    videos?: KalodataVideoRow[];
+    meta?: {
+      shop?: string | null;
+      period_start?: string | null;
+      period_end?: string | null;
+      account_type_filter?: string | null;
+    } | null;
+  };
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -180,6 +198,16 @@ export function MiniDashboard({
             />
           )}
         </>
+      )}
+
+      {/* Kalodata 인사이트 (TikTok Shop SEA — 데이터 있을 때만 자동 노출) */}
+      {kalodata && (
+        <KalodataInsightsModule
+          brand={kalodata.brand}
+          creators={kalodata.creators}
+          videos={kalodata.videos}
+          meta={kalodata.meta}
+        />
       )}
 
       {/* Section E: Meta 광고 */}
