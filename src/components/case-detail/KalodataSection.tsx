@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { uploadKalodata } from "@/app/cases/[id]/upload-actions";
+import {
+  uploadKalodata,
+  uploadKalodataCreatorsXlsx,
+} from "@/app/cases/[id]/upload-actions";
 
 /**
  * TikTok Shop SEA 케이스용 Kalodata 데이터 업로드.
@@ -25,6 +28,13 @@ export function KalodataSection({
     null,
   );
 
+  // Creator xlsx 업로드 상태
+  const [xlsxPending, xlsxStart] = useTransition();
+  const [xlsxMsg, setXlsxMsg] = useState<{
+    type: "ok" | "err";
+    text: string;
+  } | null>(null);
+
   function submit() {
     start(async () => {
       const fd = new FormData();
@@ -39,6 +49,20 @@ export function KalodataSection({
         setText("");
         router.refresh();
       }
+    });
+  }
+
+  function submitXlsx(file: File) {
+    xlsxStart(async () => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await uploadKalodataCreatorsXlsx(case_id, fd);
+      setXlsxMsg(
+        r.ok
+          ? { type: "ok", text: r.message }
+          : { type: "err", text: r.error },
+      );
+      if (r.ok) router.refresh();
     });
   }
 
@@ -158,6 +182,67 @@ export function KalodataSection({
             </span>
           )}
         </div>
+      </div>
+
+      {/* Creator xlsx Export 업로드 (Top N) */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: "14px 16px",
+          background: "var(--color-g25)",
+          borderRadius: 8,
+          border: "1px solid var(--color-g100)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--color-ink)",
+            marginBottom: 4,
+          }}
+        >
+          크리에이터 디테일 (xlsx Export, Top N — 1 entry = 1 크레딧)
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--color-g500)",
+            marginBottom: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          Kalodata → 브랜드 페이지 → Creator 섹션 → <b>Export</b> 다이얼로그에서
+          Range 1~500 지정해서 xlsx 받음. <b>Live/Video GMV 분리, 컨택, 팔로워,
+          데뷔일</b> 다 들어있음. 추천: Top 500 (500 크레딧/브랜드, 월 4,000 ÷ 500 = 8 브랜드).
+        </div>
+        <input
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          disabled={xlsxPending}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) submitXlsx(f);
+          }}
+          style={{ fontSize: 11 }}
+        />
+        {xlsxMsg && (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color:
+                xlsxMsg.type === "ok"
+                  ? "var(--color-pos)"
+                  : "var(--color-accent)",
+              fontWeight: 600,
+              lineHeight: 1.5,
+            }}
+          >
+            {xlsxMsg.type === "ok" ? "✓ " : "✕ "}
+            {xlsxMsg.text}
+          </div>
+        )}
       </div>
     </div>
   );

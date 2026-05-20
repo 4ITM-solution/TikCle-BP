@@ -94,6 +94,133 @@ export type KalodataParsed = {
   errors: string[];
 };
 
+/**
+ * Kalodata Creator xlsx export (LIST_CREATOR 시트, 25개 컬럼).
+ * 화면 텍스트 스크랩의 KalodataCreatorRow보다 훨씬 풍부 — Live/Video GMV 분리,
+ * 컨택(Email/IG/FB...), Views, debut, KalodataUrl 등.
+ */
+export type KalodataCreatorXlsxRow = {
+  handle: string;
+  nickname: string | null;
+  followers: number | null;
+  revenue_usd: number | null;
+  item_sold: number | null;
+  avg_unit_price: number | null;
+  engagement_rate: number | null;
+  new_followers: number | null;
+  product_count: number | null;
+  live_num: number | null;
+  live_gmv_usd: number | null;
+  video_num: number | null;
+  video_gmv_usd: number | null;
+  views: number | null;
+  debut_date: string | null;
+  kalodata_url: string | null;
+  tiktok_url: string | null;
+  contacts: {
+    email: string | null;
+    facebook: string | null;
+    instagram: string | null;
+    youtube: string | null;
+    twitter: string | null;
+    whatsapp: string | null;
+    line: string | null;
+  };
+  date_range: string | null;
+};
+
+export type KalodataCreatorXlsxParsed = {
+  rows: KalodataCreatorXlsxRow[];
+  meta: {
+    shop: string | null;
+    export_time: string | null;
+    sort_by: string | null;
+    account_type_filter: string | null;
+    period_start: string | null;
+    period_end: string | null;
+  };
+  errors: string[];
+};
+
+function s(v: unknown): string | null {
+  if (v == null) return null;
+  const str = String(v).trim();
+  return str.length > 0 && str !== "NaN" ? str : null;
+}
+function n(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const num = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * LIST_CREATOR 시트의 row[]와 Intro 시트의 메타를 합쳐 표준화.
+ * SheetJS에서 sheet_to_json한 결과를 입력으로 받음.
+ */
+export function parseKalodataCreatorXlsx(input: {
+  list: Record<string, unknown>[];
+  intro: Record<string, unknown>[];
+}): KalodataCreatorXlsxParsed {
+  const errors: string[] = [];
+  const rows: KalodataCreatorXlsxRow[] = [];
+
+  for (const r of input.list ?? []) {
+    const handle = s(r["Handle"]);
+    if (!handle) continue;
+    rows.push({
+      handle: handle.replace(/^@/, ""),
+      nickname: s(r["Nickname"]),
+      followers: n(r["Followers"]),
+      revenue_usd: n(r["Revenue($)"]),
+      item_sold: n(r["Item Sold"]),
+      avg_unit_price: n(r["Avg. Unit Price"]),
+      engagement_rate: n(r["Engagement Rate"]),
+      new_followers: n(r["New Followers"]),
+      product_count: n(r["ProductCount"]),
+      live_num: n(r["LiveNum"]),
+      live_gmv_usd: n(r["LiveGmv($)"]),
+      video_num: n(r["VideoNum"]),
+      video_gmv_usd: n(r["VideoGmv($)"]),
+      views: n(r["Views"]),
+      debut_date: s(r["CreatorDebutTime"]),
+      kalodata_url: s(r["KalodataUrl"]),
+      tiktok_url: s(r["TikTokUrl"]),
+      contacts: {
+        email: s(r["Email"]),
+        facebook: s(r["Facebook"]),
+        instagram: s(r["Instagram"]),
+        youtube: s(r["YouTube"]),
+        twitter: s(r["X(Twitter)"]),
+        whatsapp: s(r["whatsapp"]),
+        line: s(r["Line"]),
+      },
+      date_range: s(r["Date Range"]),
+    });
+  }
+
+  // Intro 시트에서 메타 추출
+  const introRow = input.intro?.[0] ?? {};
+  const exportFilter = s(introRow["Export Filter"]) ?? "";
+  // "1. Time : 2025-11-20 - 2026-05-18\n2. Account Type : Affiliate" 파싱
+  const timeMatch = exportFilter.match(
+    /Time\s*:\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})/,
+  );
+  const accountMatch = exportFilter.match(/Account Type\s*:\s*([^\n]+)/);
+  const meta = {
+    shop: s(introRow["Shop"]),
+    export_time: s(introRow["Export Time"]),
+    sort_by: s(introRow["Sort By"]),
+    account_type_filter: accountMatch ? accountMatch[1]!.trim() : null,
+    period_start: timeMatch?.[1] ?? null,
+    period_end: timeMatch?.[2] ?? null,
+  };
+
+  if (rows.length === 0) {
+    errors.push("Creator xlsx에서 유효한 row 0개");
+  }
+  return { rows, meta, errors };
+}
+
 /** "41s" / "1m 20s" / "1m 8s" → 초 */
 function parseDurationSeconds(s: string | undefined): number | null {
   if (!s) return null;

@@ -10,7 +10,10 @@ import {
   parseShopdoraSnapshot,
   parseShopdoraMonthly,
 } from "@/lib/parsers/shopdora";
-import { parseKalodata } from "@/lib/parsers/kalodata";
+import {
+  parseKalodata,
+  parseKalodataCreatorXlsx,
+} from "@/lib/parsers/kalodata";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
@@ -1093,5 +1096,108 @@ export async function uploadKalodata(
   return {
     ok: true,
     message: `Kalodata 적재 완료 — 제품 ${productCount}개 · 크리에이터 ${creatorCount}명 · 영상 ${parsed.videos.length}개(누적 ${mergedVideos.length}) · 브랜드 매출 $${(parsed.brand_kpi.revenue_usd ?? 0).toLocaleString()} (${period_start} ~ ${period_end})`,
+  };
+}
+
+/**
+ * Kalodata Creator xlsx export 업로드 — Top N(예: 500) 크리에이터의
+ * Live/Video GMV 분리, 컨택, 팔로워 등 풍부한 데이터를 한 번에 적재.
+ *
+ * influencers: handle 기반 upsert. lifetime_gmv_usd 갱신.
+ * cases.key_stats.kalodata_creators_xlsx: row[]를 그대로 보관 (UI 표시·BP 분석용).
+ */
+export async function uploadKalodataCreatorsXlsx(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "xlsx 파일 비어있음" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop") {
+    return { ok: false, error: "TikTok Shop 케이스만" };
+  }
+
+  // SheetJS로 xlsx 파싱
+  const XLSX = await import("xlsx");
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const listSheet =
+    wb.Sheets["LIST_CREATOR"] ?? wb.Sheets[wb.SheetNames[0] ?? ""];
+  const introSheet = wb.Sheets["Intro"];
+  if (!listSheet) return { ok: false, error: "LIST_CREATOR 시트 없음" };
+  const list = XLSX.utils.sheet_to_json(listSheet) as Record<string, unknown>[];
+  const intro = introSheet
+    ? (XLSX.utils.sheet_to_json(introSheet) as Record<string, unknown>[])
+    : [];
+
+  const parsed = parseKalodataCreatorXlsx({ list, intro });
+  if (parsed.rows.length === 0) {
+    return { ok: false, error: parsed.errors[0] ?? "xlsx 파싱 실패" };
+  }
+
+  // 1) influencers upsert (handle 키)
+  const inflRows = parsed.rows.map((r) => ({
+    platform: "tiktok" as const,
+    external_id: r.handle,
+    handle: r.handle,
+    follower_count: r.followers,
+    fans_source: "kalodata",
+    lifetime_gmv_usd: r.revenue_usd,
+  }));
+  const { error: inflErr } = await supabase
+    .from("influencers")
+    .upsert(inflRows, {
+      onConflict: "platform,external_id",
+      ignoreDuplicates: false,
+    });
+  if (inflErr) {
+    console.warn(
+      "[uploadKalodataCreatorsXlsx] influencer upsert:",
+      inflErr.message,
+    );
+  }
+
+  // 2) cases.key_stats.kalodata_creators_xlsx 저장 (누적 머지, handle dedupe)
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", c.id)
+    .single();
+  const existingStats = (caseRow?.key_stats as Record<string, unknown>) ?? {};
+  const existingCreators =
+    (existingStats.kalodata_creators_xlsx as { handle: string }[] | undefined) ??
+    [];
+  const existingHandles = new Set(existingCreators.map((cc) => cc.handle));
+  const merged = [
+    ...existingCreators,
+    ...parsed.rows.filter((r) => !existingHandles.has(r.handle)),
+  ];
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existingStats,
+        kalodata_creators_xlsx: merged,
+        kalodata_creators_meta: parsed.meta,
+      },
+    })
+    .eq("id", c.id);
+
+  revalidatePath(`/cases/${case_id}`);
+  const livePct =
+    parsed.rows.reduce(
+      (acc, r) => acc + (r.live_gmv_usd ?? 0),
+      0,
+    ) /
+    Math.max(
+      parsed.rows.reduce((acc, r) => acc + (r.revenue_usd ?? 0), 0),
+      1,
+    );
+  return {
+    ok: true,
+    message: `Creator xlsx ${parsed.rows.length}명 적재 (누적 ${merged.length}명) · ${parsed.meta.period_start ?? "?"}~${parsed.meta.period_end ?? "?"} · ${parsed.meta.account_type_filter ?? "?"} · Live ${Math.round(livePct * 100)}%`,
   };
 }
