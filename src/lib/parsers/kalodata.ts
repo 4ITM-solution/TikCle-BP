@@ -76,12 +76,33 @@ export type KalodataCreatorRow = {
   video_count: number | null;
 };
 
+export type KalodataVideoRow = {
+  rank: number;
+  caption: string;
+  duration_s: number | null;
+  revenue_usd: number | null;
+  views: number | null;
+  item_sold: number | null;
+  publish_date: string | null;
+};
+
 export type KalodataParsed = {
   brand_kpi: KalodataBrandKpi;
   products: KalodataProductRow[];
   creators: KalodataCreatorRow[];
+  videos: KalodataVideoRow[];
   errors: string[];
 };
+
+/** "41s" / "1m 20s" / "1m 8s" → 초 */
+function parseDurationSeconds(s: string | undefined): number | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(?:(\d+)m\s*)?(\d+)s$/);
+  if (!m) return null;
+  const mins = m[1] ? parseInt(m[1], 10) : 0;
+  const secs = parseInt(m[2]!, 10);
+  return mins * 60 + secs;
+}
 
 /**
  * Kalodata 화면 텍스트를 통째 받아 섹션별로 추출.
@@ -152,6 +173,7 @@ export function parseKalodata(raw: string): KalodataParsed {
   const creatorStart = findSectionStart(/^Creator\(\d+\s*items?\)/);
   const productStart = findSectionStart(/^Product\(\d+\s*items?\)/);
   const videoStart = findSectionStart(/^Video\s*&\s*Ad\(\d+\s*items?\)/);
+  const liveStart = findSectionStart(/^Live\(\d+\s*items?\)/);
 
   // 3) Products 파싱 (Product 섹션 ~ Video & Ad 또는 끝까지)
   const products: KalodataProductRow[] = [];
@@ -265,11 +287,66 @@ export function parseKalodata(raw: string): KalodataParsed {
     }
   }
 
-  if (products.length === 0 && creators.length === 0) {
+  // 5) Videos 파싱 (Video & Ad 섹션 ~ Live 또는 끝)
+  const videos: KalodataVideoRow[] = [];
+  if (videoStart >= 0) {
+    const endIdx = liveStart > videoStart ? liveStart : lines.length;
+    const slice = lines.slice(videoStart, endIdx);
+    // 행 패턴:
+    //   "1"
+    //   <캡션 1줄 — #해시태그 + 텍스트>
+    //   "41s" (duration)
+    //   "$15.02k\t304.1k\t987\t04/21/2026" (revenue \t views \t item_sold \t publish_date)
+    let i = 0;
+    while (i < slice.length) {
+      const line = slice[i]!;
+      if (/^\d{1,3}$/.test(line)) {
+        const rank = parseInt(line, 10);
+        const caption = slice[i + 1] ?? "";
+        const durLine = slice[i + 2] ?? "";
+        const dataLine = slice[i + 3] ?? "";
+        const dur = parseDurationSeconds(durLine);
+        // dataLine: 4개 cell — $rev \t views \t item_sold \t MM/DD/YYYY
+        const cells = dataLine.split(/[\t\s]+/).filter(Boolean);
+        const dateCell = cells.find((c) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(c));
+        const moneyCell = cells.find((c) => /^\$/.test(c));
+        const numCells = cells.filter(
+          (c) =>
+            !/^\$/.test(c) && !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(c) && /\d/.test(c),
+        );
+        if (
+          rank >= 1 &&
+          rank <= 5000 &&
+          caption &&
+          (moneyCell || dateCell) &&
+          dur != null
+        ) {
+          videos.push({
+            rank,
+            caption,
+            duration_s: dur,
+            revenue_usd: parseMagnitude(moneyCell),
+            views: parseMagnitude(numCells[0]),
+            item_sold: parseMagnitude(numCells[1]),
+            publish_date: parseUsDate(dateCell),
+          });
+          i += 4;
+          continue;
+        }
+      }
+      i += 1;
+    }
+  }
+
+  if (
+    products.length === 0 &&
+    creators.length === 0 &&
+    videos.length === 0
+  ) {
     errors.push(
-      "Products·Creators 섹션 둘 다 0개. Kalodata 화면 텍스트 형식이 맞는지 확인",
+      "Products·Creators·Videos 섹션 모두 0개. Kalodata 화면 텍스트 형식이 맞는지 확인",
     );
   }
 
-  return { brand_kpi, products, creators, errors };
+  return { brand_kpi, products, creators, videos, errors };
 }

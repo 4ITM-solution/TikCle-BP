@@ -979,16 +979,27 @@ export async function uploadKalodata(
   const period_start = parsed.brand_kpi.period_start ?? thirtyAgo;
   const period_end = parsed.brand_kpi.period_end ?? today;
 
-  // 1) Brand KPI → case.key_stats.kalodata_brand JSONB merge
+  // 1) Brand KPI + Videos → case.key_stats JSONB merge
+  // Videos는 contents url 매칭 어려워(Kalodata는 url X) key_stats에 raw 저장.
+  // 새 업로드 시 누적 (이전 Videos에 이번 Videos 머지 — rank 기준 중복 dedupe)
   const { data: caseRow } = await supabase
     .from("cases")
     .select("key_stats")
     .eq("id", c.id)
     .single();
   const existingStats = (caseRow?.key_stats as Record<string, unknown>) ?? {};
+  const existingVideos =
+    (existingStats.kalodata_videos as { caption: string }[] | undefined) ?? [];
+  // dedupe by caption (Kalodata가 한 영상에 unique id 안 줘서 caption이 최선)
+  const existingCaptions = new Set(existingVideos.map((v) => v.caption));
+  const mergedVideos = [
+    ...existingVideos,
+    ...parsed.videos.filter((v) => !existingCaptions.has(v.caption)),
+  ];
   const newStats = {
     ...existingStats,
     kalodata_brand: { ...parsed.brand_kpi, captured_at: new Date().toISOString() },
+    kalodata_videos: mergedVideos,
   };
   await supabase.from("cases").update({ key_stats: newStats }).eq("id", c.id);
 
@@ -1081,6 +1092,6 @@ export async function uploadKalodata(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `Kalodata 적재 완료 — 제품 ${productCount}개 · 크리에이터 ${creatorCount}명 · 브랜드 매출 $${(parsed.brand_kpi.revenue_usd ?? 0).toLocaleString()} (${period_start} ~ ${period_end})`,
+    message: `Kalodata 적재 완료 — 제품 ${productCount}개 · 크리에이터 ${creatorCount}명 · 영상 ${parsed.videos.length}개(누적 ${mergedVideos.length}) · 브랜드 매출 $${(parsed.brand_kpi.revenue_usd ?? 0).toLocaleString()} (${period_start} ~ ${period_end})`,
   };
 }
