@@ -56,6 +56,7 @@ const COUNTRY_GROUPS: DropdownGroup[] = [
 
 export default function NewCasePage() {
   const [platform, setPlatform] = useState<PlatformValue>("amazon");
+  const [country, setCountry] = useState("US");
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
     createCaseDraft,
     null,
@@ -64,6 +65,10 @@ export default function NewCasePage() {
   const isAmazon = platform === "amazon";
   const isShop = platform === "tiktok_shop";
   const isShopee = platform === "shopee";
+  // SEA TikTok Shop = Kalodata 경로 (스토어 URL 불필요)
+  const SEA_COUNTRIES = ["SG", "MY", "TH", "ID", "VN", "PH"];
+  const isShopUs = isShop && country === "US";
+  const isShopSea = isShop && SEA_COUNTRIES.includes(country);
 
   return (
     <div style={{ padding: "24px 32px 140px", maxWidth: 920 }}>
@@ -101,7 +106,12 @@ export default function NewCasePage() {
               <label className="field-label">
                 국가 <span className="req">*</span>
               </label>
-              <select className="field-select" name="country" defaultValue="US">
+              <select
+                className="field-select"
+                name="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+              >
                 {COUNTRY_GROUPS.map((g, gi) =>
                   g.label === null ? (
                     g.countries.map((c) => (
@@ -159,9 +169,13 @@ export default function NewCasePage() {
             <br />
             {isAmazon
               ? "Amazon 케이스 → exolyt CSV · 30일 매출 CSV · BSR per-product CSV"
-              : isShop
-                ? "TikTok Shop 케이스 → exolyt CSV (재사용 가능시 자동 감지)"
-                : "Shopee 케이스 (SEA) → exolyt CSV · Shopdora 매출 데이터는 현재 백엔드 수동 적재"}
+              : isShopUs
+                ? "TikTok Shop US → exolyt CSV + pro100chok 자동 수집 (스토어 URL 필요)"
+                : isShopSea
+                  ? "TikTok Shop SEA → exolyt CSV + Kalodata 화면 텍스트/xlsx 업로드 (Pro 4,000 크레딧, Top 500 권장)"
+                  : isShop
+                    ? "TikTok Shop → exolyt CSV"
+                    : "Shopee 케이스 (SEA) → exolyt CSV · Shopdora 매출 텍스트 붙여넣기"}
           </p>
         </section>
 
@@ -245,18 +259,16 @@ export default function NewCasePage() {
           </div>
 
           {/* TikTok Shop-only */}
-          <div className="field" style={{ opacity: isShop ? 1 : 0.45 }}>
-            <label className="field-label">
-              TikTok Shop 스토어 URL
-              {isShop ? (
-                <span className="req">*</span>
-              ) : (
+          {isShopSea ? (
+            <div className="field">
+              <label className="field-label">
+                TikTok Shop 매출 데이터
                 <span
                   style={{
                     marginLeft: 6,
                     fontSize: 9,
-                    background: "var(--color-g50)",
-                    color: "var(--color-g400)",
+                    background: "var(--color-info-soft)",
+                    color: "var(--color-info)",
                     padding: "1px 6px",
                     borderRadius: 3,
                     letterSpacing: 0,
@@ -264,22 +276,69 @@ export default function NewCasePage() {
                     fontWeight: 700,
                   }}
                 >
-                  TIKTOK_SHOP 전용
+                  SEA — KALODATA 경로
                 </span>
-              )}
-            </label>
-            <input
-              className="field-input mono"
-              name="tiktok_shop_store_url"
-              disabled={!isShop}
-              placeholder={
-                isShop ? "https://www.tiktok.com/shop/store/..." : ""
-              }
-            />
-            <span className="field-help">
-              apify pro100chok actor 입력. 잘못된 URL이면 분석이 실패할 수 있어요.
-            </span>
-          </div>
+              </label>
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "var(--color-info-soft)",
+                  border: "1px solid #C7D6E8",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  color: "var(--color-info)",
+                  lineHeight: 1.6,
+                }}
+              >
+                <b style={{ fontWeight: 800 }}>
+                  스토어 URL 입력 불필요 — 케이스 생성 후 상세 페이지에서{" "}
+                  <code>KalodataSection</code>에 데이터를 직접 붙여넣습니다.
+                </b>
+                <br />
+                <span style={{ fontSize: 11 }}>
+                  SEA TikTok Shop은 pro100chok actor가 미지원이라 Kalodata가
+                  유일한 경로. Brand 페이지 화면 텍스트(크레딧 0) + Creator
+                  xlsx Export(브랜드당 Top 500 = 500 크레딧 권장) 둘 다 가능해요.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="field" style={{ opacity: isShopUs ? 1 : 0.45 }}>
+              <label className="field-label">
+                TikTok Shop 스토어 URL
+                {isShopUs ? (
+                  <span className="req">*</span>
+                ) : (
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      fontSize: 9,
+                      background: "var(--color-g50)",
+                      color: "var(--color-g400)",
+                      padding: "1px 6px",
+                      borderRadius: 3,
+                      letterSpacing: 0,
+                      textTransform: "none",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TIKTOK_SHOP US 전용
+                  </span>
+                )}
+              </label>
+              <input
+                className="field-input mono"
+                name="tiktok_shop_store_url"
+                disabled={!isShopUs}
+                placeholder={
+                  isShopUs ? "https://www.tiktok.com/shop/store/..." : ""
+                }
+              />
+              <span className="field-help">
+                apify pro100chok actor 입력 (US만 지원). 잘못된 URL이면 분석이 실패할 수 있어요.
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Footer / Submit */}
