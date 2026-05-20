@@ -1234,8 +1234,17 @@ export async function uploadKalodataCreatorsXlsx(
       parsed.rows.reduce((acc, r) => acc + (r.revenue_usd ?? 0), 0),
       1,
     );
+  // Intro 시트(메타) 없는 export도 있어서 — 정보 있을 때만 보여줌
+  const periodStr =
+    parsed.meta.period_start && parsed.meta.period_end
+      ? ` · ${parsed.meta.period_start}~${parsed.meta.period_end}`
+      : "";
+  const filterStr = parsed.meta.account_type_filter
+    ? ` · ${parsed.meta.account_type_filter}`
+    : "";
+
   return {
     ok: true,
-    message: `Creator xlsx ${parsed.rows.length}명 적재 (누적 ${merged.length}명) · ${parsed.meta.period_start ?? "?"}~${parsed.meta.period_end ?? "?"} · ${parsed.meta.account_type_filter ?? "?"} · Live ${Math.round(livePct * 100)}%`,
+    message: `Creator xlsx ${parsed.rows.length}명 적재 (누적 ${merged.length}명)${periodStr}${filterStr} · Live ${Math.round(livePct * 100)}%`,
   };
 }
