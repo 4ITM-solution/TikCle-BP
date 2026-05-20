@@ -299,6 +299,7 @@ export type Database = {
           country: string | null;
           units_30d: number | null;
           revenue_30d: number | null;
+          price: number | null;
           currency: string;
           period_start: string | null;
           period_end: string | null;
@@ -312,6 +313,7 @@ export type Database = {
           country?: string | null;
           units_30d?: number | null;
           revenue_30d?: number | null;
+          price?: number | null;
           currency?: string;
           period_start?: string | null;
           period_end?: string | null;
@@ -325,6 +327,7 @@ export type Database = {
           country?: string | null;
           units_30d?: number | null;
           revenue_30d?: number | null;
+          price?: number | null;
           currency?: string;
           period_start?: string | null;
           period_end?: string | null;
@@ -341,7 +344,10 @@ export type Database = {
           product_id: string;
           country: string | null;
           channel: string;
+          units_sold: number | null;
+          revenue: number | null;
           bsr: number | null;
+          subcategory_bsr: number | null;
           new_price: number | null;
           list_price: number | null;
           currency: string;
@@ -355,7 +361,10 @@ export type Database = {
           product_id: string;
           country?: string | null;
           channel: string;
+          units_sold?: number | null;
+          revenue?: number | null;
           bsr?: number | null;
+          subcategory_bsr?: number | null;
           new_price?: number | null;
           list_price?: number | null;
           currency?: string;
@@ -369,7 +378,10 @@ export type Database = {
           product_id?: string;
           country?: string | null;
           channel?: string;
+          units_sold?: number | null;
+          revenue?: number | null;
           bsr?: number | null;
+          subcategory_bsr?: number | null;
           new_price?: number | null;
           list_price?: number | null;
           currency?: string;

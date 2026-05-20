@@ -6,6 +6,10 @@ import { createServer } from "@/lib/supabase/server";
 import { parseExolyt } from "@/lib/parsers/exolyt";
 import { parseAmazonSales } from "@/lib/parsers/amazon-sales";
 import { parseBsr } from "@/lib/parsers/bsr";
+import {
+  parseShopdoraSnapshot,
+  parseShopdoraMonthly,
+} from "@/lib/parsers/shopdora";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
@@ -740,5 +744,199 @@ export async function startAnalysis(
       msgParts.length > 0
         ? msgParts.join(" · ")
         : "분석 시작 — 캐시된 phase는 skip, 누락된 것만 실행",
+  };
+}
+
+// =============================================================================
+// Shopdora — Shopee SEA 매출 데이터
+//
+// 두 가지 입력:
+//   1) 제품 스냅샷 (Shopdora 웹 화면 텍스트 통째 붙여넣기) → products + case_product_sales
+//   2) 월별 시계열 (제품별 12개월 등) → sales_snapshot
+//
+// Amazon Black Box 패턴 동일: 스냅샷 = 전 제품, 시계열 = 상위 제품.
+// =============================================================================
+
+const SHOPDORA_CURRENCY_BY_COUNTRY: Record<string, string> = {
+  ID: "IDR",
+  SG: "SGD",
+  MY: "MYR",
+  TH: "THB",
+  VN: "VND",
+  PH: "PHP",
+};
+
+export async function uploadShopdoraSnapshot(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const text = formData.get("text");
+  const period_start = formData.get("period_start");
+  const period_end = formData.get("period_end");
+
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return { ok: false, error: "Shopdora 텍스트가 비어있습니다" };
+  }
+  if (typeof period_start !== "string" || typeof period_end !== "string") {
+    return { ok: false, error: "기간을 입력하세요" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "shopee") {
+    return { ok: false, error: "Shopee 케이스에서만 사용 가능" };
+  }
+
+  const { rows, errors } = parseShopdoraSnapshot(text);
+  if (rows.length === 0) {
+    return { ok: false, error: errors[0] ?? "파싱 실패" };
+  }
+
+  const country = c.country;
+  const currency =
+    SHOPDORA_CURRENCY_BY_COUNTRY[country] ?? rows[0]?.currency ?? "USD";
+
+  // 1) products upsert — external_product_id 키 (Shopee item id)
+  const productInserts = rows.map((r) => ({
+    case_id: c.id,
+    brand_id: c.brand_id,
+    country,
+    name: r.name,
+    external_product_id: r.ext_id,
+    platform: "shopee",
+    channel: "shopee" as const,
+    price: r.price,
+    category: r.category,
+    subcategory: r.subcategory,
+    launch_date: r.listing_date,
+  }));
+
+  const { error: prodErr } = await supabase
+    .from("products")
+    .upsert(productInserts, { onConflict: "case_id,country,external_product_id" });
+  if (prodErr)
+    return { ok: false, error: `product upsert: ${prodErr.message}` };
+
+  // 2) product.id 매핑
+  const { data: prodRows, error: prodFetchErr } = await supabase
+    .from("products")
+    .select("id, external_product_id")
+    .eq("case_id", c.id)
+    .eq("country", country);
+  if (prodFetchErr) return { ok: false, error: prodFetchErr.message };
+  const extToId = new Map(
+    (prodRows ?? []).map((p) => [p.external_product_id ?? "", p.id]),
+  );
+
+  // 3) case_product_sales upsert (스냅샷)
+  const salesInserts = rows
+    .map((r) => {
+      const product_id = extToId.get(r.ext_id);
+      if (!product_id) return null;
+      return {
+        case_id: c.id,
+        product_id,
+        country,
+        units_30d: r.sold_month,
+        revenue_30d: r.revenue_month,
+        price: r.price,
+        currency,
+        period_start,
+        period_end,
+        source: "shopdora",
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  const { error: salesErr } = await supabase
+    .from("case_product_sales")
+    .upsert(salesInserts, { onConflict: "case_id,product_id,period_end" });
+  if (salesErr)
+    return { ok: false, error: `sales upsert: ${salesErr.message}` };
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `Shopdora 스냅샷 ${rows.length}개 SKU 적재 완료 (${country} · ${currency} · ${period_start} ~ ${period_end})`,
+  };
+}
+
+export async function uploadShopdoraMonthly(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const text = formData.get("text");
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return { ok: false, error: "월별 시계열 텍스트가 비어있습니다" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "shopee") {
+    return { ok: false, error: "Shopee 케이스에서만 사용 가능" };
+  }
+
+  const { rows, errors } = parseShopdoraMonthly(text);
+  if (rows.length === 0) {
+    return { ok: false, error: errors[0] ?? "월 데이터 파싱 실패" };
+  }
+
+  // ext_id → product_id 매핑 (제품 스냅샷이 먼저 적재돼 있어야 함)
+  const country = c.country;
+  const currency =
+    SHOPDORA_CURRENCY_BY_COUNTRY[country] ?? "USD";
+  const uniqueExt = Array.from(new Set(rows.map((r) => r.ext_id)));
+  const { data: prodRows } = await supabase
+    .from("products")
+    .select("id, external_product_id")
+    .eq("case_id", c.id)
+    .eq("country", country)
+    .in("external_product_id", uniqueExt);
+  const extToId = new Map(
+    (prodRows ?? []).map((p) => [p.external_product_id ?? "", p.id]),
+  );
+
+  const unmatched = uniqueExt.filter((ext) => !extToId.has(ext));
+  if (extToId.size === 0) {
+    return {
+      ok: false,
+      error: `제품 매칭 0건. 먼저 Shopdora 스냅샷을 업로드해 products를 채워주세요. (${unmatched.length}개 ext_id 미매칭)`,
+    };
+  }
+
+  // sales_snapshot에 월별 row 적재 — collected_at = 월말
+  const snapshots = rows
+    .map((r) => {
+      const pid = extToId.get(r.ext_id);
+      if (!pid) return null;
+      const [y, m] = r.year_month.split("-").map(Number) as [number, number];
+      const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); // 월말
+      return {
+        brand_id: c.brand_id,
+        product_id: pid,
+        channel: "shopee" as const,
+        units_sold: r.sold_month,
+        revenue: r.revenue_month,
+        new_price: r.avg_price,
+        source: "shopdora_monthly",
+        collected_at: `${r.year_month}-${String(last).padStart(2, "0")}`,
+        currency,
+        country,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  const { error: ssErr } = await supabase
+    .from("sales_snapshot")
+    .upsert(snapshots, { onConflict: "product_id,channel,collected_at" });
+  if (ssErr)
+    return { ok: false, error: `sales_snapshot upsert: ${ssErr.message}` };
+
+  revalidatePath(`/cases/${case_id}`);
+  const note =
+    unmatched.length > 0
+      ? ` (미매칭 ext_id ${unmatched.length}개 — 스냅샷에 없는 제품)`
+      : "";
+  return {
+    ok: true,
+    message: `Shopdora 월별 ${snapshots.length}행 적재 완료 (${extToId.size}개 제품)${note}`,
   };
 }

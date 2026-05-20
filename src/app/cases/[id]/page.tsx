@@ -7,6 +7,7 @@ import {
   type SkuRow,
 } from "@/components/case-detail/AmazonSalesSection";
 import { BsrSection } from "@/components/case-detail/BsrSection";
+import { ShopdoraSection } from "@/components/case-detail/ShopdoraSection";
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
@@ -133,22 +134,23 @@ export default async function CaseDetailPage({
     }
   }
 
-  // 4. SKU + BSR 상태 (Amazon 케이스)
+  // 4. SKU + BSR 상태 (Amazon · Shopee 케이스 — products/case_product_sales 기반)
   let skuRows: SkuRow[] = [];
-  // asin → 제품 메타 (서브카테고리·출시 시기). 매출 표에 표시용.
+  // asin/ext_id → 제품 메타 (서브카테고리·출시 시기). 매출 표에 표시용.
   const skuMeta: Record<
     string,
     { subcategory: string | null; launch_date: string | null }
   > = {};
-  if (c.channel === "amazon") {
+  if (c.channel === "amazon" || c.channel === "shopee") {
     const { data: prods } = await supabase
       .from("products")
-      .select("id, asin, name, product_url, country, subcategory, launch_date")
+      .select("id, asin, external_product_id, name, product_url, country, subcategory, launch_date")
       .eq("case_id", c.id);
 
     for (const p of prods ?? []) {
-      if (p.asin) {
-        skuMeta[p.asin] = {
+      const k = p.asin ?? p.external_product_id;
+      if (k) {
+        skuMeta[k] = {
           subcategory: p.subcategory,
           launch_date: p.launch_date,
         };
@@ -201,8 +203,10 @@ export default async function CaseDetailPage({
     skuRows = (prods ?? [])
       .map((p) => {
         const sales = salesByProduct.get(p.id);
+        // Shopee는 asin이 null이고 external_product_id가 식별자
+        const identifier = p.asin ?? p.external_product_id ?? "";
         return {
-          asin: p.asin ?? "",
+          asin: identifier,
           name: p.name,
           url:
             p.product_url ??
@@ -385,7 +389,9 @@ export default async function CaseDetailPage({
       ? skuRows.length > 0
       : c.channel === "tiktok_shop"
         ? !!c.tiktok_shop_store_url
-        : true;
+        : c.channel === "shopee"
+          ? skuRows.length > 0
+          : true;
   const ready = exolytDone && salesDone && c.status === "draft";
 
   let reason = "";
@@ -394,6 +400,7 @@ export default async function CaseDetailPage({
   else if (!salesDone) {
     if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
     else if (c.channel === "tiktok_shop") reason = "TikTok Shop 스토어 URL 필요";
+    else if (c.channel === "shopee") reason = "Shopdora 매출 텍스트 업로드 필요";
   }
 
   // 5a-1. 통화 + 환율 (ready 케이스에서 SKU 매출/단가 표시용)
@@ -545,6 +552,13 @@ export default async function CaseDetailPage({
               </>
             )}
 
+            {c.channel === "shopee" && (
+              <ShopdoraSection
+                case_id={c.id}
+                productCount={skuRows.length}
+              />
+            )}
+
             {c.channel === "tiktok_shop" && (
               <div
                 style={{
@@ -671,6 +685,12 @@ export default async function CaseDetailPage({
                     caseCountry={c.country}
                   />
                 </>
+              )}
+              {c.channel === "shopee" && (
+                <ShopdoraSection
+                  case_id={c.id}
+                  productCount={skuRows.length}
+                />
               )}
             </div>
           </details>
