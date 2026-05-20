@@ -5,6 +5,7 @@ import type {
   KalodataBrandKpi,
   KalodataVideoRow,
   KalodataCreatorXlsxRow,
+  KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 
 /**
@@ -20,11 +21,13 @@ export function KalodataInsightsModule({
   brand,
   creators,
   videos,
+  lives,
   meta,
 }: {
   brand?: KalodataBrandKpi | null;
   creators?: KalodataCreatorXlsxRow[];
   videos?: KalodataVideoRow[];
+  lives?: KalodataLiveRow[];
   meta?: {
     shop?: string | null;
     period_start?: string | null;
@@ -36,7 +39,8 @@ export function KalodataInsightsModule({
   const hasBrand = !!brand && brand.revenue_usd != null;
   const hasCreators = (creators?.length ?? 0) > 0;
   const hasVideos = (videos?.length ?? 0) > 0;
-  if (!hasBrand && !hasCreators && !hasVideos) return null;
+  const hasLives = (lives?.length ?? 0) > 0;
+  if (!hasBrand && !hasCreators && !hasVideos && !hasLives) return null;
 
   return (
     <div className="section-card">
@@ -75,6 +79,7 @@ export function KalodataInsightsModule({
       {hasBrand && brand && <BrandKpiBlock brand={brand} />}
       {hasCreators && creators && <CreatorsTable creators={creators} />}
       {hasVideos && videos && <VideosTable videos={videos} />}
+      {hasLives && lives && <LivesTable lives={lives} />}
     </div>
   );
 }
@@ -441,6 +446,82 @@ function VideosTable({ videos }: { videos: KalodataVideoRow[] }) {
       </div>
     </div>
   );
+}
+
+// =============================================================================
+function LivesTable({ lives }: { lives: KalodataLiveRow[] }) {
+  const sorted = [...lives].sort(
+    (a, b) => (b.revenue_usd ?? 0) - (a.revenue_usd ?? 0),
+  );
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+        매출 상위 라이브 ({sorted.length}개)
+      </div>
+      <div style={{ overflow: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            fontSize: 11,
+            borderCollapse: "collapse",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <thead>
+            <tr>
+              <Th left>#</Th>
+              <Th left>Title</Th>
+              <Th left>시작</Th>
+              <Th>Duration</Th>
+              <Th>Revenue</Th>
+              <Th>Products</Th>
+              <Th>Views</Th>
+              <Th>Item Sold</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((l) => (
+              <tr key={`${l.rank}-${l.start_at ?? l.title.slice(0, 12)}`}>
+                <Td>{l.rank}</Td>
+                <Td
+                  left
+                  style={{
+                    maxWidth: 280,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={l.title}
+                >
+                  {l.title}
+                </Td>
+                <Td left>{l.start_at ?? "—"}</Td>
+                <Td>{l.duration_s != null ? fmtDuration(l.duration_s) : "—"}</Td>
+                <Td bold>{fmtUsd(l.revenue_usd ?? 0)}</Td>
+                <Td>{l.product_count ?? 0}</Td>
+                <Td>{fmtNum(l.views ?? 0)}</Td>
+                <Td>{fmtNum(l.item_sold ?? 0)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function fmtDuration(s: number): string {
+  if (s >= 3600) {
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${m}m ${ss}s`;
+  }
+  return `${s}s`;
 }
 
 // =============================================================================

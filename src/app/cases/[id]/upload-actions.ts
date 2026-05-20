@@ -1000,6 +1000,20 @@ export async function uploadKalodata(
     ...parsed.videos.filter((v) => !existingCaptions.has(v.caption)),
   ];
 
+  // Lives 누적 (title + start_at 조합으로 dedupe — 같은 라이브 두 번 안 박힘)
+  const existingLives =
+    (existingStats.kalodata_lives as {
+      title: string;
+      start_at: string | null;
+    }[] | undefined) ?? [];
+  const liveKey = (l: { title: string; start_at: string | null }) =>
+    `${l.title}@${l.start_at ?? ""}`;
+  const existingLiveKeys = new Set(existingLives.map(liveKey));
+  const mergedLives = [
+    ...existingLives,
+    ...parsed.lives.filter((l) => !existingLiveKeys.has(liveKey(l))),
+  ];
+
   // Brand KPI 머지 — null 값은 기존값 유지 (Product/Creator/Video 페이지만 복붙한 텍스트엔
   // Core Metrics 섹션이 없어 모든 KPI가 null로 파싱됨. 그때 기존 KPI를 null로 덮어쓰면 안 됨)
   const existingBrand =
@@ -1014,6 +1028,7 @@ export async function uploadKalodata(
     ...existingStats,
     kalodata_brand: mergedBrand,
     kalodata_videos: mergedVideos,
+    kalodata_lives: mergedLives,
   } as Record<string, unknown>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await supabase.from("cases").update({ key_stats: newStats as any }).eq("id", c.id);
@@ -1118,7 +1133,7 @@ export async function uploadKalodata(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `Kalodata 적재 — 이번 [제품 ${productCount} · 크리에이터 ${creatorCount} · 영상 ${parsed.videos.length}] · 누적 [제품 ${totalProducts ?? "?"} · 영상 ${mergedVideos.length}] · 브랜드 매출 $${brandRev.toLocaleString()} (${period_start} ~ ${period_end})`,
+    message: `Kalodata 적재 — 이번 [제품 ${productCount} · 크리에이터 ${creatorCount} · 영상 ${parsed.videos.length} · 라이브 ${parsed.lives.length}] · 누적 [제품 ${totalProducts ?? "?"} · 영상 ${mergedVideos.length} · 라이브 ${mergedLives.length}] · 브랜드 매출 $${brandRev.toLocaleString()} (${period_start} ~ ${period_end})`,
   };
 }
 

@@ -86,13 +86,40 @@ export type KalodataVideoRow = {
   publish_date: string | null;
 };
 
+export type KalodataLiveRow = {
+  rank: number;
+  title: string;
+  start_at: string | null; // "MM/DD HH:MM" 그대로 (연도 정보 없음)
+  end_at: string | null;
+  duration_s: number | null;
+  revenue_usd: number | null;
+  product_count: number | null;
+  views: number | null;
+  item_sold: number | null;
+};
+
 export type KalodataParsed = {
   brand_kpi: KalodataBrandKpi;
   products: KalodataProductRow[];
   creators: KalodataCreatorRow[];
   videos: KalodataVideoRow[];
+  lives: KalodataLiveRow[];
   errors: string[];
 };
+
+/** "Duration: 61h 43m 6s" / "14h 4m 25s" / "1h 29m 14s" / "29m 30s" → 초 */
+function parseLiveDurationSeconds(s: string | undefined): number | null {
+  if (!s) return null;
+  const cleaned = s.replace(/^Duration:\s*/i, "").trim();
+  const m = cleaned.match(
+    /^(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s)?$/,
+  );
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  const h = m[1] ? parseInt(m[1], 10) : 0;
+  const mn = m[2] ? parseInt(m[2], 10) : 0;
+  const sc = m[3] ? parseInt(m[3], 10) : 0;
+  return h * 3600 + mn * 60 + sc;
+}
 
 /**
  * Kalodata Creator xlsx export (LIST_CREATOR 시트, 25개 컬럼).
@@ -465,15 +492,73 @@ export function parseKalodata(raw: string): KalodataParsed {
     }
   }
 
+  // 6) Lives 파싱 (Live 섹션 ~ 끝)
+  const lives: KalodataLiveRow[] = [];
+  if (liveStart >= 0) {
+    const slice = lines.slice(liveStart);
+    // 행 패턴:
+    //   "1"
+    //   <Livestream 제목 1줄>
+    //   "05/03 17:00 ~ 05/06 06:43" (Live Time)
+    //   "Duration: 61h 43m 6s"
+    //   "$31.35k" (Revenue)
+    //   "101" (Product Number)
+    //   "72.56k\t2026" (Views \t Item Sold)
+    let i = 0;
+    while (i < slice.length) {
+      const line = slice[i]!;
+      if (/^\d{1,3}$/.test(line)) {
+        const rank = parseInt(line, 10);
+        const title = slice[i + 1] ?? "";
+        const timeLine = slice[i + 2] ?? "";
+        const durLine = slice[i + 3] ?? "";
+        const tm = timeLine.match(
+          /^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*~\s*(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}|\d{1,2}:\d{2})$/,
+        );
+        const dur = parseLiveDurationSeconds(durLine);
+        if (!tm || dur == null) {
+          i += 1;
+          continue;
+        }
+        const revCell = slice[i + 4] ?? "";
+        const productCell = slice[i + 5] ?? "";
+        const lastDataLine = slice[i + 6] ?? "";
+        const lastCells = lastDataLine.split(/[\t\s]+/).filter(Boolean);
+        const revenue_usd = parseMagnitude(revCell);
+        const product_count = parseMagnitude(productCell);
+        const views = parseMagnitude(lastCells[0]);
+        const item_sold = parseMagnitude(lastCells[1]);
+        if (rank >= 1 && rank <= 5000 && title && revenue_usd != null) {
+          lives.push({
+            rank,
+            title,
+            start_at: tm[1] ?? null,
+            end_at: tm[2] ?? null,
+            duration_s: dur,
+            revenue_usd,
+            product_count:
+              product_count != null ? Math.round(product_count) : null,
+            views,
+            item_sold: item_sold != null ? Math.round(item_sold) : null,
+          });
+          i += 7;
+          continue;
+        }
+      }
+      i += 1;
+    }
+  }
+
   if (
     products.length === 0 &&
     creators.length === 0 &&
-    videos.length === 0
+    videos.length === 0 &&
+    lives.length === 0
   ) {
     errors.push(
-      "Products·Creators·Videos 섹션 모두 0개. Kalodata 화면 텍스트 형식이 맞는지 확인",
+      "Products·Creators·Videos·Lives 섹션 모두 0개. Kalodata 화면 텍스트 형식이 맞는지 확인",
     );
   }
 
-  return { brand_kpi, products, creators, videos, errors };
+  return { brand_kpi, products, creators, videos, lives, errors };
 }

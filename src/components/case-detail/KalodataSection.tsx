@@ -218,7 +218,7 @@ export function KalodataSection({
         </div>
         <input
           type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
           disabled={xlsxPending}
           onChange={(e) => {
             const f = e.target.files?.[0];

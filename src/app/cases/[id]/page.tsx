@@ -27,6 +27,7 @@ import type {
   KalodataBrandKpi,
   KalodataCreatorXlsxRow,
   KalodataVideoRow,
+  KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 import type {
   Phase2Stats,
@@ -740,6 +741,7 @@ export default async function CaseDetailPage({
               kalodata_brand?: KalodataBrandKpi | null;
               kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
               kalodata_videos?: KalodataVideoRow[];
+              kalodata_lives?: KalodataLiveRow[];
               kalodata_creators_meta?: {
                 shop?: string | null;
                 period_start?: string | null;
@@ -857,6 +859,7 @@ export default async function CaseDetailPage({
                         brand: ks.kalodata_brand,
                         creators: ks.kalodata_creators_xlsx,
                         videos: ks.kalodata_videos,
+                        lives: ks.kalodata_lives,
                         meta: ks.kalodata_creators_meta,
                       }}
                     />
