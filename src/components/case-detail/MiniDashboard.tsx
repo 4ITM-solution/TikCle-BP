@@ -216,6 +216,7 @@ export function MiniDashboard({
           videosXlsx={kalodata.videosXlsx}
           lives={kalodata.lives}
           meta={kalodata.meta}
+          skuSales={phase2.sku_sales}
         />
       )}
 

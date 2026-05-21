@@ -8,6 +8,7 @@ import type {
   KalodataCreatorXlsxRow,
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
+import type { SkuSalesEntry } from "@/lib/inngest/types";
 
 /**
  * SEA TikTok Shop 케이스(channel=tiktok_shop, country!=US) 전용
@@ -25,6 +26,7 @@ export function KalodataInsightsModule({
   videosXlsx,
   lives,
   meta,
+  skuSales,
 }: {
   brand?: KalodataBrandKpi | null;
   creators?: KalodataCreatorXlsxRow[];
@@ -37,6 +39,7 @@ export function KalodataInsightsModule({
     period_end?: string | null;
     account_type_filter?: string | null;
   } | null;
+  skuSales?: SkuSalesEntry[];
 }) {
   // xlsx가 있으면 그게 더 풍부한 데이터 — 텍스트 페이스트 videos는 무시
   const useXlsxVideos = (videosXlsx?.length ?? 0) > 0;
@@ -86,7 +89,7 @@ export function KalodataInsightsModule({
       {useXlsxVideos && videosXlsx && (
         <>
           <WeeklyRevenueChart videos={videosXlsx} />
-          <ProductRevenueChart videos={videosXlsx} />
+          <ProductRevenueChart videos={videosXlsx} skuSales={skuSales} />
         </>
       )}
       {hasCreators && creators && <CreatorsTable creators={creators} />}
@@ -724,16 +727,41 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
 }
 
 // =============================================================================
-// 제품별 매출 분포 — Top N 제품 막대 + 누적 % 라인 (Pareto).
-// "몇 개 제품이 매출의 80%를 차지하는가" + "어느 제품이 영상-제품 매핑으로 강하게 묶이는가".
-function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
+// 제품별 매출 분포 — 제품의 30일 총 매출/판매량 (Kalodata Brand 페이지) +
+// 그 중 영상 attribution 비율. "전체 매출 중 어느 정도가 영상으로 만들어졌는가"가 핵심 BP 시그널.
+function ProductRevenueChart({
+  videos,
+  skuSales,
+}: {
+  videos: KalodataVideoXlsxRow[];
+  skuSales?: SkuSalesEntry[];
+}) {
+  // 제품 이름 → 30일 총 매출/판매량 (Kalodata Brand 페이지에서 들어온 값)
+  const totalsByName = useMemo(() => {
+    const m = new Map<
+      string,
+      { revenue: number; units: number; bsrLatest: number | null }
+    >();
+    for (const s of skuSales ?? []) {
+      m.set(s.name, {
+        revenue: s.revenue,
+        units: s.units,
+        bsrLatest: s.bsr_latest,
+      });
+    }
+    return m;
+  }, [skuSales]);
   type ProductBucket = {
     title: string;
     category: string | null;
-    revenue: number;
-    itemSold: number;
+    // 영상 attribution (Kalodata Video xlsx 합산)
+    videoRevenue: number;
+    videoItemSold: number;
     adSpend: number;
     videoCount: number;
+    // 제품 30일 총 (Kalodata Brand 페이지 Products 섹션) — 매칭 안 되면 null
+    totalRevenue: number | null;
+    totalUnits: number | null;
   };
 
   const ranked = useMemo(() => {
@@ -747,13 +775,15 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
         unknown = unknown ?? {
           title: "(제품 미지정)",
           category: null,
-          revenue: 0,
-          itemSold: 0,
+          videoRevenue: 0,
+          videoItemSold: 0,
           adSpend: 0,
           videoCount: 0,
+          totalRevenue: null,
+          totalUnits: null,
         };
-        unknown.revenue += rev;
-        unknown.itemSold += sold;
+        unknown.videoRevenue += rev;
+        unknown.videoItemSold += sold;
         unknown.adSpend += spend;
         unknown.videoCount += 1;
         continue;
@@ -761,21 +791,35 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
       const b = m.get(v.product_title) ?? {
         title: v.product_title,
         category: v.product_category,
-        revenue: 0,
-        itemSold: 0,
+        videoRevenue: 0,
+        videoItemSold: 0,
         adSpend: 0,
         videoCount: 0,
+        totalRevenue: null as number | null,
+        totalUnits: null as number | null,
       };
-      b.revenue += rev;
-      b.itemSold += sold;
+      b.videoRevenue += rev;
+      b.videoItemSold += sold;
       b.adSpend += spend;
       b.videoCount += 1;
       m.set(v.product_title, b);
     }
+    // 제품 총 매출 매칭
+    for (const b of m.values()) {
+      const t = totalsByName.get(b.title);
+      if (t) {
+        b.totalRevenue = t.revenue;
+        b.totalUnits = t.units;
+      }
+    }
     const arr = [...m.values()];
     if (unknown) arr.push(unknown);
-    return arr.sort((a, b) => b.revenue - a.revenue);
-  }, [videos]);
+    // 정렬: 제품 총 매출 (있으면) 내림차순, 없으면 영상 매출
+    return arr.sort(
+      (a, b) =>
+        (b.totalRevenue ?? b.videoRevenue) - (a.totalRevenue ?? a.videoRevenue),
+    );
+  }, [videos, totalsByName]);
 
   const [showAll, setShowAll] = useState(false);
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
@@ -796,18 +840,32 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
   const visibleCount = showAll ? ranked.length : Math.min(15, ranked.length);
   const visible = ranked.slice(0, visibleCount);
 
-  const totalRev = ranked.reduce((s, b) => s + b.revenue, 0);
-  const maxRev = visible[0]?.revenue ?? 1;
+  // 정렬·막대 기준이 되는 매출 (제품 총 매출 있으면 그것, 없으면 영상 매출)
+  const sortRev = (b: ProductBucket) => b.totalRevenue ?? b.videoRevenue;
+
+  const grandTotalRev = ranked.reduce((s, b) => s + sortRev(b), 0);
+  const maxRev = visible[0] ? sortRev(visible[0]) : 1;
   const totalVideoCount = videos.length;
 
-  // Pareto 80% 도달 인덱스
+  // 합산 — 제품 총 vs 영상 attribution
+  const sumTotalRev = ranked.reduce((s, b) => s + (b.totalRevenue ?? 0), 0);
+  const sumTotalUnits = ranked.reduce((s, b) => s + (b.totalUnits ?? 0), 0);
+  const sumVideoRev = ranked.reduce((s, b) => s + b.videoRevenue, 0);
+  const sumVideoSold = ranked.reduce((s, b) => s + b.videoItemSold, 0);
+  const sumAdSpend = ranked.reduce((s, b) => s + b.adSpend, 0);
+  const hasTotals = sumTotalRev > 0;
+  const attributionPct = hasTotals
+    ? (sumVideoRev / Math.max(sumTotalRev, 1)) * 100
+    : null;
+
+  // Pareto 80% 도달 인덱스 (sortRev 기준)
   let cum = 0;
   let p80Idx = -1;
   for (let i = 0; i < ranked.length; i++) {
     const r = ranked[i];
     if (!r) break;
-    cum += r.revenue;
-    if (cum / Math.max(totalRev, 1) >= 0.8) {
+    cum += sortRev(r);
+    if (cum / Math.max(grandTotalRev, 1) >= 0.8) {
       p80Idx = i;
       break;
     }
@@ -850,9 +908,24 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
               marginTop: 2,
             }}
           >
-            영상 attribution 매출 합 {fmtUsd(totalRev)} · 판매량{" "}
-            {fmtNum(ranked.reduce((s, b) => s + b.itemSold, 0))}개 · 광고비{" "}
-            {fmtUsd(ranked.reduce((s, b) => s + b.adSpend, 0))}
+            {hasTotals ? (
+              <>
+                30일 총 매출 <b style={{ color: "var(--color-ink)" }}>{fmtUsd(sumTotalRev)}</b>
+                {" · "}판매량 <b style={{ color: "var(--color-ink)" }}>{fmtNum(sumTotalUnits)}개</b>
+                {" · "}그 중 영상 attribution{" "}
+                <b style={{ color: "var(--color-info)" }}>
+                  {fmtUsd(sumVideoRev)} ({attributionPct?.toFixed(1)}%)
+                </b>
+                {" · "}판매 {fmtNum(sumVideoSold)}개
+              </>
+            ) : (
+              <>
+                영상 attribution 매출 합 {fmtUsd(sumVideoRev)} · 판매량{" "}
+                {fmtNum(sumVideoSold)}개 (제품 총 매출 Kalodata Brand 페이지
+                미연결)
+              </>
+            )}
+            {" · "}광고비 {fmtUsd(sumAdSpend)}
           </div>
         </div>
         {ranked.length > 15 && (
@@ -883,10 +956,20 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
         }}
       >
         {visible.map((b, i) => {
-          const w = (b.revenue / maxRev) * 100;
-          const sharePct = (b.revenue / Math.max(totalRev, 1)) * 100;
+          const rowRev = sortRev(b);
+          const rowMaxW = (rowRev / maxRev) * 100; // 막대 전체 너비
+          const videoRevPct =
+            b.totalRevenue && b.totalRevenue > 0
+              ? (b.videoRevenue / b.totalRevenue) * 100
+              : null; // 막대 안 video attribution 차지 비율
+          const videoUnitsPct =
+            b.totalUnits && b.totalUnits > 0
+              ? (b.videoItemSold / b.totalUnits) * 100
+              : null;
+          const sharePct = (rowRev / Math.max(grandTotalRev, 1)) * 100;
           const isP80 = p80Idx >= 0 && i <= p80Idx;
           const isExpanded = expandedTitle === b.title;
+          const unmatched = b.totalRevenue == null;
           return (
             <div key={b.title}>
               <div
@@ -904,12 +987,12 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "16px 20px minmax(0, 1.4fr) minmax(0, 1.6fr) 70px 50px 60px 70px",
+                    "16px 24px minmax(0, 1.5fr) minmax(0, 1.8fr) 80px 60px 80px 70px",
                   gap: 8,
                   alignItems: "center",
                   fontSize: 11,
                   fontFamily: "var(--font-mono)",
-                  padding: "6px 4px",
+                  padding: "8px 4px",
                   borderBottom:
                     i < visible.length - 1 || isExpanded
                       ? "1px solid var(--color-g100)"
@@ -967,50 +1050,103 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                     </div>
                   )}
                 </div>
+                {/* 막대: 회색 배경 = 막대 자체(총 매출 대비), 파란 안쪽 = 영상 attribution */}
                 <div
                   style={{
-                    background: "var(--color-g100)",
-                    borderRadius: 3,
-                    height: 12,
                     position: "relative",
-                    overflow: "hidden",
+                    height: 14,
+                    background: "transparent",
                   }}
                 >
                   <div
+                    title={
+                      unmatched
+                        ? "Kalodata Brand 페이지 제품 매출 미매칭"
+                        : `${b.title}: 총 ${fmtUsd(b.totalRevenue ?? 0)} · 영상 attribution ${fmtUsd(b.videoRevenue)} (${videoRevPct?.toFixed(1) ?? "—"}%)`
+                    }
                     style={{
-                      width: `${w}%`,
+                      width: `${rowMaxW}%`,
                       height: "100%",
-                      background: isP80
-                        ? "var(--color-info)"
-                        : "var(--color-g300)",
+                      background: unmatched
+                        ? "var(--color-g200)"
+                        : "var(--color-g200)",
+                      borderRadius: 3,
+                      position: "relative",
+                      overflow: "hidden",
+                      opacity: unmatched ? 0.5 : 1,
                     }}
-                  />
+                  >
+                    {videoRevPct != null && (
+                      <div
+                        style={{
+                          width: `${videoRevPct}%`,
+                          height: "100%",
+                          background: isP80
+                            ? "var(--color-info)"
+                            : "var(--color-info)",
+                          opacity: 0.85,
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-                <span style={{ textAlign: "right", fontWeight: 700 }}>
-                  {fmtUsd(b.revenue)}
-                </span>
-                <span
-                  style={{ textAlign: "right", color: "var(--color-g500)" }}
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontWeight: 700, color: "var(--color-ink)" }}>
+                    {b.totalRevenue != null ? fmtUsd(b.totalRevenue) : "—"}
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--color-info)" }}>
+                    영상 {fmtUsd(b.videoRevenue)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: "var(--color-g600)" }}>
+                    {b.totalUnits != null ? `${fmtNum(b.totalUnits)}개` : "—"}
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--color-info)" }}>
+                    영상 {fmtNum(b.videoItemSold)}
+                  </div>
+                </div>
+                <div
+                  style={{ textAlign: "right" }}
+                  title="영상 attribution 비율 (매출 / 판매량)"
                 >
-                  {sharePct.toFixed(1)}%
-                </span>
+                  {videoRevPct != null ? (
+                    <>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color:
+                            videoRevPct >= 60
+                              ? "var(--color-pos)"
+                              : videoRevPct >= 30
+                                ? "var(--color-info)"
+                                : "var(--color-g500)",
+                        }}
+                      >
+                        {videoRevPct.toFixed(0)}%
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: "var(--color-g500)",
+                        }}
+                      >
+                        판매 {videoUnitsPct?.toFixed(0)}%
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 9, color: "var(--color-g400)" }}>
+                      미매칭
+                    </span>
+                  )}
+                </div>
                 <span
                   style={{
                     textAlign: "right",
-                    color: "var(--color-g600)",
-                  }}
-                  title={`판매량 (item_sold) 합 — 이 제품을 광고한 영상으로 발생한 판매 수`}
-                >
-                  {fmtNum(b.itemSold)}개
-                </span>
-                <span
-                  style={{
-                    textAlign: "right",
-                    color: "var(--color-info)",
+                    color: "var(--color-g500)",
                     fontSize: 10,
-                    fontWeight: 600,
                   }}
-                  title={`전체 ${totalVideoCount}개 영상 중 이 제품에 매핑된 영상 수 · 광고비 ${fmtUsd(b.adSpend)}`}
+                  title={`이 제품과 매핑된 영상 ${b.videoCount}개 / 전체 ${totalVideoCount}개 · 광고비 ${fmtUsd(b.adSpend)} · 전체 매출 점유 ${sharePct.toFixed(1)}%`}
                 >
                   영상 {b.videoCount}개
                 </span>
@@ -1151,9 +1287,10 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           marginTop: 6,
         }}
       >
-        💡 진한 막대 = 매출 누적 80% 구간 (Pareto). <b>행 클릭</b>하면 그
-        제품을 광고한 영상 리스트가 펼쳐져. 영상-제품 매핑은 Kalodata Video xlsx
-        500개 영상 풀에서 직접 들어온 데이터.
+        💡 막대 회색 = 그 제품의 30일 총 매출(Kalodata Brand 페이지) · 파란 부분 =
+        그 중 영상으로 발생한 매출(Video xlsx 합산). <b>행 클릭</b>하면 그 제품을
+        광고한 영상이 펼쳐져. % 컬럼이 클수록 매출이 영상 콘텐츠로 만들어진 비중이
+        높다는 뜻 → BP 시드 시그널.
       </div>
     </div>
   );
