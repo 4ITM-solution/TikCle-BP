@@ -731,6 +731,7 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
     title: string;
     category: string | null;
     revenue: number;
+    itemSold: number;
     adSpend: number;
     videoCount: number;
   };
@@ -740,16 +741,19 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
     let unknown: ProductBucket | null = null;
     for (const v of videos) {
       const rev = v.revenue_usd ?? 0;
+      const sold = v.item_sold ?? 0;
       const spend = v.ad_spend_usd ?? 0;
       if (!v.product_title) {
         unknown = unknown ?? {
           title: "(제품 미지정)",
           category: null,
           revenue: 0,
+          itemSold: 0,
           adSpend: 0,
           videoCount: 0,
         };
         unknown.revenue += rev;
+        unknown.itemSold += sold;
         unknown.adSpend += spend;
         unknown.videoCount += 1;
         continue;
@@ -758,10 +762,12 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
         title: v.product_title,
         category: v.product_category,
         revenue: 0,
+        itemSold: 0,
         adSpend: 0,
         videoCount: 0,
       };
       b.revenue += rev;
+      b.itemSold += sold;
       b.adSpend += spend;
       b.videoCount += 1;
       m.set(v.product_title, b);
@@ -819,21 +825,35 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           flexWrap: "wrap",
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 700 }}>
-          제품별 매출 분포 ({ranked.length}개 제품 · 전체 영상 풀{" "}
-          {fmtNum(totalVideoCount)}개)
-          {p80Idx >= 0 && (
-            <span
-              style={{
-                marginLeft: 8,
-                color: "var(--color-g500)",
-                fontWeight: 400,
-                fontSize: 11,
-              }}
-            >
-              · 상위 {p80Idx + 1}개 제품이 매출 80% 차지
-            </span>
-          )}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>
+            제품별 매출 분포 ({ranked.length}개 제품 · 전체 영상 풀{" "}
+            {fmtNum(totalVideoCount)}개)
+            {p80Idx >= 0 && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  color: "var(--color-g500)",
+                  fontWeight: 400,
+                  fontSize: 11,
+                }}
+              >
+                · 상위 {p80Idx + 1}개 제품이 매출 80% 차지
+              </span>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            영상 attribution 매출 합 {fmtUsd(totalRev)} · 판매량{" "}
+            {fmtNum(ranked.reduce((s, b) => s + b.itemSold, 0))}개 · 광고비{" "}
+            {fmtUsd(ranked.reduce((s, b) => s + b.adSpend, 0))}
+          </div>
         </div>
         {ranked.length > 15 && (
           <button
@@ -884,7 +904,7 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "16px 20px minmax(0, 1.4fr) minmax(0, 2fr) 70px 50px 70px",
+                    "16px 20px minmax(0, 1.4fr) minmax(0, 1.6fr) 70px 50px 60px 70px",
                   gap: 8,
                   alignItems: "center",
                   fontSize: 11,
@@ -973,6 +993,15 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                   style={{ textAlign: "right", color: "var(--color-g500)" }}
                 >
                   {sharePct.toFixed(1)}%
+                </span>
+                <span
+                  style={{
+                    textAlign: "right",
+                    color: "var(--color-g600)",
+                  }}
+                  title={`판매량 (item_sold) 합 — 이 제품을 광고한 영상으로 발생한 판매 수`}
+                >
+                  {fmtNum(b.itemSold)}개
                 </span>
                 <span
                   style={{

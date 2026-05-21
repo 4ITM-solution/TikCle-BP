@@ -181,13 +181,16 @@ export function MiniDashboard({
                 : ""
             }
           />
-          <SkuSalesModule
-            stats={phase2}
-            currency={currency}
-            caseCountry={caseCountry}
-            exchangeRates={exchangeRates}
-            skuMeta={skuMeta}
-          />
+          {/* Kalodata Video xlsx 들어온 케이스는 제품별 매출 분포에서 같은 정보 더 풍부하게 보여줘서 중복 — hide */}
+          {!(kalodata?.videosXlsx?.length) && (
+            <SkuSalesModule
+              stats={phase2}
+              currency={currency}
+              caseCountry={caseCountry}
+              exchangeRates={exchangeRates}
+              skuMeta={skuMeta}
+            />
+          )}
           <HeroSkuMegaVideos
             phase2={phase2}
             phase4bSku={phase4bSku}
