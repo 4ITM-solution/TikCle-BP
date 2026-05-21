@@ -772,6 +772,18 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
   }, [videos]);
 
   const [showAll, setShowAll] = useState(false);
+  const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
+
+  // 펼쳐진 제품의 영상 리스트 (revenue 내림차순)
+  const expandedVideos = useMemo(() => {
+    if (!expandedTitle) return [];
+    return videos
+      .filter((v) => {
+        if (expandedTitle === "(제품 미지정)") return !v.product_title;
+        return v.product_title === expandedTitle;
+      })
+      .sort((a, b) => (b.revenue_usd ?? 0) - (a.revenue_usd ?? 0));
+  }, [videos, expandedTitle]);
 
   if (ranked.length === 0) return null;
 
@@ -780,6 +792,7 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
 
   const totalRev = ranked.reduce((s, b) => s + b.revenue, 0);
   const maxRev = visible[0]?.revenue ?? 1;
+  const totalVideoCount = videos.length;
 
   // Pareto 80% 도달 인덱스
   let cum = 0;
@@ -807,7 +820,8 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
         }}
       >
         <div style={{ fontSize: 13, fontWeight: 700 }}>
-          제품별 매출 분포 ({ranked.length}개)
+          제품별 매출 분포 ({ranked.length}개 제품 · 전체 영상 풀{" "}
+          {fmtNum(totalVideoCount)}개)
           {p80Idx >= 0 && (
             <span
               style={{
@@ -852,94 +866,250 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           const w = (b.revenue / maxRev) * 100;
           const sharePct = (b.revenue / Math.max(totalRev, 1)) * 100;
           const isP80 = p80Idx >= 0 && i <= p80Idx;
+          const isExpanded = expandedTitle === b.title;
           return (
-            <div
-              key={b.title}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "20px minmax(0, 1.4fr) minmax(0, 2fr) 70px 50px 70px",
-                gap: 8,
-                alignItems: "center",
-                fontSize: 11,
-                fontFamily: "var(--font-mono)",
-                padding: "4px 0",
-                borderBottom:
-                  i < visible.length - 1 ? "1px solid var(--color-g100)" : "none",
-              }}
-            >
-              <span
-                style={{
-                  color: isP80 ? "var(--color-ink)" : "var(--color-g400)",
-                  fontWeight: isP80 ? 700 : 400,
-                }}
-              >
-                {i + 1}
-              </span>
+            <div key={b.title}>
               <div
-                title={b.title}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  setExpandedTitle(isExpanded ? null : b.title)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setExpandedTitle(isExpanded ? null : b.title);
+                  }
+                }}
                 style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  fontFamily: "var(--font-sans, inherit)",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "16px 20px minmax(0, 1.4fr) minmax(0, 2fr) 70px 50px 70px",
+                  gap: 8,
+                  alignItems: "center",
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  padding: "6px 4px",
+                  borderBottom:
+                    i < visible.length - 1 || isExpanded
+                      ? "1px solid var(--color-g100)"
+                      : "none",
+                  cursor: "pointer",
+                  background: isExpanded
+                    ? "var(--color-info-soft, rgba(0,100,255,0.05))"
+                    : undefined,
+                  borderRadius: isExpanded ? 4 : 0,
                 }}
               >
-                <div
+                <span
                   style={{
-                    color: "var(--color-ink)",
-                    fontWeight: isP80 ? 600 : 400,
+                    color: "var(--color-g400)",
+                    transition: "transform .15s",
+                    transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                    display: "inline-block",
                   }}
                 >
-                  {b.title}
-                </div>
-                {b.category && (
+                  ▶
+                </span>
+                <span
+                  style={{
+                    color: isP80 ? "var(--color-ink)" : "var(--color-g400)",
+                    fontWeight: isP80 ? 700 : 400,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <div
+                  title={b.title}
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    fontFamily: "var(--font-sans, inherit)",
+                  }}
+                >
                   <div
                     style={{
-                      fontSize: 9,
-                      color: "var(--color-g400)",
+                      color: "var(--color-ink)",
+                      fontWeight: isP80 ? 600 : 400,
                     }}
                   >
-                    {b.category}
+                    {b.title}
                   </div>
-                )}
-              </div>
-              <div
-                style={{
-                  background: "var(--color-g100)",
-                  borderRadius: 3,
-                  height: 12,
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
+                  {b.category && (
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: "var(--color-g400)",
+                      }}
+                    >
+                      {b.category}
+                    </div>
+                  )}
+                </div>
                 <div
                   style={{
-                    width: `${w}%`,
-                    height: "100%",
-                    background: isP80
-                      ? "var(--color-info)"
-                      : "var(--color-g300)",
+                    background: "var(--color-g100)",
+                    borderRadius: 3,
+                    height: 12,
+                    position: "relative",
+                    overflow: "hidden",
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      width: `${w}%`,
+                      height: "100%",
+                      background: isP80
+                        ? "var(--color-info)"
+                        : "var(--color-g300)",
+                    }}
+                  />
+                </div>
+                <span style={{ textAlign: "right", fontWeight: 700 }}>
+                  {fmtUsd(b.revenue)}
+                </span>
+                <span
+                  style={{ textAlign: "right", color: "var(--color-g500)" }}
+                >
+                  {sharePct.toFixed(1)}%
+                </span>
+                <span
+                  style={{
+                    textAlign: "right",
+                    color: "var(--color-info)",
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                  title={`전체 ${totalVideoCount}개 영상 중 이 제품에 매핑된 영상 수 · 광고비 ${fmtUsd(b.adSpend)}`}
+                >
+                  영상 {b.videoCount}개
+                </span>
               </div>
-              <span style={{ textAlign: "right", fontWeight: 700 }}>
-                {fmtUsd(b.revenue)}
-              </span>
-              <span
-                style={{ textAlign: "right", color: "var(--color-g500)" }}
-              >
-                {sharePct.toFixed(1)}%
-              </span>
-              <span
-                style={{
-                  textAlign: "right",
-                  color: "var(--color-g500)",
-                  fontSize: 10,
-                }}
-                title={`영상 ${b.videoCount}개 · 광고비 ${fmtUsd(b.adSpend)}`}
-              >
-                영상 {b.videoCount}개
-              </span>
+
+              {/* 펼친 영상 리스트 */}
+              {isExpanded && (
+                <div
+                  style={{
+                    padding: "8px 8px 12px 32px",
+                    background: "var(--color-g25)",
+                    borderBottom:
+                      i < visible.length - 1
+                        ? "1px solid var(--color-g100)"
+                        : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--color-g500)",
+                      fontFamily: "var(--font-mono)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    이 제품을 광고한 영상 {expandedVideos.length}개 (전체 영상{" "}
+                    {totalVideoCount}개 중) — 매출 내림차순
+                  </div>
+                  <div style={{ overflow: "auto", maxHeight: 360 }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        fontSize: 11,
+                        borderCollapse: "collapse",
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          <Th left>#</Th>
+                          <Th left>Creator</Th>
+                          <Th left>Caption</Th>
+                          <Th>Revenue</Th>
+                          <Th>Sold</Th>
+                          <Th>Views</Th>
+                          <Th>Ad Spend</Th>
+                          <Th>ROAS</Th>
+                          <Th left>Date</Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expandedVideos.map((v, vi) => {
+                          const isAd = (v.ad_spend_usd ?? 0) > 0;
+                          return (
+                            <tr key={v.video_url}>
+                              <Td>{vi + 1}</Td>
+                              <Td left>
+                                {v.creator_handle ? (
+                                  <a
+                                    href={`https://www.tiktok.com/@${v.creator_handle}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      color: "var(--color-info)",
+                                      textDecoration: "underline",
+                                      textUnderlineOffset: 2,
+                                    }}
+                                  >
+                                    @{v.creator_handle}
+                                  </a>
+                                ) : (
+                                  "—"
+                                )}
+                              </Td>
+                              <Td
+                                left
+                                title={v.description}
+                                style={{
+                                  maxWidth: 320,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                <a
+                                  href={v.video_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: "var(--color-g600)",
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  {v.description || "(no caption)"}
+                                </a>
+                              </Td>
+                              <Td bold>{fmtUsd(v.revenue_usd ?? 0)}</Td>
+                              <Td>{fmtNum(v.item_sold ?? 0)}</Td>
+                              <Td>{fmtNum(v.views ?? 0)}</Td>
+                              <Td
+                                color={isAd ? "var(--color-warn)" : undefined}
+                                bold={isAd}
+                              >
+                                {isAd ? fmtUsd(v.ad_spend_usd ?? 0) : "—"}
+                              </Td>
+                              <Td
+                                color={
+                                  (v.ad_roas ?? 0) >= 2
+                                    ? "var(--color-pos)"
+                                    : isAd
+                                      ? "var(--color-accent)"
+                                      : undefined
+                                }
+                                bold={isAd}
+                              >
+                                {v.ad_roas != null
+                                  ? `${v.ad_roas.toFixed(2)}x`
+                                  : "—"}
+                              </Td>
+                              <Td left>{v.publish_date ?? "—"}</Td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -952,7 +1122,9 @@ function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           marginTop: 6,
         }}
       >
-        💡 진한 막대 = 매출 누적 80% 구간 (Pareto). 영상-제품 매핑은 Kalodata Video xlsx에서 직접 들어온 데이터.
+        💡 진한 막대 = 매출 누적 80% 구간 (Pareto). <b>행 클릭</b>하면 그
+        제품을 광고한 영상 리스트가 펼쳐져. 영상-제품 매핑은 Kalodata Video xlsx
+        500개 영상 풀에서 직접 들어온 데이터.
       </div>
     </div>
   );
