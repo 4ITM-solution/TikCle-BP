@@ -479,9 +479,30 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
     videoCount: number;
   };
 
+  // 제품 셀렉터 — BsrTrendChart와 동일 패턴
+  const [selectedTitle, setSelectedTitle] = useState<string>("all");
+
+  // 제품 리스트 (전체 영상 매출 내림차순)
+  const productOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of videos) {
+      if (!v.product_title) continue;
+      m.set(v.product_title, (m.get(v.product_title) ?? 0) + (v.revenue_usd ?? 0));
+    }
+    return [...m.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([title, rev]) => ({ title, revenue: rev }));
+  }, [videos]);
+
+  // 선택된 제품으로 영상 필터링
+  const filteredVideos = useMemo(() => {
+    if (selectedTitle === "all") return videos;
+    return videos.filter((v) => v.product_title === selectedTitle);
+  }, [videos, selectedTitle]);
+
   const buckets = useMemo(() => {
     const m = new Map<string, WeekBucket>();
-    for (const v of videos) {
+    for (const v of filteredVideos) {
       if (!v.publish_date) continue;
       const d = new Date(v.publish_date);
       if (Number.isNaN(d.getTime())) continue;
@@ -510,9 +531,9 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
     return [...m.values()].sort((a, b) =>
       a.weekStart < b.weekStart ? -1 : 1,
     );
-  }, [videos]);
+  }, [filteredVideos]);
 
-  if (buckets.length === 0) return null;
+  if (buckets.length === 0 && productOptions.length === 0) return null;
 
   const W = 800;
   const H = 220;
@@ -551,22 +572,78 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           flexWrap: "wrap",
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 700 }}>
-          주간 매출 추이 ({buckets.length}주) — 광고 vs 오가닉
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>
+            주간 매출 추이 ({buckets.length}주) — 광고 vs 오가닉
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            {selectedTitle === "all"
+              ? `전체 제품 합산 (영상 ${filteredVideos.length}개)`
+              : `${selectedTitle.slice(0, 60)}${selectedTitle.length > 60 ? "…" : ""} (영상 ${filteredVideos.length}개)`}
+            {" · 총 "}
+            {fmtUsd(totalRev)} · 광고 {fmtUsd(totalAdRev)} (
+            {Math.round((totalAdRev / Math.max(totalRev, 1)) * 100)}%) · 광고비{" "}
+            {fmtUsd(totalAdSpend)}
+          </div>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            제품
+          </span>
+          <select
+            value={selectedTitle}
+            onChange={(e) => setSelectedTitle(e.target.value)}
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              padding: "4px 8px",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              background: "white",
+              color: "var(--color-ink)",
+              cursor: "pointer",
+              maxWidth: 360,
+            }}
+          >
+            <option value="all">전체 ({productOptions.length})</option>
+            {productOptions.map((p) => (
+              <option key={p.title} value={p.title}>
+                {p.title.slice(0, 50)}
+                {p.title.length > 50 ? "…" : ""} · {fmtUsd(p.revenue)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {buckets.length === 0 ? (
         <div
           style={{
+            background: "var(--color-g25)",
+            borderRadius: 6,
+            padding: "24px 16px",
+            textAlign: "center",
             fontSize: 11,
             color: "var(--color-g500)",
             fontFamily: "var(--font-mono)",
           }}
         >
-          총 {fmtUsd(totalRev)} · 광고 매출 {fmtUsd(totalAdRev)} (
-          {Math.round((totalAdRev / Math.max(totalRev, 1)) * 100)}%) · 광고비{" "}
-          {fmtUsd(totalAdSpend)}
+          선택된 제품에 publish_date가 있는 영상이 없어요
         </div>
-      </div>
-
+      ) : (
       <div style={{ background: "var(--color-g25)", borderRadius: 6, padding: 8 }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -722,6 +799,7 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
           <span>막대 위 숫자 = 영상 수</span>
         </div>
       </div>
+      )}
     </div>
   );
 }
