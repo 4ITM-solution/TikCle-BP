@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   KalodataBrandKpi,
   KalodataVideoRow,
@@ -83,6 +83,12 @@ export function KalodataInsightsModule({
       </div>
 
       {hasBrand && brand && <BrandKpiBlock brand={brand} />}
+      {useXlsxVideos && videosXlsx && (
+        <>
+          <WeeklyRevenueChart videos={videosXlsx} />
+          <ProductRevenueChart videos={videosXlsx} />
+        </>
+      )}
       {hasCreators && creators && <CreatorsTable creators={creators} />}
       {useXlsxVideos && videosXlsx ? (
         <VideosXlsxTable videos={videosXlsx} />
@@ -453,6 +459,500 @@ function VideosTable({ videos }: { videos: KalodataVideoRow[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// 주간 매출 추이 — publish_date 기반으로 주별 revenue / ad_spend / 영상 수 집계.
+// 광고 vs 오가닉 매출을 스택 막대로 분리. 가장 큰 BP 시그널 — "어느 주에 매출이 튀었나" + "그게 광고였나 오가닉이었나".
+function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
+  type WeekBucket = {
+    weekStart: string;
+    adRev: number;
+    organicRev: number;
+    adSpend: number;
+    videoCount: number;
+  };
+
+  const buckets = useMemo(() => {
+    const m = new Map<string, WeekBucket>();
+    for (const v of videos) {
+      if (!v.publish_date) continue;
+      const d = new Date(v.publish_date);
+      if (Number.isNaN(d.getTime())) continue;
+      // 주 시작 = 그 주 월요일
+      const day = d.getUTCDay(); // 0=Sun..6=Sat
+      const diff = (day + 6) % 7; // Mon→0, Sun→6
+      d.setUTCDate(d.getUTCDate() - diff);
+      const key = d.toISOString().slice(0, 10);
+
+      const rev = v.revenue_usd ?? 0;
+      const spend = v.ad_spend_usd ?? 0;
+      const isAd = spend > 0;
+      const b = m.get(key) ?? {
+        weekStart: key,
+        adRev: 0,
+        organicRev: 0,
+        adSpend: 0,
+        videoCount: 0,
+      };
+      if (isAd) b.adRev += rev;
+      else b.organicRev += rev;
+      b.adSpend += spend;
+      b.videoCount += 1;
+      m.set(key, b);
+    }
+    return [...m.values()].sort((a, b) =>
+      a.weekStart < b.weekStart ? -1 : 1,
+    );
+  }, [videos]);
+
+  if (buckets.length === 0) return null;
+
+  const W = 800;
+  const H = 220;
+  const PAD = { top: 16, right: 16, bottom: 34, left: 56 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  const maxRev = Math.max(
+    ...buckets.map((b) => b.adRev + b.organicRev),
+    1,
+  );
+  const barW = innerW / buckets.length;
+  const innerBarW = Math.max(2, barW * 0.7);
+
+  // y-axis ticks (4 levels)
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => ({
+    y: PAD.top + innerH * (1 - t),
+    label: fmtUsd(maxRev * t),
+  }));
+
+  // x-axis label 간격 (너무 많으면 N개 건너 표시)
+  const xLabelStride = Math.max(1, Math.ceil(buckets.length / 12));
+
+  const totalRev = buckets.reduce((s, b) => s + b.adRev + b.organicRev, 0);
+  const totalAdRev = buckets.reduce((s, b) => s + b.adRev, 0);
+  const totalAdSpend = buckets.reduce((s, b) => s + b.adSpend, 0);
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 8,
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700 }}>
+          주간 매출 추이 ({buckets.length}주) — 광고 vs 오가닉
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--color-g500)",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          총 {fmtUsd(totalRev)} · 광고 매출 {fmtUsd(totalAdRev)} (
+          {Math.round((totalAdRev / Math.max(totalRev, 1)) * 100)}%) · 광고비{" "}
+          {fmtUsd(totalAdSpend)}
+        </div>
+      </div>
+
+      <div style={{ background: "var(--color-g25)", borderRadius: 6, padding: 8 }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          style={{ display: "block" }}
+          role="img"
+          aria-label="주간 매출 추이"
+        >
+          {/* y-axis grid + label */}
+          {ticks.map((t, i) => (
+            <g key={i}>
+              <line
+                x1={PAD.left}
+                x2={W - PAD.right}
+                y1={t.y}
+                y2={t.y}
+                stroke="var(--color-g100)"
+                strokeWidth={1}
+              />
+              <text
+                x={PAD.left - 6}
+                y={t.y + 3}
+                textAnchor="end"
+                fontSize={9}
+                fill="var(--color-g500)"
+                fontFamily="var(--font-mono)"
+              >
+                {t.label}
+              </text>
+            </g>
+          ))}
+
+          {/* bars */}
+          {buckets.map((b, i) => {
+            const x = PAD.left + i * barW + (barW - innerBarW) / 2;
+            const total = b.adRev + b.organicRev;
+            const totalH = (total / maxRev) * innerH;
+            const adH = (b.adRev / maxRev) * innerH;
+            const organicH = (b.organicRev / maxRev) * innerH;
+            const yOrganic = PAD.top + innerH - organicH;
+            const yAd = yOrganic - adH;
+            return (
+              <g key={b.weekStart}>
+                {/* tooltip 영역 */}
+                <title>
+                  {b.weekStart} · 매출 {fmtUsd(total)} (광고 {fmtUsd(b.adRev)} +
+                  오가닉 {fmtUsd(b.organicRev)}) · 영상 {b.videoCount} · 광고비{" "}
+                  {fmtUsd(b.adSpend)}
+                </title>
+                {organicH > 0 && (
+                  <rect
+                    x={x}
+                    y={yOrganic}
+                    width={innerBarW}
+                    height={organicH}
+                    fill="var(--color-pos)"
+                    opacity={0.85}
+                  />
+                )}
+                {adH > 0 && (
+                  <rect
+                    x={x}
+                    y={yAd}
+                    width={innerBarW}
+                    height={adH}
+                    fill="var(--color-warn)"
+                    opacity={0.9}
+                  />
+                )}
+                {/* 영상 수 (작게) */}
+                {totalH > 16 && (
+                  <text
+                    x={x + innerBarW / 2}
+                    y={PAD.top + innerH - totalH - 3}
+                    textAnchor="middle"
+                    fontSize={8}
+                    fill="var(--color-g500)"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {b.videoCount}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* x-axis labels */}
+          {buckets.map((b, i) => {
+            if (i % xLabelStride !== 0) return null;
+            const x = PAD.left + i * barW + barW / 2;
+            return (
+              <text
+                key={b.weekStart}
+                x={x}
+                y={H - PAD.bottom + 14}
+                textAnchor="middle"
+                fontSize={9}
+                fill="var(--color-g500)"
+                fontFamily="var(--font-mono)"
+              >
+                {b.weekStart.slice(5)}
+              </text>
+            );
+          })}
+
+          {/* baseline */}
+          <line
+            x1={PAD.left}
+            x2={W - PAD.right}
+            y1={PAD.top + innerH}
+            y2={PAD.top + innerH}
+            stroke="var(--color-g300)"
+            strokeWidth={1}
+          />
+        </svg>
+
+        {/* legend */}
+        <div
+          style={{
+            display: "flex",
+            gap: 14,
+            fontSize: 10,
+            color: "var(--color-g600)",
+            fontFamily: "var(--font-mono)",
+            marginTop: 4,
+            paddingLeft: PAD.left,
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 10,
+                height: 10,
+                background: "var(--color-warn)",
+                borderRadius: 2,
+              }}
+            />
+            광고 매출 (ad_spend &gt; 0)
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 10,
+                height: 10,
+                background: "var(--color-pos)",
+                borderRadius: 2,
+              }}
+            />
+            오가닉 매출
+          </span>
+          <span>막대 위 숫자 = 영상 수</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// 제품별 매출 분포 — Top N 제품 막대 + 누적 % 라인 (Pareto).
+// "몇 개 제품이 매출의 80%를 차지하는가" + "어느 제품이 영상-제품 매핑으로 강하게 묶이는가".
+function ProductRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
+  type ProductBucket = {
+    title: string;
+    category: string | null;
+    revenue: number;
+    adSpend: number;
+    videoCount: number;
+  };
+
+  const ranked = useMemo(() => {
+    const m = new Map<string, ProductBucket>();
+    let unknown: ProductBucket | null = null;
+    for (const v of videos) {
+      const rev = v.revenue_usd ?? 0;
+      const spend = v.ad_spend_usd ?? 0;
+      if (!v.product_title) {
+        unknown = unknown ?? {
+          title: "(제품 미지정)",
+          category: null,
+          revenue: 0,
+          adSpend: 0,
+          videoCount: 0,
+        };
+        unknown.revenue += rev;
+        unknown.adSpend += spend;
+        unknown.videoCount += 1;
+        continue;
+      }
+      const b = m.get(v.product_title) ?? {
+        title: v.product_title,
+        category: v.product_category,
+        revenue: 0,
+        adSpend: 0,
+        videoCount: 0,
+      };
+      b.revenue += rev;
+      b.adSpend += spend;
+      b.videoCount += 1;
+      m.set(v.product_title, b);
+    }
+    const arr = [...m.values()];
+    if (unknown) arr.push(unknown);
+    return arr.sort((a, b) => b.revenue - a.revenue);
+  }, [videos]);
+
+  const [showAll, setShowAll] = useState(false);
+
+  if (ranked.length === 0) return null;
+
+  const visibleCount = showAll ? ranked.length : Math.min(15, ranked.length);
+  const visible = ranked.slice(0, visibleCount);
+
+  const totalRev = ranked.reduce((s, b) => s + b.revenue, 0);
+  const maxRev = visible[0]?.revenue ?? 1;
+
+  // Pareto 80% 도달 인덱스
+  let cum = 0;
+  let p80Idx = -1;
+  for (let i = 0; i < ranked.length; i++) {
+    const r = ranked[i];
+    if (!r) break;
+    cum += r.revenue;
+    if (cum / Math.max(totalRev, 1) >= 0.8) {
+      p80Idx = i;
+      break;
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 8,
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700 }}>
+          제품별 매출 분포 ({ranked.length}개)
+          {p80Idx >= 0 && (
+            <span
+              style={{
+                marginLeft: 8,
+                color: "var(--color-g500)",
+                fontWeight: 400,
+                fontSize: 11,
+              }}
+            >
+              · 상위 {p80Idx + 1}개 제품이 매출 80% 차지
+            </span>
+          )}
+        </div>
+        {ranked.length > 15 && (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            style={{
+              fontSize: 11,
+              background: "transparent",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              padding: "3px 8px",
+              cursor: "pointer",
+              color: "var(--color-g600)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {showAll ? "Top 15만 보기" : `전체 ${ranked.length}개 보기`}
+          </button>
+        )}
+      </div>
+
+      <div
+        style={{
+          background: "var(--color-g25)",
+          borderRadius: 6,
+          padding: "10px 12px",
+        }}
+      >
+        {visible.map((b, i) => {
+          const w = (b.revenue / maxRev) * 100;
+          const sharePct = (b.revenue / Math.max(totalRev, 1)) * 100;
+          const isP80 = p80Idx >= 0 && i <= p80Idx;
+          return (
+            <div
+              key={b.title}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "20px minmax(0, 1.4fr) minmax(0, 2fr) 70px 50px 70px",
+                gap: 8,
+                alignItems: "center",
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+                padding: "4px 0",
+                borderBottom:
+                  i < visible.length - 1 ? "1px solid var(--color-g100)" : "none",
+              }}
+            >
+              <span
+                style={{
+                  color: isP80 ? "var(--color-ink)" : "var(--color-g400)",
+                  fontWeight: isP80 ? 700 : 400,
+                }}
+              >
+                {i + 1}
+              </span>
+              <div
+                title={b.title}
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  fontFamily: "var(--font-sans, inherit)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--color-ink)",
+                    fontWeight: isP80 ? 600 : 400,
+                  }}
+                >
+                  {b.title}
+                </div>
+                {b.category && (
+                  <div
+                    style={{
+                      fontSize: 9,
+                      color: "var(--color-g400)",
+                    }}
+                  >
+                    {b.category}
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  background: "var(--color-g100)",
+                  borderRadius: 3,
+                  height: 12,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${w}%`,
+                    height: "100%",
+                    background: isP80
+                      ? "var(--color-info)"
+                      : "var(--color-g300)",
+                  }}
+                />
+              </div>
+              <span style={{ textAlign: "right", fontWeight: 700 }}>
+                {fmtUsd(b.revenue)}
+              </span>
+              <span
+                style={{ textAlign: "right", color: "var(--color-g500)" }}
+              >
+                {sharePct.toFixed(1)}%
+              </span>
+              <span
+                style={{
+                  textAlign: "right",
+                  color: "var(--color-g500)",
+                  fontSize: 10,
+                }}
+                title={`영상 ${b.videoCount}개 · 광고비 ${fmtUsd(b.adSpend)}`}
+              >
+                영상 {b.videoCount}개
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div
+        style={{
+          fontSize: 10,
+          color: "var(--color-g500)",
+          fontFamily: "var(--font-mono)",
+          marginTop: 6,
+        }}
+      >
+        💡 진한 막대 = 매출 누적 80% 구간 (Pareto). 영상-제품 매핑은 Kalodata Video xlsx에서 직접 들어온 데이터.
       </div>
     </div>
   );
