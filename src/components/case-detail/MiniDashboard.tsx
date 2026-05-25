@@ -2151,192 +2151,125 @@ function SkuSalesModule({
         </div>
       </div>
 
-      {/* SKU 헬스 박스 — 4개 BP 시그널 압축 */}
+      {/* SKU 헬스 박스 — 4개 BP 시그널, 시각 위계 강화 */}
       <div
         style={{
-          background: "var(--color-g25)",
-          borderRadius: 6,
-          padding: "10px 14px",
-          marginBottom: 12,
+          marginBottom: 14,
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 14,
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 10,
         }}
       >
-        {/* 1. 매출 집중도 (Pareto) */}
-        <div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g500)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              marginBottom: 4,
-            }}
-          >
-            매출 집중도 (Pareto)
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              lineHeight: 1.5,
-            }}
-          >
-            Top 1 <b>{top1Pct}%</b> · Top 3 <b>{top3Pct}%</b> · Top 5{" "}
-            <b>{top5Pct}%</b>
-          </div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g400)",
-              fontFamily: "var(--font-mono)",
-              marginTop: 2,
-            }}
-          >
-            {top3Pct >= 70
-              ? "Top 3에 매우 집중 → 시딩 SKU 명확"
+        {/* 1. 매출 집중도 — Pareto 막대 */}
+        <SkuHealthCard
+          label="매출 집중도"
+          headline={`${top3Pct}%`}
+          sublabel="Top 3 SKU가 매출 합계 차지"
+          tone={top3Pct >= 70 ? "pos" : top3Pct >= 50 ? "info" : "neutral"}
+          footer={
+            top3Pct >= 70
+              ? "강한 집중 → 시딩 SKU 명확"
               : top3Pct >= 50
                 ? "중간 집중도"
-                : "분산 → 시딩 SKU 다양"}
-          </div>
-        </div>
+                : "분산 → 시딩 SKU 다양"
+          }
+        >
+          <ParetoStackBar
+            top1Pct={top1Pct}
+            top3Pct={top3Pct}
+            top5Pct={top5Pct}
+          />
+        </SkuHealthCard>
 
         {/* 2. 카테고리 분포 */}
-        <div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g500)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              marginBottom: 4,
-            }}
-          >
-            카테고리 분포 ({catByRev.length})
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              lineHeight: 1.5,
-            }}
-          >
-            {catByRev.slice(0, 2).map((c, i) => (
-              <div key={c.cat}>
-                {i === 0 ? "1위: " : "2위: "}
-                <b>{c.cat.slice(0, 18)}{c.cat.length > 18 ? "…" : ""}</b>{" "}
-                {fmtPctRev(c.revenue)}% ({c.count} SKU)
-              </div>
-            ))}
-          </div>
-        </div>
+        <SkuHealthCard
+          label={`카테고리 (${catByRev.length}개)`}
+          headline={
+            catByRev[0]
+              ? `${fmtPctRev(catByRev[0].revenue)}%`
+              : "—"
+          }
+          sublabel={
+            catByRev[0]
+              ? `${catByRev[0].cat.length > 22 ? `${catByRev[0].cat.slice(0, 22)}…` : catByRev[0].cat} (${catByRev[0].count} SKU)`
+              : ""
+          }
+          tone="neutral"
+          footer={
+            catByRev[1]
+              ? `2위 ${catByRev[1].cat.length > 18 ? `${catByRev[1].cat.slice(0, 18)}…` : catByRev[1].cat} ${fmtPctRev(catByRev[1].revenue)}%`
+              : "—"
+          }
+        >
+          <CategoryBar
+            cats={catByRev.slice(0, 5).map((c) => ({
+              label: c.cat,
+              pct: fmtPctRev(c.revenue),
+            }))}
+            othersPct={
+              catByRev.length > 5
+                ? catByRev
+                    .slice(5)
+                    .reduce((s, c) => s + fmtPctRev(c.revenue), 0)
+                : 0
+            }
+          />
+        </SkuHealthCard>
 
-        {/* 3. 출시 시기 분포 */}
-        <div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g500)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              marginBottom: 4,
-            }}
-          >
-            출시 시기 매출 비중
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              lineHeight: 1.5,
-            }}
-          >
-            신상(1년){" "}
-            <b style={{ color: "var(--color-pos)" }}>
-              {fmtPctRev(ageBuckets.revs.fresh)}%
-            </b>
-            {" · "}1~3년 <b>{fmtPctRev(ageBuckets.revs.mid)}%</b>
-            {" · "}3년+{" "}
-            <b style={{ color: "var(--color-g500)" }}>
-              {fmtPctRev(ageBuckets.revs.legacy)}%
-            </b>
-          </div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g400)",
-              fontFamily: "var(--font-mono)",
-              marginTop: 2,
-            }}
-          >
-            신상 {ageBuckets.counts.fresh} · 중기 {ageBuckets.counts.mid} ·
-            레거시 {ageBuckets.counts.legacy}
-            {ageBuckets.counts.unknown > 0
-              ? ` · 미상 ${ageBuckets.counts.unknown}`
-              : ""}
-          </div>
-        </div>
+        {/* 3. 출시 시기 매출 비중 */}
+        <SkuHealthCard
+          label="신상 매출 비중"
+          headline={`${fmtPctRev(ageBuckets.revs.fresh)}%`}
+          sublabel={`출시 1년 내 SKU ${ageBuckets.counts.fresh}개`}
+          tone={
+            fmtPctRev(ageBuckets.revs.fresh) >= 40
+              ? "pos"
+              : fmtPctRev(ageBuckets.revs.fresh) >= 20
+                ? "info"
+                : "neutral"
+          }
+          footer={
+            fmtPctRev(ageBuckets.revs.fresh) >= 40
+              ? "신상 매출 비중 큼 → 시딩 push 시그널"
+              : fmtPctRev(ageBuckets.revs.fresh) >= 20
+                ? "신상이 일부 기여"
+                : "레거시 위주 매출"
+          }
+        >
+          <AgeStackBar
+            freshPct={fmtPctRev(ageBuckets.revs.fresh)}
+            midPct={fmtPctRev(ageBuckets.revs.mid)}
+            legacyPct={fmtPctRev(ageBuckets.revs.legacy)}
+            unknownPct={fmtPctRev(ageBuckets.revs.unknown)}
+            counts={ageBuckets.counts}
+          />
+        </SkuHealthCard>
 
         {/* 4. BSR 매칭 */}
-        <div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g500)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              marginBottom: 4,
-            }}
-          >
-            BSR (Top 3 / 매출 1위)
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              lineHeight: 1.5,
-            }}
-          >
-            평균{" "}
-            <b>{top3BsrAvg != null ? top3BsrAvg.toLocaleString() : "—"}</b>
-            {" · "}1위{" "}
-            <b
-              style={{
-                color:
-                  top1Bsr != null && top1Bsr < 10000
-                    ? "var(--color-pos)"
-                    : top1Bsr != null && top1Bsr < 50000
-                      ? "var(--color-info)"
-                      : "var(--color-g500)",
-              }}
-            >
-              {top1Bsr != null ? top1Bsr.toLocaleString() : "—"}
-            </b>
-          </div>
-          <div
-            style={{
-              fontSize: 9,
-              color: "var(--color-g400)",
-              fontFamily: "var(--font-mono)",
-              marginTop: 2,
-            }}
-          >
-            {top1Bsr != null && top1Bsr < 10000
-              ? "매출 1위 BSR 양호 → 검색·매출 매칭 OK"
+        <SkuHealthCard
+          label="매출 1위 BSR"
+          headline={top1Bsr != null ? top1Bsr.toLocaleString() : "—"}
+          sublabel="낮을수록 검색·매출 매칭 OK"
+          tone={
+            top1Bsr != null && top1Bsr < 10000
+              ? "pos"
               : top1Bsr != null && top1Bsr < 50000
-                ? "매출 1위 BSR 중간"
-                : "매출 1위 BSR 낮음 → 외부 시딩 의존도 높을 가능성"}
-          </div>
-        </div>
+                ? "info"
+                : "neutral"
+          }
+          footer={
+            top1Bsr != null && top1Bsr < 10000
+              ? `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · BSR 양호`
+              : top1Bsr != null && top1Bsr < 50000
+                ? `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · BSR 중간`
+                : `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · 외부 시딩 의존 가능성`
+          }
+        >
+          <BsrIndicator
+            top1Bsr={top1Bsr ?? null}
+            top3Bsr={top3BsrAvg}
+          />
+        </SkuHealthCard>
       </div>
 
       <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
@@ -2584,6 +2517,343 @@ function SkuSalesModule({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// =============================================================================
+// SKU 헬스 박스 — 카드 + 시각 막대 헬퍼들
+// =============================================================================
+
+function SkuHealthCard({
+  label,
+  headline,
+  sublabel,
+  footer,
+  tone,
+  children,
+}: {
+  label: string;
+  headline: string;
+  sublabel: string;
+  footer?: string;
+  tone: "pos" | "info" | "neutral";
+  children?: React.ReactNode;
+}) {
+  const headlineColor =
+    tone === "pos"
+      ? "var(--color-pos)"
+      : tone === "info"
+        ? "var(--color-info)"
+        : "var(--color-ink)";
+  return (
+    <div
+      style={{
+        background: "var(--color-g25)",
+        borderRadius: 6,
+        padding: "12px 14px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          color: "var(--color-g500)",
+          fontFamily: "var(--font-mono)",
+          textTransform: "uppercase",
+          letterSpacing: ".04em",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 24,
+          fontWeight: 700,
+          color: headlineColor,
+          fontFamily: "var(--font-mono)",
+          lineHeight: 1.1,
+        }}
+      >
+        {headline}
+      </div>
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--color-g600)",
+          lineHeight: 1.4,
+        }}
+      >
+        {sublabel}
+      </div>
+      {children}
+      {footer && (
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--color-g400)",
+            fontFamily: "var(--font-mono)",
+            marginTop: 2,
+            lineHeight: 1.4,
+          }}
+        >
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pareto 스택 막대: Top 1 / Top 2-3 / Top 4-5 / 그 외
+function ParetoStackBar({
+  top1Pct,
+  top3Pct,
+  top5Pct,
+}: {
+  top1Pct: number;
+  top3Pct: number;
+  top5Pct: number;
+}) {
+  const seg1 = top1Pct;
+  const seg23 = Math.max(0, top3Pct - top1Pct);
+  const seg45 = Math.max(0, top5Pct - top3Pct);
+  const others = Math.max(0, 100 - top5Pct);
+  return (
+    <div style={{ marginTop: 2 }}>
+      <div
+        style={{
+          display: "flex",
+          height: 10,
+          borderRadius: 3,
+          overflow: "hidden",
+          background: "var(--color-g100)",
+        }}
+      >
+        <div
+          style={{ width: `${seg1}%`, background: "var(--color-ink)" }}
+          title={`Top 1: ${top1Pct}%`}
+        />
+        <div
+          style={{ width: `${seg23}%`, background: "var(--color-g600)" }}
+          title={`Top 2-3: ${seg23}% (누적 ${top3Pct}%)`}
+        />
+        <div
+          style={{ width: `${seg45}%`, background: "var(--color-g400)" }}
+          title={`Top 4-5: ${seg45}% (누적 ${top5Pct}%)`}
+        />
+        <div
+          style={{ width: `${others}%`, background: "var(--color-g200)" }}
+          title={`나머지: ${others}%`}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 9,
+          color: "var(--color-g500)",
+          fontFamily: "var(--font-mono)",
+          marginTop: 3,
+        }}
+      >
+        <span>Top1 {top1Pct}%</span>
+        <span>Top3 {top3Pct}%</span>
+        <span>Top5 {top5Pct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// 카테고리 가로 스택 막대 (Top 5 + 그 외)
+function CategoryBar({
+  cats,
+  othersPct,
+}: {
+  cats: { label: string; pct: number }[];
+  othersPct: number;
+}) {
+  const palette = [
+    "var(--color-info)",
+    "var(--color-warn)",
+    "var(--color-pos)",
+    "var(--color-accent)",
+    "var(--color-g500)",
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        height: 10,
+        borderRadius: 3,
+        overflow: "hidden",
+        background: "var(--color-g100)",
+        marginTop: 2,
+      }}
+    >
+      {cats.map((c, i) => (
+        <div
+          key={c.label}
+          style={{
+            width: `${c.pct}%`,
+            background: palette[i] ?? "var(--color-g300)",
+          }}
+          title={`${c.label}: ${c.pct}%`}
+        />
+      ))}
+      {othersPct > 0 && (
+        <div
+          style={{ width: `${othersPct}%`, background: "var(--color-g200)" }}
+          title={`그 외: ${othersPct}%`}
+        />
+      )}
+    </div>
+  );
+}
+
+// 출시 시기 스택 막대: 신상 / 중기 / 레거시 / 미상
+function AgeStackBar({
+  freshPct,
+  midPct,
+  legacyPct,
+  unknownPct,
+  counts,
+}: {
+  freshPct: number;
+  midPct: number;
+  legacyPct: number;
+  unknownPct: number;
+  counts: { fresh: number; mid: number; legacy: number; unknown: number };
+}) {
+  return (
+    <div style={{ marginTop: 2 }}>
+      <div
+        style={{
+          display: "flex",
+          height: 10,
+          borderRadius: 3,
+          overflow: "hidden",
+          background: "var(--color-g100)",
+        }}
+      >
+        <div
+          style={{ width: `${freshPct}%`, background: "var(--color-pos)" }}
+          title={`신상 1년 내: ${freshPct}% (${counts.fresh} SKU)`}
+        />
+        <div
+          style={{ width: `${midPct}%`, background: "var(--color-info)" }}
+          title={`1~3년: ${midPct}% (${counts.mid} SKU)`}
+        />
+        <div
+          style={{ width: `${legacyPct}%`, background: "var(--color-g500)" }}
+          title={`3년+: ${legacyPct}% (${counts.legacy} SKU)`}
+        />
+        {unknownPct > 0 && (
+          <div
+            style={{ width: `${unknownPct}%`, background: "var(--color-g200)" }}
+            title={`미상: ${unknownPct}% (${counts.unknown} SKU)`}
+          />
+        )}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          fontSize: 9,
+          color: "var(--color-g500)",
+          fontFamily: "var(--font-mono)",
+          marginTop: 3,
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ color: "var(--color-pos)" }}>
+          ● 신상 {freshPct}%
+        </span>
+        <span style={{ color: "var(--color-info)" }}>
+          ● 1~3년 {midPct}%
+        </span>
+        <span>● 3년+ {legacyPct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// BSR 막대 인디케이터 (1,000 ~ 100,000+ 로그 스케일)
+function BsrIndicator({
+  top1Bsr,
+  top3Bsr,
+}: {
+  top1Bsr: number | null;
+  top3Bsr: number | null;
+}) {
+  // BSR 1,000 (좋음) ~ 100,000 (나쁨) log scale
+  const posOnBar = (bsr: number | null) => {
+    if (bsr == null || bsr <= 0) return null;
+    const logMin = Math.log(1000);
+    const logMax = Math.log(100000);
+    const v = Math.log(Math.max(1000, Math.min(100000, bsr)));
+    return ((v - logMin) / (logMax - logMin)) * 100;
+  };
+  const top1Pos = posOnBar(top1Bsr);
+  const top3Pos = posOnBar(top3Bsr);
+  return (
+    <div style={{ marginTop: 2 }}>
+      <div
+        style={{
+          position: "relative",
+          height: 8,
+          borderRadius: 3,
+          background:
+            "linear-gradient(to right, var(--color-pos), var(--color-info), var(--color-warn), var(--color-accent))",
+          opacity: 0.6,
+        }}
+      >
+        {top3Pos != null && (
+          <div
+            title={`Top 3 평균 BSR: ${top3Bsr?.toLocaleString()}`}
+            style={{
+              position: "absolute",
+              left: `calc(${top3Pos}% - 5px)`,
+              top: -2,
+              width: 10,
+              height: 12,
+              borderRadius: 2,
+              background: "var(--color-g500)",
+              border: "1px solid white",
+            }}
+          />
+        )}
+        {top1Pos != null && (
+          <div
+            title={`매출 1위 BSR: ${top1Bsr?.toLocaleString()}`}
+            style={{
+              position: "absolute",
+              left: `calc(${top1Pos}% - 6px)`,
+              top: -3,
+              width: 12,
+              height: 14,
+              borderRadius: 2,
+              background: "var(--color-ink)",
+              border: "1.5px solid white",
+            }}
+          />
+        )}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 9,
+          color: "var(--color-g400)",
+          fontFamily: "var(--font-mono)",
+          marginTop: 3,
+        }}
+      >
+        <span>1K 좋음</span>
+        <span>10K</span>
+        <span>100K+ 낮음</span>
+      </div>
     </div>
   );
 }
