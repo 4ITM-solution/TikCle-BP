@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { TierDistributionModule } from "./TierDistributionModule";
 import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
@@ -1998,10 +2001,90 @@ function SkuSalesModule({
     { subcategory: string | null; launch_date: string | null }
   >;
 }) {
+  const [showAll, setShowAll] = useState(false);
+
   if (!stats.sales_summary) return null;
   const max = Math.max(...stats.sku_sales.map((s) => s.revenue), 1);
   const isRegion = isRegionCode(caseCountry);
   const byCountry = stats.sales_summary.by_country;
+
+  const skuCount = stats.sku_sales.length;
+  const visibleSkus = showAll ? stats.sku_sales : stats.sku_sales.slice(0, 5);
+  const totalRev = stats.sales_summary.total_revenue;
+  const top1Pct = Math.round(stats.sales_summary.top1_revenue_share * 100);
+  const top3Pct = Math.round(stats.sales_summary.top3_revenue_share * 100);
+  const top5Pct = Math.round(
+    (stats.sku_sales.slice(0, 5).reduce((s, x) => s + x.revenue, 0) /
+      Math.max(totalRev, 1)) *
+      100,
+  );
+
+  // 카테고리 분포 — skuMeta.subcategory 기준
+  const catByRev = (() => {
+    const m = new Map<string, { revenue: number; count: number }>();
+    for (const s of stats.sku_sales) {
+      const cat = skuMeta?.[s.asin]?.subcategory ?? "(카테고리 미상)";
+      const e = m.get(cat) ?? { revenue: 0, count: 0 };
+      e.revenue += s.revenue;
+      e.count += 1;
+      m.set(cat, e);
+    }
+    return [...m.entries()]
+      .map(([cat, v]) => ({ cat, ...v }))
+      .sort((a, b) => b.revenue - a.revenue);
+  })();
+
+  // 출시 시기 분포 — 1년 내 / 1~3년 / 3년+
+  const ageBuckets = (() => {
+    const now = new Date();
+    const buckets = { fresh: 0, mid: 0, legacy: 0, unknown: 0 };
+    let freshRev = 0,
+      midRev = 0,
+      legacyRev = 0,
+      unknownRev = 0;
+    for (const s of stats.sku_sales) {
+      const launch = skuMeta?.[s.asin]?.launch_date;
+      if (!launch) {
+        buckets.unknown += 1;
+        unknownRev += s.revenue;
+        continue;
+      }
+      const d = new Date(launch);
+      const months =
+        (now.getFullYear() - d.getFullYear()) * 12 +
+        (now.getMonth() - d.getMonth());
+      if (months < 12) {
+        buckets.fresh += 1;
+        freshRev += s.revenue;
+      } else if (months < 36) {
+        buckets.mid += 1;
+        midRev += s.revenue;
+      } else {
+        buckets.legacy += 1;
+        legacyRev += s.revenue;
+      }
+    }
+    return {
+      counts: buckets,
+      revs: { fresh: freshRev, mid: midRev, legacy: legacyRev, unknown: unknownRev },
+    };
+  })();
+
+  // BSR 매칭 — Top 3 SKU 평균 BSR + 매출 1위 BSR
+  const top3 = stats.sku_sales.slice(0, 3);
+  const top3BsrAvg = (() => {
+    const withBsr = top3.filter(
+      (s) => s.bsr_latest != null && s.bsr_latest > 0,
+    );
+    if (withBsr.length === 0) return null;
+    return Math.round(
+      withBsr.reduce((s, x) => s + (x.bsr_latest ?? 0), 0) / withBsr.length,
+    );
+  })();
+  const top1Bsr = stats.sku_sales[0]?.bsr_latest;
+
+  const fmtPctRev = (r: number) =>
+    Math.round((r / Math.max(totalRev, 1)) * 100);
 
   // 헤더 총 매출: 권역이면 USD 환산 합계, 단일이면 currency raw + USD
   const headerTotal = (() => {
@@ -2065,6 +2148,194 @@ function SkuSalesModule({
           </b>
           {" · "}
           {stats.sales_summary.total_units.toLocaleString()}개
+        </div>
+      </div>
+
+      {/* SKU 헬스 박스 — 4개 BP 시그널 압축 */}
+      <div
+        style={{
+          background: "var(--color-g25)",
+          borderRadius: 6,
+          padding: "10px 14px",
+          marginBottom: 12,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 14,
+        }}
+      >
+        {/* 1. 매출 집중도 (Pareto) */}
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              marginBottom: 4,
+            }}
+          >
+            매출 집중도 (Pareto)
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              lineHeight: 1.5,
+            }}
+          >
+            Top 1 <b>{top1Pct}%</b> · Top 3 <b>{top3Pct}%</b> · Top 5{" "}
+            <b>{top5Pct}%</b>
+          </div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            {top3Pct >= 70
+              ? "Top 3에 매우 집중 → 시딩 SKU 명확"
+              : top3Pct >= 50
+                ? "중간 집중도"
+                : "분산 → 시딩 SKU 다양"}
+          </div>
+        </div>
+
+        {/* 2. 카테고리 분포 */}
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              marginBottom: 4,
+            }}
+          >
+            카테고리 분포 ({catByRev.length})
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              lineHeight: 1.5,
+            }}
+          >
+            {catByRev.slice(0, 2).map((c, i) => (
+              <div key={c.cat}>
+                {i === 0 ? "1위: " : "2위: "}
+                <b>{c.cat.slice(0, 18)}{c.cat.length > 18 ? "…" : ""}</b>{" "}
+                {fmtPctRev(c.revenue)}% ({c.count} SKU)
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. 출시 시기 분포 */}
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              marginBottom: 4,
+            }}
+          >
+            출시 시기 매출 비중
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              lineHeight: 1.5,
+            }}
+          >
+            신상(1년){" "}
+            <b style={{ color: "var(--color-pos)" }}>
+              {fmtPctRev(ageBuckets.revs.fresh)}%
+            </b>
+            {" · "}1~3년 <b>{fmtPctRev(ageBuckets.revs.mid)}%</b>
+            {" · "}3년+{" "}
+            <b style={{ color: "var(--color-g500)" }}>
+              {fmtPctRev(ageBuckets.revs.legacy)}%
+            </b>
+          </div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            신상 {ageBuckets.counts.fresh} · 중기 {ageBuckets.counts.mid} ·
+            레거시 {ageBuckets.counts.legacy}
+            {ageBuckets.counts.unknown > 0
+              ? ` · 미상 ${ageBuckets.counts.unknown}`
+              : ""}
+          </div>
+        </div>
+
+        {/* 4. BSR 매칭 */}
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g500)",
+              fontFamily: "var(--font-mono)",
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              marginBottom: 4,
+            }}
+          >
+            BSR (Top 3 / 매출 1위)
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              lineHeight: 1.5,
+            }}
+          >
+            평균{" "}
+            <b>{top3BsrAvg != null ? top3BsrAvg.toLocaleString() : "—"}</b>
+            {" · "}1위{" "}
+            <b
+              style={{
+                color:
+                  top1Bsr != null && top1Bsr < 10000
+                    ? "var(--color-pos)"
+                    : top1Bsr != null && top1Bsr < 50000
+                      ? "var(--color-info)"
+                      : "var(--color-g500)",
+              }}
+            >
+              {top1Bsr != null ? top1Bsr.toLocaleString() : "—"}
+            </b>
+          </div>
+          <div
+            style={{
+              fontSize: 9,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            {top1Bsr != null && top1Bsr < 10000
+              ? "매출 1위 BSR 양호 → 검색·매출 매칭 OK"
+              : top1Bsr != null && top1Bsr < 50000
+                ? "매출 1위 BSR 중간"
+                : "매출 1위 BSR 낮음 → 외부 시딩 의존도 높을 가능성"}
+          </div>
         </div>
       </div>
 
@@ -2144,7 +2415,7 @@ function SkuSalesModule({
           </tr>
         </thead>
         <tbody>
-          {stats.sku_sales.map((s) => {
+          {visibleSkus.map((s) => {
             const w = s.revenue > 0 ? (s.revenue / max) * 100 : 0;
             return (
               <tr key={s.asin}>
@@ -2286,6 +2557,33 @@ function SkuSalesModule({
           })}
         </tbody>
       </table>
+      {skuCount > 5 && (
+        <div
+          style={{
+            marginTop: 8,
+            textAlign: "center",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              padding: "5px 12px",
+              borderRadius: 5,
+              border: "1px solid var(--color-g200)",
+              background: "white",
+              color: "var(--color-g600)",
+              cursor: "pointer",
+            }}
+          >
+            {showAll
+              ? `Top 5만 보기`
+              : `전체 ${skuCount}개 SKU 보기 (현재 5개)`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
