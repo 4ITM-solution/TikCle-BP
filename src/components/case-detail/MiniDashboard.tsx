@@ -2070,19 +2070,6 @@ function SkuSalesModule({
     };
   })();
 
-  // BSR 매칭 — Top 3 SKU 평균 BSR + 매출 1위 BSR
-  const top3 = stats.sku_sales.slice(0, 3);
-  const top3BsrAvg = (() => {
-    const withBsr = top3.filter(
-      (s) => s.bsr_latest != null && s.bsr_latest > 0,
-    );
-    if (withBsr.length === 0) return null;
-    return Math.round(
-      withBsr.reduce((s, x) => s + (x.bsr_latest ?? 0), 0) / withBsr.length,
-    );
-  })();
-  const top1Bsr = stats.sku_sales[0]?.bsr_latest;
-
   const fmtPctRev = (r: number) =>
     Math.round((r / Math.max(totalRev, 1)) * 100);
 
@@ -2245,35 +2232,6 @@ function SkuSalesModule({
           />
         </SkuHealthCard>
 
-        {/* 4. BSR 매칭 — 매출 1위 SKU가 카테고리 검색에서 어느 위치인가 */}
-        <SkuHealthCard
-          label="매출 1위 SKU 카테고리 순위"
-          headline={top1Bsr != null ? `#${top1Bsr.toLocaleString()}` : "—"}
-          sublabel={
-            top1Bsr != null
-              ? `${skuMeta?.[stats.sku_sales[0]?.asin ?? ""]?.subcategory ?? "Amazon"} 카테고리 ${top1Bsr.toLocaleString()}위 (작을수록 검색에서 잘 보이는 제품)`
-              : "BSR 데이터 없음"
-          }
-          tone={
-            top1Bsr != null && top1Bsr < 10000
-              ? "pos"
-              : top1Bsr != null && top1Bsr < 50000
-                ? "info"
-                : "neutral"
-          }
-          footer={
-            top1Bsr != null && top1Bsr < 10000
-              ? `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색으로도 잘 팔리는 SKU`
-              : top1Bsr != null && top1Bsr < 50000
-                ? `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색 + 외부 시딩 혼합`
-                : `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색 약함 → 외부 시딩으로 매출 만드는 중일 가능성`
-          }
-        >
-          <BsrIndicator
-            top1Bsr={top1Bsr ?? null}
-            top3Bsr={top3BsrAvg}
-          />
-        </SkuHealthCard>
       </div>
 
       <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
@@ -2778,85 +2736,6 @@ function AgeStackBar({
           ● 1~3년 {midPct}%
         </span>
         <span>● 3년+ {legacyPct}%</span>
-      </div>
-    </div>
-  );
-}
-
-// BSR 막대 인디케이터 (1,000 ~ 100,000+ 로그 스케일)
-function BsrIndicator({
-  top1Bsr,
-  top3Bsr,
-}: {
-  top1Bsr: number | null;
-  top3Bsr: number | null;
-}) {
-  // BSR 1,000 (좋음) ~ 100,000 (나쁨) log scale
-  const posOnBar = (bsr: number | null) => {
-    if (bsr == null || bsr <= 0) return null;
-    const logMin = Math.log(1000);
-    const logMax = Math.log(100000);
-    const v = Math.log(Math.max(1000, Math.min(100000, bsr)));
-    return ((v - logMin) / (logMax - logMin)) * 100;
-  };
-  const top1Pos = posOnBar(top1Bsr);
-  const top3Pos = posOnBar(top3Bsr);
-  return (
-    <div style={{ marginTop: 2 }}>
-      <div
-        style={{
-          position: "relative",
-          height: 8,
-          borderRadius: 3,
-          background:
-            "linear-gradient(to right, var(--color-pos), var(--color-info), var(--color-warn), var(--color-accent))",
-          opacity: 0.6,
-        }}
-      >
-        {top3Pos != null && (
-          <div
-            title={`Top 3 평균 BSR: ${top3Bsr?.toLocaleString()}`}
-            style={{
-              position: "absolute",
-              left: `calc(${top3Pos}% - 5px)`,
-              top: -2,
-              width: 10,
-              height: 12,
-              borderRadius: 2,
-              background: "var(--color-g500)",
-              border: "1px solid white",
-            }}
-          />
-        )}
-        {top1Pos != null && (
-          <div
-            title={`매출 1위 BSR: ${top1Bsr?.toLocaleString()}`}
-            style={{
-              position: "absolute",
-              left: `calc(${top1Pos}% - 6px)`,
-              top: -3,
-              width: 12,
-              height: 14,
-              borderRadius: 2,
-              background: "var(--color-ink)",
-              border: "1.5px solid white",
-            }}
-          />
-        )}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 9,
-          color: "var(--color-g400)",
-          fontFamily: "var(--font-mono)",
-          marginTop: 3,
-        }}
-      >
-        <span style={{ color: "var(--color-pos)" }}>#1K 잘팔림</span>
-        <span>#10K 중간</span>
-        <span style={{ color: "var(--color-accent)" }}>#100K+ 검색 약함</span>
       </div>
     </div>
   );
