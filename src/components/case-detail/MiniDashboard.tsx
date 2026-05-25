@@ -2245,11 +2245,15 @@ function SkuSalesModule({
           />
         </SkuHealthCard>
 
-        {/* 4. BSR 매칭 */}
+        {/* 4. BSR 매칭 — 매출 1위 SKU가 카테고리 검색에서 어느 위치인가 */}
         <SkuHealthCard
-          label="매출 1위 BSR"
-          headline={top1Bsr != null ? top1Bsr.toLocaleString() : "—"}
-          sublabel="낮을수록 검색·매출 매칭 OK"
+          label="매출 1위 SKU 카테고리 순위"
+          headline={top1Bsr != null ? `#${top1Bsr.toLocaleString()}` : "—"}
+          sublabel={
+            top1Bsr != null
+              ? `${skuMeta?.[stats.sku_sales[0]?.asin ?? ""]?.subcategory ?? "Amazon"} 카테고리 ${top1Bsr.toLocaleString()}위 (작을수록 검색에서 잘 보이는 제품)`
+              : "BSR 데이터 없음"
+          }
           tone={
             top1Bsr != null && top1Bsr < 10000
               ? "pos"
@@ -2259,10 +2263,10 @@ function SkuSalesModule({
           }
           footer={
             top1Bsr != null && top1Bsr < 10000
-              ? `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · BSR 양호`
+              ? `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색으로도 잘 팔리는 SKU`
               : top1Bsr != null && top1Bsr < 50000
-                ? `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · BSR 중간`
-                : `Top 3 평균 ${top3BsrAvg?.toLocaleString() ?? "—"} · 외부 시딩 의존 가능성`
+                ? `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색 + 외부 시딩 혼합`
+                : `Top 3 평균 #${top3BsrAvg?.toLocaleString() ?? "—"} · 검색 약함 → 외부 시딩으로 매출 만드는 중일 가능성`
           }
         >
           <BsrIndicator
@@ -2850,9 +2854,9 @@ function BsrIndicator({
           marginTop: 3,
         }}
       >
-        <span>1K 좋음</span>
-        <span>10K</span>
-        <span>100K+ 낮음</span>
+        <span style={{ color: "var(--color-pos)" }}>#1K 잘팔림</span>
+        <span>#10K 중간</span>
+        <span style={{ color: "var(--color-accent)" }}>#100K+ 검색 약함</span>
       </div>
     </div>
   );
