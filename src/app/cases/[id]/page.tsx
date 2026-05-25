@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServer } from "@/lib/supabase/server";
 import { ExolytSection } from "@/components/case-detail/ExolytSection";
+import { BrandViewTrendsSection } from "@/components/case-detail/BrandViewTrendsSection";
 import {
   AmazonSalesSection,
   type SkuRow,
@@ -694,6 +695,10 @@ export default async function CaseDetailPage({
                 reusable={reusable}
                 reusedAlready={reusedAlready}
                 contentCount={contentCount ?? 0}
+              />
+              <BrandViewTrendsSection
+                case_id={c.id}
+                existingWeeks={weeklyViews.length}
               />
               {c.channel === "amazon" && (
                 <>

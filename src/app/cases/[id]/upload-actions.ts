@@ -1455,3 +1455,113 @@ export async function uploadKalodataVideosXlsx(
     message: `Video xlsx ${parsed.rows.length}개 적재 (누적 ${mergedXlsx.length}) · 제품 ${uniqueProducts.size} · 크리에이터 ${uniqueHandles.length}명 · 광고 ${adVideos.length}/${parsed.rows.length}${avgRoas != null ? ` (ROAS 평균 ${avgRoas.toFixed(2)})` : ""}${periodStr}`,
   };
 }
+
+/**
+ * Exolyt social listener 주간 데이터 (brand_view_trends) 업로드.
+ *
+ * 컬럼 형식: `date, {anything}_views, {anything}_videos` — 사용자가 받는 CSV는
+ * 브랜드 prefix가 컬럼명에 박힘 (예: drforhair_views). 두번째/세번째 컬럼이
+ * 무조건 views/videos라고 가정해 row 단위로 적재.
+ *
+ * UPSERT on (brand_id, country, week_start) — 같은 주 중복 박으면 갱신.
+ */
+export async function uploadBrandViewTrends(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const file = formData.get("file") as File | null;
+  if (!file) return { ok: false, error: "file 없음" };
+
+  const supabase = await createServer();
+  const { data: c, error: caseErr } = await supabase
+    .from("cases")
+    .select("id, brand_id, country")
+    .eq("id", case_id)
+    .single();
+  if (caseErr || !c) return { ok: false, error: "case 없음" };
+  if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 2) {
+    return { ok: false, error: "CSV에 데이터 row 없음" };
+  }
+
+  // 헤더: "date", "{brand}_views", "{brand}_videos" — quote 제거
+  const splitCsv = (line: string): string[] =>
+    line.split(",").map((s) => s.trim().replace(/^"|"$/g, ""));
+  const header = splitCsv(lines[0]!);
+  if (header.length < 3) {
+    return {
+      ok: false,
+      error: `CSV 컬럼 3개 필요 (date / views / videos), 받은 건 ${header.length}개`,
+    };
+  }
+
+  // ISO date 검증
+  const isoDate = (s: string): string | null => {
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m?.[1] ?? null;
+  };
+
+  const rows: Array<{
+    brand_id: string;
+    country: string | null;
+    week_start: string;
+    total_views: number;
+    total_videos: number;
+    source: string;
+  }> = [];
+  const errors: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsv(lines[i]!);
+    if (cells.length < 3) continue;
+    const week = isoDate(cells[0]!);
+    if (!week) {
+      errors.push(`row ${i + 1}: date 파싱 실패 (${cells[0]})`);
+      continue;
+    }
+    const views = Number(cells[1]);
+    const videos = Number(cells[2]);
+    if (!Number.isFinite(views) || !Number.isFinite(videos)) {
+      errors.push(`row ${i + 1}: 숫자 파싱 실패`);
+      continue;
+    }
+    rows.push({
+      brand_id: c.brand_id,
+      country: c.country,
+      week_start: week,
+      total_views: Math.round(views),
+      total_videos: Math.round(videos),
+      source: "exolyt",
+    });
+  }
+
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      error: `적재할 row 0개${errors.length > 0 ? ` · 오류: ${errors[0]}` : ""}`,
+    };
+  }
+
+  const { error: upErr } = await supabase
+    .from("brand_view_trends")
+    .upsert(rows, { onConflict: "brand_id,country,week_start,source" });
+  if (upErr) {
+    return { ok: false, error: `upsert: ${upErr.message}` };
+  }
+
+  revalidatePath(`/cases/${case_id}`);
+  const periodStart = rows[0]?.week_start;
+  const periodEnd = rows[rows.length - 1]?.week_start;
+  const totalViews = rows.reduce((s, r) => s + r.total_views, 0);
+  const totalVideos = rows.reduce((s, r) => s + r.total_videos, 0);
+  return {
+    ok: true,
+    message: `주간 viral ${rows.length}주 적재 (${periodStart} ~ ${periodEnd}) · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M · 영상 ${totalVideos.toLocaleString()}개${errors.length > 0 ? ` · 스킵 ${errors.length}건` : ""}`,
+  };
+}
