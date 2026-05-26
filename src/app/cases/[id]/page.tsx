@@ -689,6 +689,7 @@ export default async function CaseDetailPage({
                     name: s.name ?? "",
                     asin: s.asin || null,
                     external_product_id: s.external_product_id,
+                    revenue_30d: s.revenue_30d,
                   }))}
                   existingProducts={
                     Object.keys(
@@ -710,6 +711,7 @@ export default async function CaseDetailPage({
                     name: s.name ?? "",
                     asin: s.asin || null,
                     external_product_id: s.external_product_id,
+                    revenue_30d: s.revenue_30d,
                   }))}
                   existingAffiliates={
                     Array.isArray(

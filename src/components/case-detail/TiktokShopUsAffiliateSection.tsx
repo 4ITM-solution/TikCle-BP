@@ -27,6 +27,7 @@ export function TiktokShopUsAffiliateSection({
     name: string;
     asin: string | null;
     external_product_id: string | null;
+    revenue_30d?: number | null;
   }>;
   existingAffiliates: number;
 }) {
@@ -176,14 +177,28 @@ export function TiktokShopUsAffiliateSection({
                   maxWidth: 520,
                 }}
               >
-                <option value="">— 어느 제품 페이지에서 export? —</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.asin ? `${p.asin} · ` : ""}
-                    {p.name.slice(0, 70)}
-                    {p.name.length > 70 ? "…" : ""}
-                  </option>
-                ))}
+                <option value="">
+                  — 어느 제품 페이지에서 export? (매출 내림차순) —
+                </option>
+                {products.map((p, i) => {
+                  const rev = p.revenue_30d;
+                  const revStr =
+                    rev != null && rev > 0
+                      ? rev >= 1_000_000
+                        ? `$${(rev / 1_000_000).toFixed(1)}M`
+                        : rev >= 1_000
+                          ? `$${(rev / 1_000).toFixed(1)}K`
+                          : `$${Math.round(rev)}`
+                      : "—";
+                  return (
+                    <option key={p.id} value={p.id}>
+                      #{i + 1} [{revStr}]{" "}
+                      {p.asin ? `${p.asin} · ` : ""}
+                      {p.name.slice(0, 55)}
+                      {p.name.length > 55 ? "…" : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div
