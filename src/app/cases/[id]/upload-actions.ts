@@ -1077,7 +1077,9 @@ export async function uploadKalodata(
           case_id: c.id,
           product_id,
           country: c.country,
-          units_30d: p.item_sold,
+          // units_30d는 integer 컬럼 — K/M 변환 시 float 오차 (4.06k → 4059.9999...) 박힘.
+          // Math.round로 정수화.
+          units_30d: p.item_sold != null ? Math.round(p.item_sold) : null,
           revenue_30d: p.revenue_usd,
           price: p.avg_unit_price,
           currency: "USD",
