@@ -15,6 +15,7 @@ import {
   parseKalodataCreatorXlsx,
   parseKalodataVideoXlsx,
 } from "@/lib/parsers/kalodata";
+import { parseTiktokShopUsAffiliate } from "@/lib/parsers/tt-shop-us";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
@@ -1563,5 +1564,164 @@ export async function uploadBrandViewTrends(
   return {
     ok: true,
     message: `주간 viral ${rows.length}주 적재 (${periodStart} ~ ${periodEnd}) · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M · 영상 ${totalVideos.toLocaleString()}개${errors.length > 0 ? ` · 스킵 ${errors.length}건` : ""}`,
+  };
+}
+
+/**
+ * TikTok Shop US — 제품 단위 affiliate creator CSV 업로드.
+ *
+ * Source: TikTok Shop Seller Center → Product Detail → Affiliate Creators export.
+ * 컬럼: Username · Nickname · Follower Count · Follower Demographics · Category ·
+ * Engagement Rate · Items Sold (30d) · GMV (30d) · Videos · Number of Videos.
+ *
+ * 적재:
+ *   1) influencers 업서트 (platform=tiktok, handle/follower 기반)
+ *   2) contents 업서트 (Videos URL 리스트, url unique)
+ *   3) cases.key_stats.tt_shop_us_affiliates raw 누적 (제품 단위로 들어올 수
+ *      있어서 array merge by handle)
+ *
+ * 같은 제품에 대해 여러 번 export하면 누적되도록 handle 기준 dedupe.
+ */
+export async function uploadTiktokShopUsAffiliate(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "CSV 파일 비어있음" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop") {
+    return { ok: false, error: "TikTok Shop 케이스만 지원" };
+  }
+  if (c.country !== "US") {
+    return { ok: false, error: "US TikTok Shop 전용 (SEA는 Kalodata 사용)" };
+  }
+  if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  const text = await file.text();
+  const parsed = parseTiktokShopUsAffiliate(text);
+  if (parsed.rows.length === 0) {
+    return { ok: false, error: parsed.errors[0] ?? "파싱된 행 0개" };
+  }
+
+  // 1) influencers 업서트 (platform=tiktok + handle 기준)
+  const inflRows = parsed.rows.map((r) => ({
+    platform: "tiktok" as const,
+    external_id: r.handle,
+    handle: r.handle,
+    follower_count: r.follower_count,
+    fans_source: "tt_shop_us_affiliate",
+    lifetime_gmv_usd: r.gmv_30d_usd,
+  }));
+  const { error: inflErr } = await supabase
+    .from("influencers")
+    .upsert(inflRows, {
+      onConflict: "platform,external_id",
+      ignoreDuplicates: false,
+    });
+  if (inflErr) {
+    console.warn("[uploadTiktokShopUsAffiliate] influencer upsert:", inflErr.message);
+  }
+
+  // 2) influencer id 매핑
+  const { data: inflRowsBack } = await supabase
+    .from("influencers")
+    .select("id, external_id")
+    .eq("platform", "tiktok")
+    .in(
+      "external_id",
+      parsed.rows.map((r) => r.handle),
+    );
+  const handleToId = new Map(
+    (inflRowsBack ?? []).map((x) => [x.external_id ?? "", x.id]),
+  );
+
+  // 3) contents 업서트 (url unique). Videos URL 모두 풀어서 박음.
+  const contentInserts: Array<{
+    url: string;
+    brand_id: string;
+    country: string;
+    influencer_id: string | null;
+    is_ad: boolean;
+  }> = [];
+  for (const r of parsed.rows) {
+    const influencer_id = handleToId.get(r.handle) ?? null;
+    for (const url of r.videos) {
+      contentInserts.push({
+        url,
+        brand_id: c.brand_id,
+        country: c.country,
+        influencer_id,
+        is_ad: false,
+      });
+    }
+  }
+  // url dedupe (같은 영상이 여러 export에 있을 수 있음)
+  const uniqueContents = Array.from(
+    new Map(contentInserts.map((c) => [c.url, c])).values(),
+  );
+
+  let contentInserted = 0;
+  if (uniqueContents.length > 0) {
+    const { error: contentErr, count } = await supabase
+      .from("contents")
+      .upsert(uniqueContents, {
+        onConflict: "url",
+        ignoreDuplicates: false,
+        count: "exact",
+      });
+    if (contentErr) {
+      console.warn(
+        "[uploadTiktokShopUsAffiliate] content upsert:",
+        contentErr.message,
+      );
+    }
+    contentInserted = count ?? uniqueContents.length;
+  }
+
+  // 4) cases.key_stats.tt_shop_us_affiliates 누적 (handle dedupe)
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const existingStats = (caseRow?.key_stats ?? {}) as Record<string, unknown>;
+  const existingAffiliates = Array.isArray(
+    existingStats["tt_shop_us_affiliates"],
+  )
+    ? (existingStats["tt_shop_us_affiliates"] as Array<{ handle: string }>)
+    : [];
+  const merged = new Map<string, unknown>();
+  for (const e of existingAffiliates) {
+    if (e?.handle) merged.set(e.handle, e);
+  }
+  for (const r of parsed.rows) {
+    merged.set(r.handle, r);
+  }
+  const mergedArr = Array.from(merged.values());
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existingStats,
+        tt_shop_us_affiliates: mergedArr,
+        tt_shop_us_affiliates_updated_at: new Date().toISOString(),
+      } as never,
+    })
+    .eq("id", case_id);
+
+  // 요약
+  const totalGmv = parsed.rows.reduce((s, r) => s + (r.gmv_30d_usd ?? 0), 0);
+  const totalItems = parsed.rows.reduce(
+    (s, r) => s + (r.items_sold_30d ?? 0),
+    0,
+  );
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개`,
   };
 }

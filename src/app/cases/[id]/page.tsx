@@ -10,6 +10,7 @@ import {
 import { BsrSection } from "@/components/case-detail/BsrSection";
 import { ShopdoraSection } from "@/components/case-detail/ShopdoraSection";
 import { KalodataSection } from "@/components/case-detail/KalodataSection";
+import { TiktokShopUsAffiliateSection } from "@/components/case-detail/TiktokShopUsAffiliateSection";
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
@@ -725,6 +726,21 @@ export default async function CaseDetailPage({
                 <KalodataSection
                   case_id={c.id}
                   productCount={skuRows.length}
+                />
+              )}
+              {c.channel === "tiktok_shop" && c.country === "US" && (
+                <TiktokShopUsAffiliateSection
+                  case_id={c.id}
+                  existingAffiliates={
+                    Array.isArray(
+                      (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
+                        ?.tt_shop_us_affiliates,
+                    )
+                      ? (
+                          c.key_stats as { tt_shop_us_affiliates: unknown[] }
+                        ).tt_shop_us_affiliates.length
+                      : 0
+                  }
                 />
               )}
             </div>
