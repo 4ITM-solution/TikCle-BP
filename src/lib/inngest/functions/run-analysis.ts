@@ -245,6 +245,28 @@ export const runAnalysis = inngest.createFunction(
       });
     }
 
+    // ─── phase15_only 모드: Phase 1.5만 돌고 끝 (products 채우기 용도) ───
+    // Helium10 paste / Affiliate CSV 받을 product 드롭다운에 채우기 위한 trigger.
+    // status를 'draft'로 되돌림 (full 분석 시작 전이라).
+    if (event.data.phase15_only) {
+      await step.run("phase15-only-mark-draft", async () => {
+        await supabase
+          .from("cases")
+          .update({ status: "draft" })
+          .eq("id", case_id);
+      });
+      logger.info("[phase15_only] Phase 1.5 완료 후 종료", {
+        case_id,
+        products: phase1_5.total_products,
+      });
+      return {
+        ok: true,
+        phase15_only: true,
+        products: phase1_5.total_products,
+        skipped_reason: phase1_5.skipped_reason,
+      };
+    }
+
     // ─── Phase 2: Stats Aggregator ───
     // Phase 1.5가 새로 돌면 case_product_sales 새로 들어왔으니 Phase 2도 자동 재실행
     const phase2 = await step.run("phase-2-aggregate", async () => {

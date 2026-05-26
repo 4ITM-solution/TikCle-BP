@@ -37,6 +37,9 @@ export type Events = {
       with_video?: boolean;
       // 명시된 phase는 캐시 무시하고 강제 재실행. 나머지는 cache hit이면 skip.
       force_phases?: PhaseKey[];
+      // true면 Phase 1.5 (TT Shop 자동 수집) 후 즉시 종료. products만 채우고
+      // Helium10 paste/Affiliate CSV 받을 수 있게 하기 위함. status='draft' 유지.
+      phase15_only?: boolean;
     };
   };
   "case/phase.completed": {

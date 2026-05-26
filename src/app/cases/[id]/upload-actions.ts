@@ -678,6 +678,62 @@ export async function resetToDraft(case_id: string): Promise<Result> {
 // =============================================================================
 import type { PhaseKey } from "@/lib/inngest/client";
 
+/**
+ * Phase 1.5만 트리거 — TT Shop US 케이스에서 본 분석 시작 전에 products만 채우기.
+ * 사용처: Helium10 paste / Affiliate CSV 슬롯이 product 드롭다운 필요한데
+ * draft 상태에선 Apify가 안 돌아서 products 0개라 슬롯 비활성. 이 액션으로
+ * Phase 1.5만 trigger → 끝나면 products 박혀서 paste/CSV 박을 수 있게 됨.
+ * status는 'running' 임시로 바꿨다가 Phase 1.5 끝나면 case-run-analysis가
+ * early return하므로 'ready'로 못 가고, 다른 작업이 status 안 되돌리면 stuck
+ * 가능 — onFailure handler가 'ready'로 바꿔주지만 phase15_only success path는
+ * status 안 건드림 → 별도 정리 필요.
+ *
+ * 처리: phase15_only success path도 status를 'draft'로 되돌림 (case-run-analysis
+ * 안에서 early return 전에).
+ */
+export async function startPhase15Only(case_id: string): Promise<Result> {
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop" || c.country !== "US") {
+    return { ok: false, error: "TT Shop US 케이스만 지원" };
+  }
+  if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  // status 'running'으로 설정 (UI에서 진행 중 표시)
+  const { error: updErr } = await supabase
+    .from("cases")
+    .update({ status: "running" })
+    .eq("id", case_id);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  try {
+    await inngest.send({
+      name: "case/start.analysis",
+      data: {
+        case_id,
+        phase15_only: true,
+        force_phases: ["phase1_5"], // 캐시 무시하고 항상 새로
+      },
+    });
+  } catch (e) {
+    // 실패 시 status 'draft' 되돌리기
+    await supabase
+      .from("cases")
+      .update({ status: "draft" })
+      .eq("id", case_id);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Inngest send 실패",
+    };
+  }
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message:
+      "Phase 1.5 시작 — 약 5~30분 소요. products 박힌 후 새로고침하면 Helium10 / Affiliate 슬롯 활성화돼요.",
+  };
+}
+
 export async function startAnalysis(
   case_id: string,
   force_phases?: PhaseKey[],

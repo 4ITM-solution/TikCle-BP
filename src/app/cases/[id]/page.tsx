@@ -12,6 +12,7 @@ import { ShopdoraSection } from "@/components/case-detail/ShopdoraSection";
 import { KalodataSection } from "@/components/case-detail/KalodataSection";
 import { TiktokShopUsAffiliateSection } from "@/components/case-detail/TiktokShopUsAffiliateSection";
 import { TiktokProductFinderSection } from "@/components/case-detail/TiktokProductFinderSection";
+import { StartPhase15Button } from "@/components/case-detail/StartPhase15Button";
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
@@ -565,17 +566,47 @@ export default async function CaseDetailPage({
                   background: "var(--color-info-soft, rgba(0,100,255,0.05))",
                   border: "1px solid var(--color-info)",
                   borderRadius: 6,
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   fontSize: 12,
-                  color: "var(--color-info)",
+                  color: "var(--color-g700)",
                   lineHeight: 1.6,
                   marginBottom: 4,
                 }}
               >
-                💡 <b>TT Shop US 케이스 — Exolyt 안 받아도 OK</b>: 아래 Affiliate
-                CSV (TT Shop Seller Center export)에 영상 URL이 박혀 있어서{" "}
-                <b>Affiliate CSV 1개 이상이면 영상 데이터 충족</b>. Exolyt 데이터
-                있으면 캡션·views까지 풍부해져 Phase 4b 분석 깊어짐.
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "var(--color-info)",
+                    marginBottom: 6,
+                  }}
+                >
+                  💡 TT Shop US 케이스 — 영상 데이터 받는 2가지 경로
+                </div>
+                <ol style={{ margin: 0, paddingLeft: 18 }}>
+                  <li style={{ marginBottom: 4 }}>
+                    <b>Exolyt CSV (1차 추천)</b> — Exolyt social listener에서
+                    1년치 영상 export → 아래 첫 슬롯에 업로드. 캡션·views·해시태그
+                    등 풍부. Phase 4b 분석 깊어짐.
+                  </li>
+                  <li>
+                    <b>Affiliate CSV 우회 (Exolyt 못 받을 때)</b> — TikTok Shop{" "}
+                    <b>Seller Center 접근 권한 필요</b>. Seller Center → 제품 상세
+                    → Affiliate Creators 섹션 → Export CSV → 아래 "TikTok Shop US
+                    affiliate" 슬롯에 업로드. 영상 URL만 들어와 캡션·views 비어
+                    있음 → Phase 4b 분석 일부만.
+                  </li>
+                </ol>
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: "var(--color-g500)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  → 둘 중 하나만 있으면 분석 시작 가능. 둘 다 있으면 영상 풀 +
+                  affiliate 매핑 둘 다 살려서 최고.
+                </div>
               </div>
             )}
 
@@ -642,6 +673,13 @@ export default async function CaseDetailPage({
                   >
                     {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
                   </div>
+                  {c.tiktok_shop_store_url && (
+                    <StartPhase15Button
+                      case_id={c.id}
+                      status={c.status}
+                      hasProducts={skuRows.length > 0}
+                    />
+                  )}
                 </div>
 
                 <TiktokProductFinderSection
