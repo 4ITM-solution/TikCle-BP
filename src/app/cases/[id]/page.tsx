@@ -582,41 +582,84 @@ export default async function CaseDetailPage({
             )}
 
             {c.channel === "tiktok_shop" && c.country === "US" && (
-              <div
-                style={{
-                  background: "var(--color-g25)",
-                  border: "1px dashed var(--color-g200)",
-                  borderRadius: 8,
-                  padding: "14px 16px",
-                  fontSize: 12,
-                  color: "var(--color-g500)",
-                  lineHeight: 1.6,
-                }}
-              >
-                <b style={{ color: "var(--color-ink)" }}>
-                  TikTok Shop 매출/제품 자동 수집 (US)
-                </b>
-                <br />
-                분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다.
+              <>
                 <div
                   style={{
-                    marginTop: 8,
-                    padding: "8px 10px",
-                    background: "white",
-                    borderRadius: 4,
-                    fontSize: 11,
-                    fontFamily: "var(--font-mono)",
-                    color: c.tiktok_shop_store_url
-                      ? "var(--color-g600)"
-                      : "var(--color-accent)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    background: "var(--color-g25)",
+                    border: "1px dashed var(--color-g200)",
+                    borderRadius: 8,
+                    padding: "14px 16px",
+                    fontSize: 12,
+                    color: "var(--color-g500)",
+                    lineHeight: 1.6,
                   }}
                 >
-                  {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
+                  <b style={{ color: "var(--color-ink)" }}>
+                    TikTok Shop 매출/제품 자동 수집 (US)
+                  </b>
+                  <br />
+                  분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다. <b>매출 데이터는 변형 옵션 가격대 큰 제품에서 부정확할 수 있어 — Helium10 paste로 정정 권장.</b>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 10px",
+                      background: "white",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontFamily: "var(--font-mono)",
+                      color: c.tiktok_shop_store_url
+                        ? "var(--color-g600)"
+                        : "var(--color-accent)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
+                  </div>
                 </div>
-              </div>
+
+                <TiktokProductFinderSection
+                  case_id={c.id}
+                  products={skuRows.map((s) => ({
+                    id: s.id,
+                    name: s.name ?? "",
+                    asin: s.asin || null,
+                    external_product_id: s.external_product_id,
+                  }))}
+                  existingProducts={
+                    Object.keys(
+                      (c.key_stats as {
+                        tt_shop_us_helium10?: Record<string, unknown>;
+                      })?.tt_shop_us_helium10 ?? {},
+                    ).length
+                  }
+                  hasUndo={
+                    ((c.key_stats as { _last_undo?: { type?: string } })
+                      ?._last_undo?.type ?? "") ===
+                    "helium10_product_finder"
+                  }
+                />
+                <TiktokShopUsAffiliateSection
+                  case_id={c.id}
+                  products={skuRows.map((s) => ({
+                    id: s.id,
+                    name: s.name ?? "",
+                    asin: s.asin || null,
+                    external_product_id: s.external_product_id,
+                  }))}
+                  existingAffiliates={
+                    Array.isArray(
+                      (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
+                        ?.tt_shop_us_affiliates,
+                    )
+                      ? (
+                          c.key_stats as { tt_shop_us_affiliates: unknown[] }
+                        ).tt_shop_us_affiliates.length
+                      : 0
+                  }
+                />
+              </>
             )}
 
             {c.channel === "tiktok_shop" && c.country !== "US" && (
