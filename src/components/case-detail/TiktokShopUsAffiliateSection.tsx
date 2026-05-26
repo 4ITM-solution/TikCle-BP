@@ -34,6 +34,7 @@ export function TiktokShopUsAffiliateSection({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [productId, setProductId] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
   // period_end = "GMV/Items Sold 30d" 기준 종료일. 파일명에 박혀 있으면 자동 추출,
   // 없으면 오늘 default. 사용자가 date picker로 override 가능.
   const today = new Date().toISOString().slice(0, 10);
@@ -41,6 +42,18 @@ export function TiktokShopUsAffiliateSection({
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
+
+  // 검색 필터 — ID/ASIN/이름 부분 일치
+  const filteredProducts = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => {
+      if (p.external_product_id?.toLowerCase().includes(q)) return true;
+      if (p.asin?.toLowerCase().includes(q)) return true;
+      if (p.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  })();
 
   // 파일명에서 YYYY-MM-DD 자동 추출 (e.g. `product-detail-influencer-list2026-05-26.csv`)
   function extractDateFromFilename(name: string): string | null {
@@ -140,6 +153,53 @@ export function TiktokShopUsAffiliateSection({
           </div>
         ) : (
           <>
+            {/* 제품 검색 */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-g600)",
+                  fontFamily: "var(--font-mono)",
+                  minWidth: 40,
+                }}
+              >
+                검색
+              </span>
+              <input
+                type="text"
+                value={search}
+                placeholder="🔍 ID 끝자리 / ASIN / 이름 부분 입력"
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  padding: "5px 9px",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 4,
+                  background: "white",
+                  flex: 1,
+                  maxWidth: 520,
+                }}
+              />
+              {search && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--color-g500)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {filteredProducts.length}/{products.length}
+                </span>
+              )}
+            </div>
             <div
               style={{
                 display: "flex",
@@ -178,9 +238,9 @@ export function TiktokShopUsAffiliateSection({
                 }}
               >
                 <option value="">
-                  — 어느 제품 페이지에서 export? (매출 내림차순) —
+                  — 어느 제품 페이지에서 export? (매출 내림차순{search ? `, ${filteredProducts.length}개 필터됨` : ""}) —
                 </option>
-                {products.map((p, i) => {
+                {filteredProducts.map((p, i) => {
                   const rev = p.revenue_30d;
                   const revStr =
                     rev != null && rev > 0

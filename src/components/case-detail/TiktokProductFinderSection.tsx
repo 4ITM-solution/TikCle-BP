@@ -38,6 +38,7 @@ export function TiktokProductFinderSection({
   const [undoPending, startUndo] = useTransition();
   const [text, setText] = useState("");
   const [productId, setProductId] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
   const today = new Date().toISOString().slice(0, 10);
   const [periodEnd, setPeriodEnd] = useState<string>(today);
   const [periodDays, setPeriodDays] = useState<"7" | "14" | "30">("30");
@@ -45,6 +46,18 @@ export function TiktokProductFinderSection({
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
+
+  // 검색 필터 — ID/ASIN/이름 부분 일치
+  const filteredProducts = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => {
+      if (p.external_product_id?.toLowerCase().includes(q)) return true;
+      if (p.asin?.toLowerCase().includes(q)) return true;
+      if (p.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  })();
 
   function runDryRun() {
     if (!productId) {
@@ -161,7 +174,53 @@ export function TiktokProductFinderSection({
           </div>
         ) : (
           <>
-            {/* 제품 + 기간 + 기준일 */}
+            {/* 제품 검색 + 드롭다운 */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-g600)",
+                  fontFamily: "var(--font-mono)",
+                  minWidth: 40,
+                }}
+              >
+                검색
+              </span>
+              <input
+                type="text"
+                value={search}
+                placeholder="🔍 ID 끝자리 / ASIN / 이름 부분 입력"
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  padding: "5px 9px",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 4,
+                  background: "white",
+                  flex: 1,
+                  maxWidth: 520,
+                }}
+              />
+              {search && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--color-g500)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {filteredProducts.length}/{products.length}
+                </span>
+              )}
+            </div>
             <div
               style={{
                 display: "flex",
@@ -200,9 +259,9 @@ export function TiktokProductFinderSection({
                 }}
               >
                 <option value="">
-                  — 어느 제품 페이지? (매출 내림차순) —
+                  — 어느 제품 페이지? (매출 내림차순{search ? `, ${filteredProducts.length}개 필터됨` : ""}) —
                 </option>
-                {products.map((p, i) => {
+                {filteredProducts.map((p, i) => {
                   const rev = p.revenue_30d;
                   const revStr =
                     rev != null && rev > 0
