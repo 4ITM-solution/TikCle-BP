@@ -415,8 +415,13 @@ export default async function CaseDetailPage({
 
   let reason = "";
   if (c.status !== "draft") reason = `현재 상태: ${c.status}`;
-  else if (!exolytDone) reason = "exolyt 데이터 업로드/재사용 필요";
-  else if (!salesDone) {
+  else if (!exolytDone) {
+    // TT Shop US는 Affiliate CSV로 영상 URL 박혀도 contents에 들어가 exolytDone 충족됨 — 안내 명시
+    if (c.channel === "tiktok_shop" && c.country === "US")
+      reason =
+        "영상 데이터 필요 — Exolyt CSV 또는 Affiliate CSV (TT Shop) 둘 중 하나";
+    else reason = "exolyt 데이터 업로드/재사용 필요";
+  } else if (!salesDone) {
     if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
     else if (c.channel === "tiktok_shop" && c.country === "US")
       reason = "TikTok Shop 스토어 URL 필요";
@@ -553,6 +558,26 @@ export default async function CaseDetailPage({
                 {ready ? "완료" : "진행중"}
               </span>
             </div>
+
+            {c.channel === "tiktok_shop" && c.country === "US" && (
+              <div
+                style={{
+                  background: "var(--color-info-soft, rgba(0,100,255,0.05))",
+                  border: "1px solid var(--color-info)",
+                  borderRadius: 6,
+                  padding: "10px 14px",
+                  fontSize: 12,
+                  color: "var(--color-info)",
+                  lineHeight: 1.6,
+                  marginBottom: 4,
+                }}
+              >
+                💡 <b>TT Shop US 케이스 — Exolyt 안 받아도 OK</b>: 아래 Affiliate
+                CSV (TT Shop Seller Center export)에 영상 URL이 박혀 있어서{" "}
+                <b>Affiliate CSV 1개 이상이면 영상 데이터 충족</b>. Exolyt 데이터
+                있으면 캡션·views까지 풍부해져 Phase 4b 분석 깊어짐.
+              </div>
+            )}
 
             <ExolytSection
               case_id={c.id}
