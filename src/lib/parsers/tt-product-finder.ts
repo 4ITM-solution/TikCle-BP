@@ -148,28 +148,41 @@ export function parseTiktokProductFinder(text: string): TikTokProductFinderParse
       (result.lifetime_relevant_videos = parseNum(v)),
   };
 
-  // 헤더 영역 추출 (Product Details 다음 줄이 product name, 그 다음 country, ·, category, ·)
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === "Product Details") {
-      // 다음 비-구분자 라인이 product name
-      let j = i + 1;
-      while (j < lines.length && !isValueLine(lines[j]!)) j++;
-      if (j < lines.length) result.product_name = lines[j]!;
-      // 그 다음 줄 = country
-      j++;
-      while (j < lines.length && !isValueLine(lines[j]!)) j++;
-      if (j < lines.length && lines[j] !== "Rating")
-        result.country = lines[j]!;
-      // 그 다음 줄 = category path
-      j++;
-      while (j < lines.length && !isValueLine(lines[j]!)) j++;
-      if (j < lines.length && lines[j] !== "Rating") {
-        result.category_path = lines[j]!;
-        const parts = lines[j]!.split(">").map((s) => s.trim());
-        result.subcategory = parts[parts.length - 1] ?? null;
-      }
-      break;
+  // 헤더 영역 추출. 두 가지 패스:
+  //   1) "Product Details" 앵커 있으면 그 다음 줄들에서 순방향 추출
+  //   2) 없으면 "Rating" 앵커에서 역방향으로 추출 (category → country → product name)
+  const productDetailsIdx = lines.findIndex((l) => l === "Product Details");
+  const ratingIdx = lines.findIndex((l) => l === "Rating");
+
+  if (productDetailsIdx >= 0) {
+    let j = productDetailsIdx + 1;
+    while (j < lines.length && !isValueLine(lines[j]!)) j++;
+    if (j < lines.length) result.product_name = lines[j]!;
+    j++;
+    while (j < lines.length && !isValueLine(lines[j]!)) j++;
+    if (j < lines.length && lines[j] !== "Rating") result.country = lines[j]!;
+    j++;
+    while (j < lines.length && !isValueLine(lines[j]!)) j++;
+    if (j < lines.length && lines[j] !== "Rating") {
+      result.category_path = lines[j]!;
+      const parts = lines[j]!.split(">").map((s) => s.trim());
+      result.subcategory = parts[parts.length - 1] ?? null;
     }
+  } else if (ratingIdx > 0) {
+    // Rating 위로 거꾸로 — 비-구분자 라인 모아서 끝에서부터 category, country, product
+    const aboveRating: string[] = [];
+    for (let i = ratingIdx - 1; i >= 0; i--) {
+      if (isValueLine(lines[i]!)) aboveRating.push(lines[i]!);
+      if (aboveRating.length >= 3) break;
+    }
+    // aboveRating = [category, country, product] (역순)
+    if (aboveRating[0]) {
+      result.category_path = aboveRating[0];
+      const parts = aboveRating[0].split(">").map((s) => s.trim());
+      result.subcategory = parts[parts.length - 1] ?? null;
+    }
+    if (aboveRating[1]) result.country = aboveRating[1];
+    if (aboveRating[2]) result.product_name = aboveRating[2];
   }
 
   // label/value 시퀀셜 파싱
