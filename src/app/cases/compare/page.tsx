@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { createServer } from "@/lib/supabase/server";
-import { CompareGrid, type CompareCase } from "@/components/case-detail/CompareGrid";
+import { CompareDashboard } from "@/components/case-detail/CompareDashboard";
+import {
+  computeCompareFacts,
+  type CompareCaseInput,
+} from "@/lib/case-detail/compare-facts";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +68,7 @@ export default async function ComparePage({
 
   // URL 순서대로 정렬
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
-  const cases: CompareCase[] = ids
+  const cases: CompareCaseInput[] = ids
     .map((id) => byId.get(id))
     .filter((r): r is NonNullable<typeof r> => !!r)
     .map((r) => ({
@@ -74,8 +78,10 @@ export default async function ComparePage({
       country: r.country,
       channel: r.channel,
       status: r.status,
-      key_stats: r.key_stats as Record<string, unknown> | null,
+      key_stats: r.key_stats as CompareCaseInput["key_stats"],
     }));
+
+  const { mode, facts } = computeCompareFacts(cases);
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1600 }}>
@@ -119,7 +125,7 @@ export default async function ComparePage({
         </span>
       </div>
 
-      <CompareGrid cases={cases} />
+      <CompareDashboard cases={cases} mode={mode} facts={facts} />
     </div>
   );
 }
