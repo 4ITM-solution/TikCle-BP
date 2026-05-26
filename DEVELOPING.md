@@ -24,9 +24,89 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-20 (5/13~5/20 8일간 큰 변화. SEA 마켓플레이스 풀 통합 — Shopdora/Kalodata 파서·UI + ready 케이스 추가 업로드 + 트렌드 차트 직관성 개선)
+> **갱신 시점**: 2026-05-26 (5/20~5/26 6일간 큰 변화. Kalodata Video xlsx 정식 지원 + SKU 헬스 박스 + brand_view_trends UI + TT Shop US 정식 지원 — Affiliate CSV + Helium10 Product Finder paste + Preview before commit + Undo + Styled Dropzone 통일)
 
-### 2026-05-13 ~ 05-20 박힌 변화 요약 (최근 → 옛)
+### 2026-05-20 ~ 05-26 박힌 변화 요약 (최근 → 옛)
+
+**A. TT Shop US 정식 지원 — Helium10 Product Finder paste + Preview before commit + Undo (5/26)**
+- 옛: TT Shop SEA(Kalodata)만 지원. US TT Shop은 Apify scraper만 운영 — `revenue_30d`가 변형 옵션 가격 가정 차이로 28배 과대평가 (NOONI Lip Oil: Apify $3.46M vs Helium10 $124K). Listed Date / Rating / Subcategory 다 누락.
+- 새:
+  - **`parseTiktokProductFinder`** ([parsers/tt-product-finder.ts](src/lib/parsers/tt-product-finder.ts)) — Helium10 페이지 통째 paste. label/value 시퀀셜 + "Product Details" 또는 "Rating" 앵커로 product name 자동 추출. GMV K/M/B 단위 변환. Lifetime (Items Sold/GMV/Influencers/Videos) + Overview 30일(Items Sold/GMV/**New** Videos/**New** Influencers) + Rating + Listed Date + Subcategory 추출.
+  - **`parseTiktokShopUsAffiliate`** ([parsers/tt-shop-us.ts](src/lib/parsers/tt-shop-us.ts)) — TT Shop Seller Center 제품 상세 → Affiliate Creators export CSV. papaparse multiline 셀(Videos URL 여러 개). 154 row + 334 영상 + 30일 GMV $9,799 NOONI Lip Oil 검증.
+  - **2단계 Preview before commit** — `dryRunTiktokProductFinder` server action이 파싱 + DB 현재값 + diff 계산. PreviewBox에 "현재 → 새값" 표 + 파싱된 product name과 선택 product 불일치 시 ⚠ 경고. Confirm 안 누르면 DB 안 박힘. 잘못 paste해도 영향 X.
+  - **Undo** — commit 시 `cases.key_stats._last_undo`에 prev snapshot(products price/launch_date/subcategory + case_product_sales row + helium10 entry). `undoLastTiktokProductFinder` server action으로 클릭 한 번 복원. UI "↶ 직전 적재 롤백" 버튼 (hasUndo=true일 때만).
+  - **product 드롭다운 + period_end + period_days 7/14/30 토글** — CSV/paste 모두 어느 제품 어느 시점 데이터인지 명확히 박힘. 파일명 `*-list2026-05-26.csv` 자동 추출.
+  - Dedupe key (CSV affiliate) = `(handle@product_id@period_end)` → 같은 affiliate가 다른 제품/시점 별도 GMV 보존, 시계열 누적
+- 적재 위치:
+  - `products.price` / `launch_date` / `subcategory` Helium10 값으로 override
+  - `case_product_sales` upsert (source=`helium10_tt_finder`, period_start/period_end, revenue_30d=period_gmv, units_30d=period_items_sold)
+  - `cases.key_stats.tt_shop_us_helium10[product_id]` raw — lifetime + `periods{"30d@YYYY-MM-DD": {...}}` 시점·기간별 누적
+  - `cases.key_stats.tt_shop_us_affiliates` array (handle@product_id@period_end dedupe)
+  - `contents` 업서트 (URL unique, product_id 매핑 → Phase 4b가 SKU별 viral 영상 매칭)
+- UI: [TiktokProductFinderSection.tsx](src/components/case-detail/TiktokProductFinderSection.tsx) + [TiktokShopUsAffiliateSection.tsx](src/components/case-detail/TiktokShopUsAffiliateSection.tsx). page.tsx `channel=tiktok_shop && country=US` 분기.
+- **NOONI 첫 케이스** (`d7a4a129-7797-444d-89dc-018fb18154a5`): 8 product 중 3개 Helium10 paste + Affiliate CSV 656명 적재 (5개 product 남음). 같은 (제품, 시점) 재paste 시 덮어쓰기. 잘못된 product 매핑 1회 발생 후 Undo로 안 됐고 SQL 정정.
+
+**B. brand_view_trends 업로드 UI + 닥터포헤어 51주 적재 (5/26)**
+- 옛: 수동 SQL INSERT만 가능 (MISSHA US만 적재됨). Exolyt social listener CSV 받을 때마다 SQL 작성 부담.
+- 새: **`uploadBrandViewTrends`** server action ([upload-actions.ts](src/app/cases/[id]/upload-actions.ts)) — CSV 3컬럼 (date / views / videos) 파싱 → brand_id+country 기준 upsert (`onConflict: brand_id,country,week_start,source`). 헤더 컬럼 위치만 보고 브랜드 prefix 무시.
+- **`BrandViewTrendsSection`** ([브랜드 단위]) — ExolytSection 바로 아래에 박힘. 같은 brand 다른 케이스에도 자동 공유 안내. 적재된 주 수 표시.
+- 닥터포헤어 51주 수동 INSERT (2025-06-12 ~ 2026-05-28, 2025-11-20 1.36M views Black Friday viral peak).
+- 박힌 후 자동: BsrTrendChart 헤더 "영상 조회수 / 영상 개수" 토글 활성화 → BSR 라인 위 영상 활동 오버레이 (BSR 급등 시점 vs viral 시점 인과 추정).
+
+**C. Kalodata Video xlsx 정식 지원 (5/22)**
+- 옛: Kalodata Video는 영상 텍스트 페이스트 Top 10/20만 — Shop 영상의 영상-제품 매핑·ROAS·광고비 정보 누락.
+- 새: **`parseKalodataVideoXlsx`** ([parsers/kalodata.ts](src/lib/parsers/kalodata.ts)) — 17 컬럼 (TikTokUrl · Creator Handle · Product Title · Ad ROAS · Ad Spend · GPM · Item Sold · Views · Publish Date · Duration). Kalodata Video Export는 별도 4,000 크레딧 풀 → Top 500/브랜드 가능 (월 8 브랜드).
+- **`uploadKalodataVideosXlsx`** — products/influencers/contents 업서트 + `cases.key_stats.kalodata_videos_xlsx` 누적. TikTokUrl 박혀 Phase 4b Vision/클러스터링 자동 분석.
+- UI 슬롯 [KalodataSection](src/components/case-detail/KalodataSection.tsx) 하단에 추가.
+
+**D. Kalodata Insights — 주간 매출 추이 + 제품별 매출 분포 + drill-down (5/22-23)**
+- **WeeklyRevenueChart**: 영상 publish_date 주별 스택 막대 (광고 vs 오가닉) + SKU 드롭다운 셀렉터 (Amazon BsrTrendChart 패턴). "매출 튄 주가 광고인지 오가닉인지" 직관 시그널.
+- **ProductRevenueChart**: 제품별 매출 분포 + 누적 80% Pareto. **회색 = 30일 총 매출 (Kalodata Brand 페이지) / 파란 = 영상 attribution 매출**. 헤더에 영상 attribution % (≥60% pos / ≥30% info). 행 클릭 → drill-down 영상 리스트 펼침 (Creator/Caption/Revenue/Views/ROAS/Date).
+- SKU 30일 매출 표(SkuSalesModule) Kalodata Video xlsx 들어온 케이스에서 hide — 제품별 매출 분포가 같은 정보 + 영상 drill-down까지 포함.
+
+**E. SKU 헬스 박스 — 4개 BP 시그널 + Top 5 토글 (5/25)**
+- 옛: SkuSalesModule이 18 SKU 다 나열 → BP 관점에서 패턴 파악 어려움. 사용자 지적 "너무 많은 걸 해석해야 한다".
+- 새: 상단에 **3개 카드** (사용자 요청으로 BSR 카드 제거)
+  1. **매출 집중도 (Pareto)** — 큰 숫자 Top 3 % + ParetoStackBar (Top1/Top2-3/Top4-5/그 외 4단 스택)
+  2. **카테고리 분포** — 1위 카테고리 큰 숫자 % + CategoryBar (5색 가로 스택)
+  3. **신상 매출 비중** — 큰 숫자 + AgeStackBar (신상 1년 / 1~3년 / 3년+ 색상 스택). skuMeta.launch_date 기준 자동 분류.
+- 표는 default Top 5 + "전체 N개 SKU 보기" 토글.
+- SkuHealthCard 헬퍼 5단 시각 위계 (label / headline 24px / sublabel / 시각 막대 / footer 평가).
+
+**F. Styled Dropzone 통일 (5/26)**
+- 옛: file input native 스타일이라 버튼처럼 안 보임, 일관성 X.
+- 새: 4개 슬롯 모두 `UploadDropzone` (drag&drop + clickable dashed border + 22px ⬆ 아이콘) 통일:
+  - TiktokShopUsAffiliateSection (CSV)
+  - BrandViewTrendsSection (CSV)
+  - KalodataSection Creator xlsx
+  - KalodataSection Video xlsx
+
+**G. 신규 케이스 — Dr. for hair / Dr. Groot / NOONI 미국 (5/25-26)**
+- **🇺🇸 Dr. for hair** (`85c50afc-fada-4a60-a529-1022a366d49e`, Amazon) — 18 SKU · 영상 327 · 인플 275 · 광고 16% · Meta 광고 886. 11월 Black Friday peak (영상 81, 광고 36%), 11/20 1.36M views viral. 12개월 데이터.
+- **🇺🇸 Dr. Groot** (`f56fee3f-7e23-4b6b-a1cb-7a4bb7ebdaae`, Amazon) — 17 SKU · 영상 9,961 · 인플 4,014 · 광고 82%. 매월 400~1.1K 영상 (always-on 모드). 헤어케어 빅브랜드.
+- **🇺🇸 NOONI** (`d7a4a129-7797-444d-89dc-018fb18154a5`, TT Shop) — TT Shop US 정식 지원 첫 케이스. 8 product 중 3개 Helium10 paste 적재. Apple Lip Oil 154 affiliate · 334 영상.
+
+### 진행 중/완료 케이스 (5/26 기준 갱신)
+
+**총 40+ 케이스 / 30+ 브랜드**. 이번 세션 신규/변경:
+
+**🇺🇸 신규 — Dr. for hair** (`85c50afc-fada-4a60-a529-1022a366d49e`, Amazon)
+- 18 SKU / 30일 매출 $189,947 / 영상 327 (12개월) / 인플 275 / Meta 광고 886 / 광고 비중 16%
+- brand_view_trends 51주 (2025-06 ~ 2026-05). 11/20 1.36M views Black Friday viral.
+- 시즌 push 모드 (Black Friday 1회만 strong push, 그 후 휴면) — Dr. Groot 같은 always-on 빅브랜드와 비교 가능.
+
+**🇺🇸 신규 — Dr. Groot** (`f56fee3f-7e23-4b6b-a1cb-7a4bb7ebdaae`, Amazon)
+- 17 SKU / 30일 매출 $1.59M / 영상 9,961 (12개월) / 인플 4,014 / 광고 비중 82%. 헤어케어 always-on 빅브랜드.
+- Phase 4b ASR 단계서 Vercel function timeout 의심 (1h 3m running 후 cancel + 재실행). `vercel.json maxDuration: 800` 이미 설정. BATCH_SIZE 50으로 보존.
+
+**🇺🇸 신규 — NOONI** (`d7a4a129-7797-444d-89dc-018fb18154a5`, TT Shop)
+- TT Shop US 정식 지원 첫 케이스. 8 product / 30일 매출 $6.13M (Apify scraper 추정, Helium10로 정정 진행 중) / contents 15,722.
+- Helium10 Product Finder paste 3/8 product (Apple Lip Oil / Cleansing Oil / Glossy Lip Balm) + Affiliate CSV 656명 (3개 product).
+- 잘못된 product 매핑 1회 발생 (Lip Tint Stain Duo/Trio Bundle에 Apple Lip Oil 데이터 박힘) → SQL DELETE 정정. Preview before commit으로 향후 재발 방지.
+
+---
+
+
 
 **A. SEA TikTok Shop — Kalodata 풀 UI 통합 (5/20)**
 - 옛: 사용자가 Kalodata 데이터 → 내가 SQL INSERT (수동). Skin1004 ID 첫 케이스만 그렇게.
