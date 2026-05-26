@@ -1772,22 +1772,153 @@ export async function uploadTiktokShopUsAffiliate(
 }
 
 /**
- * Helium10 TikTok Product Finder → Product Details 페이지 텍스트 paste 업로드.
+ * Helium10 TT Product Finder paste dry-run — 적재 안 하고 diff만 계산해서 반환.
+ * UI에서 사용자에게 "이렇게 박혀" 미리보기 → 확인 후 commit.
+ */
+export type TtProductFinderDryRun = {
+  ok: true;
+  parsed: ReturnType<typeof parseTiktokProductFinder>;
+  product: {
+    id: string;
+    name: string;
+    asin: string | null;
+  };
+  diff: {
+    price: { from: number | null; to: number | null; changed: boolean };
+    launch_date: {
+      from: string | null;
+      to: string | null;
+      changed: boolean;
+    };
+    subcategory: {
+      from: string | null;
+      to: string | null;
+      changed: boolean;
+    };
+    sales_30d: {
+      revenue_from: number | null;
+      revenue_to: number | null;
+      units_from: number | null;
+      units_to: number | null;
+      changed: boolean;
+    };
+    has_existing_helium10_for_period: boolean;
+  };
+};
+
+export async function dryRunTiktokProductFinder(
+  case_id: string,
+  formData: FormData,
+): Promise<{ ok: true; preview: TtProductFinderDryRun } | { ok: false; error: string }> {
+  const text = String(formData.get("text") ?? "").trim();
+  if (!text) return { ok: false, error: "텍스트 비어있음" };
+  const product_id = String(formData.get("product_id") ?? "").trim();
+  if (!product_id) return { ok: false, error: "product_id 필수" };
+  const period_days = String(formData.get("period_days") ?? "30").trim();
+  if (!["7", "14", "30"].includes(period_days)) {
+    return { ok: false, error: "period_days 7/14/30 중 하나" };
+  }
+  const period_end = String(formData.get("period_end") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(period_end)) {
+    return { ok: false, error: "period_end YYYY-MM-DD 형식" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop" || c.country !== "US") {
+    return { ok: false, error: "US TikTok Shop 케이스만 지원" };
+  }
+
+  const { data: prodRow } = await supabase
+    .from("products")
+    .select("id, name, asin, price, launch_date, subcategory")
+    .eq("id", product_id)
+    .eq("case_id", case_id)
+    .maybeSingle();
+  if (!prodRow) return { ok: false, error: "이 케이스의 product 아님" };
+
+  const parsed = parseTiktokProductFinder(text);
+  if (parsed.errors.length > 0) {
+    return { ok: false, error: parsed.errors.join(" · ") };
+  }
+
+  // 기존 case_product_sales 확인 (같은 period_end)
+  const { data: existingSales } = await supabase
+    .from("case_product_sales")
+    .select("revenue_30d, units_30d, source")
+    .eq("case_id", case_id)
+    .eq("product_id", product_id)
+    .eq("period_end", period_end)
+    .maybeSingle();
+
+  // 기존 helium10 데이터
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const existingHelium = ((caseRow?.key_stats as Record<string, unknown>)?.[
+    "tt_shop_us_helium10"
+  ] ?? {}) as Record<string, { periods?: Record<string, unknown> }>;
+  const periodKey = `${period_days}d@${period_end}`;
+  const has_existing_helium10_for_period = !!existingHelium[product_id]?.periods?.[periodKey];
+
+  return {
+    ok: true,
+    preview: {
+      ok: true,
+      parsed,
+      product: {
+        id: prodRow.id,
+        name: prodRow.name,
+        asin: prodRow.asin,
+      },
+      diff: {
+        price: {
+          from: prodRow.price != null ? Number(prodRow.price) : null,
+          to: parsed.price_usd,
+          changed:
+            parsed.price_usd != null &&
+            Number(prodRow.price ?? 0) !== parsed.price_usd,
+        },
+        launch_date: {
+          from: prodRow.launch_date,
+          to: parsed.listed_date,
+          changed:
+            !!parsed.listed_date && prodRow.launch_date !== parsed.listed_date,
+        },
+        subcategory: {
+          from: prodRow.subcategory,
+          to: parsed.subcategory,
+          changed:
+            !!parsed.subcategory && prodRow.subcategory !== parsed.subcategory,
+        },
+        sales_30d: {
+          revenue_from:
+            existingSales?.revenue_30d != null
+              ? Number(existingSales.revenue_30d)
+              : null,
+          revenue_to: parsed.period_gmv_usd,
+          units_from: existingSales?.units_30d ?? null,
+          units_to: parsed.period_items_sold,
+          changed:
+            existingSales?.revenue_30d != null
+              ? Number(existingSales.revenue_30d) !==
+                (parsed.period_gmv_usd ?? 0)
+              : parsed.period_gmv_usd != null,
+        },
+        has_existing_helium10_for_period,
+      },
+    },
+  };
+}
+
+/**
+ * Helium10 TikTok Product Finder commit — dry-run에서 확인한 데이터 실제 적재.
+ * Undo용 이전 상태 snapshot도 같이 박음.
  *
  * Apify scraper(`tiktok_shop_scraper`)가 박는 매출 데이터가 변형 옵션 가격
  * 가정 차이로 28배 과대평가되는 경우가 있음 (NOONI Lip Oil 검증). Helium10이
- * 훨씬 정확. 사용자가 페이지 통째 텍스트 복사(Cmd+A) → 슬롯에 붙여넣기로
- * 정확한 lifetime + 30일 매출/active inf/active videos + Rating + Listed Date
- * + Subcategory를 박음.
- *
- * 적재 위치:
- *   - products.price (Apify 값 override — Helium10이 변형 옵션 평균가 정확)
- *   - products.launch_date (Listed Date)
- *   - products.subcategory (Category 마지막 노드)
- *   - case_product_sales upsert (source='helium10_tt_finder', period_end,
- *     revenue_30d=period_gmv, units_30d=period_items_sold)
- *   - cases.key_stats.tt_shop_us_helium10[product_id] raw (lifetime + 30일 +
- *     new videos/influencers + rating, period_days 별로 누적)
+ * 훨씬 정확.
  */
 export async function uploadTiktokProductFinder(
   case_id: string,
@@ -1815,10 +1946,10 @@ export async function uploadTiktokProductFinder(
   }
   if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
 
-  // product 검증
+  // product 검증 (Undo snapshot용으로 기존 메타도 같이 가져옴)
   const { data: prodRow } = await supabase
     .from("products")
-    .select("id, name, asin, external_product_id")
+    .select("id, name, asin, external_product_id, price, launch_date, subcategory")
     .eq("id", product_id)
     .eq("case_id", case_id)
     .maybeSingle();
@@ -1838,6 +1969,15 @@ export async function uploadTiktokProductFinder(
     periodStartDate.getUTCDate() - Number(period_days),
   );
   const period_start = periodStartDate.toISOString().slice(0, 10);
+
+  // Undo snapshot용 — 기존 case_product_sales row + helium10 entry
+  const { data: existingSalesRow } = await supabase
+    .from("case_product_sales")
+    .select("*")
+    .eq("case_id", case_id)
+    .eq("product_id", product_id)
+    .eq("period_end", period_end)
+    .maybeSingle();
 
   // 1) products 메타 업데이트 (Helium10 데이터로 override)
   const productUpdates: {
@@ -1944,12 +2084,30 @@ export async function uploadTiktokProductFinder(
     [productKey]: merged,
   };
 
+  // Undo snapshot — 직전 상태 보관 (사용자가 "방금 적재 취소" 누를 때 복원용)
+  const undoSnapshot = {
+    type: "helium10_product_finder",
+    case_id,
+    product_id,
+    captured_at: new Date().toISOString(),
+    prev_products: {
+      price: prodRow.price,
+      launch_date: prodRow.launch_date,
+      subcategory: prodRow.subcategory,
+    },
+    prev_case_product_sales: existingSalesRow ?? null, // null이면 신규 INSERT라 삭제로 롤백
+    prev_helium10_entry: existingHelium[productKey] ?? null, // null이면 신규 추가
+    period_end,
+    period_days,
+  };
+
   await supabase
     .from("cases")
     .update({
       key_stats: {
         ...existingStats,
         tt_shop_us_helium10: newHelium,
+        _last_undo: undoSnapshot,
       } as never,
     })
     .eq("id", case_id);
@@ -1962,5 +2120,93 @@ export async function uploadTiktokProductFinder(
   return {
     ok: true,
     message: `[${productLabel}] Helium10 적재 OK · Listed ${parsed.listed_date ?? "—"} · Rating ${parsed.rating ?? "—"} · Lifetime $${(parsed.lifetime_gmv_usd ?? 0).toLocaleString()} (${parsed.lifetime_items_sold?.toLocaleString() ?? "—"} 판매) · Last ${period_days}d $${(parsed.period_gmv_usd ?? 0).toLocaleString()} (신규 영상 ${parsed.period_new_videos ?? 0} · 신규 인플 ${parsed.period_new_influencers ?? 0})`,
+  };
+}
+
+/**
+ * 마지막 helium10 paste 적재 롤백.
+ * cases.key_stats._last_undo에 박힌 snapshot으로 prev 상태 복원.
+ */
+export async function undoLastTiktokProductFinder(
+  case_id: string,
+): Promise<Result> {
+  const { supabase } = await getCase(case_id);
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const stats = (caseRow?.key_stats ?? {}) as Record<string, unknown>;
+  const undo = stats["_last_undo"] as
+    | {
+        type: string;
+        product_id: string;
+        prev_products: {
+          price: number | null;
+          launch_date: string | null;
+          subcategory: string | null;
+        };
+        prev_case_product_sales: Record<string, unknown> | null;
+        prev_helium10_entry: Record<string, unknown> | null;
+        period_end: string;
+      }
+    | undefined;
+
+  if (!undo || undo.type !== "helium10_product_finder") {
+    return { ok: false, error: "롤백할 직전 적재 없음" };
+  }
+
+  // 1) products 메타 복원
+  await supabase
+    .from("products")
+    .update({
+      price: undo.prev_products.price,
+      launch_date: undo.prev_products.launch_date,
+      subcategory: undo.prev_products.subcategory,
+    })
+    .eq("id", undo.product_id);
+
+  // 2) case_product_sales 복원
+  if (undo.prev_case_product_sales) {
+    // 기존 row 있었음 → 그 값으로 복원
+    await supabase
+      .from("case_product_sales")
+      .upsert([undo.prev_case_product_sales as never], {
+        onConflict: "case_id,product_id,period_end",
+      });
+  } else {
+    // 기존 row 없었음 → 추가된 row 삭제
+    await supabase
+      .from("case_product_sales")
+      .delete()
+      .eq("case_id", case_id)
+      .eq("product_id", undo.product_id)
+      .eq("period_end", undo.period_end)
+      .eq("source", "helium10_tt_finder");
+  }
+
+  // 3) cases.key_stats.tt_shop_us_helium10[product_id] 복원
+  const existingHelium = ((stats["tt_shop_us_helium10"] ?? {}) as Record<
+    string,
+    unknown
+  >);
+  if (undo.prev_helium10_entry) {
+    existingHelium[undo.product_id] = undo.prev_helium10_entry;
+  } else {
+    delete existingHelium[undo.product_id];
+  }
+  // _last_undo 제거 (중복 undo 방지)
+  const newStats = { ...stats, tt_shop_us_helium10: existingHelium };
+  delete (newStats as Record<string, unknown>)["_last_undo"];
+
+  await supabase
+    .from("cases")
+    .update({ key_stats: newStats as never })
+    .eq("id", case_id);
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `직전 Helium10 적재 롤백 완료 (product ${undo.product_id.slice(0, 8)}… · 기준 ${undo.period_end})`,
   };
 }

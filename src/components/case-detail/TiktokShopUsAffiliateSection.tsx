@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadTiktokShopUsAffiliate } from "@/app/cases/[id]/upload-actions";
+import { UploadDropzone } from "./UploadDropzone";
 
 /**
  * TikTok Shop US 케이스의 제품 단위 affiliate creator CSV 업로드.
@@ -229,15 +230,15 @@ export function TiktokShopUsAffiliateSection({
                 30일 GMV의 끝 시점. 파일명에 YYYY-MM-DD 있으면 자동 채움.
               </span>
             </div>
-            <input
-              type="file"
+            <UploadDropzone
               accept=".csv,text/csv"
-              disabled={pending || !productId}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onFile(f);
-              }}
-              style={{ fontSize: 11 }}
+              hint={
+                productId
+                  ? "CSV 파일을 끌어다 놓거나 클릭하여 선택"
+                  : "먼저 위에서 제품을 선택하세요"
+              }
+              pending={pending}
+              onFile={(f) => productId && onFile(f)}
             />
           </>
         )}

@@ -748,6 +748,11 @@ export default async function CaseDetailPage({
                         })?.tt_shop_us_helium10 ?? {},
                       ).length
                     }
+                    hasUndo={
+                      ((c.key_stats as { _last_undo?: { type?: string } })
+                        ?._last_undo?.type ?? "") ===
+                      "helium10_product_finder"
+                    }
                   />
                   <TiktokShopUsAffiliateSection
                     case_id={c.id}

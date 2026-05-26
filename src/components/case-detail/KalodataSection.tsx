@@ -7,6 +7,7 @@ import {
   uploadKalodataCreatorsXlsx,
   uploadKalodataVideosXlsx,
 } from "@/app/cases/[id]/upload-actions";
+import { UploadDropzone } from "./UploadDropzone";
 
 /**
  * TikTok Shop SEA 케이스용 Kalodata 데이터 업로드.
@@ -238,15 +239,11 @@ export function KalodataSection({
           Range 1~500 지정해서 xlsx 받음. <b>Live/Video GMV 분리, 컨택, 팔로워,
           데뷔일</b> 다 들어있음. 추천: Top 500 (500 크레딧/브랜드, 월 4,000 ÷ 500 = 8 브랜드).
         </div>
-        <input
-          type="file"
+        <UploadDropzone
           accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-          disabled={xlsxPending}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) submitXlsx(f);
-          }}
-          style={{ fontSize: 11 }}
+          hint="xlsx 또는 csv (LIST_CREATOR 시트)"
+          pending={xlsxPending}
+          onFile={submitXlsx}
         />
         {xlsxMsg && (
           <div
@@ -301,15 +298,11 @@ export function KalodataSection({
           클러스터링 자동 분석. <b>엑솔릿이 못 잡는 Shop 영상</b>(해시태그/멘션 없음)
           이게 유일한 경로. 추천: Top 500 (Video 풀 4,000 ÷ 500 = 8 브랜드).
         </div>
-        <input
-          type="file"
+        <UploadDropzone
           accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-          disabled={videoXlsxPending}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) submitVideoXlsx(f);
-          }}
-          style={{ fontSize: 11 }}
+          hint="xlsx 또는 csv (LIST_VIDEO 시트 — TikTokUrl 포함)"
+          pending={videoXlsxPending}
+          onFile={submitVideoXlsx}
         />
         {videoXlsxMsg && (
           <div

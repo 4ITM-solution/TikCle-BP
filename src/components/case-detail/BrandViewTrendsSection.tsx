@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadBrandViewTrends } from "@/app/cases/[id]/upload-actions";
+import { UploadDropzone } from "./UploadDropzone";
 
 /**
  * Exolyt social listener 주간 viral 데이터 업로드.
@@ -84,15 +85,11 @@ export function BrandViewTrendsSection({
           {" "}(예: <code>date,drforhair_views,drforhair_videos</code>). 같은 주
           재업로드 시 기존 row 덮어쓰기 (source=exolyt 기준).
         </div>
-        <input
-          type="file"
+        <UploadDropzone
           accept=".csv,text/csv"
-          disabled={pending}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFile(f);
-          }}
-          style={{ fontSize: 11 }}
+          hint="CSV 파일 (date · views · videos 3컬럼)"
+          pending={pending}
+          onFile={onFile}
         />
         {msg && (
           <div
