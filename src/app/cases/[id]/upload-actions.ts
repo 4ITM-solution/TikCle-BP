@@ -1590,6 +1590,13 @@ export async function uploadTiktokShopUsAffiliate(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "CSV 파일 비어있음" };
   }
+  const product_id = String(formData.get("product_id") ?? "").trim();
+  if (!product_id) {
+    return {
+      ok: false,
+      error: "product_id 필수 — 어느 제품 export인지 선택해주세요",
+    };
+  }
 
   const { supabase, c } = await getCase(case_id);
   if (c.channel !== "tiktok_shop") {
@@ -1599,6 +1606,23 @@ export async function uploadTiktokShopUsAffiliate(
     return { ok: false, error: "US TikTok Shop 전용 (SEA는 Kalodata 사용)" };
   }
   if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  // product 매핑 검증
+  const { data: prodRow, error: prodErr } = await supabase
+    .from("products")
+    .select("id, name, asin, external_product_id")
+    .eq("id", product_id)
+    .eq("case_id", case_id)
+    .maybeSingle();
+  if (prodErr || !prodRow) {
+    return {
+      ok: false,
+      error: `이 케이스에 속한 product가 아닙니다 (id=${product_id})`,
+    };
+  }
+  const productLabel = prodRow.asin
+    ? `${prodRow.asin} · ${prodRow.name?.slice(0, 60) ?? ""}`
+    : (prodRow.name?.slice(0, 60) ?? product_id);
 
   const text = await file.text();
   const parsed = parseTiktokShopUsAffiliate(text);
@@ -1638,12 +1662,13 @@ export async function uploadTiktokShopUsAffiliate(
     (inflRowsBack ?? []).map((x) => [x.external_id ?? "", x.id]),
   );
 
-  // 3) contents 업서트 (url unique). Videos URL 모두 풀어서 박음.
+  // 3) contents 업서트 (url unique). Videos URL 모두 풀어서 박음. product_id 매핑.
   const contentInserts: Array<{
     url: string;
     brand_id: string;
     country: string;
     influencer_id: string | null;
+    product_id: string;
     is_ad: boolean;
   }> = [];
   for (const r of parsed.rows) {
@@ -1654,6 +1679,7 @@ export async function uploadTiktokShopUsAffiliate(
         brand_id: c.brand_id,
         country: c.country,
         influencer_id,
+        product_id,
         is_ad: false,
       });
     }
@@ -1681,7 +1707,9 @@ export async function uploadTiktokShopUsAffiliate(
     contentInserted = count ?? uniqueContents.length;
   }
 
-  // 4) cases.key_stats.tt_shop_us_affiliates 누적 (handle dedupe)
+  // 4) cases.key_stats.tt_shop_us_affiliates 누적
+  //    같은 affiliate가 다른 제품에 대해 별도 GMV/Items 가질 수 있어 dedupe key
+  //    = `${handle}@${product_id}`. 같은 (제품, affiliate) 재업로드 시 덮어쓰기.
   const { data: caseRow } = await supabase
     .from("cases")
     .select("key_stats")
@@ -1691,14 +1719,21 @@ export async function uploadTiktokShopUsAffiliate(
   const existingAffiliates = Array.isArray(
     existingStats["tt_shop_us_affiliates"],
   )
-    ? (existingStats["tt_shop_us_affiliates"] as Array<{ handle: string }>)
+    ? (existingStats["tt_shop_us_affiliates"] as Array<{
+        handle: string;
+        product_id?: string;
+      }>)
     : [];
   const merged = new Map<string, unknown>();
   for (const e of existingAffiliates) {
-    if (e?.handle) merged.set(e.handle, e);
+    if (e?.handle) {
+      const k = `${e.handle}@${e.product_id ?? ""}`;
+      merged.set(k, e);
+    }
   }
   for (const r of parsed.rows) {
-    merged.set(r.handle, r);
+    const k = `${r.handle}@${product_id}`;
+    merged.set(k, { ...r, product_id });
   }
   const mergedArr = Array.from(merged.values());
   await supabase
@@ -1722,6 +1757,6 @@ export async function uploadTiktokShopUsAffiliate(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개`,
+    message: `[${productLabel}] affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개`,
   };
 }

@@ -220,7 +220,9 @@ export default async function CaseDetailPage({
         // Shopee는 asin이 null이고 external_product_id가 식별자
         const identifier = p.asin ?? p.external_product_id ?? "";
         return {
+          id: p.id,
           asin: identifier,
+          external_product_id: p.external_product_id ?? null,
           name: p.name,
           url:
             p.product_url ??
@@ -731,6 +733,12 @@ export default async function CaseDetailPage({
               {c.channel === "tiktok_shop" && c.country === "US" && (
                 <TiktokShopUsAffiliateSection
                   case_id={c.id}
+                  products={skuRows.map((s) => ({
+                    id: s.id,
+                    name: s.name ?? "",
+                    asin: s.asin || null,
+                    external_product_id: s.external_product_id,
+                  }))}
                   existingAffiliates={
                     Array.isArray(
                       (c.key_stats as { tt_shop_us_affiliates?: unknown[] })

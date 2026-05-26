@@ -19,7 +19,9 @@ import {
 } from "@/lib/case-detail/exchange-rates";
 
 export type SkuRow = {
+  id: string;
   asin: string;
+  external_product_id: string | null;
   name: string;
   url: string | null;
   units_30d: number | null;
