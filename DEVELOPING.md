@@ -24,7 +24,50 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-26 (5/20~5/26 6일간 큰 변화. Kalodata Video xlsx 정식 지원 + SKU 헬스 박스 + brand_view_trends UI + TT Shop US 정식 지원 — Affiliate CSV + Helium10 Product Finder paste + Preview before commit + Undo + Styled Dropzone 통일)
+> **갱신 시점**: 2026-05-27 (5/27 추가 변화. 케이스 비교 페이지 rule-based fact 카드 + Phase 1.5 only 트리거 + TT Shop US 슬롯 draft 노출 + product 드롭다운 검색·매출 라벨)
+
+### 2026-05-27 박힌 변화 요약
+
+**A. 케이스 비교 페이지 — Rule-based fact 카드 + Mode 감지**
+- 옛: CompareGrid가 17행 × N케이스 숫자 표만. 시각 hierarchy 없고 max/min 비교 시각화 X. 사용자 지적 "하나도 안 직관적".
+- 새:
+  - **`compare-facts.ts`** ([src/lib/case-detail/compare-facts.ts](src/lib/case-detail/compare-facts.ts))
+    - Mode 자동 감지: `market` / `brand` / `channel` / `mixed` (브랜드·국가·채널 조합 분석)
+    - 10개 fact 함수 — `fact_sales` (매출 max/min 비율) / `fact_sales_efficiency` (영상당 매출) / `fact_seeding_volume` / `fact_ad_ratio` / `fact_hero_concentration` (top1/3 SKU) / `fact_tier_distribution` (메가 max) / `fact_creator_overlap` (set 교집합/차집합) / `fact_live_video_ratio` (Kalodata) / `fact_timing` (시작 시점·기간) / `fact_monthly_peak` (동일 시즌인지)
+    - 각 fact: headline 자동 생성 ("ID가 TH의 3배 매출") + 케이스별 값 + 막대 ratio + tone
+  - **`CompareDashboard.tsx`** — 헤더 카드(색상 배지) + Mode 박스 + Fact 카드 grid (auto-fit) + 디테일 표 접힘 (기존 CompareGrid 유지)
+- **LLM 호출 0** — 모든 인사이트 deterministic 코드 계산. 사용자 지적 "매번 너 트리거하면 별로다" 반영. 새 시그널 필요하면 fact 함수 1개 추가.
+
+**B. Phase 1.5 only 트리거 — Helium10 paste 전 products 채우기**
+- 옛 차단점: TT Shop US draft 케이스에서 Helium10 paste / Affiliate CSV 슬롯이 product 드롭다운 필요한데, products는 Phase 1.5 (Apify) 안 돌려서 0개 → 슬롯 비활성. 본 분석 시작하려면 Exolyt 필요한데 Exolyt 없으면 분석 시작 불가 → 닭과 달걀.
+- 새:
+  - `case/start.analysis` 이벤트에 `phase15_only?: boolean` 옵션
+  - run-analysis.ts: Phase 1.5 완료 직후 phase15_only=true면 status='draft' 되돌리고 early return
+  - `startPhase15Only` server action + `StartPhase15Button` 클라이언트 컴포넌트
+  - 안내 메시지: "Phase 1.5 시작 — 약 5~30분 소요. products 박힌 후 새로고침하면 Helium10 / Affiliate 슬롯 활성화돼요."
+- 흐름: store URL 박힌 케이스 → [제품 자동 수집 시작] → ~30분 후 products 박힘 → 새로고침 → Helium10 paste 가능 → 본 분석 시작.
+
+**C. TT Shop US 슬롯 draft 케이스에도 노출**
+- 옛: TiktokProductFinderSection + TiktokShopUsAffiliateSection이 ready 분기에만 박혀 있어, draft 케이스에서 사용자가 슬롯 못 봄.
+- 새: draft 분기 (Section 02 데이터 업로드) 안에도 두 슬롯 박음. 자동 수집 안내 박스 아래.
+
+**D. Exolyt OR Affiliate CSV 분석 시작 가능 안내**
+- 분석 시작 reason 메시지 TT Shop US 분기: "영상 데이터 필요 — Exolyt CSV 또는 Affiliate CSV (TT Shop) 둘 중 하나"
+- ExolytSection 위 안내 박스 (TT Shop US 한정): "Affiliate CSV 1개 이상이면 영상 데이터 충족. Exolyt 있으면 캡션·views까지 풍부해져 Phase 4b 깊어짐"
+- 실제로는 Affiliate CSV로 박은 영상 URL이 contents에 들어가 `contentCount > 0` → `exolytDone` 자동 충족. 별도 코드 변경 없이 UI 안내만 명확화.
+
+**E. TT Shop US product 드롭다운 — 매출 라벨 + 검색 input**
+- 옛: 30개+ product에서 ID로 찾기 불가능 (브라우저 native `<select>`는 검색 X). "1729440860171702516 어디 있는지 못 찾겠어".
+- 새:
+  - 드롭다운 위에 검색 input 추가 (placeholder "🔍 ID 끝자리 / ASIN / 이름 부분 입력")
+  - 검색어 부분 일치로 products 필터 (external_product_id / asin / name)
+  - 옵션 라벨: `#1 [$1.2M] external_id · name` 형식 (매출 K/M 자동 단위, 인덱스 번호)
+  - 우측 "필터된N/전체M" 카운터
+  - page.tsx skuRows.map 4곳에 revenue_30d prop 추가 (이미 매출 내림차순 정렬됨)
+
+**F. uploadKalodata units_30d float 오차 fix**
+- Kalodata "4.06k" → `4.06 × 1000 = 4059.9999999999995` (IEEE 754 float 오차) → `case_product_sales.units_30d` integer 컬럼 INSERT 실패. Beauty of Joseon TH 케이스에서 발생.
+- 해결: `Math.round(p.item_sold)` 한 줄 추가.
 
 ### 2026-05-20 ~ 05-26 박힌 변화 요약 (최근 → 옛)
 
