@@ -16,6 +16,7 @@ import {
   parseKalodataVideoXlsx,
 } from "@/lib/parsers/kalodata";
 import { parseTiktokShopUsAffiliate } from "@/lib/parsers/tt-shop-us";
+import { parseTiktokProductFinder } from "@/lib/parsers/tt-product-finder";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
 import { inngest } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
@@ -1767,5 +1768,199 @@ export async function uploadTiktokShopUsAffiliate(
   return {
     ok: true,
     message: `[${productLabel}] affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개 · 기준 ${period_end}`,
+  };
+}
+
+/**
+ * Helium10 TikTok Product Finder → Product Details 페이지 텍스트 paste 업로드.
+ *
+ * Apify scraper(`tiktok_shop_scraper`)가 박는 매출 데이터가 변형 옵션 가격
+ * 가정 차이로 28배 과대평가되는 경우가 있음 (NOONI Lip Oil 검증). Helium10이
+ * 훨씬 정확. 사용자가 페이지 통째 텍스트 복사(Cmd+A) → 슬롯에 붙여넣기로
+ * 정확한 lifetime + 30일 매출/active inf/active videos + Rating + Listed Date
+ * + Subcategory를 박음.
+ *
+ * 적재 위치:
+ *   - products.price (Apify 값 override — Helium10이 변형 옵션 평균가 정확)
+ *   - products.launch_date (Listed Date)
+ *   - products.subcategory (Category 마지막 노드)
+ *   - case_product_sales upsert (source='helium10_tt_finder', period_end,
+ *     revenue_30d=period_gmv, units_30d=period_items_sold)
+ *   - cases.key_stats.tt_shop_us_helium10[product_id] raw (lifetime + 30일 +
+ *     new videos/influencers + rating, period_days 별로 누적)
+ */
+export async function uploadTiktokProductFinder(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const text = String(formData.get("text") ?? "").trim();
+  if (!text) return { ok: false, error: "텍스트 비어있음" };
+
+  const product_id = String(formData.get("product_id") ?? "").trim();
+  if (!product_id) {
+    return { ok: false, error: "product_id 필수 — 제품 선택 해주세요" };
+  }
+  const period_days = String(formData.get("period_days") ?? "30").trim();
+  if (!["7", "14", "30"].includes(period_days)) {
+    return { ok: false, error: "period_days 7/14/30 중 하나" };
+  }
+  const period_end = String(formData.get("period_end") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(period_end)) {
+    return { ok: false, error: "period_end YYYY-MM-DD 형식 필요" };
+  }
+
+  const { supabase, c } = await getCase(case_id);
+  if (c.channel !== "tiktok_shop" || c.country !== "US") {
+    return { ok: false, error: "US TikTok Shop 케이스만 지원" };
+  }
+  if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  // product 검증
+  const { data: prodRow } = await supabase
+    .from("products")
+    .select("id, name, asin, external_product_id")
+    .eq("id", product_id)
+    .eq("case_id", case_id)
+    .maybeSingle();
+  if (!prodRow) {
+    return { ok: false, error: `이 케이스에 속한 product가 아닙니다` };
+  }
+
+  const parsed = parseTiktokProductFinder(text);
+  if (parsed.errors.length > 0) {
+    return { ok: false, error: parsed.errors.join(" · ") };
+  }
+
+  // period_start 계산
+  const periodEndDate = new Date(period_end);
+  const periodStartDate = new Date(periodEndDate);
+  periodStartDate.setUTCDate(
+    periodStartDate.getUTCDate() - Number(period_days),
+  );
+  const period_start = periodStartDate.toISOString().slice(0, 10);
+
+  // 1) products 메타 업데이트 (Helium10 데이터로 override)
+  const productUpdates: {
+    price?: number;
+    launch_date?: string;
+    subcategory?: string;
+  } = {};
+  if (parsed.price_usd != null) productUpdates.price = parsed.price_usd;
+  if (parsed.listed_date) productUpdates.launch_date = parsed.listed_date;
+  if (parsed.subcategory) productUpdates.subcategory = parsed.subcategory;
+  if (Object.keys(productUpdates).length > 0) {
+    const { error: prodErr } = await supabase
+      .from("products")
+      .update(productUpdates)
+      .eq("id", product_id);
+    if (prodErr) {
+      return { ok: false, error: `products 업데이트: ${prodErr.message}` };
+    }
+  }
+
+  // 2) case_product_sales upsert (period_days 기준 매출/판매량)
+  if (parsed.period_gmv_usd != null || parsed.period_items_sold != null) {
+    const { error: salesErr } = await supabase
+      .from("case_product_sales")
+      .upsert(
+        [
+          {
+            case_id: c.id,
+            product_id,
+            country: c.country,
+            units_30d: parsed.period_items_sold,
+            revenue_30d: parsed.period_gmv_usd,
+            price: parsed.price_usd,
+            currency: "USD",
+            period_start,
+            period_end,
+            source: "helium10_tt_finder",
+          },
+        ],
+        { onConflict: "case_id,product_id,period_end" },
+      );
+    if (salesErr) {
+      console.warn(
+        "[uploadTiktokProductFinder] sales upsert:",
+        salesErr.message,
+      );
+    }
+  }
+
+  // 3) cases.key_stats.tt_shop_us_helium10 raw 누적
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const existingStats = (caseRow?.key_stats ?? {}) as Record<string, unknown>;
+  const existingHelium = (existingStats["tt_shop_us_helium10"] ?? {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  const productKey = product_id;
+  const existingForProduct = (existingHelium[productKey] ?? {}) as Record<
+    string,
+    unknown
+  >;
+
+  // 같은 (product_id, period_end, period_days) 재업로드 시 덮어쓰기
+  const periodKey = `${period_days}d@${period_end}`;
+  const existingPeriods = (existingForProduct["periods"] ?? {}) as Record<
+    string,
+    unknown
+  >;
+
+  const merged: Record<string, unknown> = {
+    ...existingForProduct,
+    product_name: parsed.product_name,
+    shop_name: parsed.shop_name,
+    rating: parsed.rating,
+    listed_date: parsed.listed_date,
+    category_path: parsed.category_path,
+    subcategory: parsed.subcategory,
+    price_usd: parsed.price_usd,
+    lifetime_items_sold: parsed.lifetime_items_sold,
+    lifetime_gmv_usd: parsed.lifetime_gmv_usd,
+    lifetime_relevant_influencers: parsed.lifetime_relevant_influencers,
+    lifetime_relevant_videos: parsed.lifetime_relevant_videos,
+    periods: {
+      ...existingPeriods,
+      [periodKey]: {
+        period_days: Number(period_days),
+        period_start,
+        period_end,
+        items_sold: parsed.period_items_sold,
+        gmv_usd: parsed.period_gmv_usd,
+        new_videos: parsed.period_new_videos,
+        new_influencers: parsed.period_new_influencers,
+        captured_at: new Date().toISOString(),
+      },
+    },
+  };
+
+  const newHelium = {
+    ...existingHelium,
+    [productKey]: merged,
+  };
+
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existingStats,
+        tt_shop_us_helium10: newHelium,
+      } as never,
+    })
+    .eq("id", case_id);
+
+  revalidatePath(`/cases/${case_id}`);
+  const productLabel = parsed.product_name
+    ? parsed.product_name.slice(0, 50) +
+      (parsed.product_name.length > 50 ? "…" : "")
+    : prodRow.name?.slice(0, 50) ?? product_id;
+  return {
+    ok: true,
+    message: `[${productLabel}] Helium10 적재 OK · Listed ${parsed.listed_date ?? "—"} · Rating ${parsed.rating ?? "—"} · Lifetime $${(parsed.lifetime_gmv_usd ?? 0).toLocaleString()} (${parsed.lifetime_items_sold?.toLocaleString() ?? "—"} 판매) · Last ${period_days}d $${(parsed.period_gmv_usd ?? 0).toLocaleString()} (신규 영상 ${parsed.period_new_videos ?? 0} · 신규 인플 ${parsed.period_new_influencers ?? 0})`,
   };
 }

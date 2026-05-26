@@ -11,6 +11,7 @@ import { BsrSection } from "@/components/case-detail/BsrSection";
 import { ShopdoraSection } from "@/components/case-detail/ShopdoraSection";
 import { KalodataSection } from "@/components/case-detail/KalodataSection";
 import { TiktokShopUsAffiliateSection } from "@/components/case-detail/TiktokShopUsAffiliateSection";
+import { TiktokProductFinderSection } from "@/components/case-detail/TiktokProductFinderSection";
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
@@ -731,25 +732,43 @@ export default async function CaseDetailPage({
                 />
               )}
               {c.channel === "tiktok_shop" && c.country === "US" && (
-                <TiktokShopUsAffiliateSection
-                  case_id={c.id}
-                  products={skuRows.map((s) => ({
-                    id: s.id,
-                    name: s.name ?? "",
-                    asin: s.asin || null,
-                    external_product_id: s.external_product_id,
-                  }))}
-                  existingAffiliates={
-                    Array.isArray(
-                      (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
-                        ?.tt_shop_us_affiliates,
-                    )
-                      ? (
-                          c.key_stats as { tt_shop_us_affiliates: unknown[] }
-                        ).tt_shop_us_affiliates.length
-                      : 0
-                  }
-                />
+                <>
+                  <TiktokProductFinderSection
+                    case_id={c.id}
+                    products={skuRows.map((s) => ({
+                      id: s.id,
+                      name: s.name ?? "",
+                      asin: s.asin || null,
+                      external_product_id: s.external_product_id,
+                    }))}
+                    existingProducts={
+                      Object.keys(
+                        (c.key_stats as {
+                          tt_shop_us_helium10?: Record<string, unknown>;
+                        })?.tt_shop_us_helium10 ?? {},
+                      ).length
+                    }
+                  />
+                  <TiktokShopUsAffiliateSection
+                    case_id={c.id}
+                    products={skuRows.map((s) => ({
+                      id: s.id,
+                      name: s.name ?? "",
+                      asin: s.asin || null,
+                      external_product_id: s.external_product_id,
+                    }))}
+                    existingAffiliates={
+                      Array.isArray(
+                        (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
+                          ?.tt_shop_us_affiliates,
+                      )
+                        ? (
+                            c.key_stats as { tt_shop_us_affiliates: unknown[] }
+                          ).tt_shop_us_affiliates.length
+                        : 0
+                    }
+                  />
+                </>
               )}
             </div>
           </details>
