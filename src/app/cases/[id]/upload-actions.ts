@@ -1597,6 +1597,13 @@ export async function uploadTiktokShopUsAffiliate(
       error: "product_id 필수 — 어느 제품 export인지 선택해주세요",
     };
   }
+  const period_end = String(formData.get("period_end") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(period_end)) {
+    return {
+      ok: false,
+      error: "period_end 필수 — YYYY-MM-DD 형식 기준일을 선택해주세요",
+    };
+  }
 
   const { supabase, c } = await getCase(case_id);
   if (c.channel !== "tiktok_shop") {
@@ -1708,8 +1715,9 @@ export async function uploadTiktokShopUsAffiliate(
   }
 
   // 4) cases.key_stats.tt_shop_us_affiliates 누적
-  //    같은 affiliate가 다른 제품에 대해 별도 GMV/Items 가질 수 있어 dedupe key
-  //    = `${handle}@${product_id}`. 같은 (제품, affiliate) 재업로드 시 덮어쓰기.
+  //    Dedupe key = `${handle}@${product_id}@${period_end}` — 같은 affiliate가
+  //    다른 제품/시점에 대해 별도 GMV/Items 보존. 같은 (제품, affiliate, 시점)
+  //    재업로드만 덮어쓰기.
   const { data: caseRow } = await supabase
     .from("cases")
     .select("key_stats")
@@ -1722,18 +1730,19 @@ export async function uploadTiktokShopUsAffiliate(
     ? (existingStats["tt_shop_us_affiliates"] as Array<{
         handle: string;
         product_id?: string;
+        period_end?: string;
       }>)
     : [];
   const merged = new Map<string, unknown>();
   for (const e of existingAffiliates) {
     if (e?.handle) {
-      const k = `${e.handle}@${e.product_id ?? ""}`;
+      const k = `${e.handle}@${e.product_id ?? ""}@${e.period_end ?? ""}`;
       merged.set(k, e);
     }
   }
   for (const r of parsed.rows) {
-    const k = `${r.handle}@${product_id}`;
-    merged.set(k, { ...r, product_id });
+    const k = `${r.handle}@${product_id}@${period_end}`;
+    merged.set(k, { ...r, product_id, period_end });
   }
   const mergedArr = Array.from(merged.values());
   await supabase
@@ -1757,6 +1766,6 @@ export async function uploadTiktokShopUsAffiliate(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `[${productLabel}] affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개`,
+    message: `[${productLabel}] affiliate ${parsed.rows.length}명 적재 (누적 ${mergedArr.length}) · 영상 ${contentInserted}개 · 30일 GMV $${totalGmv.toLocaleString()} · 판매 ${totalItems.toLocaleString()}개 · 기준 ${period_end}`,
   };
 }
