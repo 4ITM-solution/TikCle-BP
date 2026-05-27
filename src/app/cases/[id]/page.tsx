@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createServer } from "@/lib/supabase/server";
 import { ExolytSection } from "@/components/case-detail/ExolytSection";
 import { BrandViewTrendsSection } from "@/components/case-detail/BrandViewTrendsSection";
+import { YoutubeSeedingSection } from "@/components/case-detail/YoutubeSeedingSection";
 import {
   AmazonSalesSection,
   type SkuRow,
@@ -811,6 +812,24 @@ export default async function CaseDetailPage({
               <BrandViewTrendsSection
                 case_id={c.id}
                 existingWeeks={weeklyViews.length}
+              />
+              <YoutubeSeedingSection
+                case_id={c.id}
+                existingRuns={
+                  Array.isArray(
+                    (
+                      c.key_stats as {
+                        youtube_seeding_runs?: unknown[];
+                      }
+                    )?.youtube_seeding_runs,
+                  )
+                    ? (
+                        c.key_stats as {
+                          youtube_seeding_runs: unknown[];
+                        }
+                      ).youtube_seeding_runs.length
+                    : 0
+                }
               />
               {c.channel === "amazon" && (
                 <>

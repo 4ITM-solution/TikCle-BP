@@ -2268,3 +2268,232 @@ export async function undoLastTiktokProductFinder(
     message: `직전 Helium10 적재 롤백 완료 (product ${undo.product_id.slice(0, 8)}… · 기준 ${undo.period_end})`,
   };
 }
+
+/**
+ * YouTube Data API로 키워드 검색해서 시딩 영상 풀 자동 수집.
+ *
+ * 흐름:
+ *   1. 사용자 입력 keywords[] (예: ["Ninja CREAMi", "Ninja Swirl", "Ninja Slushi"])
+ *   2. 각 키워드로 YouTube 검색 (date 내림차순, regionCode = case.country)
+ *   3. 영상 metadata + 채널 metadata 받음
+ *   4. influencers 업서트 (platform='youtube', external_id=channelId, follower=subs)
+ *   5. contents 업서트 (url unique)
+ *   6. cases.key_stats.youtube_seeding raw 누적 (search_term별 분리)
+ *
+ * Quota: 키워드당 ~102 units. 일일 10K 무료 → 케이스당 키워드 3-5개 적절.
+ */
+export async function fetchYoutubeSeeding(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  // 1) Input 파싱
+  const keywordsRaw = String(formData.get("keywords") ?? "").trim();
+  if (!keywordsRaw) return { ok: false, error: "검색 키워드 입력 필요" };
+  const keywords = keywordsRaw
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, 10); // safety cap
+  if (keywords.length === 0) {
+    return { ok: false, error: "유효한 키워드 없음" };
+  }
+  const maxResultsPerKw = Number(formData.get("max_results") ?? "50");
+  const order = String(formData.get("order") ?? "date") as
+    | "relevance"
+    | "date"
+    | "viewCount";
+  const publishedAfter = String(formData.get("published_after") ?? "").trim();
+
+  const { supabase, c } = await getCase(case_id);
+  if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
+
+  // 2) YouTube API import (lazy — env 없으면 명확한 에러)
+  let searchYoutubeFullData;
+  let subscribersToTier;
+  let parseDuration;
+  try {
+    const yt = await import("@/lib/youtube/api");
+    searchYoutubeFullData = yt.searchYoutubeFullData;
+    subscribersToTier = yt.subscribersToTier;
+    parseDuration = yt.parseDuration;
+  } catch (e) {
+    return {
+      ok: false,
+      error: `YouTube API 모듈 로드 실패: ${e instanceof Error ? e.message : e}`,
+    };
+  }
+
+  // 3) 각 키워드로 검색 + 영상 + 채널 풀 수집
+  const allVideos: Array<{
+    keyword: string;
+    videoId: string;
+    url: string;
+    title: string;
+    description: string;
+    channelId: string;
+    channelTitle: string;
+    publishedAt: string;
+    duration_s: number;
+    viewCount: number;
+    likeCount: number;
+    commentCount: number;
+  }> = [];
+  const channelMap = new Map<
+    string,
+    {
+      handle: string | null;
+      title: string;
+      subscriberCount: number | null;
+      viewCount: number;
+      videoCount: number;
+    }
+  >();
+
+  for (const kw of keywords) {
+    try {
+      const r = await searchYoutubeFullData({
+        query: kw,
+        maxResults: maxResultsPerKw,
+        order,
+        publishedAfter: publishedAfter || undefined,
+        regionCode: c.country === "US" ? "US" : undefined,
+      });
+      for (const v of r.videos) {
+        allVideos.push({
+          keyword: kw,
+          videoId: v.videoId,
+          url: v.url,
+          title: v.title,
+          description: v.description,
+          channelId: v.channelId,
+          channelTitle: v.channelTitle,
+          publishedAt: v.publishedAt,
+          duration_s: parseDuration(v.duration),
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          commentCount: v.commentCount,
+        });
+      }
+      for (const [cid, cm] of r.channels) {
+        channelMap.set(cid, {
+          handle: cm.handle,
+          title: cm.title,
+          subscriberCount: cm.subscriberCount,
+          viewCount: cm.viewCount,
+          videoCount: cm.videoCount,
+        });
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        error: `'${kw}' 검색 실패: ${e instanceof Error ? e.message : e}`,
+      };
+    }
+  }
+
+  if (allVideos.length === 0) {
+    return { ok: false, error: "검색 결과 0개 — 키워드 점검" };
+  }
+
+  // 4) influencers 업서트 (platform='youtube', external_id=channelId)
+  const inflRows = Array.from(channelMap.entries()).map(([channelId, c]) => ({
+    platform: "youtube" as const,
+    external_id: channelId,
+    handle: c.handle ?? channelId,
+    follower_count: c.subscriberCount,
+    tier: subscribersToTier(c.subscriberCount),
+    fans_source: "youtube_data_api",
+  }));
+  if (inflRows.length > 0) {
+    const { error: inflErr } = await supabase
+      .from("influencers")
+      .upsert(inflRows, {
+        onConflict: "platform,external_id",
+        ignoreDuplicates: false,
+      });
+    if (inflErr) {
+      console.warn("[fetchYoutubeSeeding] influencer upsert:", inflErr.message);
+    }
+  }
+
+  // 5) channel_id → influencer.id 매핑
+  const { data: inflBack } = await supabase
+    .from("influencers")
+    .select("id, external_id")
+    .eq("platform", "youtube")
+    .in("external_id", Array.from(channelMap.keys()));
+  const channelToInflId = new Map(
+    (inflBack ?? []).map((x) => [x.external_id ?? "", x.id]),
+  );
+
+  // 6) contents 업서트 (url unique) — Top 영상만 (Shorts 포함)
+  const uniqueByUrl = Array.from(
+    new Map(allVideos.map((v) => [v.url, v])).values(),
+  );
+  const contentInserts = uniqueByUrl.map((v) => ({
+    url: v.url,
+    brand_id: c.brand_id!,
+    country: c.country,
+    influencer_id: channelToInflId.get(v.channelId) ?? null,
+    caption: v.title, // YouTube는 description이 길어 title이 caption에 적합
+    views: v.viewCount,
+    likes: v.likeCount,
+    comments: v.commentCount,
+    uploaded_at: v.publishedAt.slice(0, 10),
+    duration_ms: v.duration_s * 1000,
+    is_ad: false,
+  }));
+  let contentInserted = 0;
+  if (contentInserts.length > 0) {
+    const { error: contentErr, count } = await supabase
+      .from("contents")
+      .upsert(contentInserts, {
+        onConflict: "url",
+        ignoreDuplicates: false,
+        count: "exact",
+      });
+    if (contentErr) {
+      console.warn("[fetchYoutubeSeeding] content upsert:", contentErr.message);
+    }
+    contentInserted = count ?? contentInserts.length;
+  }
+
+  // 7) cases.key_stats.youtube_seeding raw 누적
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const existing = (caseRow?.key_stats ?? {}) as Record<string, unknown>;
+  const existingSeeding = Array.isArray(existing["youtube_seeding_runs"])
+    ? (existing["youtube_seeding_runs"] as Array<unknown>)
+    : [];
+  const totalViews = allVideos.reduce((s, v) => s + v.viewCount, 0);
+
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existing,
+        youtube_seeding_runs: [
+          ...existingSeeding,
+          {
+            captured_at: new Date().toISOString(),
+            keywords,
+            order,
+            published_after: publishedAfter || null,
+            videos_count: uniqueByUrl.length,
+            channels_count: channelMap.size,
+            total_views: totalViews,
+          },
+        ],
+      } as never,
+    })
+    .eq("id", case_id);
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `YouTube ${uniqueByUrl.length}개 영상 적재 · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M (키워드: ${keywords.join(", ")})`,
+  };
+}
