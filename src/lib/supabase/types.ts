@@ -549,6 +549,9 @@ export type Database = {
           thumbnail_url: string | null;
           video_url: string | null;
           is_brand_official: boolean | null;
+          creator_page_name: string | null;
+          partner_page_name: string | null;
+          partner_page_id: string | null;
           snapshot: Json | null;
           created_at: string;
         };
@@ -570,6 +573,9 @@ export type Database = {
           thumbnail_url?: string | null;
           video_url?: string | null;
           is_brand_official?: boolean | null;
+          creator_page_name?: string | null;
+          partner_page_name?: string | null;
+          partner_page_id?: string | null;
           snapshot?: Json | null;
           created_at?: string;
         };
@@ -591,6 +597,9 @@ export type Database = {
           thumbnail_url?: string | null;
           video_url?: string | null;
           is_brand_official?: boolean | null;
+          creator_page_name?: string | null;
+          partner_page_name?: string | null;
+          partner_page_id?: string | null;
           snapshot?: Json | null;
           created_at?: string;
         };

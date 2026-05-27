@@ -391,6 +391,21 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
               본사
             </span>
           )}
+          {ad.partner_page_name && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                padding: "2px 6px",
+                borderRadius: 8,
+                background: "var(--color-accent)",
+                color: "white",
+              }}
+              title={`Paid partnership with ${ad.partner_page_name}`}
+            >
+              partnership
+            </span>
+          )}
           {ad.is_active && (
             <span
               style={{
@@ -416,10 +431,22 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
-          title={ad.page_name ?? ""}
+          title={ad.creator_page_name ?? ad.page_name ?? ""}
         >
-          {ad.page_name ?? "(unknown)"}
+          {ad.creator_page_name ?? ad.page_name ?? "(unknown)"}
         </div>
+        {ad.partner_page_name && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--color-g500)",
+              marginTop: 1,
+            }}
+            title={`Paid partnership with ${ad.partner_page_name}`}
+          >
+            × <b style={{ color: "var(--color-accent)" }}>{ad.partner_page_name}</b>
+          </div>
+        )}
         {dateRange && (
           <div
             style={{

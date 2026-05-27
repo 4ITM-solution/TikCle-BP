@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { fetchMetaAds, type MetaAdRaw } from "@/lib/apify/meta-ads";
+import {
+  fetchMetaAds,
+  fetchMetaAdsDetailsById,
+  fetchMetaAdsOfficial,
+  type MetaAdRaw,
+} from "@/lib/apify/meta-ads";
 import {
   countriesInRegion,
   isRegionCode,
@@ -29,7 +34,7 @@ export async function runPhase4a(
   // 1. 케이스 정보
   const { data: c, error: cErr } = await supabase
     .from("cases")
-    .select("id, country, channel, brand_keyword, brand_meta_pages")
+    .select("id, country, channel, brand_keyword, brand_meta_pages, options")
     .eq("id", case_id)
     .single();
   if (cErr || !c) throw new Error(`case fetch: ${cErr?.message}`);
@@ -41,15 +46,72 @@ export async function runPhase4a(
 
   // 2. Apify 호출 — 권역 case면 권역 안 단일 국가들로 풀어서 N번 fetch (Facebook
   //    Ads Library는 ISO 2자 country 코드만 인식). 단일 case는 그대로 한 국가.
+  //
+  // meta_ads_source 분기 (2026-05-27 추가):
+  //   - 'official': apify 공식 액터로 전체 fetch (partnership 정확, $3.4/1000)
+  //   - 'hybrid'   : curious_coder로 1차 ($0.75) + partnership 의심 ad만 공식 재호출
+  //   - undefined  : curious_coder만 (기존 동작, partnership 정보 없음)
   const targetCountries = isRegionCode(c.country)
     ? countriesInRegion(c.country as Region)
     : [c.country];
-  const result = await fetchMetaAds({
-    brand_meta_pages: c.brand_meta_pages ?? [],
-    brand_keyword: c.brand_keyword,
-    countries: targetCountries,
-    cap: 1000,
-  });
+  const metaAdsSource =
+    ((c.options as { meta_ads_source?: string } | null)?.meta_ads_source as
+      | "official"
+      | "hybrid"
+      | undefined) ?? "hybrid";
+
+  let result: Awaited<ReturnType<typeof fetchMetaAds>>;
+  if (metaAdsSource === "official") {
+    result = await fetchMetaAdsOfficial({
+      brand_meta_pages: c.brand_meta_pages ?? [],
+      brand_keyword: c.brand_keyword,
+      countries: targetCountries,
+      cap: 1000,
+    });
+  } else {
+    // 'hybrid' 또는 undefined — curious_coder 1차 fetch
+    result = await fetchMetaAds({
+      brand_meta_pages: c.brand_meta_pages ?? [],
+      brand_keyword: c.brand_keyword,
+      countries: targetCountries,
+      cap: 1000,
+    });
+
+    // hybrid 모드: partnership 의심 ad만 골라서 공식 액터로 detail 재호출
+    // (curious_coder는 partnership 정보 손실하니 detail로 보강).
+    if (metaAdsSource === "hybrid" && result.ads.length > 0) {
+      const partnershipCandidates = result.ads
+        .filter((a) => isPartnershipCandidate(a))
+        .map((a) => a.ad_archive_id)
+        .filter((id): id is string => !!id)
+        .slice(0, 200); // detail fetch cap — 케이스당 +$0.68 (200건 × $0.0034)
+
+      if (partnershipCandidates.length > 0) {
+        const detailResult = await fetchMetaAdsDetailsById({
+          ad_archive_ids: partnershipCandidates,
+          country: targetCountries[0] ?? "US",
+        });
+        // detail 결과를 기존 ad에 merge — ad_archive_id로 매칭해서 partnership 필드만 덮어쓰기
+        const detailMap = new Map(
+          detailResult.ads
+            .filter((d) => d.ad_archive_id)
+            .map((d) => [d.ad_archive_id!, d]),
+        );
+        result.ads = result.ads.map((a) => {
+          if (!a.ad_archive_id) return a;
+          const d = detailMap.get(a.ad_archive_id);
+          if (!d) return a;
+          return {
+            ...a,
+            creator_page_name: d.creator_page_name ?? null,
+            partner_page_name: d.partner_page_name ?? null,
+            partner_page_id: d.partner_page_id ?? null,
+          };
+        });
+        result.cost_estimate_usd += detailResult.cost_estimate_usd;
+      }
+    }
+  }
 
   if (result.skipped_reason) {
     return emptyPhase4a(result.skipped_reason);
@@ -91,6 +153,9 @@ export async function runPhase4a(
     thumbnail_url: ad.thumbnail_url,
     video_url: ad.video_url,
     is_brand_official: isBrandOfficial(ad.page_name),
+    creator_page_name: ad.creator_page_name ?? null,
+    partner_page_name: ad.partner_page_name ?? null,
+    partner_page_id: ad.partner_page_id ?? null,
     snapshot: ad.snapshot as never,
   }));
 
@@ -304,6 +369,36 @@ function classifyLanding(
   }
 
   return "other";
+}
+
+/**
+ * curious_coder 1차 fetch 결과에서 partnership 광고일 가능성이 높은 ad만 추림.
+ * 이 후보들만 공식 액터로 detail 재호출해서 creator_page_name / partner_page_name
+ * 채워넣음 (hybrid 모드).
+ *
+ * 시그널:
+ *   - body_text에 #ad / #sponsored / #partner / paid partnership 같은 disclosure
+ *   - body_text에 1인칭 ("I ", "my ", "we ") + brand 핸들 mention
+ *   - is_brand_official=false (브랜드 본사가 아닌 페이지가 돌리는 ad)
+ */
+function isPartnershipCandidate(ad: MetaAdRaw): boolean {
+  const body = (ad.body_text ?? "").toLowerCase();
+  if (!body) return false;
+  const disclosurePatterns = [
+    /#ad\b/,
+    /#sponsored\b/,
+    /#partner/,
+    /paid partnership/,
+    /sponsored by/,
+    /in partnership with/,
+    /#gifted/,
+    /#prsample/,
+  ];
+  if (disclosurePatterns.some((p) => p.test(body))) return true;
+  // 1인칭 + @brand mention — 인플이 쓴 캡션이 브랜드 광고로 돌아간 패턴
+  const firstPerson = /\b(i|my|we|our)\b/.test(body);
+  const hasMention = /@\w+/.test(body);
+  return firstPerson && hasMention;
 }
 
 function emptyPhase4a(reason: string): Phase4aStats {

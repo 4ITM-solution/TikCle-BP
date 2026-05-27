@@ -72,6 +72,9 @@ export type MetaAdListItem = {
   thumbnail_url: string | null;
   video_url: string | null;
   is_brand_official: boolean;
+  creator_page_name: string | null;
+  partner_page_name: string | null;
+  partner_page_id: string | null;
 };
 
 export default async function CaseDetailPage({
@@ -249,7 +252,7 @@ export default async function CaseDetailPage({
     const { data: ads } = await supabase
       .from("meta_ads")
       .select(
-        "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official",
+        "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official, creator_page_name, partner_page_name, partner_page_id",
       )
       .eq("case_id", c.id)
       .order("start_date", { ascending: false })
@@ -267,6 +270,9 @@ export default async function CaseDetailPage({
       thumbnail_url: a.thumbnail_url ?? null,
       video_url: a.video_url ?? null,
       is_brand_official: a.is_brand_official ?? false,
+      creator_page_name: a.creator_page_name ?? null,
+      partner_page_name: a.partner_page_name ?? null,
+      partner_page_id: a.partner_page_id ?? null,
     }));
   }
 
