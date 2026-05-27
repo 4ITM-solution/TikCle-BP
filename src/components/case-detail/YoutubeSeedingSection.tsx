@@ -110,6 +110,36 @@ export function YoutubeSeedingSection({
             Ninja CREAMi review{"\n"}Ninja Swirl{"\n"}Ninja Slushi unboxing
           </code>
         </div>
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--color-g500)",
+            background: "white",
+            padding: "8px 10px",
+            borderRadius: 4,
+            marginBottom: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          🏷️ <b>자동 분류 (FTC disclosure 기반)</b> — description/title/tags에서
+          키워드 검색해서 분류:
+          <br />
+          <span style={{ color: "var(--color-accent)" }}>● 광고 (ad)</span>:
+          #ad, #sponsored, #paidpartnership, "Paid promotion", "sponsored by" →{" "}
+          <code>contents.is_ad=true</code>
+          <br />
+          <span style={{ color: "var(--color-warn)" }}>● 시딩 (seeded)</span>:
+          #gifted, #pr, #prsample, "sent by", "gifted from" → organic 콘텐츠로
+          간주 (제품만 받음)
+          <br />
+          <span style={{ color: "var(--color-pos)" }}>● organic</span>:
+          disclosure 없음 (본인 구매 or disclosure 누락)
+          <br />
+          <span style={{ fontSize: 9, color: "var(--color-g400)" }}>
+            ⚠ 일부 인플은 FTC disclosure 안 함 → "organic" 분류라도 실제로는
+            시딩 가능
+          </span>
+        </div>
 
         <textarea
           value={keywords}

@@ -2311,11 +2311,13 @@ export async function fetchYoutubeSeeding(
   let searchYoutubeFullData;
   let subscribersToTier;
   let parseDuration;
+  let classifyYoutubeContent;
   try {
     const yt = await import("@/lib/youtube/api");
     searchYoutubeFullData = yt.searchYoutubeFullData;
     subscribersToTier = yt.subscribersToTier;
     parseDuration = yt.parseDuration;
+    classifyYoutubeContent = yt.classifyYoutubeContent;
   } catch (e) {
     return {
       ok: false,
@@ -2337,6 +2339,8 @@ export async function fetchYoutubeSeeding(
     viewCount: number;
     likeCount: number;
     commentCount: number;
+    contentClass: "ad" | "seeded" | "organic";
+    tags: string[];
   }> = [];
   const channelMap = new Map<
     string,
@@ -2359,6 +2363,11 @@ export async function fetchYoutubeSeeding(
         regionCode: c.country === "US" ? "US" : undefined,
       });
       for (const v of r.videos) {
+        const contentClass = classifyYoutubeContent(
+          v.description,
+          v.title,
+          v.tags,
+        );
         allVideos.push({
           keyword: kw,
           videoId: v.videoId,
@@ -2372,6 +2381,8 @@ export async function fetchYoutubeSeeding(
           viewCount: v.viewCount,
           likeCount: v.likeCount,
           commentCount: v.commentCount,
+          contentClass,
+          tags: v.tags,
         });
       }
       for (const [cid, cm] of r.channels) {
@@ -2441,7 +2452,8 @@ export async function fetchYoutubeSeeding(
     comments: v.commentCount,
     uploaded_at: v.publishedAt.slice(0, 10),
     duration_ms: v.duration_s * 1000,
-    is_ad: false,
+    // is_ad = "ad" 명시적 광고만. "seeded"는 organic 콘텐츠로 간주 (제품만 받음).
+    is_ad: v.contentClass === "ad",
   }));
   let contentInserted = 0;
   if (contentInserts.length > 0) {
@@ -2458,7 +2470,16 @@ export async function fetchYoutubeSeeding(
     contentInserted = count ?? contentInserts.length;
   }
 
-  // 7) cases.key_stats.youtube_seeding raw 누적
+  // 7) 분류 카운트
+  const classCounts = uniqueByUrl.reduce(
+    (acc, v) => {
+      acc[v.contentClass] = (acc[v.contentClass] ?? 0) + 1;
+      return acc;
+    },
+    { ad: 0, seeded: 0, organic: 0 } as Record<string, number>,
+  );
+
+  // 8) cases.key_stats.youtube_seeding raw 누적
   const { data: caseRow } = await supabase
     .from("cases")
     .select("key_stats")
@@ -2485,6 +2506,7 @@ export async function fetchYoutubeSeeding(
             videos_count: uniqueByUrl.length,
             channels_count: channelMap.size,
             total_views: totalViews,
+            content_class_counts: classCounts,
           },
         ],
       } as never,
@@ -2494,6 +2516,6 @@ export async function fetchYoutubeSeeding(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `YouTube ${uniqueByUrl.length}개 영상 적재 · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M (키워드: ${keywords.join(", ")})`,
+    message: `YouTube ${uniqueByUrl.length}개 영상 적재 (광고 ${classCounts.ad} · 시딩 ${classCounts.seeded} · organic ${classCounts.organic}) · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M`,
   };
 }

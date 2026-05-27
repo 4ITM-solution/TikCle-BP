@@ -317,3 +317,58 @@ export function subscribersToTier(subs: number | null): string {
   if (subs >= 1_000) return "nano";
   return "sub-nano";
 }
+
+/**
+ * 영상 콘텐츠 분류 (광고 / 시딩 / organic).
+ * YouTube Data API는 "Paid promotion" 라벨 직접 제공 안 함 → description/title/tags에서
+ * disclosure 키워드 검색해서 분류.
+ *
+ * 분류 룰:
+ *   - "ad": 광고비 받은 명시적 disclosure (FTC paid partnership)
+ *   - "seeded": 제품만 받고 자발적 콘텐츠 (gifted/PR sample)
+ *   - "organic": disclosure 없음 (본인 구매 또는 disclosure 누락)
+ *
+ * 우선순위: ad > seeded > organic. 한 영상에 두 disclosure 있으면 ad 우선.
+ */
+export type YoutubeContentClass = "ad" | "seeded" | "organic";
+
+const AD_PATTERNS = [
+  /#ad\b/i,
+  /#sponsored\b/i,
+  /#paidpartnership\b/i,
+  /paid promotion/i,
+  /paid partnership/i,
+  /\bAD:/i,
+  /in partnership with/i,
+  /sponsored by/i,
+  /this video is sponsored/i,
+  /thank you to .{1,30} for sponsoring/i,
+];
+
+const SEEDED_PATTERNS = [
+  /#gifted\b/i,
+  /#pr\b/i,
+  /#prsample\b/i,
+  /#prgift\b/i,
+  /sent (?:to me )?by/i,
+  /gifted (?:by|from)/i,
+  /\bPR (?:sample|gift|package)/i,
+  /complimentary product/i,
+  /free product from/i,
+  /this was a gift from/i,
+];
+
+export function classifyYoutubeContent(
+  description: string,
+  title?: string,
+  tags?: string[],
+): YoutubeContentClass {
+  const haystack = [description, title ?? "", (tags ?? []).join(" ")].join(" ");
+  for (const p of AD_PATTERNS) {
+    if (p.test(haystack)) return "ad";
+  }
+  for (const p of SEEDED_PATTERNS) {
+    if (p.test(haystack)) return "seeded";
+  }
+  return "organic";
+}
