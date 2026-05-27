@@ -387,18 +387,24 @@ export async function fetchMetaAdsOfficial(opts: {
     };
   }
 
+  // ★ 공식 액터는 q= keyword 검색을 ignore함. page URL만 인식.
+  //   - brand_meta_pages 각 항목 → "https://www.facebook.com/{page}" 직접 URL
+  //   - 숫자만 들어있으면 page_id로 간주 → view_all_page_id URL
+  //   - brand_keyword는 무시 (공식 액터에서 keyword 검색 결과 1건만 반환되는 버그
+  //     2026-05-27 확인). official 모드 쓰려면 brand_meta_pages 채워야 함.
   const urls: string[] = [];
+  const isNumericId = (s: string) => /^\d+$/.test(s);
   for (const country of opts.countries) {
-    for (const page of opts.brand_meta_pages ?? []) {
-      if (!page.trim()) continue;
-      urls.push(buildLibraryUrl(page.trim(), country));
-    }
-    if (opts.brand_keyword) {
-      for (const kw of opts.brand_keyword
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)) {
-        urls.push(buildLibraryUrl(kw, country));
+    for (const rawPage of opts.brand_meta_pages ?? []) {
+      const page = rawPage.trim();
+      if (!page) continue;
+      if (isNumericId(page)) {
+        urls.push(
+          `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=${country}&search_type=page&view_all_page_id=${page}`,
+        );
+      } else {
+        // 페이지 핸들 (e.g. "ninjakitchen") → 직접 페이지 URL
+        urls.push(`https://www.facebook.com/${page.replace(/^@/, "")}`);
       }
     }
   }
@@ -408,7 +414,8 @@ export async function fetchMetaAdsOfficial(opts: {
       source_urls: [],
       total_fetched: 0,
       cost_estimate_usd: 0,
-      skipped_reason: "brand_meta_pages / brand_keyword 비어있음",
+      skipped_reason:
+        "공식 모드: brand_meta_pages 필요 (page handle 또는 page_id). brand_keyword는 공식 액터에서 미동작.",
     };
   }
 
