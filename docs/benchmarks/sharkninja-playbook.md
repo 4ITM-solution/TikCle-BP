@@ -1,21 +1,30 @@
 # SharkNinja Influencer Flywheel → 비스포크 AI Playbook
 
 > **목적**: 삼성 Bespoke AI 미국 시장 Gen Z 어웨어니스 마케팅 전략 짤 때 참고용.
-> **작성**: 2026-05-27. BP 시스템 데이터 + 외부 데스크리서치 합산.
+> **작성**: 2026-05-27 (정정 2026-05-27). BP 시스템 데이터 + 외부 데스크리서치 + WebFetch.
 > **벤치마크 케이스**: Shark Ninja TT Shop US (`95012d4a-c293-4204-816d-03d0ff02d191`)
+
+## 출처 라벨 범례
+- 🟢 **[BP-검증]**: BP 시스템 DB에서 직접 확인. 의심 여지 X.
+- 🟡 **[외부-인용]**: Adweek/Retail Brew/Modern Retail 등 기사. 인용된 임원 발언 또는 보도.
+- 🟠 **[WebFetch]**: WebFetch로 1회 직접 확인 (owned IG 계정 1개, 셀럽 reel 1개).
+- 🔴 **[검증-안됨]**: 추측 또는 명확한 출처 없음. 향후 추가 검증 필요.
+
+⚠️ **주의**: BP 시스템에 박힌 SharkNinja 데이터는 **TT Shop affiliate 채널 only** (이번 세션에 사용자가 박은 affiliate CSV). 메가 셀럽 (Beckham 등)은 인스타·유튜브에 있고 TT Shop affiliate 풀엔 안 들어옴. 즉 BP "tier_distribution mega 0" 시그널은 **TT Shop affiliate 채널 한정**이지 SharkNinja 전체 시딩 X.
 
 ## Part 1 — SharkNinja 시딩 운영 종합
 
 ### 채널별 운영 모드
 
-| 채널 | 운영 모드 | 핵심 수치 |
-|---|---|---|
-| **TikTok 광고(Affiliate)** | Micro/Nano army 100% organic. Deal-hunter 풀 ("deals/finds/codes/stealz" 핸들) | BP 검증: micro 58%, nano 34%, **mega 0**, 광고비중 0%, 매출 $10.5M/30일 |
-| **TikTok viral** | CREAMi/Swirl/Slushi 시즌별 hero 제품 + 30일 시딩 | CREAMi 1B 임프 / Swirl 7천만 임프 + 9만명 대기 / Slushi 5억 임프 |
-| **Instagram (1.7M)** | Reels 위주 + 제품 라인별 해시태그 + 셀럽 콘텐츠 | #NinjaCREAMI / #NinjaSLUSHiTwist / #NinjaCRISPi / #NinjaFrostVault / #NinjaBlendBoss |
-| **YouTube** | 셀럽 long-form + 인플 Shorts | Swirl 시딩에 YouTube Shorts 포함 |
-| **Meta Ads (Library)** | Beckham/Hart 영상 광고 paid 증폭 | BP 0건 (Apify 매칭 실패 — brand_keyword="Ninja Kitchen"으로 재실행 필요) |
-| **TV/PPL** | 인포머셜 + 제품 PPL | 전통 broadcast |
+| 채널 | 운영 모드 | 핵심 수치 | 출처 |
+|---|---|---|---|
+| **TikTok Shop Affiliate** | Micro/Nano army 100% organic. Deal-hunter handle 패턴 (peliculasclub7, sheri_pie455, dealswithty, promocodepal 등) | micro 58%, nano 34%, **mega 0** (TT Shop affiliate 채널 한정), 광고비중 0%, 매출 $10.5M/30일 | 🟢 [BP-검증] phase3.tier_distribution + top_creators |
+| **TikTok 자연 viral** | CREAMi/Swirl/Slushi 시즌별 hero 제품 + 30일 pre-launch 시딩 | CREAMi 1B 임프 / Swirl 7천만 임프 + 9만명 대기 / Slushi 5억 임프 | 🟡 [외부-인용] Adweek / Retail Brew (SharkNinja 임원 발언 "30 days before launch") |
+| **Instagram owned (`@ninjakitchen` 1.7M)** | Reels 위주 + 제품 라인별 해시태그. **셀럽 영상을 paid partnership으로 재게시** (earned → owned amplification) | #NinjaCREAMI / #NinjaSLUSHiTwist / #NinjaCRISPi / #NinjaFrostVault / #NinjaBlendBoss | 🟠 [WebFetch] @ninjakitchen 헤더 + @ninjakitchenuk reel 1개 |
+| **Instagram earned (셀럽)** | 제품·시즌별 차별 페르소나 (Beckham=시즌/Holidays, Jenner=가족 entertaining, Earle=Gen Z paid+organic) | 캡션 시그널 위 — paid partnership 라벨 명시 | 🟡 [외부-인용] + 🟠 [WebFetch 셀럽 reel 일부] |
+| **YouTube** | Owned 채널에 "Getting Started" tutorial + 레시피 playlist 운영. Swirl 시딩 영상이 YouTube Shorts 포함 | 채널 직접 fetch 막힘 — subscriber count·long-form vs Shorts 비율 X | 🔴 [검증-안됨] 셀럽 long-form 비율은 인용만 |
+| **Meta Ads (Library)** | Beckham/Hart 영상 광고 paid 증폭 | BP 0건 (Apify 매칭 실패 — brand_keyword=null이었음. 이번 세션에 "Ninja Kitchen"으로 박음, 재실행 시 잡힐 전망) | 🟢 [BP-검증] phase4a + fix 완료 |
+| **TV/PPL** | 인포머셜 + 제품 PPL | 전통 broadcast | 🟡 [외부-인용] $700M 예산 중 30% traditional |
 
 ### Influencer Flywheel — 4단계 풀스택
 
@@ -38,18 +47,21 @@
    ↓ Netflix "Love is Blind 치킨 스무디" → 콜라보 신제품 출시
 ```
 
-### 셀럽 풀 (Always-on Roster)
+### 셀럽 풀 (Always-on Roster) + 콘텐츠 톤 시그널
 
-| 셀럽 | 시작 | 역할 | 제품 |
-|---|---|---|---|
-| David Beckham | 2024.05 | Global Ambassador 메인 | FlexFame, CREAMi, "Ninja the Holidays" |
-| Kevin Hart | 2025 | 신규 Global Ambassador (Beckham 콜라보) | Neighborhood 캠페인 |
-| Kris Jenner | — | CREAMi 전담 (가족 entertaining 톤) | Ninja CREAMi |
-| Courteney Cox | — | Authentic 사용 영상 | Ninja Thirsti |
-| Alix Earle | Q1 2025 | Phased launch (Gen Z 1순위) | Shark CryoGlow |
-| Peter Crouch / Thierry Henry / Bastian Schweinsteiger | — | 축구 스타 풀 | — |
+| 셀럽 | 시작 | 제품 | 검증된 콘텐츠 톤 | 출처 |
+|---|---|---|---|---|
+| **David Beckham** | 2024.05 | FlexFame, CREAMi, "Ninja the Holidays", Candy Cane CREAMi | "British classic & a favourite 🍦🍫" 톤 / 시즌 한정 (Holidays) / 격식·라이프스타일 | 🟠 [WebFetch] ninjakitchenuk reel 2025-07-29 paid partnership 표시 |
+| **Kevin Hart** | 2025 | "Neighborhood" 캠페인 (Beckham 콜라보) | 캡션·hook 검증 X | 🟡 [외부-인용] only |
+| **Kris Jenner** | — | Ninja CREAMi | "Meet my new obsession, especially as we head into the holidays I do lots of entertaining" — **가족 entertaining** | 🟡 [외부-인용] Homes & Gardens |
+| **Courteney Cox** | — | Ninja Thirsti | "cleanliness obsessed character와 natural synergy" 정도만. 실제 캡션 X | 🔴 [검증-안됨] |
+| **Alix Earle** | Q1 2025 | Shark CryoGlow | "worth the hype" / `#sponsoredbysharkbeauty` `#sharkcryoglow` + Coachella/Harvard vlog에 **organic 재등장** | 🟡 [외부-인용] Retail Brew — paid + organic 혼합 모델 ⭐ |
+| 축구 스타들 (Crouch / Henry / Schweinsteiger) | — | — | 캡션 검증 X | 🔴 [검증-안됨] |
 
-→ 한 셀럽이 다 하는 게 아니라 **제품별 페르소나 매칭**.
+→ **검증된 핵심 패턴**:
+1. **한 셀럽이 다 X — 제품·시즌·타겟별 차별화** (Beckham=시즌/격식, Jenner=가족, Earle=Gen Z)
+2. **Paid + Organic 혼합 (Earle 모델 ⭐)** — 처음엔 paid, 그 후 본인 vlog에 organic 재등장 → 진정성 시그널
+3. **Earned → Owned amplification** — 셀럽 IG 게시물을 owned 채널(@ninjakitchenuk 등)이 paid partnership으로 재게시. 콘텐츠 ROI 2배.
 
 ### 예산 구조
 
