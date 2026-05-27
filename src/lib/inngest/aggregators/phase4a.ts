@@ -11,7 +11,12 @@ import {
   isRegionCode,
   type Region,
 } from "@/lib/case-detail/countries";
-import type { LandingType, MetaAdEntry, Phase4aStats } from "../types";
+import type {
+  LandingType,
+  MetaAdEntry,
+  PartnerCreatorEntry,
+  Phase4aStats,
+} from "../types";
 
 type SupaClient = SupabaseClient<Database>;
 
@@ -188,7 +193,21 @@ export async function runPhase4a(
   };
   let active = 0;
   let official = 0;
+  let partnership_ads = 0;
   const otherDomainCounts = new Map<string, number>();
+  // partner_creators 집계용 — creator_page_name 별 그룹
+  const creatorAgg = new Map<
+    string,
+    {
+      creator_page_name: string;
+      partner_brands: Set<string>;
+      ad_count: number;
+      active_count: number;
+      first_seen: string | null;
+      last_seen: string | null;
+      sample_thumbnail: string | null;
+    }
+  >();
   for (const a of adsWithLanding) {
     if (a.format === "video") formatCounts.video += 1;
     else if (a.format === "image") formatCounts.image += 1;
@@ -203,11 +222,64 @@ export async function runPhase4a(
         otherDomainCounts.set(domain, (otherDomainCounts.get(domain) ?? 0) + 1);
       }
     }
+    // partnership 집계 — creator_page_name 채워진 ad만
+    const creator = a.creator_page_name;
+    if (creator) {
+      partnership_ads += 1;
+      let bucket = creatorAgg.get(creator);
+      if (!bucket) {
+        bucket = {
+          creator_page_name: creator,
+          partner_brands: new Set<string>(),
+          ad_count: 0,
+          active_count: 0,
+          first_seen: null,
+          last_seen: null,
+          sample_thumbnail: null,
+        };
+        creatorAgg.set(creator, bucket);
+      }
+      bucket.ad_count += 1;
+      if (a.is_active) bucket.active_count += 1;
+      if (a.partner_page_name) bucket.partner_brands.add(a.partner_page_name);
+      if (
+        a.start_date &&
+        (!bucket.first_seen || a.start_date < bucket.first_seen)
+      )
+        bucket.first_seen = a.start_date;
+      if (
+        a.start_date &&
+        (!bucket.last_seen || a.start_date > bucket.last_seen)
+      )
+        bucket.last_seen = a.start_date;
+      if (!bucket.sample_thumbnail && a.thumbnail_url)
+        bucket.sample_thumbnail = a.thumbnail_url;
+    }
   }
   const other_top_domains = Array.from(otherDomainCounts.entries())
     .map(([domain, count]) => ({ domain, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
+
+  const partner_creators: PartnerCreatorEntry[] = Array.from(creatorAgg.values())
+    .map((c) => ({
+      creator_page_name: c.creator_page_name,
+      partner_page_name:
+        c.partner_brands.size > 0
+          ? Array.from(c.partner_brands).join(", ")
+          : null,
+      ad_count: c.ad_count,
+      active_count: c.active_count,
+      first_seen: c.first_seen,
+      last_seen: c.last_seen,
+      sample_thumbnail: c.sample_thumbnail,
+    }))
+    .sort((a, b) => {
+      if (b.ad_count !== a.ad_count) return b.ad_count - a.ad_count;
+      if (b.active_count !== a.active_count)
+        return b.active_count - a.active_count;
+      return (b.last_seen ?? "").localeCompare(a.last_seen ?? "");
+    });
 
   // 화면 노출용 미리보기: brand_official 우선 → active 우선 → 최신순
   // 1차 dedupe(collation 포함)는 이미 됐으니 여기선 thumbnail 기준 추가 컷만
@@ -256,12 +328,15 @@ export async function runPhase4a(
     total_ads: inserts.length,
     active_ads: active,
     brand_official_ads: official,
+    partnership_ads,
+    partnership_creators: partner_creators.length,
     formats: formatCounts,
     landings,
     other_top_domains,
     source_urls_count: result.source_urls.length,
     cost_actual_usd: result.cost_estimate_usd,
     ads_preview,
+    partner_creators,
     computed_at: new Date().toISOString(),
   };
 }
@@ -406,6 +481,8 @@ function emptyPhase4a(reason: string): Phase4aStats {
     total_ads: 0,
     active_ads: 0,
     brand_official_ads: 0,
+    partnership_ads: 0,
+    partnership_creators: 0,
     formats: { video: 0, image: 0, other: 0 },
     landings: {
       instagram: 0,
@@ -421,6 +498,7 @@ function emptyPhase4a(reason: string): Phase4aStats {
     cost_actual_usd: 0,
     skipped_reason: reason,
     ads_preview: [],
+    partner_creators: [],
     computed_at: new Date().toISOString(),
   };
 }

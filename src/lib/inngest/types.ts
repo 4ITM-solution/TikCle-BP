@@ -219,10 +219,22 @@ export type LandingType =
   | "other"
   | "none";
 
+export type PartnerCreatorEntry = {
+  creator_page_name: string;
+  partner_page_name: string | null; // 같은 creator가 여러 브랜드 partnership이면 콤마 join
+  ad_count: number;
+  active_count: number;
+  first_seen: string | null; // YYYY-MM-DD
+  last_seen: string | null;
+  sample_thumbnail: string | null;
+};
+
 export type Phase4aStats = {
   total_ads: number;
   active_ads: number;
   brand_official_ads: number;
+  partnership_ads: number; // creator_page_name 있는 ad 수
+  partnership_creators: number; // unique creator count
   formats: { video: number; image: number; other: number };
   landings: Record<LandingType, number>;
   // landing="other" 광고들의 실제 도메인 분포 (count 내림차순, 상위 N개)
@@ -231,6 +243,7 @@ export type Phase4aStats = {
   cost_actual_usd: number;
   skipped_reason?: string;
   ads_preview: MetaAdEntry[]; // 화면에 보여줄 샘플 (첫 6개)
+  partner_creators: PartnerCreatorEntry[]; // 파트너 인플 리스트 (ad_count 내림차순)
   computed_at: string;
 };
 

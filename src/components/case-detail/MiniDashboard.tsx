@@ -228,6 +228,9 @@ export function MiniDashboard({
         <>
           <SectionHeader letter="E" title="Meta 광고" />
           <MetaAdsModule phase4a={phase4a} />
+          {phase4a.partner_creators && phase4a.partner_creators.length > 0 && (
+            <PartnerCreatorsModule phase4a={phase4a} />
+          )}
           {metaAdsList && metaAdsList.length > 0 && (
             <MetaAdsBrowser ads={metaAdsList} phase4a={phase4a} />
           )}
@@ -1013,6 +1016,182 @@ function MetaAdsModule({ phase4a }: { phase4a: Phase4aStats }) {
         <LandingBreakdown phase4a={phase4a} />
       </div>
 
+    </div>
+  );
+}
+
+// =============================================================================
+// Module: 파트너 인플 리스트 (Phase 4a partner_creators)
+// =============================================================================
+// Paid Partnership / Branded Content 광고에서 추출한 creator(인플) ↔ partner brand
+// 매핑. 같은 인플이 여러 광고에 등장하면 ad_count로 누적. apify 공식 액터(detail
+// endpoint)가 채워주는 snapshot.pageName(creator) + snapshot.brandedContent(brand)
+// 가 핵심 소스. curious_coder 단독 케이스는 비어있음 (partnership 정보 손실).
+function PartnerCreatorsModule({ phase4a }: { phase4a: Phase4aStats }) {
+  const creators = phase4a.partner_creators ?? [];
+  if (creators.length === 0) return null;
+
+  return (
+    <div className="section-card">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>
+            파트너 인플 리스트 (Paid Partnership)
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            {phase4a.partnership_creators ?? creators.length}명 인플 ·{" "}
+            {phase4a.partnership_ads ?? 0}건 파트너십 광고
+          </div>
+        </div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            fontSize: 12,
+            borderCollapse: "collapse",
+          }}
+        >
+          <thead>
+            <tr
+              style={{
+                borderBottom: "1px solid var(--color-g100)",
+                color: "var(--color-g500)",
+                fontSize: 10,
+                fontFamily: "var(--font-mono)",
+                textTransform: "uppercase",
+              }}
+            >
+              <th
+                style={{ textAlign: "left", padding: "8px 6px", width: 56 }}
+              ></th>
+              <th style={{ textAlign: "left", padding: "8px 6px" }}>인플</th>
+              <th style={{ textAlign: "left", padding: "8px 6px" }}>
+                파트너 브랜드
+              </th>
+              <th style={{ textAlign: "right", padding: "8px 6px" }}>광고 수</th>
+              <th style={{ textAlign: "right", padding: "8px 6px" }}>active</th>
+              <th
+                style={{
+                  textAlign: "left",
+                  padding: "8px 6px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                활동 기간
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {creators.map((c) => (
+              <tr
+                key={c.creator_page_name}
+                style={{ borderBottom: "1px solid var(--color-g50)" }}
+              >
+                <td style={{ padding: "8px 6px" }}>
+                  {c.sample_thumbnail ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={c.sample_thumbnail}
+                      alt={c.creator_page_name}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        objectFit: "cover",
+                        borderRadius: 4,
+                        background: "var(--color-g50)",
+                      }}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        background: "var(--color-g50)",
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                </td>
+                <td
+                  style={{
+                    padding: "8px 6px",
+                    fontWeight: 600,
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  {c.creator_page_name}
+                </td>
+                <td
+                  style={{
+                    padding: "8px 6px",
+                    color: "var(--color-accent)",
+                    fontSize: 11,
+                  }}
+                >
+                  {c.partner_page_name ?? "—"}
+                </td>
+                <td
+                  style={{
+                    padding: "8px 6px",
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {c.ad_count}
+                </td>
+                <td
+                  style={{
+                    padding: "8px 6px",
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    color:
+                      c.active_count > 0
+                        ? "var(--color-pos)"
+                        : "var(--color-g400)",
+                  }}
+                >
+                  {c.active_count}
+                </td>
+                <td
+                  style={{
+                    padding: "8px 6px",
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--color-g500)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {c.first_seen ?? "—"}
+                  {c.first_seen !== c.last_seen && c.last_seen
+                    ? ` ~ ${c.last_seen}`
+                    : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
