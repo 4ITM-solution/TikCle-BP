@@ -34,9 +34,10 @@ export async function runPhase4a(
     .single();
   if (cErr || !c) throw new Error(`case fetch: ${cErr?.message}`);
 
-  if (c.channel !== "amazon") {
-    return emptyPhase4a("Amazon 케이스가 아님");
-  }
+  // Meta Ads는 채널 무관 — 같은 브랜드의 FB/IG 광고는 amazon/tiktok_shop/shopee
+  // 케이스 모두 유효. brand_keyword 또는 brand_meta_pages 있으면 fetchMetaAds가
+  // 처리하고, 없으면 0건 반환. (옛 코드는 amazon만 분석했지만 SharkNinja TT Shop
+  // 케이스에서 Meta 광고 분석 필요해서 가드 풀음 — 2026-05-27)
 
   // 2. Apify 호출 — 권역 case면 권역 안 단일 국가들로 풀어서 N번 fetch (Facebook
   //    Ads Library는 ISO 2자 country 코드만 인식). 단일 case는 그대로 한 국가.

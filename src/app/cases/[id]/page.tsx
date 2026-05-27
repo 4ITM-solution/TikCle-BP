@@ -240,9 +240,12 @@ export default async function CaseDetailPage({
       .sort((a, b) => (b.revenue_30d ?? 0) - (a.revenue_30d ?? 0));
   }
 
-  // 4b. Meta 광고 전체 list (UI에서 월별 필터/더보기에 사용). Amazon 케이스만.
+  // 4b. Meta 광고 전체 list (UI에서 월별 필터/더보기에 사용).
+  // Meta Ads는 채널 무관 — amazon/tiktok_shop/shopee 모두 같은 브랜드의 FB/IG
+  // 광고 잡힘. (옛 코드는 amazon만 — SharkNinja TT Shop에서 Meta 광고 분석
+  // 필요해서 가드 풀음 — 2026-05-27)
   let metaAdsList: MetaAdListItem[] = [];
-  if (c.channel === "amazon" && c.status === "ready") {
+  if (c.status === "ready") {
     const { data: ads } = await supabase
       .from("meta_ads")
       .select(
