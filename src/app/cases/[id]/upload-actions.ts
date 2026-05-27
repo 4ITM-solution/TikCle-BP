@@ -2407,14 +2407,19 @@ export async function fetchYoutubeSeeding(
   }
 
   // 4) influencers 업서트 (platform='youtube', external_id=channelId)
-  const inflRows = Array.from(channelMap.entries()).map(([channelId, c]) => ({
-    platform: "youtube" as const,
-    external_id: channelId,
-    handle: c.handle ?? channelId,
-    follower_count: c.subscriberCount,
-    tier: subscribersToTier(c.subscriberCount),
-    fans_source: "youtube_data_api",
-  }));
+  // influencer_tier_type enum은 nano/micro/mid/macro/mega만 → sub-nano/unknown은 null로
+  const ENUM_TIERS = new Set(["nano", "micro", "mid", "macro", "mega"]);
+  const inflRows = Array.from(channelMap.entries()).map(([channelId, c]) => {
+    const tier = subscribersToTier(c.subscriberCount);
+    return {
+      platform: "youtube" as const,
+      external_id: channelId,
+      handle: c.handle ?? channelId,
+      follower_count: c.subscriberCount,
+      tier: ENUM_TIERS.has(tier) ? tier : null,
+      fans_source: "youtube_data_api",
+    };
+  });
   if (inflRows.length > 0) {
     const { error: inflErr } = await supabase
       .from("influencers")
