@@ -34,6 +34,11 @@ import {
   type IgSourceDist,
   type IgHashtagStat,
 } from "@/components/case-detail/IgBrandMonitorSection";
+import {
+  IgPrepBox,
+  type IgPrepDebug,
+} from "@/components/case-detail/IgPrepBox";
+import type { IgConfig } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -290,6 +295,15 @@ export default async function CaseDetailPage({
   const igConfig = (c.ig_config ?? null) as {
     ig_owned_usernames?: string[];
   } | null;
+
+  // 4b-IG-prep. 자동 발굴 결과 (cases.options.ig_config_suggested).
+  // 사용자가 IgPrepBox에서 "자동 발굴 시작" 누르면 박힘. accept 누르면 ig_config로 commit.
+  const optionsObj = (c.options ?? {}) as Record<string, unknown>;
+  const igConfigSuggested =
+    (optionsObj.ig_config_suggested as IgConfig | undefined) ?? null;
+  const igPrepDebug =
+    (optionsObj.ig_prep_debug as IgPrepDebug | undefined) ?? null;
+
   let igTopAuthors: IgAuthorRow[] = [];
   let igTopPaidVideos: IgPaidVideoRow[] = [];
   let igSourceDist: IgSourceDist[] = [];
@@ -970,6 +984,12 @@ export default async function CaseDetailPage({
                   productCount={skuRows.length}
                 />
               )}
+              <IgPrepBox
+                case_id={c.id}
+                hasIgConfig={!!c.ig_config}
+                suggestedConfig={igConfigSuggested}
+                debug={igPrepDebug}
+              />
               {phase4cStats && !phase4cStats.skipped_reason && (
                 <IgBrandMonitorSection
                   phase4c={phase4cStats}
