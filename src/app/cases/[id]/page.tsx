@@ -59,6 +59,11 @@ import {
 } from "@/components/case-detail/YtPostlearnBox";
 import type { IgConfig } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
 import type { YtConfig } from "@/lib/inngest/aggregators/phase4d-yt-monitor";
+import { RegionScopeToggle } from "@/components/case-detail/RegionScopeToggle";
+import {
+  getRegionScope,
+  isLikelyUs,
+} from "@/lib/case-detail/region-filter";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -319,6 +324,7 @@ export default async function CaseDetailPage({
   // 4b-IG-prep. 자동 발굴 결과 (cases.options.ig_config_suggested).
   // 사용자가 IgPrepBox에서 "자동 발굴 시작" 누르면 박힘. accept 누르면 ig_config로 commit.
   const optionsObj = (c.options ?? {}) as Record<string, unknown>;
+  const regionScope = getRegionScope(optionsObj);
   const igConfigSuggested =
     (optionsObj.ig_config_suggested as IgConfig | undefined) ?? null;
   const igPrepDebug =
@@ -359,8 +365,11 @@ export default async function CaseDetailPage({
         )
         .eq("case_id", c.id)
         .order("max_views", { ascending: false, nullsFirst: false })
-        .limit(25);
-      ytTopChannels = (chRaw ?? []) as YtChannelRow[];
+        .limit(regionScope === "us-only" ? 60 : 25);
+      const filtered = (chRaw ?? []).filter((c2) =>
+        regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true,
+      );
+      ytTopChannels = filtered.slice(0, 25) as YtChannelRow[];
     } catch (e) {
       console.warn("[yt] top channels fail:", e);
     }
@@ -374,8 +383,13 @@ export default async function CaseDetailPage({
         .eq("case_id", c.id)
         .not("paid_signal", "is", null)
         .order("view_count", { ascending: false, nullsFirst: false })
-        .limit(12);
-      ytTopPaidVideos = (paidRaw ?? []) as YtPaidVideoRow[];
+        .limit(regionScope === "us-only" ? 30 : 12);
+      const filtered = (paidRaw ?? []).filter((v) =>
+        regionScope === "us-only"
+          ? isLikelyUs(`${v.title ?? ""} ${v.description ?? ""}`, v.channel_name)
+          : true,
+      );
+      ytTopPaidVideos = filtered.slice(0, 12) as YtPaidVideoRow[];
     } catch (e) {
       console.warn("[yt] top paid fail:", e);
     }
@@ -439,6 +453,7 @@ export default async function CaseDetailPage({
   if (phase4cStats && !phase4cStats.skipped_reason) {
     // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
     try {
+      // region_scope=us-only면 fetch 후 휴리스틱 필터. limit 늘려서 필터 후에도 25개 남게.
       const { data: authorsRaw } = await supabase
         .from("ig_authors")
         .select(
@@ -446,8 +461,11 @@ export default async function CaseDetailPage({
         )
         .eq("case_id", c.id)
         .order("max_likes", { ascending: false, nullsFirst: false })
-        .limit(25);
-      igTopAuthors = (authorsRaw ?? []) as IgAuthorRow[];
+        .limit(regionScope === "us-only" ? 60 : 25);
+      const filtered = (authorsRaw ?? []).filter((a) =>
+        regionScope === "us-only" ? isLikelyUs(null, a.username) : true,
+      );
+      igTopAuthors = filtered.slice(0, 25) as IgAuthorRow[];
     } catch (e) {
       console.warn("[ig] top authors fetch fail:", e);
     }
@@ -461,8 +479,13 @@ export default async function CaseDetailPage({
         .eq("case_id", c.id)
         .not("paid_signal", "is", null)
         .order("video_play_count", { ascending: false, nullsFirst: false })
-        .limit(12);
-      igTopPaidVideos = (paidRaw ?? []) as IgPaidVideoRow[];
+        .limit(regionScope === "us-only" ? 30 : 12);
+      const filtered = (paidRaw ?? []).filter((v) =>
+        regionScope === "us-only"
+          ? isLikelyUs(v.caption, v.owner_username)
+          : true,
+      );
+      igTopPaidVideos = filtered.slice(0, 12) as IgPaidVideoRow[];
     } catch (e) {
       console.warn("[ig] top paid videos fetch fail:", e);
     }
@@ -1173,6 +1196,23 @@ export default async function CaseDetailPage({
               )}
             </div>
           </details>
+
+          {/* BP 분석 (IG + YT) 상단 — region scope toggle */}
+          <div
+            style={{
+              marginTop: 24,
+              marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <h2 style={{ fontSize: 18, margin: 0 }}>
+              🎯 BP 카테고리 정의자 분석 (IG + YouTube)
+            </h2>
+            <RegionScopeToggle case_id={c.id} currentScope={regionScope} />
+          </div>
 
           {/* IG Brand Monitoring (Phase 4c) — 카테고리 정의자 BP 분석용.
               데이터 추가 업로드 토글 밖, ready 케이스의 main flow에 노출. */}
