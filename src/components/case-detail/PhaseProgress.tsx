@@ -84,6 +84,12 @@ const PHASES: Array<{
     cost: "무료",
     costColor: "free",
   },
+  {
+    key: "phase4c",
+    label: "Phase 4c — IG Brand Monitoring (BP)",
+    cost: "최대 ~$6.50",
+    costColor: "mid",
+  },
 ];
 
 export function PhaseProgress({
@@ -173,6 +179,11 @@ export function PhaseProgress({
         return {
           done: !!keyStats.phase5,
           computed_at: keyStats.phase5?.computed_at,
+        };
+      case "phase4c":
+        return {
+          done: !!keyStats.phase4c,
+          computed_at: keyStats.phase4c?.computed_at,
         };
     }
   }

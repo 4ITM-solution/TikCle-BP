@@ -26,6 +26,7 @@ import {
   type Phase37BatchResult,
 } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
+import { runPhase4c } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
 import {
   fetchPhase4bAsrSetup,
@@ -1027,6 +1028,59 @@ export const runAnalysis = inngest.createFunction(
           .update({ key_stats: newStats })
           .eq("id", case_id);
         if (error) throw new Error(`save phase5: ${error.message}`);
+      });
+    }
+
+    // ─── Phase 4c: IG Brand Monitoring (cases.ig_config 있을 때만) ───
+    // 카테고리 정의자 BP (SharkNinja/Dyson/Medicube/Poppi)용. ig_config 없으면 graceful skip.
+    // Phase 5 뒤에 박은 이유: phase4c는 phase4b/phase5와 independent. cascade save 충돌 회피.
+    // 4-소스 (hashtag + owned + author_seed + celeb_reel) 통합 → ig_posts/ig_authors 정규화.
+    const phase4c = await step.run("phase-4c-ig-monitor", async () => {
+      if (existing.phase4c && !force("phase4c")) {
+        logger.info("[Phase 4c] cached", {
+          computed_at: existing.phase4c.computed_at,
+          unique: existing.phase4c.total_unique,
+        });
+        return sanitizeDeep(existing.phase4c);
+      }
+      logger.info("[Phase 4c] IG brand monitoring", { case_id });
+      const stats = await runPhase4c(supabase, case_id);
+      logger.info("[Phase 4c] done", {
+        raw: stats.total_raw,
+        unique: stats.total_unique,
+        brand_matched: stats.total_brand_matched,
+        paid: stats.total_paid_signal,
+        authors: stats.unique_authors,
+        cost: stats.cost_actual_usd,
+        skipped: stats.skipped_reason,
+      });
+      return sanitizeDeep(stats);
+    });
+
+    const phase4cNew = !existing.phase4c || force("phase4c");
+    if (phase4cNew) {
+      await step.run("phase-4c-save", async () => {
+        const newStats: KeyStats = {
+          ...existing,
+          phase1_5,
+          phase2: phase2Effective,
+          phase3: phase3Final,
+          phase35,
+          phase37,
+          phase4a: phase4aWithStorage,
+          phase4b_sample: phase4bSample,
+          phase4b_asr: phase4bAsr,
+          phase4b_vision: phase4bVision,
+          phase4b_clusters: phase4bClusters,
+          phase4b_sku: phase4bSku,
+          phase5,
+          phase4c,
+        };
+        const { error } = await supabase
+          .from("cases")
+          .update({ key_stats: newStats })
+          .eq("id", case_id);
+        if (error) throw new Error(`save phase4c: ${error.message}`);
       });
     }
 

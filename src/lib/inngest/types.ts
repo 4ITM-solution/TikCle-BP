@@ -409,12 +409,50 @@ export type KeyStats = {
   phase35?: Phase35Stats;
   phase37?: Phase37Stats;
   phase4a?: Phase4aStats;
+  phase4c?: Phase4cStats;
   phase4b_sample?: Phase4bSampleStats;
   phase4b_asr?: Phase4bAsrStats;
   phase4b_vision?: Phase4bVisionStats;
   phase4b_clusters?: Phase4bClusterStats;
   phase4b_sku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
+};
+
+// =============================================================================
+// Phase 4c: IG Brand Monitoring (카테고리 정의자 BP용)
+// =============================================================================
+// 4-소스 (hashtag + owned + author_seed + celeb_reel) 통합 후 brand 매칭 + paid 추출.
+// 데이터는 ig_posts / ig_authors / ig_runs 정규화 테이블에 박힘.
+// key_stats.phase4c는 요약만 (UI KPI strip 용).
+
+export type Phase4cAuthorPreview = {
+  username: string;
+  total_posts: number;
+  brand_matched_posts: number;
+  paid_posts: number;
+  max_likes: number | null;
+};
+
+export type Phase4cRunSummary = {
+  source: string;                  // "hashtag" / "owned_and_seeds" / "celeb_reel"
+  apify_run_id: string | null;
+  status: string;
+  items_count: number;
+  cost_estimate_usd: number;
+};
+
+export type Phase4cStats = {
+  total_raw: number;               // 모든 소스 합 (dedup 전)
+  total_unique: number;            // dedup 후 unique post 수
+  total_brand_matched: number;     // brand regex 매칭 통과
+  total_paid_signal: number;       // caption에 paid 시그널
+  unique_authors: number;          // ig_authors 행 수
+  top_authors_preview: Phase4cAuthorPreview[]; // max_likes desc top 20
+  by_source: Record<string, number>; // source별 raw 수
+  runs: Phase4cRunSummary[];
+  cost_actual_usd: number;
+  skipped_reason?: string;
+  computed_at: string;
 };
 
 // =============================================================================

@@ -20,6 +20,7 @@ export type PhaseKey =
   | "phase37"
   | "phase4a"
   | "phase4a_assets"
+  | "phase4c"
   | "phase4b_sample"
   | "phase4b_asr"
   | "phase4b_vision"
