@@ -38,6 +38,10 @@ import {
   IgPrepBox,
   type IgPrepDebug,
 } from "@/components/case-detail/IgPrepBox";
+import {
+  IgPostlearnBox,
+  type IgPostlearnDiff,
+} from "@/components/case-detail/IgPostlearnBox";
 import type { IgConfig } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
@@ -303,6 +307,12 @@ export default async function CaseDetailPage({
     (optionsObj.ig_config_suggested as IgConfig | undefined) ?? null;
   const igPrepDebug =
     (optionsObj.ig_prep_debug as IgPrepDebug | undefined) ?? null;
+
+  // 4b-IG-postlearn. 1차 phase4c 결과에서 자동 학습한 config.
+  const igConfigLearned =
+    (optionsObj.ig_config_learned as IgConfig | undefined) ?? null;
+  const igPostlearnDiff =
+    (optionsObj.ig_postlearn_diff as IgPostlearnDiff | undefined) ?? null;
 
   let igTopAuthors: IgAuthorRow[] = [];
   let igTopPaidVideos: IgPaidVideoRow[] = [];
@@ -1006,6 +1016,12 @@ export default async function CaseDetailPage({
                 hasIgConfig={!!c.ig_config}
                 suggestedConfig={igConfigSuggested}
                 debug={igPrepDebug}
+              />
+              <IgPostlearnBox
+                case_id={c.id}
+                hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
+                learnedConfig={igConfigLearned}
+                diff={igPostlearnDiff}
               />
               {phase4cStats && !phase4cStats.skipped_reason && (
                 <IgBrandMonitorSection
