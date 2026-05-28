@@ -127,29 +127,54 @@ export async function runPhase4c(
   }
 
   // 4. 소스 2: post-scraper (owned + seeds 통합)
+  // 함정 (2026-05-28 SharkNinja): postlearn으로 author_seeds 37명 박힌 후 39명 한 호출
+  // 시도하면 Apify timeout 또는 Inngest step fail. 20명씩 batch 처리.
   const usernamesToFetch = Array.from(new Set([...owned, ...seeds]));
-  let postResult: IgPostScraperResult | null = null;
+  const postResults: IgPostScraperResult[] = [];
+  const POST_BATCH_SIZE = 20;
   if (usernamesToFetch.length > 0) {
-    postResult = await fetchIgPostsByUsername({
-      usernames: usernamesToFetch,
-      resultsLimit: cfg.ig_post_results_limit ?? DEFAULT_POST_LIMIT,
-    });
-    runs.push({
-      source: usernamesToFetch.every((u) => owned.includes(u))
-        ? "owned"
-        : "owned_and_seeds",
-      actor_id: "apify~instagram-post-scraper",
-      apify_run_id: postResult.apify_run_id,
-      dataset_id: postResult.dataset_id,
-      input: {
-        usernames: usernamesToFetch,
+    for (let i = 0; i < usernamesToFetch.length; i += POST_BATCH_SIZE) {
+      const batchUsernames = usernamesToFetch.slice(i, i + POST_BATCH_SIZE);
+      const batchResult = await fetchIgPostsByUsername({
+        usernames: batchUsernames,
         resultsLimit: cfg.ig_post_results_limit ?? DEFAULT_POST_LIMIT,
-      },
-      status: postResult.status,
-      items_count: postResult.items.length,
-      cost_estimate_usd: postResult.cost_estimate_usd,
-    });
+      });
+      postResults.push(batchResult);
+      runs.push({
+        source: batchUsernames.every((u) => owned.includes(u))
+          ? "owned"
+          : "owned_and_seeds",
+        actor_id: "apify~instagram-post-scraper",
+        apify_run_id: batchResult.apify_run_id,
+        dataset_id: batchResult.dataset_id,
+        input: {
+          usernames: batchUsernames,
+          resultsLimit: cfg.ig_post_results_limit ?? DEFAULT_POST_LIMIT,
+          batch_index: Math.floor(i / POST_BATCH_SIZE),
+        },
+        status: batchResult.status,
+        items_count: batchResult.items.length,
+        cost_estimate_usd: batchResult.cost_estimate_usd,
+      });
+    }
   }
+  // 후속 통합 처리용 — 모든 batch items 합침
+  const postResult: IgPostScraperResult | null = postResults.length === 0
+    ? null
+    : {
+        items: postResults.flatMap((r) => r.items),
+        cost_estimate_usd: postResults.reduce(
+          (s, r) => s + r.cost_estimate_usd,
+          0,
+        ),
+        apify_run_id: postResults[0]?.apify_run_id ?? null,
+        dataset_id: postResults[0]?.dataset_id ?? null,
+        status: postResults.every((r) => r.status === "SUCCEEDED")
+          ? "SUCCEEDED"
+          : postResults.find((r) => r.status !== "SUCCEEDED")?.status ?? "MIXED",
+        skipped_reason: postResults.find((r) => r.skipped_reason)
+          ?.skipped_reason,
+      };
 
   // 5. 통합 + dedup
   type Tagged = { item: IgPostRaw; source: string; run_id: string | null };
