@@ -50,12 +50,19 @@ export function IgPrepBox({
     if (!seed.trim()) return;
     setMsg(null);
     start(async () => {
-      const r = await runIgPrep(case_id, seed.trim());
-      if (r.ok) {
-        setMsg({ type: "ok", text: "자동 발굴 완료. 결과 검토 후 Accept" });
-        router.refresh();
-      } else {
-        setMsg({ type: "err", text: r.error });
+      try {
+        const r = await runIgPrep(case_id, seed.trim());
+        if (r.ok) {
+          setMsg({ type: "ok", text: "자동 발굴 완료. 결과 검토 후 Accept" });
+          router.refresh();
+        } else {
+          setMsg({ type: "err", text: r.error });
+        }
+      } catch (e) {
+        setMsg({
+          type: "err",
+          text: e instanceof Error ? e.message : String(e),
+        });
       }
     });
   }
@@ -69,15 +76,22 @@ export function IgPrepBox({
     }
     setMsg(null);
     start(async () => {
-      const r = await acceptIgConfigSuggested(case_id);
-      if (r.ok) {
+      try {
+        const r = await acceptIgConfigSuggested(case_id);
+        if (r.ok) {
+          setMsg({
+            type: "ok",
+            text: "ig_config 적용됨. PhaseProgress의 Phase 4c 재실행 누르면 동작.",
+          });
+          router.refresh();
+        } else {
+          setMsg({ type: "err", text: r.error });
+        }
+      } catch (e) {
         setMsg({
-          type: "ok",
-          text: "ig_config 적용됨. PhaseProgress의 Phase 4c 재실행 누르면 동작.",
+          type: "err",
+          text: e instanceof Error ? e.message : String(e),
         });
-        router.refresh();
-      } else {
-        setMsg({ type: "err", text: r.error });
       }
     });
   }
