@@ -134,7 +134,7 @@ export function IgBrandMonitorSection({
           {phase4c.unique_authors.toLocaleString()} authors · paid{" "}
           {phase4c.total_paid_signal.toLocaleString()} · 비용 $
           {phase4c.cost_actual_usd.toFixed(2)} · 분석{" "}
-          {new Date(phase4c.computed_at).toLocaleString("ko-KR")}
+          {formatTimestamp(phase4c.computed_at)}
         </p>
       </header>
 
@@ -385,6 +385,23 @@ export function IgBrandMonitorSection({
       )}
     </section>
   );
+}
+
+function formatTimestamp(iso: string): string {
+  // Vercel serverless runtime ICU 제한으로 toLocaleString("ko-KR")이 throw 가능.
+  // 안전한 YYYY-MM-DD HH:mm 포맷 (UTC 기준).
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mi = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`;
+  } catch {
+    return iso;
+  }
 }
 
 function sourceLabel(source: string): string {

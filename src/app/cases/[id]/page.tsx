@@ -311,86 +311,103 @@ export default async function CaseDetailPage({
   const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
 
   if (phase4cStats && !phase4cStats.skipped_reason) {
-    // Top authors (max_likes desc, 25명)
-    const { data: authorsRaw } = await supabase
-      .from("ig_authors")
-      .select(
-        "username, full_name, total_posts, brand_matched_posts, paid_posts, max_likes, max_views, total_likes, tier",
-      )
-      .eq("case_id", c.id)
-      .order("max_likes", { ascending: false, nullsFirst: false })
-      .limit(25);
-    igTopAuthors = (authorsRaw ?? []) as IgAuthorRow[];
-
-    // Top paid videos (views desc, 12개)
-    const { data: paidRaw } = await supabase
-      .from("ig_posts")
-      .select(
-        "id, owner_username, owner_full_name, caption, likes_count, comments_count, video_play_count, paid_signal, url, display_url, posted_at",
-      )
-      .eq("case_id", c.id)
-      .not("paid_signal", "is", null)
-      .order("video_play_count", { ascending: false, nullsFirst: false })
-      .limit(12);
-    igTopPaidVideos = (paidRaw ?? []) as IgPaidVideoRow[];
-
-    // Source 분포 — supabase로 group by 못 해서 raw SQL 우회 못 함. 그냥 모든 row select 후 JS aggregate.
-    // 데이터 작아서 OK (수천 row).
-    const { data: srcRaw } = await supabase
-      .from("ig_posts")
-      .select("source, owner_username")
-      .eq("case_id", c.id);
-    const srcMap = new Map<string, { posts: number; authors: Set<string> }>();
-    for (const r of srcRaw ?? []) {
-      if (!r.source) continue;
-      let agg = srcMap.get(r.source);
-      if (!agg) {
-        agg = { posts: 0, authors: new Set() };
-        srcMap.set(r.source, agg);
-      }
-      agg.posts += 1;
-      if (r.owner_username) agg.authors.add(r.owner_username);
+    // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
+    try {
+      const { data: authorsRaw } = await supabase
+        .from("ig_authors")
+        .select(
+          "username, full_name, total_posts, brand_matched_posts, paid_posts, max_likes, max_views, total_likes, tier",
+        )
+        .eq("case_id", c.id)
+        .order("max_likes", { ascending: false, nullsFirst: false })
+        .limit(25);
+      igTopAuthors = (authorsRaw ?? []) as IgAuthorRow[];
+    } catch (e) {
+      console.warn("[ig] top authors fetch fail:", e);
     }
-    igSourceDist = Array.from(srcMap.entries())
-      .map(([source, v]) => ({
-        source,
-        posts: v.posts,
-        authors: v.authors.size,
-      }))
-      .sort((a, b) => b.posts - a.posts);
 
-    // Top hashtag (paid % desc). hashtag 배열 unnest → group by → paid %.
-    // Postgres unnest는 supabase-js 직접 안 됨 → raw SQL 함수 또는 JS aggregate.
-    const { data: hashtagRaw } = await supabase
-      .from("ig_posts")
-      .select("hashtags, paid_signal")
-      .eq("case_id", c.id)
-      .eq("brand_matched", true);
-    const tagMap = new Map<string, { posts: number; paid: number }>();
-    for (const r of hashtagRaw ?? []) {
-      if (!Array.isArray(r.hashtags)) continue;
-      const isPaid = !!r.paid_signal;
-      for (const t of r.hashtags) {
-        if (typeof t !== "string") continue;
-        let agg = tagMap.get(t);
+    try {
+      const { data: paidRaw } = await supabase
+        .from("ig_posts")
+        .select(
+          "id, owner_username, owner_full_name, caption, likes_count, comments_count, video_play_count, paid_signal, url, display_url, posted_at",
+        )
+        .eq("case_id", c.id)
+        .not("paid_signal", "is", null)
+        .order("video_play_count", { ascending: false, nullsFirst: false })
+        .limit(12);
+      igTopPaidVideos = (paidRaw ?? []) as IgPaidVideoRow[];
+    } catch (e) {
+      console.warn("[ig] top paid videos fetch fail:", e);
+    }
+
+    try {
+      // 큰 fetch 위험 — limit 5000으로 cap
+      const { data: srcRaw } = await supabase
+        .from("ig_posts")
+        .select("source, owner_username")
+        .eq("case_id", c.id)
+        .limit(5000);
+      const srcMap = new Map<
+        string,
+        { posts: number; authors: Set<string> }
+      >();
+      for (const r of srcRaw ?? []) {
+        if (!r.source) continue;
+        let agg = srcMap.get(r.source);
         if (!agg) {
-          agg = { posts: 0, paid: 0 };
-          tagMap.set(t, agg);
+          agg = { posts: 0, authors: new Set() };
+          srcMap.set(r.source, agg);
         }
         agg.posts += 1;
-        if (isPaid) agg.paid += 1;
+        if (r.owner_username) agg.authors.add(r.owner_username);
       }
+      igSourceDist = Array.from(srcMap.entries())
+        .map(([source, v]) => ({
+          source,
+          posts: v.posts,
+          authors: v.authors.size,
+        }))
+        .sort((a, b) => b.posts - a.posts);
+    } catch (e) {
+      console.warn("[ig] source dist fetch fail:", e);
     }
-    igTopHashtags = Array.from(tagMap.entries())
-      .filter(([, v]) => v.posts >= 20)
-      .map(([tag, v]) => ({
-        tag,
-        posts: v.posts,
-        paid: v.paid,
-        paid_pct: (v.paid * 100) / v.posts,
-      }))
-      .sort((a, b) => b.paid_pct - a.paid_pct)
-      .slice(0, 20);
+
+    try {
+      const { data: hashtagRaw } = await supabase
+        .from("ig_posts")
+        .select("hashtags, paid_signal")
+        .eq("case_id", c.id)
+        .eq("brand_matched", true)
+        .limit(5000);
+      const tagMap = new Map<string, { posts: number; paid: number }>();
+      for (const r of hashtagRaw ?? []) {
+        if (!Array.isArray(r.hashtags)) continue;
+        const isPaid = !!r.paid_signal;
+        for (const t of r.hashtags) {
+          if (typeof t !== "string") continue;
+          let agg = tagMap.get(t);
+          if (!agg) {
+            agg = { posts: 0, paid: 0 };
+            tagMap.set(t, agg);
+          }
+          agg.posts += 1;
+          if (isPaid) agg.paid += 1;
+        }
+      }
+      igTopHashtags = Array.from(tagMap.entries())
+        .filter(([, v]) => v.posts >= 20)
+        .map(([tag, v]) => ({
+          tag,
+          posts: v.posts,
+          paid: v.paid,
+          paid_pct: (v.paid * 100) / v.posts,
+        }))
+        .sort((a, b) => b.paid_pct - a.paid_pct)
+        .slice(0, 20);
+    } catch (e) {
+      console.warn("[ig] hashtag fetch fail:", e);
+    }
   }
 
   // 4c. Top GMV Shop creator + Shop GMV 분포 (TikTok Shop case + ready 한정)
