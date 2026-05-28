@@ -61,7 +61,10 @@ export function IgPrepBox({
   }
 
   function handleAccept() {
-    if (!confirm("추천된 ig_config를 적용할까요? (이후 Phase 4c 재실행 가능)")) {
+    const warning = hasIgConfig
+      ? "⚠️ 기존 ig_config를 덮어씁니다. 적용할까요? (이후 Phase 4c 재실행 가능)"
+      : "추천된 ig_config를 적용할까요? (이후 Phase 4c 재실행 가능)";
+    if (!confirm(warning)) {
       return;
     }
     setMsg(null);
@@ -79,8 +82,7 @@ export function IgPrepBox({
     });
   }
 
-  // 이미 ig_config 박혀있고 suggested 없으면 박스 숨김
-  if (hasIgConfig && !suggestedConfig) return null;
+  // 박스 항상 노출 — 사용자가 재발굴/검증 가능. hasIgConfig=true면 덮어쓰기 경고만 표시.
 
   return (
     <section
