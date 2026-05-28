@@ -1011,28 +1011,6 @@ export default async function CaseDetailPage({
                   productCount={skuRows.length}
                 />
               )}
-              <IgPrepBox
-                case_id={c.id}
-                hasIgConfig={!!c.ig_config}
-                suggestedConfig={igConfigSuggested}
-                debug={igPrepDebug}
-              />
-              <IgPostlearnBox
-                case_id={c.id}
-                hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
-                learnedConfig={igConfigLearned}
-                diff={igPostlearnDiff}
-              />
-              {phase4cStats && !phase4cStats.skipped_reason && (
-                <IgBrandMonitorSection
-                  phase4c={phase4cStats}
-                  ownedUsernames={igOwnedUsernames}
-                  topAuthors={igTopAuthors}
-                  topPaidVideos={igTopPaidVideos}
-                  sourceDist={igSourceDist}
-                  topHashtags={igTopHashtags}
-                />
-              )}
               {c.channel === "tiktok_shop" && c.country === "US" && (
                 <>
                   <TiktokProductFinderSection
@@ -1079,6 +1057,32 @@ export default async function CaseDetailPage({
               )}
             </div>
           </details>
+
+          {/* IG Brand Monitoring (Phase 4c) — 카테고리 정의자 BP 분석용.
+              데이터 추가 업로드 토글 밖, ready 케이스의 main flow에 노출. */}
+          <IgPrepBox
+            case_id={c.id}
+            hasIgConfig={!!c.ig_config}
+            suggestedConfig={igConfigSuggested}
+            debug={igPrepDebug}
+          />
+          <IgPostlearnBox
+            case_id={c.id}
+            hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
+            learnedConfig={igConfigLearned}
+            diff={igPostlearnDiff}
+          />
+          {phase4cStats && !phase4cStats.skipped_reason && (
+            <IgBrandMonitorSection
+              phase4c={phase4cStats}
+              ownedUsernames={igOwnedUsernames}
+              topAuthors={igTopAuthors}
+              topPaidVideos={igTopPaidVideos}
+              sourceDist={igSourceDist}
+              topHashtags={igTopHashtags}
+            />
+          )}
+
           {(() => {
             const ks = c.key_stats as {
               phase2?: Phase2Stats;
