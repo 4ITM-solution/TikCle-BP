@@ -737,6 +737,7 @@ export async function startPhase15Only(case_id: string): Promise<Result> {
 export async function startAnalysis(
   case_id: string,
   force_phases?: PhaseKey[],
+  opts?: { skipAutoForce?: boolean },
 ): Promise<Result> {
   const { supabase } = await getCase(case_id);
 
@@ -744,29 +745,36 @@ export async function startAnalysis(
   // 이유: 옛 케이스 (brand_keyword 비어있어 phase4a skip, max_tokens 부족으로 phase4b_clusters
   // skip 등)는 cached skip 결과 그대로 반환돼 글로벌 재실행 눌러도 갱신 안 됨.
   // skipped_reason 있으면 "재시도해야 함"으로 간주.
-  const { data: ksRow } = await supabase
-    .from("cases")
-    .select("key_stats")
-    .eq("id", case_id)
-    .single();
-  const ks =
-    (ksRow?.key_stats as Record<string, { skipped_reason?: string } | undefined>) ??
-    {};
-  const phaseKeysToCheck: PhaseKey[] = [
-    "phase1_5",
-    "phase2",
-    "phase3",
-    "phase35",
-    "phase37",
-    "phase4a",
-    "phase4b_sample",
-    "phase4b_asr",
-    "phase4b_vision",
-    "phase4b_clusters",
-    "phase4b_sku",
-    "phase5",
-  ];
-  const autoForced = phaseKeysToCheck.filter((k) => ks[k]?.skipped_reason);
+  //
+  // ⚠️ 단독 phase 재실행 (PhaseProgress의 개별 phase "재실행" 버튼) 시에는 autoForce 끔.
+  // 그렇지 않으면 정상 skip인 phase (예: "샘플 0개", "Unknown 0명")까지 force돼서
+  // clockworks fail 같은 의도치 않은 부작용 발생.
+  let autoForced: PhaseKey[] = [];
+  if (!opts?.skipAutoForce) {
+    const { data: ksRow } = await supabase
+      .from("cases")
+      .select("key_stats")
+      .eq("id", case_id)
+      .single();
+    const ks =
+      (ksRow?.key_stats as Record<string, { skipped_reason?: string } | undefined>) ??
+      {};
+    const phaseKeysToCheck: PhaseKey[] = [
+      "phase1_5",
+      "phase2",
+      "phase3",
+      "phase35",
+      "phase37",
+      "phase4a",
+      "phase4b_sample",
+      "phase4b_asr",
+      "phase4b_vision",
+      "phase4b_clusters",
+      "phase4b_sku",
+      "phase5",
+    ];
+    autoForced = phaseKeysToCheck.filter((k) => ks[k]?.skipped_reason);
+  }
   const merged = Array.from(
     new Set([...(force_phases ?? []), ...autoForced]),
   );

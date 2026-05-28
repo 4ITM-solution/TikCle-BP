@@ -192,7 +192,9 @@ export function PhaseProgress({
     setPendingPhase(phase);
     setMsg(null);
     start(async () => {
-      const r = await startAnalysis(case_id, [phase]);
+      // 단독 phase 재실행 — autoForce 끔. 그렇지 않으면 다른 skipped phase까지 같이 force돼서
+      // 의도치 않은 clockworks 호출/fail 부작용 발생.
+      const r = await startAnalysis(case_id, [phase], { skipAutoForce: true });
       setPendingPhase(null);
       setMsg(
         r.ok
