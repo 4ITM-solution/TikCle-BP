@@ -27,6 +27,13 @@ import {
   type TopGmvCreator,
 } from "@/components/case-detail/TopGmvShopCreators";
 import type { ShopGmvDistribution } from "@/components/case-detail/ShopCreatorGmvDistribution";
+import {
+  IgBrandMonitorSection,
+  type IgAuthorRow,
+  type IgPaidVideoRow,
+  type IgSourceDist,
+  type IgHashtagStat,
+} from "@/components/case-detail/IgBrandMonitorSection";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -89,7 +96,7 @@ export default async function CaseDetailPage({
   const { data: c, error } = await supabase
     .from("cases")
     .select(
-      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, options, key_stats, created_at, updated_at, brand:brands(name)",
+      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, ig_config, options, key_stats, created_at, updated_at, brand:brands(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -274,6 +281,102 @@ export default async function CaseDetailPage({
       partner_page_name: a.partner_page_name ?? null,
       partner_page_id: a.partner_page_id ?? null,
     }));
+  }
+
+  // 4b-IG. Phase 4c (IG Brand Monitoring) — ig_config 있고 분석 끝났으면 데이터 fetch.
+  // 카테고리 정의자 BP 분석용. cases.ig_config + ig_posts/ig_authors 정규화 테이블.
+  const keyStats = (c.key_stats ?? {}) as KeyStats;
+  const phase4cStats = keyStats.phase4c ?? null;
+  const igConfig = (c.ig_config ?? null) as {
+    ig_owned_usernames?: string[];
+  } | null;
+  let igTopAuthors: IgAuthorRow[] = [];
+  let igTopPaidVideos: IgPaidVideoRow[] = [];
+  let igSourceDist: IgSourceDist[] = [];
+  let igTopHashtags: IgHashtagStat[] = [];
+  const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
+
+  if (phase4cStats && !phase4cStats.skipped_reason) {
+    // Top authors (max_likes desc, 25명)
+    const { data: authorsRaw } = await supabase
+      .from("ig_authors")
+      .select(
+        "username, full_name, total_posts, brand_matched_posts, paid_posts, max_likes, max_views, total_likes, tier",
+      )
+      .eq("case_id", c.id)
+      .order("max_likes", { ascending: false, nullsFirst: false })
+      .limit(25);
+    igTopAuthors = (authorsRaw ?? []) as IgAuthorRow[];
+
+    // Top paid videos (views desc, 12개)
+    const { data: paidRaw } = await supabase
+      .from("ig_posts")
+      .select(
+        "id, owner_username, owner_full_name, caption, likes_count, comments_count, video_play_count, paid_signal, url, display_url, posted_at",
+      )
+      .eq("case_id", c.id)
+      .not("paid_signal", "is", null)
+      .order("video_play_count", { ascending: false, nullsFirst: false })
+      .limit(12);
+    igTopPaidVideos = (paidRaw ?? []) as IgPaidVideoRow[];
+
+    // Source 분포 — supabase로 group by 못 해서 raw SQL 우회 못 함. 그냥 모든 row select 후 JS aggregate.
+    // 데이터 작아서 OK (수천 row).
+    const { data: srcRaw } = await supabase
+      .from("ig_posts")
+      .select("source, owner_username")
+      .eq("case_id", c.id);
+    const srcMap = new Map<string, { posts: number; authors: Set<string> }>();
+    for (const r of srcRaw ?? []) {
+      if (!r.source) continue;
+      let agg = srcMap.get(r.source);
+      if (!agg) {
+        agg = { posts: 0, authors: new Set() };
+        srcMap.set(r.source, agg);
+      }
+      agg.posts += 1;
+      if (r.owner_username) agg.authors.add(r.owner_username);
+    }
+    igSourceDist = Array.from(srcMap.entries())
+      .map(([source, v]) => ({
+        source,
+        posts: v.posts,
+        authors: v.authors.size,
+      }))
+      .sort((a, b) => b.posts - a.posts);
+
+    // Top hashtag (paid % desc). hashtag 배열 unnest → group by → paid %.
+    // Postgres unnest는 supabase-js 직접 안 됨 → raw SQL 함수 또는 JS aggregate.
+    const { data: hashtagRaw } = await supabase
+      .from("ig_posts")
+      .select("hashtags, paid_signal")
+      .eq("case_id", c.id)
+      .eq("brand_matched", true);
+    const tagMap = new Map<string, { posts: number; paid: number }>();
+    for (const r of hashtagRaw ?? []) {
+      if (!Array.isArray(r.hashtags)) continue;
+      const isPaid = !!r.paid_signal;
+      for (const t of r.hashtags) {
+        if (typeof t !== "string") continue;
+        let agg = tagMap.get(t);
+        if (!agg) {
+          agg = { posts: 0, paid: 0 };
+          tagMap.set(t, agg);
+        }
+        agg.posts += 1;
+        if (isPaid) agg.paid += 1;
+      }
+    }
+    igTopHashtags = Array.from(tagMap.entries())
+      .filter(([, v]) => v.posts >= 20)
+      .map(([tag, v]) => ({
+        tag,
+        posts: v.posts,
+        paid: v.paid,
+        paid_pct: (v.paid * 100) / v.posts,
+      }))
+      .sort((a, b) => b.paid_pct - a.paid_pct)
+      .slice(0, 20);
   }
 
   // 4c. Top GMV Shop creator + Shop GMV 분포 (TikTok Shop case + ready 한정)
@@ -865,6 +968,16 @@ export default async function CaseDetailPage({
                 <KalodataSection
                   case_id={c.id}
                   productCount={skuRows.length}
+                />
+              )}
+              {phase4cStats && !phase4cStats.skipped_reason && (
+                <IgBrandMonitorSection
+                  phase4c={phase4cStats}
+                  ownedUsernames={igOwnedUsernames}
+                  topAuthors={igTopAuthors}
+                  topPaidVideos={igTopPaidVideos}
+                  sourceDist={igSourceDist}
+                  topHashtags={igTopHashtags}
                 />
               )}
               {c.channel === "tiktok_shop" && c.country === "US" && (
