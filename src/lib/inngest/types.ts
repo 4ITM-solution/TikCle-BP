@@ -410,6 +410,7 @@ export type KeyStats = {
   phase37?: Phase37Stats;
   phase4a?: Phase4aStats;
   phase4c?: Phase4cStats;
+  phase4d?: Phase4dStats;
   phase4b_sample?: Phase4bSampleStats;
   phase4b_asr?: Phase4bAsrStats;
   phase4b_vision?: Phase4bVisionStats;
@@ -450,6 +451,42 @@ export type Phase4cStats = {
   top_authors_preview: Phase4cAuthorPreview[]; // max_likes desc top 20
   by_source: Record<string, number>; // source별 raw 수
   runs: Phase4cRunSummary[];
+  cost_actual_usd: number;
+  skipped_reason?: string;
+  computed_at: string;
+};
+
+// =============================================================================
+// Phase 4d: YouTube Brand Monitoring
+// =============================================================================
+// IG와 유사한 패턴 + YT 특화 (Shorts vs long-form 분리, monetizationStatus).
+
+export type Phase4dChannelPreview = {
+  channel_name: string;
+  total_videos: number;
+  paid_videos: number;
+  max_views: number | null;
+  subscriber_count: number | null;
+};
+
+export type Phase4dRunSummary = {
+  source: string;
+  apify_run_id: string | null;
+  status: string;
+  items_count: number;
+  cost_estimate_usd: number;
+};
+
+export type Phase4dStats = {
+  total_raw: number;
+  total_unique: number;
+  total_brand_matched: number;
+  total_paid_signal: number;
+  unique_channels: number;
+  top_channels_preview: Phase4dChannelPreview[];
+  by_source: Record<string, number>;
+  by_type: { video: number; short: number; stream: number };
+  runs: Phase4dRunSummary[];
   cost_actual_usd: number;
   skipped_reason?: string;
   computed_at: string;

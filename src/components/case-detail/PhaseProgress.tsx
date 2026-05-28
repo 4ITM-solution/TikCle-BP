@@ -90,6 +90,12 @@ const PHASES: Array<{
     cost: "최대 ~$6.50",
     costColor: "mid",
   },
+  {
+    key: "phase4d",
+    label: "Phase 4d — YouTube Brand Monitoring (BP)",
+    cost: "최대 ~$4.00",
+    costColor: "mid",
+  },
 ];
 
 export function PhaseProgress({
@@ -184,6 +190,11 @@ export function PhaseProgress({
         return {
           done: !!keyStats.phase4c,
           computed_at: keyStats.phase4c?.computed_at,
+        };
+      case "phase4d":
+        return {
+          done: !!keyStats.phase4d,
+          computed_at: keyStats.phase4d?.computed_at,
         };
     }
   }

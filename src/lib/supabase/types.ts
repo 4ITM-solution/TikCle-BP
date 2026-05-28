@@ -113,6 +113,7 @@ export type Database = {
           brand_meta_pages: string[] | null;
           tiktok_shop_store_url: string | null;
           ig_config: Json | null;
+          yt_config: Json | null;
           key_stats: Json | null;
           options: Json | null;
           analyzed_at: string | null;
@@ -130,6 +131,7 @@ export type Database = {
           brand_meta_pages?: string[] | null;
           tiktok_shop_store_url?: string | null;
           ig_config?: Json | null;
+          yt_config?: Json | null;
           key_stats?: Json | null;
           options?: Json | null;
           analyzed_at?: string | null;
@@ -147,6 +149,7 @@ export type Database = {
           brand_meta_pages?: string[] | null;
           tiktok_shop_store_url?: string | null;
           ig_config?: Json | null;
+          yt_config?: Json | null;
           key_stats?: Json | null;
           options?: Json | null;
           analyzed_at?: string | null;
@@ -907,6 +910,201 @@ export type Database = {
       };
 
       ig_runs: {
+        Row: {
+          id: string;
+          case_id: string;
+          source: string;
+          actor_id: string;
+          apify_run_id: string;
+          dataset_id: string | null;
+          input: Json;
+          status: string | null;
+          items_count: number | null;
+          cost_estimate_usd: number | null;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          case_id: string;
+          source: string;
+          actor_id: string;
+          apify_run_id: string;
+          dataset_id?: string | null;
+          input: Json;
+          status?: string | null;
+          items_count?: number | null;
+          cost_estimate_usd?: number | null;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          case_id?: string;
+          source?: string;
+          actor_id?: string;
+          apify_run_id?: string;
+          dataset_id?: string | null;
+          input?: Json;
+          status?: string | null;
+          items_count?: number | null;
+          cost_estimate_usd?: number | null;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      yt_videos: {
+        Row: {
+          id: string;
+          case_id: string;
+          yt_id: string;
+          url: string;
+          type: string | null;
+          channel_name: string | null;
+          channel_id: string | null;
+          channel_url: string | null;
+          subscriber_count: number | null;
+          title: string | null;
+          description: string | null;
+          hashtags: string[] | null;
+          view_count: number | null;
+          like_count: number | null;
+          comment_count: number | null;
+          duration_seconds: number | null;
+          uploaded_at: string | null;
+          thumbnail_url: string | null;
+          source: string;
+          brand_matched: boolean;
+          paid_signal: string | null;
+          monetization_status: string | null;
+          is_short: boolean | null;
+          apify_run_id: string | null;
+          raw: Json | null;
+          fetched_at: string;
+        };
+        Insert: {
+          id?: string;
+          case_id: string;
+          yt_id: string;
+          url: string;
+          type?: string | null;
+          channel_name?: string | null;
+          channel_id?: string | null;
+          channel_url?: string | null;
+          subscriber_count?: number | null;
+          title?: string | null;
+          description?: string | null;
+          hashtags?: string[] | null;
+          view_count?: number | null;
+          like_count?: number | null;
+          comment_count?: number | null;
+          duration_seconds?: number | null;
+          uploaded_at?: string | null;
+          thumbnail_url?: string | null;
+          source: string;
+          brand_matched?: boolean;
+          paid_signal?: string | null;
+          monetization_status?: string | null;
+          is_short?: boolean | null;
+          apify_run_id?: string | null;
+          raw?: Json | null;
+          fetched_at?: string;
+        };
+        Update: {
+          id?: string;
+          case_id?: string;
+          yt_id?: string;
+          url?: string;
+          type?: string | null;
+          channel_name?: string | null;
+          channel_id?: string | null;
+          channel_url?: string | null;
+          subscriber_count?: number | null;
+          title?: string | null;
+          description?: string | null;
+          hashtags?: string[] | null;
+          view_count?: number | null;
+          like_count?: number | null;
+          comment_count?: number | null;
+          duration_seconds?: number | null;
+          uploaded_at?: string | null;
+          thumbnail_url?: string | null;
+          source?: string;
+          brand_matched?: boolean;
+          paid_signal?: string | null;
+          monetization_status?: string | null;
+          is_short?: boolean | null;
+          apify_run_id?: string | null;
+          raw?: Json | null;
+          fetched_at?: string;
+        };
+        Relationships: [];
+      };
+
+      yt_channels: {
+        Row: {
+          id: string;
+          case_id: string;
+          channel_name: string;
+          channel_id: string | null;
+          channel_url: string | null;
+          subscriber_count: number | null;
+          total_videos: number;
+          brand_matched_videos: number;
+          paid_videos: number;
+          shorts_count: number;
+          longform_count: number;
+          max_views: number | null;
+          total_views: number | null;
+          tier: string | null;
+          first_seen_at: string | null;
+          last_seen_at: string | null;
+          computed_at: string;
+        };
+        Insert: {
+          id?: string;
+          case_id: string;
+          channel_name: string;
+          channel_id?: string | null;
+          channel_url?: string | null;
+          subscriber_count?: number | null;
+          total_videos?: number;
+          brand_matched_videos?: number;
+          paid_videos?: number;
+          shorts_count?: number;
+          longform_count?: number;
+          max_views?: number | null;
+          total_views?: number | null;
+          tier?: string | null;
+          first_seen_at?: string | null;
+          last_seen_at?: string | null;
+          computed_at?: string;
+        };
+        Update: {
+          id?: string;
+          case_id?: string;
+          channel_name?: string;
+          channel_id?: string | null;
+          channel_url?: string | null;
+          subscriber_count?: number | null;
+          total_videos?: number;
+          brand_matched_videos?: number;
+          paid_videos?: number;
+          shorts_count?: number;
+          longform_count?: number;
+          max_views?: number | null;
+          total_views?: number | null;
+          tier?: string | null;
+          first_seen_at?: string | null;
+          last_seen_at?: string | null;
+          computed_at?: string;
+        };
+        Relationships: [];
+      };
+
+      yt_runs: {
         Row: {
           id: string;
           case_id: string;

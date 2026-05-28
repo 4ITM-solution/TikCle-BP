@@ -42,7 +42,23 @@ import {
   IgPostlearnBox,
   type IgPostlearnDiff,
 } from "@/components/case-detail/IgPostlearnBox";
+import {
+  YtBrandMonitorSection,
+  type YtChannelRow,
+  type YtPaidVideoRow,
+  type YtSourceDist,
+  type YtTypeDist,
+} from "@/components/case-detail/YtBrandMonitorSection";
+import {
+  YtPrepBox,
+  type YtPrepDebug,
+} from "@/components/case-detail/YtPrepBox";
+import {
+  YtPostlearnBox,
+  type YtPostlearnDiff,
+} from "@/components/case-detail/YtPostlearnBox";
 import type { IgConfig } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
+import type { YtConfig } from "@/lib/inngest/aggregators/phase4d-yt-monitor";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -105,7 +121,7 @@ export default async function CaseDetailPage({
   const { data: c, error } = await supabase
     .from("cases")
     .select(
-      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, ig_config, options, key_stats, created_at, updated_at, brand:brands(name)",
+      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, ig_config, yt_config, options, key_stats, created_at, updated_at, brand:brands(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -313,6 +329,106 @@ export default async function CaseDetailPage({
     (optionsObj.ig_config_learned as IgConfig | undefined) ?? null;
   const igPostlearnDiff =
     (optionsObj.ig_postlearn_diff as IgPostlearnDiff | undefined) ?? null;
+
+  // 4b-YT. Phase 4d (YouTube Brand Monitoring) — phase4c와 같은 패턴.
+  const phase4dStats = keyStats.phase4d ?? null;
+  const ytConfig = (c.yt_config ?? null) as {
+    yt_owned_channels?: string[];
+  } | null;
+  const ytOwnedChannels = ytConfig?.yt_owned_channels ?? [];
+  const ytConfigSuggested =
+    (optionsObj.yt_config_suggested as YtConfig | undefined) ?? null;
+  const ytPrepDebug =
+    (optionsObj.yt_prep_debug as YtPrepDebug | undefined) ?? null;
+  const ytConfigLearned =
+    (optionsObj.yt_config_learned as YtConfig | undefined) ?? null;
+  const ytPostlearnDiff =
+    (optionsObj.yt_postlearn_diff as YtPostlearnDiff | undefined) ?? null;
+
+  let ytTopChannels: YtChannelRow[] = [];
+  let ytTopPaidVideos: YtPaidVideoRow[] = [];
+  let ytSourceDist: YtSourceDist[] = [];
+  let ytTypeDist: YtTypeDist[] = [];
+
+  if (phase4dStats && !phase4dStats.skipped_reason) {
+    try {
+      const { data: chRaw } = await supabase
+        .from("yt_channels")
+        .select(
+          "channel_name, channel_url, subscriber_count, total_videos, brand_matched_videos, paid_videos, shorts_count, longform_count, max_views, total_views, tier",
+        )
+        .eq("case_id", c.id)
+        .order("max_views", { ascending: false, nullsFirst: false })
+        .limit(25);
+      ytTopChannels = (chRaw ?? []) as YtChannelRow[];
+    } catch (e) {
+      console.warn("[yt] top channels fail:", e);
+    }
+
+    try {
+      const { data: paidRaw } = await supabase
+        .from("yt_videos")
+        .select(
+          "id, yt_id, channel_name, title, description, view_count, like_count, paid_signal, monetization_status, url, thumbnail_url, type, duration_seconds",
+        )
+        .eq("case_id", c.id)
+        .not("paid_signal", "is", null)
+        .order("view_count", { ascending: false, nullsFirst: false })
+        .limit(12);
+      ytTopPaidVideos = (paidRaw ?? []) as YtPaidVideoRow[];
+    } catch (e) {
+      console.warn("[yt] top paid fail:", e);
+    }
+
+    try {
+      const { data: srcRaw } = await supabase
+        .from("yt_videos")
+        .select("source, channel_name")
+        .eq("case_id", c.id)
+        .limit(5000);
+      const srcMap = new Map<string, { videos: number; channels: Set<string> }>();
+      for (const r of srcRaw ?? []) {
+        if (!r.source) continue;
+        let agg = srcMap.get(r.source);
+        if (!agg) {
+          agg = { videos: 0, channels: new Set() };
+          srcMap.set(r.source, agg);
+        }
+        agg.videos += 1;
+        if (r.channel_name) agg.channels.add(r.channel_name);
+      }
+      ytSourceDist = Array.from(srcMap.entries())
+        .map(([source, v]) => ({ source, videos: v.videos, channels: v.channels.size }))
+        .sort((a, b) => b.videos - a.videos);
+    } catch (e) {
+      console.warn("[yt] source dist fail:", e);
+    }
+
+    try {
+      const { data: typeRaw } = await supabase
+        .from("yt_videos")
+        .select("type, paid_signal")
+        .eq("case_id", c.id)
+        .eq("brand_matched", true)
+        .limit(5000);
+      const typeMap = new Map<string, { count: number; paid: number }>();
+      for (const r of typeRaw ?? []) {
+        const t = r.type ?? "unknown";
+        let agg = typeMap.get(t);
+        if (!agg) {
+          agg = { count: 0, paid: 0 };
+          typeMap.set(t, agg);
+        }
+        agg.count += 1;
+        if (r.paid_signal) agg.paid += 1;
+      }
+      ytTypeDist = Array.from(typeMap.entries())
+        .map(([type, v]) => ({ type, count: v.count, paid: v.paid }))
+        .sort((a, b) => b.count - a.count);
+    } catch (e) {
+      console.warn("[yt] type dist fail:", e);
+    }
+  }
 
   let igTopAuthors: IgAuthorRow[] = [];
   let igTopPaidVideos: IgPaidVideoRow[] = [];
@@ -1080,6 +1196,29 @@ export default async function CaseDetailPage({
               topPaidVideos={igTopPaidVideos}
               sourceDist={igSourceDist}
               topHashtags={igTopHashtags}
+            />
+          )}
+
+          <YtPrepBox
+            case_id={c.id}
+            hasYtConfig={!!c.yt_config}
+            suggestedConfig={ytConfigSuggested}
+            debug={ytPrepDebug}
+          />
+          <YtPostlearnBox
+            case_id={c.id}
+            hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
+            learnedConfig={ytConfigLearned}
+            diff={ytPostlearnDiff}
+          />
+          {phase4dStats && !phase4dStats.skipped_reason && (
+            <YtBrandMonitorSection
+              phase4d={phase4dStats}
+              ownedChannels={ytOwnedChannels}
+              topChannels={ytTopChannels}
+              topPaidVideos={ytTopPaidVideos}
+              sourceDist={ytSourceDist}
+              typeDist={ytTypeDist}
             />
           )}
 

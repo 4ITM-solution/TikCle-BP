@@ -27,6 +27,7 @@ import {
 } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
 import { runPhase4c } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
+import { runPhase4d } from "@/lib/inngest/aggregators/phase4d-yt-monitor";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
 import {
   fetchPhase4bAsrSetup,
@@ -1081,6 +1082,58 @@ export const runAnalysis = inngest.createFunction(
           .update({ key_stats: newStats })
           .eq("id", case_id);
         if (error) throw new Error(`save phase4c: ${error.message}`);
+      });
+    }
+
+    // ─── Phase 4d: YouTube Brand Monitoring (cases.yt_config 있을 때만) ───
+    // phase4c와 같은 패턴 — independent, phase5 뒤에 박힘.
+    const phase4d = await step.run("phase-4d-yt-monitor", async () => {
+      if (existing.phase4d && !force("phase4d")) {
+        logger.info("[Phase 4d] cached", {
+          computed_at: existing.phase4d.computed_at,
+          unique: existing.phase4d.total_unique,
+        });
+        return sanitizeDeep(existing.phase4d);
+      }
+      logger.info("[Phase 4d] YouTube brand monitoring", { case_id });
+      const stats = await runPhase4d(supabase, case_id);
+      logger.info("[Phase 4d] done", {
+        raw: stats.total_raw,
+        unique: stats.total_unique,
+        brand_matched: stats.total_brand_matched,
+        paid: stats.total_paid_signal,
+        channels: stats.unique_channels,
+        cost: stats.cost_actual_usd,
+        skipped: stats.skipped_reason,
+      });
+      return sanitizeDeep(stats);
+    });
+
+    const phase4dNew = !existing.phase4d || force("phase4d");
+    if (phase4dNew) {
+      await step.run("phase-4d-save", async () => {
+        const newStats: KeyStats = {
+          ...existing,
+          phase1_5,
+          phase2: phase2Effective,
+          phase3: phase3Final,
+          phase35,
+          phase37,
+          phase4a: phase4aWithStorage,
+          phase4b_sample: phase4bSample,
+          phase4b_asr: phase4bAsr,
+          phase4b_vision: phase4bVision,
+          phase4b_clusters: phase4bClusters,
+          phase4b_sku: phase4bSku,
+          phase5,
+          phase4c,
+          phase4d,
+        };
+        const { error } = await supabase
+          .from("cases")
+          .update({ key_stats: newStats })
+          .eq("id", case_id);
+        if (error) throw new Error(`save phase4d: ${error.message}`);
       });
     }
 

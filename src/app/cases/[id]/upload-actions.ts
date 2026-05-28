@@ -772,6 +772,7 @@ export async function startAnalysis(
       "phase4b_clusters",
       "phase4b_sku",
       "phase5",
+      // phase4c / phase4d는 BP 분석 전용 — autoForce 안 함. ig/yt_config 없는 케이스도 skip이라.
     ];
     autoForced = phaseKeysToCheck.filter((k) => ks[k]?.skipped_reason);
   }
