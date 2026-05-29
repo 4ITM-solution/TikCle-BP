@@ -504,18 +504,24 @@ export type Phase4dStats = {
 // =============================================================================
 // Phase 5: 포지셔닝 분석 (티어×메타 히트맵 + 언어 분포)
 // =============================================================================
+/**
+ * Heatmap = cluster (메타) × month — mockup 시즈널리티 측정.
+ * 행: 메타 cluster (member_count 내림차순), 열: 최근 12 month.
+ * cell: 그 cluster × month 의 영상 수 + view 합 + paid 수.
+ */
 export type HeatmapCell = {
-  meta_id: string;
-  views_sum: number;
-  views_pct: number; // 0-100, tier row 안에서 정규화
+  month: string; // "YYYY-MM"
   video_count: number;
+  views_sum: number;
+  paid_count: number; // is_ad=true 수
 };
 
 export type HeatmapRow = {
-  tier: TierBucket;
+  meta_id: string;
+  meta_name: string;
   total_videos: number;
   total_views: number;
-  cells: HeatmapCell[];
+  cells: HeatmapCell[]; // 각 월별 셀 (없는 월은 video_count=0 entry 또는 missing)
 };
 
 export type LanguageEntry = {
@@ -553,7 +559,8 @@ export type BsrInflection = {
 export type Phase5Stats = {
   // 히트맵 — case_video_analyses의 pass3_meta_id 기반 (sample 영상)
   heatmap: HeatmapRow[];
-  meta_order: Array<{ id: string; name: string }>; // 컬럼 순서 (member_count desc)
+  meta_order: Array<{ id: string; name: string }>; // 행 순서 (member_count desc) — frontend가 이걸로 행 sorting
+  month_order: string[]; // 열 순서 ("YYYY-MM" 최근 12개월 오름차순)
   total_videos_in_heatmap: number;
   // 언어 분포 — brand+country 전체 contents 기준
   languages: LanguageEntry[];

@@ -97,6 +97,7 @@ export async function runPhase5(
     return {
       heatmap: [],
       meta_order: [],
+      month_order: [],
       total_videos_in_heatmap: 0,
       languages,
       total_with_language,
@@ -119,6 +120,7 @@ export async function runPhase5(
   return {
     heatmap: heatmapResult.heatmap,
     meta_order: heatmapResult.meta_order,
+    month_order: heatmapResult.month_order,
     total_videos_in_heatmap: heatmapResult.total_videos,
     languages,
     total_with_language,
@@ -141,14 +143,15 @@ async function computeHeatmap(
 ): Promise<{
   heatmap: HeatmapRow[];
   meta_order: Array<{ id: string; name: string }>;
+  month_order: string[];
   total_videos: number;
 }> {
-  // 메타 컬럼 순서: member_count 내림차순 (MetaClustersModule과 동일)
+  // 메타 행 순서: member_count 내림차순
   const meta_order = [...phase4bClusters.meta_clusters]
     .sort((a, b) => b.member_count - a.member_count)
     .map((m) => ({ id: m.id, name: m.name }));
 
-  // 1. case_video_analyses의 (content_id, pass3_meta_id) 가져옴
+  // 1. case_video_analyses (content_id, pass3_meta_id)
   const { data: analyses, error: aErr } = await supabase
     .from("case_video_analyses")
     .select("content_id, pass3_meta_id")
@@ -157,111 +160,91 @@ async function computeHeatmap(
   if (aErr) throw new Error(`analyses fetch: ${aErr.message}`);
 
   if (!analyses || analyses.length === 0) {
-    return { heatmap: [], meta_order, total_videos: 0 };
+    return { heatmap: [], meta_order, month_order: [], total_videos: 0 };
   }
 
   const contentIds = analyses.map((a) => a.content_id);
 
-  // 2. contents (views, influencer_id)
+  // 2. contents (views, uploaded_at, is_ad) — month + paid 추출용
   const contentMap = new Map<
     string,
-    { views: number; influencer_id: string | null }
+    { views: number; uploaded_at: string | null; is_ad: boolean }
   >();
   for (let i = 0; i < contentIds.length; i += FETCH_CHUNK) {
     const slice = contentIds.slice(i, i + FETCH_CHUNK);
     const { data, error } = await supabase
       .from("contents")
-      .select("id, views, influencer_id")
+      .select("id, views, uploaded_at, is_ad")
       .in("id", slice);
     if (error) throw new Error(`contents fetch: ${error.message}`);
     for (const r of data ?? []) {
       contentMap.set(r.id, {
         views: r.views ?? 0,
-        influencer_id: r.influencer_id,
+        uploaded_at: r.uploaded_at,
+        is_ad: !!r.is_ad,
       });
     }
   }
 
-  // 3. influencer → tier
-  const inflIds = Array.from(
-    new Set(
-      Array.from(contentMap.values())
-        .map((v) => v.influencer_id)
-        .filter((x): x is string => !!x),
-    ),
-  );
-  const inflTier = new Map<string, TierBucket>();
-  for (let i = 0; i < inflIds.length; i += FETCH_CHUNK) {
-    const slice = inflIds.slice(i, i + FETCH_CHUNK);
-    const { data, error } = await supabase
-      .from("influencers")
-      .select("id, tier, follower_count")
-      .in("id", slice);
-    if (error) throw new Error(`influencers fetch: ${error.message}`);
-    for (const r of data ?? []) {
-      // DB tier가 있으면 우선, 없으면 fans 기반으로 재분류
-      const tier: TierBucket = r.tier
-        ? (r.tier as TierBucket)
-        : classifyTier(r.follower_count);
-      inflTier.set(r.id, tier);
-    }
-  }
-
-  // 4. tier × meta_id cross-tab
-  type CellAcc = { views_sum: number; video_count: number };
-  const grid = new Map<string, CellAcc>(); // key = `${tier}|${meta_id}`
-  const tierTotals = new Map<TierBucket, { views: number; videos: number }>();
+  // 3. meta × month cross-tab
+  type CellAcc = { views_sum: number; video_count: number; paid_count: number };
+  const grid = new Map<string, CellAcc>(); // key = `${meta_id}|${month}`
+  const metaTotals = new Map<string, { views: number; videos: number }>();
+  const monthSet = new Set<string>();
   let total_videos_with_data = 0;
 
   for (const a of analyses) {
     if (!a.pass3_meta_id) continue;
     const c = contentMap.get(a.content_id);
-    if (!c || !c.influencer_id) continue;
-    const tier = inflTier.get(c.influencer_id);
-    if (!tier) continue;
-    if (!HEATMAP_TIERS.includes(tier)) continue; // sub-nano/unknown 제외
+    if (!c || !c.uploaded_at) continue;
+    const month = String(c.uploaded_at).slice(0, 7); // "YYYY-MM"
+    if (!month) continue;
 
     total_videos_with_data += 1;
-    const key = `${tier}|${a.pass3_meta_id}`;
-    const cur = grid.get(key) ?? { views_sum: 0, video_count: 0 };
+    monthSet.add(month);
+
+    const key = `${a.pass3_meta_id}|${month}`;
+    const cur = grid.get(key) ?? { views_sum: 0, video_count: 0, paid_count: 0 };
     cur.views_sum += c.views;
     cur.video_count += 1;
+    if (c.is_ad) cur.paid_count += 1;
     grid.set(key, cur);
 
-    const tt = tierTotals.get(tier) ?? { views: 0, videos: 0 };
+    const tt = metaTotals.get(a.pass3_meta_id) ?? { views: 0, videos: 0 };
     tt.views += c.views;
     tt.videos += 1;
-    tierTotals.set(tier, tt);
+    metaTotals.set(a.pass3_meta_id, tt);
   }
 
-  // 5. tier row 빌드 (HEATMAP_TIERS 순서, 데이터 있는 것만)
+  // 4. month_order = 최근 12개월 오름차순 (데이터 있는 month 중)
+  const month_order = [...monthSet].sort().slice(-12);
+
+  // 5. heatmap row 빌드 (meta_order 순서, 데이터 있는 cluster만)
   const heatmap: HeatmapRow[] = [];
-  for (const tier of HEATMAP_TIERS) {
-    const tt = tierTotals.get(tier);
+  for (const m of meta_order) {
+    const tt = metaTotals.get(m.id);
     if (!tt || tt.videos === 0) continue;
 
-    const cells: HeatmapCell[] = meta_order.map((m) => {
-      const acc = grid.get(`${tier}|${m.id}`);
-      const views_sum = acc?.views_sum ?? 0;
-      const video_count = acc?.video_count ?? 0;
-      const views_pct = tt.views > 0 ? (views_sum / tt.views) * 100 : 0;
+    const cells: HeatmapCell[] = month_order.map((mo) => {
+      const acc = grid.get(`${m.id}|${mo}`);
       return {
-        meta_id: m.id,
-        views_sum,
-        views_pct,
-        video_count,
+        month: mo,
+        video_count: acc?.video_count ?? 0,
+        views_sum: acc?.views_sum ?? 0,
+        paid_count: acc?.paid_count ?? 0,
       };
     });
 
     heatmap.push({
-      tier,
+      meta_id: m.id,
+      meta_name: m.name,
       total_videos: tt.videos,
       total_views: tt.views,
       cells,
     });
   }
 
-  return { heatmap, meta_order, total_videos: total_videos_with_data };
+  return { heatmap, meta_order, month_order, total_videos: total_videos_with_data };
 }
 
 // =============================================================================

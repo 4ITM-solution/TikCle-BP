@@ -40,9 +40,9 @@ export function SectionCMockup({
   // ── USP 키워드 panel ──
   const uspKws = (phase5?.usp_keywords ?? []).slice(0, 24);
 
-  // ── heatmap panel — phase5.heatmap = tier × meta cluster ──
+  // ── heatmap panel — phase5.heatmap = cluster × month (mockup 1:1) ──
   const heatRows = phase5?.heatmap ?? [];
-  const metaOrder = phase5?.meta_order ?? [];
+  const monthOrder = phase5?.month_order ?? [];
 
   // ── paid/seeded/organic panel ──
   const totalPaid = phase2.monthly_video_counts.reduce((s, m) => s + m.paid, 0);
@@ -193,43 +193,46 @@ export function SectionCMockup({
               <option value="paid_pct">paid 비중</option>
             </select>
           </div>
-          {heatRows.length === 0 || metaOrder.length === 0 ? (
+          {heatRows.length === 0 || monthOrder.length === 0 ? (
             <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
               —
             </div>
           ) : (
+            // mockup line 999-1011: cluster × month grid
             <div
               className="heatmap"
               style={{
                 display: "grid",
-                gridTemplateColumns: `120px repeat(${metaOrder.length}, 1fr)`,
+                gridTemplateColumns: `140px repeat(${monthOrder.length}, 1fr)`,
                 gap: 2,
                 fontSize: 10,
               }}
             >
               <div className="lbl" />
-              {metaOrder.map((m) => (
-                <div key={m.id} className="lbl" title={m.name}>
-                  {m.name.length > 8 ? `${m.name.slice(0, 8)}…` : m.name}
+              {monthOrder.map((mo) => (
+                <div key={mo} className="lbl">
+                  {mo.slice(5)}
                 </div>
               ))}
               {heatRows.map((row) => {
-                const cellMap = new Map(row.cells.map((c) => [c.meta_id, c]));
                 const allVals = row.cells.map((c) =>
                   heatMeasure === "count" ? c.video_count :
                   heatMeasure === "view" ? c.views_sum :
-                  c.views_pct,
+                  c.video_count > 0 ? Math.round((c.paid_count / c.video_count) * 100) : 0,
                 );
                 const maxV = Math.max(...allVals, 1);
                 return (
-                  <div style={{ display: "contents" }} key={row.tier}>
-                    <div className="lbl">{row.tier}</div>
-                    {metaOrder.map((m) => {
-                      const c = cellMap.get(m.id);
-                      const v = !c ? 0 :
+                  <div style={{ display: "contents" }} key={row.meta_id}>
+                    <div className="lbl" title={row.meta_name}>
+                      {row.meta_name.length > 14
+                        ? `${row.meta_name.slice(0, 14)}…`
+                        : row.meta_name}
+                    </div>
+                    {row.cells.map((c) => {
+                      const v =
                         heatMeasure === "count" ? c.video_count :
                         heatMeasure === "view" ? c.views_sum :
-                        c.views_pct;
+                        c.video_count > 0 ? Math.round((c.paid_count / c.video_count) * 100) : 0;
                       const intensity = v / maxV;
                       const bg = intensity > 0.8 ? "#7f1d1d" :
                                  intensity > 0.6 ? "#dc2626" :
@@ -239,12 +242,12 @@ export function SectionCMockup({
                                  intensity > 0 ? "#fcd34d" : "#fde68a";
                       return (
                         <div
-                          key={m.id}
+                          key={c.month}
                           className="cell"
                           style={{ background: bg, color: intensity > 0.5 ? "white" : "#374151" }}
-                          title={`${row.tier} · ${m.name}: ${v}`}
+                          title={`${row.meta_name} · ${c.month}: ${v}${heatMeasure === "paid_pct" ? "%" : ""}`}
                         >
-                          {v > 0 ? (heatMeasure === "view" && v >= 1000 ? `${Math.round(v/1000)}K` : v) : ""}
+                          {v > 0 ? (heatMeasure === "view" && v >= 1000 ? `${Math.round(v / 1000)}K` : v) : ""}
                         </div>
                       );
                     })}
