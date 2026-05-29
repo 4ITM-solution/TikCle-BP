@@ -17,11 +17,11 @@ import { StartPhase15Button } from "@/components/case-detail/StartPhase15Button"
 import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButton";
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
-import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
 import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
+import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
@@ -1837,38 +1837,15 @@ export default async function CaseDetailPage({
                         phase4bClusters={ks.phase4b_clusters}
                         phase5={ks.phase5}
                       />
+                      {ks.phase2.sales_summary && (
+                        <SectionDMockup
+                          phase2={ks.phase2}
+                          phase4bSku={ks.phase4b_sku}
+                          phase5={ks.phase5}
+                        />
+                      )}
                     </div>
-                    <MiniDashboard
-                      phase2={ks.phase2}
-                      phase3={ks.phase3}
-                      phase35={ks.phase35}
-                      phase37={ks.phase37}
-                      phase4a={ks.phase4a}
-                      phase4bSample={ks.phase4b_sample}
-                      phase4bAsr={ks.phase4b_asr}
-                      phase4bVision={ks.phase4b_vision}
-                      phase4bClusters={ks.phase4b_clusters}
-                      phase4bSku={ks.phase4b_sku}
-                      phase5={ks.phase5}
-                      metaAdsList={metaAdsList}
-                      currency={caseCurrency}
-                      caseCountry={c.country}
-                      exchangeRates={exchangeRates}
-                      topGmvCreators={topGmvCreators}
-                      shopGmvDistribution={shopGmvDistribution}
-                      weeklyViews={weeklyViews}
-                      skuMeta={skuMeta}
-                      kalodata={{
-                        brand: ks.kalodata_brand,
-                        creators: ks.kalodata_creators_xlsx,
-                        videos: ks.kalodata_videos,
-                        videosXlsx: ks.kalodata_videos_xlsx,
-                        lives: ks.kalodata_lives,
-                        meta: ks.kalodata_creators_meta,
-                      }}
-                      crossChannelMatrix={sharedMatrix}
-                    />
-                    {/* ★ Section E mockup 1:1 — MiniDashboard 다음에 박음 (MiniDashboard 안 E는 비워둠) */}
+                    {/* ★ Section E mockup 1:1 */}
                     {ks.phase4a && (
                       <div className="bp-mockup">
                         <SectionEMockup phase4a={ks.phase4a} metaAdsList={metaAdsList} />
