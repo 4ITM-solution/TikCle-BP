@@ -189,6 +189,8 @@ async function fetchRecentContents(
 ): Promise<ContentRow[]> {
   const all: ContentRow[] = [];
   let from = 0;
+  // Phase 4b.1 sample 은 TikTok 영상 한정 (Phase 4b.3 vision = TikTok cover_url 기반).
+  // contents 테이블에 YouTube/IG URL 도 들어가는 케이스 (SharkNinja 등) 있어 명시적 filter.
   while (true) {
     const { data, error } = await supabase
       .from("contents")
@@ -196,6 +198,7 @@ async function fetchRecentContents(
       .eq("brand_id", brand_id)
       .eq("country", country)
       .gte("uploaded_at", cutoffDate)
+      .ilike("url", "%tiktok.com%")
       .range(from, from + FETCH_PAGE - 1);
     if (error) throw new Error(`contents recent fetch: ${error.message}`);
     if (!data || data.length === 0) break;
