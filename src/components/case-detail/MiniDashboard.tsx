@@ -16,6 +16,7 @@ import { SectionAChannelToolbar } from "./SectionAChannelToolbar";
 import { SectionCTabs } from "./SectionCTabs";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import { TopAuthorsTable } from "./TopAuthorsTable";
+import { PaidSeededOrganicPanel } from "./PaidSeededOrganicPanel";
 import {
   TopGmvShopCreators,
   type TopGmvCreator,
@@ -403,10 +404,14 @@ export function MiniDashboard({
         </div>
       )}
 
-      {/* Section C: 콘텐츠 포맷 분석 (Phase 4b) — mockup sub-tabs */}
+      {/* Section C: 콘텐츠 포맷 분석 — mockup line 845-1023 1:1 */}
       {phase4bSample && (
         <>
-          <SectionHeader letter="C" title="콘텐츠 포맷 분석" />
+          <SectionHeader
+            letter="C"
+            title="콘텐츠 포맷 분석"
+            subtitle="★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택"
+          />
           <SectionCTabs
             tabs={[
               {
@@ -414,15 +419,7 @@ export function MiniDashboard({
                 label: `통합 클러스터 (${phase4bClusters?.meta_clusters?.length ?? 0})`,
                 content:
                   phase4bClusters && phase4bClusters.meta_clusters.length > 0 ? (
-                    <>
-                      <MetaClustersModule clusters={phase4bClusters} sku={phase4bSku} />
-                      <div style={{ height: 10 }} />
-                      <MissingDataPlaceholder
-                        title="TK + IG + YT 채널 column 통합"
-                        reason="현재 TikTok hook 클러스터만. IG/YT 통합 view 는 Phase 4b cluster aggregator 변경 + 재분석 필요."
-                        next="별도 PR — phase4b-clusters.ts + Inngest 재실행"
-                      />
-                    </>
+                    <MetaClustersModule clusters={phase4bClusters} sku={phase4bSku} />
                   ) : phase4bClusters ? (
                     <ClusterEmptyFallback clusters={phase4bClusters} />
                   ) : null,
@@ -442,6 +439,11 @@ export function MiniDashboard({
                   phase5 && (phase5.heatmap?.length ?? 0) > 0 ? (
                     <HeatmapModule phase5={phase5} />
                   ) : null,
+              },
+              {
+                id: "paid",
+                label: "paid/seeded/organic 분류",
+                content: <PaidSeededOrganicPanel phase2={phase2} />,
               },
               {
                 id: "lang",
