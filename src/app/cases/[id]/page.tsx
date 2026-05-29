@@ -1660,6 +1660,18 @@ export default async function CaseDetailPage({
                         costEstimate={costEstimate.total_max_usd}
                         costBreakdown={"예상 최대"}
                       />
+                      {/* mockup line 542-559: 데이터 채널 */}
+                      <DataChannelsMockup
+                        dataChannels={dataChannels}
+                        channelDetails={Object.fromEntries(
+                          (Object.keys(channelStats) as DataChannel[]).map((ch) => [
+                            ch,
+                            { stat: channelStats[ch] ?? "", sub: dataChannels.includes(ch) ? "활성" : undefined },
+                          ]),
+                        )}
+                      />
+                      {/* mockup line 561-581: Phase progress (펼치기) */}
+                      <PhaseProgressMockup ks={ks as KeyStats} />
                     </div>
                   );
                 })()}
