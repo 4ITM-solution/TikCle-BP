@@ -24,10 +24,13 @@ export function SectionCMockup({
   phase2,
   phase4bClusters,
   phase5,
+  clusterChannelBreakdown,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
   phase5?: Phase5Stats;
+  /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (page.tsx 에서 server-side SQL) */
+  clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -119,23 +122,33 @@ export function SectionCMockup({
               —
             </div>
           ) : (
-            metas.map((m, i) => (
-              <div key={m.id} className="unified-cluster">
-                <div className="uc-h">
-                  <span className="uc-rank">{i + 1}</span>
-                  <span className="uc-name">{m.name}</span>
-                  <div className="uc-channels">
-                    <span style={{ color: "#9ca3af", fontSize: 10 }}>
-                      → {m.member_count} 영상 · 자식 {m.child_clusters.length}개
-                    </span>
+            metas.map((m, i) => {
+              const ch = clusterChannelBreakdown?.[m.id];
+              return (
+                <div key={m.id} className="unified-cluster">
+                  <div className="uc-h">
+                    <span className="uc-rank">{i + 1}</span>
+                    <span className="uc-name">{m.name}</span>
+                    <div className="uc-channels">
+                      {ch && (
+                        <>
+                          <span className={`uc-ch-stat tk ${ch.tk > 0 ? "" : "off"}`}>TK {ch.tk}</span>
+                          <span className={`uc-ch-stat ig ${ch.ig > 0 ? "" : "off"}`}>IG {ch.ig}</span>
+                          <span className={`uc-ch-stat yt ${ch.yt > 0 ? "" : "off"}`}>YT {ch.yt}</span>
+                        </>
+                      )}
+                      <span style={{ color: "#9ca3af", fontSize: 10 }}>
+                        → 전체 {m.member_count} 영상
+                      </span>
+                    </div>
+                  </div>
+                  <div className="uc-desc">{m.description || "—"}</div>
+                  <div className="uc-metrics">
+                    {m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")}
                   </div>
                 </div>
-                <div className="uc-desc">{m.description || "—"}</div>
-                <div className="uc-metrics">
-                  {m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

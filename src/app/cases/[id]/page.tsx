@@ -919,6 +919,38 @@ export default async function CaseDetailPage({
   const caseCurrency = defaultCurrency(c.country);
   const exchangeRates = await fetchExchangeRates();
 
+  // ★ cluster member 채널 breakdown — meta_cluster_id → { tk, ig, yt }
+  const clusterChannelBreakdown = await (async () => {
+    const map: Record<string, { tk: number; ig: number; yt: number }> = {};
+    const metaList = ((c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } })?.phase4b_clusters?.meta_clusters) ?? [];
+    if (metaList.length === 0) return map;
+    const childToMeta = new Map<string, string>();
+    for (const m of metaList) {
+      for (const cc of m.child_clusters ?? []) {
+        childToMeta.set(cc.id, m.id);
+      }
+    }
+    const childIds = [...childToMeta.keys()];
+    if (childIds.length === 0) return map;
+    // 200개씩 chunk
+    for (let i = 0; i < childIds.length; i += 200) {
+      const slice = childIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("content_cluster_members")
+        .select("cluster_id, platform")
+        .in("cluster_id", slice);
+      for (const r of data ?? []) {
+        const metaId = childToMeta.get(r.cluster_id);
+        if (!metaId) continue;
+        if (!map[metaId]) map[metaId] = { tk: 0, ig: 0, yt: 0 };
+        if (r.platform === "tiktok") map[metaId].tk += 1;
+        else if (r.platform === "instagram") map[metaId].ig += 1;
+        else if (r.platform === "youtube") map[metaId].yt += 1;
+      }
+    }
+    return map;
+  })();
+
   // 5b. 비용 추정
   const costEstimate = estimateCost({
     channel: c.channel,
@@ -1858,6 +1890,7 @@ export default async function CaseDetailPage({
                         phase2={ks.phase2}
                         phase4bClusters={ks.phase4b_clusters}
                         phase5={ks.phase5}
+                        clusterChannelBreakdown={clusterChannelBreakdown}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup
