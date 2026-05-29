@@ -432,17 +432,12 @@ export function MiniDashboard({
                     <CategoryRankingChart videos={kalodata.videosXlsx} />
                   ) : null,
               },
-              {
-                id: "affiliate",
-                label: "Affiliate code",
-                content: (
-                  <MissingDataPlaceholder
-                    title="Affiliate code conversion (NINJA20 · BBQDEAL 같은 code별 GMV/CVR)"
-                    reason="현재 TT Shop US Affiliate CSV에는 인플 단위 GMV만 들어옴. code 별 GMV/CVR 데이터는 별도 source 필요."
-                    next="데이터 source 협의 — Helium10 affiliate report 또는 별도 tracking CSV"
-                  />
-                ),
-              },
+              // Affiliate code tab — 데이터 source 자체 없음. 사용자 요청대로 hide.
+              // {
+              //   id: "affiliate",
+              //   label: "Affiliate code",
+              //   content: null,
+              // },
             ]}
           />
         </>
