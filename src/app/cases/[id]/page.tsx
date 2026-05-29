@@ -26,6 +26,7 @@ import {
   type AxisCardData,
   type CrossPlatformAuthor,
 } from "@/components/case-detail/CaseInsightCard";
+import { DataChannelGrid } from "@/components/case-detail/DataChannelGrid";
 import type { DataChannel } from "@/lib/supabase/types";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
@@ -1064,6 +1065,26 @@ export default async function CaseDetailPage({
       {/* Status branch */}
       {c.status === "draft" ? (
         <>
+          {/* ★ Phase 4: 데이터 채널 그리드 — 활성/비활성 한눈에. 입력은 Section 02 토글 유지 */}
+          <DataChannelGrid
+            cards={[
+              "tiktok_video" as DataChannel,
+              "amazon" as DataChannel,
+              "tt_shop" as DataChannel,
+              "shopee" as DataChannel,
+              "meta_ads" as DataChannel,
+              "instagram" as DataChannel,
+              "youtube" as DataChannel,
+            ].map((ch) => ({
+              channel: ch,
+              active: dataChannels.includes(ch),
+              stat: channelStats[ch],
+              sub: dataChannels.includes(ch)
+                ? "활성"
+                : "이 케이스 사용 안 함",
+            }))}
+          />
+
           {/* Section 02: 데이터 업로드 */}
           <section className="section-card" style={{ marginBottom: 14 }}>
             <div className="section-head">

@@ -8,6 +8,8 @@ import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
 import { MonthlyTrendChart } from "./MonthlyTrendChart";
 import { CrossChannelMatrix } from "./CrossChannelMatrix";
 import { KalodataInsightsModule } from "./KalodataInsightsModule";
+import { CreatorSkuMatrix } from "./CreatorSkuMatrix";
+import { CategoryRankingChart } from "./CategoryRankingChart";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -243,6 +245,14 @@ export function MiniDashboard({
           meta={kalodata.meta}
           skuSales={phase2.sku_sales}
         />
+      )}
+
+      {/* ★ Phase 4: Shop Creator × SKU GMV 매트릭스 (Kalodata video xlsx 활용) */}
+      {kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 && (
+        <>
+          <CreatorSkuMatrix videos={kalodata.videosXlsx} />
+          <CategoryRankingChart videos={kalodata.videosXlsx} />
+        </>
       )}
 
       {/* Section E: Meta 광고 */}
