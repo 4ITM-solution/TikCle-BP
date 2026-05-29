@@ -166,57 +166,6 @@ export function MiniDashboard({
           여기는 비워둠 — B 섹션부터 이어짐. */}
 
 
-      {/* Section C: 콘텐츠 포맷 분석 — mockup line 845-1023 1:1 */}
-      {phase4bSample && (
-        <>
-          <SectionHeader
-            letter="C"
-            title="콘텐츠 포맷 분석"
-            subtitle="★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택"
-          />
-          <SectionCTabs
-            tabs={[
-              {
-                id: "clusters",
-                label: `통합 클러스터 (${phase4bClusters?.meta_clusters?.length ?? 0})`,
-                content:
-                  phase4bClusters && phase4bClusters.meta_clusters.length > 0 ? (
-                    <MetaClustersModule clusters={phase4bClusters} sku={phase4bSku} />
-                  ) : phase4bClusters ? (
-                    <ClusterEmptyFallback clusters={phase4bClusters} />
-                  ) : null,
-              },
-              {
-                id: "usp",
-                label: `USP 키워드 (${phase5?.usp_keywords?.length ?? 0})`,
-                content:
-                  phase5 && (phase5.usp_keywords?.length ?? 0) > 0 ? (
-                    <UspKeywordsModule phase5={phase5} />
-                  ) : null,
-              },
-              {
-                id: "heatmap",
-                label: "시즈널리티 heatmap",
-                content:
-                  phase5 && (phase5.heatmap?.length ?? 0) > 0 ? (
-                    <HeatmapModule phase5={phase5} />
-                  ) : null,
-              },
-              {
-                id: "paid",
-                label: "paid/seeded/organic 분류",
-                content: <PaidSeededOrganicPanel phase2={phase2} />,
-              },
-              {
-                id: "lang",
-                label: "언어권",
-                content: phase5 ? <LanguageModule phase5={phase5} /> : null,
-              },
-            ]}
-          />
-        </>
-      )}
-
       {/* Section D: 매출 & BSR — mockup line 1025-1283 1:1 */}
       {phase2.sales_summary && (
         <>

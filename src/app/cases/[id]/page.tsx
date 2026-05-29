@@ -21,6 +21,7 @@ import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
 import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
+import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
@@ -1816,6 +1817,11 @@ export default async function CaseDetailPage({
                         }))}
                         topGmvCreators={topGmvCreators}
                         shopGmvDistribution={shopGmvDistribution}
+                      />
+                      <SectionCMockup
+                        phase2={ks.phase2}
+                        phase4bClusters={ks.phase4b_clusters}
+                        phase5={ks.phase5}
                       />
                     </div>
                     <MiniDashboard
