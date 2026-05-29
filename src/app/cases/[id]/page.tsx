@@ -19,6 +19,7 @@ import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
+import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
@@ -1863,6 +1864,12 @@ export default async function CaseDetailPage({
                         });
                       })()}
                     />
+                    {/* ★ Section E mockup 1:1 — MiniDashboard 다음에 박음 (MiniDashboard 안 E는 비워둠) */}
+                    {ks.phase4a && (
+                      <div className="bp-mockup">
+                        <SectionEMockup phase4a={ks.phase4a} metaAdsList={metaAdsList} />
+                      </div>
+                    )}
                   </div>
                   <SectionTOC
                     items={[

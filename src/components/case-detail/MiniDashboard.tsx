@@ -15,6 +15,7 @@ import { MissingDataPlaceholder } from "./MissingDataPlaceholder";
 import { SectionAChannelToolbar } from "./SectionAChannelToolbar";
 import { SectionCTabs } from "./SectionCTabs";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
+import { SkuHealthCards } from "./mockup/SkuHealthCards";
 import { TopAuthorsTable } from "./TopAuthorsTable";
 import { PaidSeededOrganicPanel } from "./PaidSeededOrganicPanel";
 import {
@@ -475,6 +476,11 @@ export function MiniDashboard({
             />
           )}
 
+          {/* mockup line 1063-1095: SKU 헬스 KPI 3 card — selector 다음, 히어로 위 */}
+          <div className="bp-mockup">
+            <SkuHealthCards phase2={phase2} />
+          </div>
+
           {/* mockup line 1097: 히어로 SKU × 메가 viral 영상 — sub-tabs 위 메인 영역 */}
           <HeroSkuMegaVideos
             phase2={phase2}
@@ -564,23 +570,8 @@ export function MiniDashboard({
         </>
       )}
 
-      {/* Section E: Meta 광고 + Partnership — mockup line 1285-1351 */}
-      {phase4a && (
-        <>
-          <SectionHeader
-            letter="E"
-            title="Meta 광고 + Partnership"
-            subtitle="★ 필터 + 더보기 + partnership cross-channel"
-          />
-          <MetaAdsModule phase4a={phase4a} />
-          {phase4a.partner_creators && phase4a.partner_creators.length > 0 && (
-            <PartnerCreatorsModule phase4a={phase4a} />
-          )}
-          {metaAdsList && metaAdsList.length > 0 && (
-            <MetaAdsBrowser ads={metaAdsList} phase4a={phase4a} />
-          )}
-        </>
-      )}
+      {/* Section E 는 page.tsx 에서 SectionEMockup 으로 박힘 (mockup 1:1).
+          여기는 비워둠. */}
 
       <div
         style={{

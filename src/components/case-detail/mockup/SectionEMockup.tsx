@@ -1,0 +1,386 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { Phase4aStats, LandingType } from "@/lib/inngest/types";
+
+/** MetaAdEntry 또는 page.tsx 의 MetaAdListItem 둘 다 받기 위한 lax type. */
+type AdLike = {
+  ad_archive_id: string | null;
+  page_name: string | null;
+  format: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean | null;
+  body_text: string | null;
+  thumbnail_url: string | null;
+  link_url: string | null;
+  is_brand_official: boolean;
+  landing?: LandingType;
+};
+
+/**
+ * SectionEMockup — mockup line 1285-1351 1:1 React 변환.
+ *
+ * mockup CSS class 그대로 사용 (.bp-mockup wrapper 안):
+ *   .section-h, .kpi-grid, .kpi, .ad-toolbar, .ad-search, .ad-check,
+ *   .ad-grid, .ad-card, .ad-thumb, .ad-badges, .ad-badge.active/.brand/.partner,
+ *   .ad-info, .ad-page, .ad-partner, .ad-date, .ad-body,
+ *   .load-more, .dist-row, .dist-bar, .dist-fill.amazon/.ig, .ch-pill.pill-tk/.pill-ig/.pill-yt
+ *
+ * 데이터:
+ *   - phase4a: total_ads / active_ads / brand_official_ads / partnership_ads
+ *              partner_creators / formats / landings / cost_actual_usd
+ *   - metaAdsList: 광고 grid (filter 적용 가능)
+ */
+export function SectionEMockup({
+  phase4a,
+  metaAdsList,
+}: {
+  phase4a: Phase4aStats;
+  metaAdsList?: AdLike[];
+}) {
+  const [search, setSearch] = useState("");
+  const [landingFilter, setLandingFilter] = useState<string>("all");
+  const [formatFilter, setFormatFilter] = useState<string>("all");
+  const [brandOnly, setBrandOnly] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [partnerOnly, setPartnerOnly] = useState(false);
+  const [showCount, setShowCount] = useState(8);
+
+  const ads = metaAdsList ?? phase4a.ads_preview ?? [];
+
+  // ── 필터 적용 ──
+  const filteredAds = useMemo(() => {
+    let r = ads;
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      r = r.filter(
+        (a) =>
+          (a.body_text ?? "").toLowerCase().includes(s) ||
+          (a.page_name ?? "").toLowerCase().includes(s),
+      );
+    }
+    if (landingFilter !== "all") {
+      r = r.filter((a) => a.landing === landingFilter);
+    }
+    if (formatFilter !== "all") {
+      r = r.filter((a) => (a.format ?? "").toLowerCase() === formatFilter.toLowerCase());
+    }
+    if (brandOnly) r = r.filter((a) => a.is_brand_official);
+    if (activeOnly) r = r.filter((a) => a.is_active);
+    if (partnerOnly) r = r.filter((a) => !a.is_brand_official);
+    return r;
+  }, [ads, search, landingFilter, formatFilter, brandOnly, activeOnly, partnerOnly]);
+
+  const displayed = filteredAds.slice(0, showCount);
+  const moreCount = Math.max(0, filteredAds.length - showCount);
+
+  // ── KPI ──
+  const brandPct =
+    phase4a.total_ads > 0
+      ? Math.round((phase4a.brand_official_ads / phase4a.total_ads) * 100)
+      : 0;
+  const amazonCount = phase4a.landings.amazon ?? 0;
+  const dtcCount = phase4a.landings.dtc ?? 0;
+  const amazonPct =
+    phase4a.total_ads > 0 ? Math.round((amazonCount / phase4a.total_ads) * 100) : 0;
+  const dtcPct =
+    phase4a.total_ads > 0 ? Math.round((dtcCount / phase4a.total_ads) * 100) : 0;
+
+  // ── landing 분포 ──
+  const landingRows = [
+    { key: "amazon", label: "Amazon", n: amazonCount, cls: "amazon" },
+    { key: "dtc", label: "DTC", n: dtcCount, cls: "" },
+    { key: "instagram", label: "Instagram", n: phase4a.landings.instagram ?? 0, cls: "ig" },
+    { key: "facebook", label: "Facebook", n: phase4a.landings.facebook ?? 0, cls: "" },
+    { key: "tiktok_shop", label: "TT Shop", n: phase4a.landings.tiktok_shop ?? 0, cls: "" },
+    { key: "other", label: "기타 도메인", n: phase4a.landings.other ?? 0, cls: "" },
+    { key: "none", label: "랜딩 없음", n: phase4a.landings.none ?? 0, cls: "" },
+  ].filter((r) => r.n > 0);
+
+  const totalLanding =
+    landingRows.reduce((s, r) => s + r.n, 0) || phase4a.total_ads || 1;
+
+  // ── format 분포 ──
+  const formatRows = [
+    { key: "video", label: "VIDEO", n: phase4a.formats.video },
+    { key: "image", label: "IMAGE", n: phase4a.formats.image },
+    { key: "other", label: "기타", n: phase4a.formats.other },
+  ].filter((r) => r.n > 0);
+  const totalFormat = formatRows.reduce((s, r) => s + r.n, 0) || 1;
+
+  // ── 5 KPI (mockup) ──
+  return (
+    <div className="section" id="sec-e">
+      <div className="section-h">
+        <span className="letter">E</span>
+        <span className="title">Meta 광고 + Partnership</span>
+        <span className="sub">★ 필터 + 더보기 + partnership cross-channel</span>
+      </div>
+
+      <div
+        className="kpi-grid"
+        style={{ marginBottom: 16, gridTemplateColumns: "repeat(5, 1fr)" }}
+      >
+        <div className="kpi">
+          <div className="kpi-label">총 광고</div>
+          <div className="kpi-val">{phase4a.total_ads.toLocaleString()}</div>
+          <div className="kpi-sub">active {phase4a.active_ads}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">brand 직접</div>
+          <div className="kpi-val">{phase4a.brand_official_ads.toLocaleString()}</div>
+          <div className="kpi-sub">{brandPct}%</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">partnership ★</div>
+          <div className="kpi-val">{phase4a.partnership_ads.toLocaleString()}</div>
+          <div className="kpi-sub">{phase4a.partnership_creators}명 인플</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">landing → Amazon</div>
+          <div className="kpi-val">{amazonPct}%</div>
+          <div className="kpi-sub">DTC {dtcPct}%</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">분석 비용</div>
+          <div className="kpi-val">${phase4a.cost_actual_usd.toFixed(2)}</div>
+          <div className="kpi-sub">하이브리드</div>
+        </div>
+      </div>
+
+      {/* 광고 필터 toolbar */}
+      <div className="ad-toolbar">
+        <input
+          className="ad-search"
+          placeholder="🔍 광고 body / page name 검색…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          value={landingFilter}
+          onChange={(e) => setLandingFilter(e.target.value)}
+        >
+          <option value="all">전체 landing</option>
+          {landingRows.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.label} ({r.n})
+            </option>
+          ))}
+        </select>
+        <select
+          value={formatFilter}
+          onChange={(e) => setFormatFilter(e.target.value)}
+        >
+          <option value="all">전체 format</option>
+          {formatRows.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.label} ({r.n})
+            </option>
+          ))}
+        </select>
+        <label className="ad-check">
+          <input
+            type="checkbox"
+            checked={brandOnly}
+            onChange={(e) => setBrandOnly(e.target.checked)}
+          />{" "}
+          본사만
+        </label>
+        <label className="ad-check">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+          />{" "}
+          active만
+        </label>
+        <label className="ad-check">
+          <input
+            type="checkbox"
+            checked={partnerOnly}
+            onChange={(e) => setPartnerOnly(e.target.checked)}
+          />{" "}
+          partnership만
+        </label>
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "#6b7280" }}>
+          {filteredAds.length} / {ads.length} 표시
+        </span>
+      </div>
+
+      {/* 광고 grid */}
+      <div className="ad-grid">
+        {displayed.map((ad) => (
+          <a
+            key={ad.ad_archive_id ?? `${ad.page_name}-${ad.start_date}`}
+            className="ad-card"
+            href={
+              ad.ad_archive_id
+                ? `https://www.facebook.com/ads/library/?id=${ad.ad_archive_id}`
+                : ad.link_url ?? "#"
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: "none", color: "inherit", display: "block" }}
+          >
+            <div className="ad-thumb">
+              {ad.thumbnail_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={ad.thumbnail_url}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : null}
+              <div className="ad-badges">
+                {ad.is_active && <span className="ad-badge active">active</span>}
+                {ad.is_brand_official ? (
+                  <span className="ad-badge brand">본사</span>
+                ) : (
+                  <span className="ad-badge partner">partnership</span>
+                )}
+              </div>
+            </div>
+            <div className="ad-info">
+              <div className="ad-page">{ad.page_name ?? "—"}</div>
+              {!ad.is_brand_official && (
+                <div className="ad-partner">× partnership</div>
+              )}
+              <div className="ad-date">
+                {ad.start_date ?? "—"} {ad.is_active ? "~" : `~ ${ad.end_date ?? ""}`}
+              </div>
+              <div className="ad-body">
+                {ad.body_text
+                  ? ad.body_text.length > 90
+                    ? `${ad.body_text.slice(0, 90)}…`
+                    : ad.body_text
+                  : "—"}
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+      {moreCount > 0 && (
+        <button
+          type="button"
+          className="load-more"
+          onClick={() => setShowCount((c) => c + 12)}
+        >
+          + {moreCount}개 광고 더보기
+        </button>
+      )}
+
+      {/* landing + format 분포 (2-col) */}
+      <div
+        style={{
+          marginTop: 18,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 18,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+            광고 landing 분포
+          </div>
+          {landingRows.map((r) => {
+            const pct = Math.round((r.n / totalLanding) * 100);
+            return (
+              <div key={r.key} className="dist-row">
+                <span>{r.label}</span>
+                <div className="dist-bar">
+                  <div className={`dist-fill ${r.cls}`} style={{ width: `${pct}%` }} />
+                </div>
+                <span style={{ textAlign: "right" }}>{r.n}</span>
+                <span style={{ color: "#9ca3af", textAlign: "right" }}>{pct}%</span>
+              </div>
+            );
+          })}
+          {(phase4a.other_top_domains ?? []).length > 0 && (
+            <div style={{ marginTop: 6, fontSize: 10, color: "#9ca3af" }}>
+              기타 Top: {phase4a.other_top_domains.slice(0, 3).map((d) => d.domain).join(" · ")}
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>광고 format</div>
+          {formatRows.map((r) => {
+            const pct = Math.round((r.n / totalFormat) * 100);
+            return (
+              <div key={r.key} className="dist-row">
+                <span>{r.label}</span>
+                <div className="dist-bar">
+                  <div className="dist-fill" style={{ width: `${pct}%` }} />
+                </div>
+                <span style={{ textAlign: "right" }}>{r.n}</span>
+                <span style={{ color: "#9ca3af", textAlign: "right" }}>{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* partnership 인플 테이블 */}
+      {phase4a.partner_creators && phase4a.partner_creators.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, marginTop: 18, marginBottom: 8 }}>
+            파트너 인플 {phase4a.partner_creators.length}명 — cross-channel ★
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>인플</th>
+                <th>광고</th>
+                <th>active</th>
+                <th>활동 기간</th>
+              </tr>
+            </thead>
+            <tbody>
+              {phase4a.partner_creators.slice(0, 10).map((c) => (
+                <tr key={c.creator_page_name}>
+                  <td>
+                    <span
+                      className="thumb"
+                      style={{
+                        background: c.sample_thumbnail
+                          ? `url(${c.sample_thumbnail}) center/cover`
+                          : undefined,
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <b>{c.creator_page_name}</b>
+                    {c.partner_page_name && (
+                      <span style={{ color: "#6b7280", fontSize: 10 }}>
+                        {" "}
+                        × {c.partner_page_name}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                    {c.ad_count}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                    {c.active_count}
+                  </td>
+                  <td style={{ fontSize: 10, color: "#6b7280" }}>
+                    {c.first_seen ?? "—"}
+                    {c.first_seen !== c.last_seen && c.last_seen ? ` ~ ${c.last_seen}` : ""}
+                  </td>
+                </tr>
+              ))}
+              {phase4a.partner_creators.length > 10 && (
+                <tr style={{ color: "#9ca3af" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                    + {phase4a.partner_creators.length - 10}명 더보기
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  );
+}
