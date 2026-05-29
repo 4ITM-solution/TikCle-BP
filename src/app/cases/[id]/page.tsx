@@ -64,6 +64,15 @@ import {
   getRegionScope,
   isLikelyUs,
 } from "@/lib/case-detail/region-filter";
+import {
+  monthlyTrend as buildMonthlyTrend,
+  poolSummary as buildPoolSummary,
+  tierDistributionIg,
+  tierDistributionYt,
+  type MonthlyBucket,
+  type PoolSummary,
+  type TierBucket,
+} from "@/lib/case-detail/bp-analytics";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -355,6 +364,16 @@ export default async function CaseDetailPage({
   let ytTopPaidVideos: YtPaidVideoRow[] = [];
   let ytSourceDist: YtSourceDist[] = [];
   let ytTypeDist: YtTypeDist[] = [];
+  let ytTierDist: TierBucket[] = [];
+  let ytMonthlyTrend: MonthlyBucket[] = [];
+  let ytPoolSummary: PoolSummary = {
+    total_authors: 0,
+    paid_authors: 0,
+    owned_authors: 0,
+    repeat_authors: 0,
+    one_off_authors: 0,
+    top5_views_share_pct: 0,
+  };
 
   if (phase4dStats && !phase4dStats.skipped_reason) {
     try {
@@ -418,6 +437,57 @@ export default async function CaseDetailPage({
       console.warn("[yt] source dist fail:", e);
     }
 
+    // YT tier 분포 + pool summary
+    try {
+      const { data: allCh } = await supabase
+        .from("yt_channels")
+        .select(
+          "channel_name, channel_url, subscriber_count, max_views, paid_videos, brand_matched_videos, total_views",
+        )
+        .eq("case_id", c.id)
+        .limit(5000);
+      const filtered = (allCh ?? []).filter((c2) =>
+        regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true,
+      );
+      ytTierDist = tierDistributionYt(
+        filtered.map((c2) => ({
+          subscriber_count: c2.subscriber_count,
+          brand_matched_videos: c2.brand_matched_videos ?? 0,
+          paid_videos: c2.paid_videos ?? 0,
+        })),
+      );
+      ytPoolSummary = buildPoolSummary(
+        filtered.map((c2) => ({
+          max_likes: c2.max_views,        // YT은 max_views로 proxy
+          max_views: c2.max_views,
+          paid_posts: c2.paid_videos ?? 0,
+          brand_matched_posts: c2.brand_matched_videos ?? 0,
+          total_views: c2.total_views,
+          channel_name: c2.channel_name,
+          channel_url: c2.channel_url ?? undefined,
+        })),
+        ytOwnedChannels,
+      );
+    } catch (e) {
+      console.warn("[yt] tier/pool fail:", e);
+    }
+
+    // YT 월별 트렌드
+    try {
+      const { data: monthRaw } = await supabase
+        .from("yt_videos")
+        .select("uploaded_at, paid_signal, view_count, channel_name")
+        .eq("case_id", c.id)
+        .eq("brand_matched", true)
+        .limit(5000);
+      const filtered = (monthRaw ?? []).filter((r) =>
+        regionScope === "us-only" ? isLikelyUs(null, r.channel_name) : true,
+      );
+      ytMonthlyTrend = buildMonthlyTrend(filtered);
+    } catch (e) {
+      console.warn("[yt] monthly trend fail:", e);
+    }
+
     try {
       const { data: typeRaw } = await supabase
         .from("yt_videos")
@@ -445,6 +515,16 @@ export default async function CaseDetailPage({
   }
 
   let igTopAuthors: IgAuthorRow[] = [];
+  let igTierDist: TierBucket[] = [];
+  let igMonthlyTrend: MonthlyBucket[] = [];
+  let igPoolSummary: PoolSummary = {
+    total_authors: 0,
+    paid_authors: 0,
+    owned_authors: 0,
+    repeat_authors: 0,
+    one_off_authors: 0,
+    top5_views_share_pct: 0,
+  };
   let igTopPaidVideos: IgPaidVideoRow[] = [];
   let igSourceDist: IgSourceDist[] = [];
   let igTopHashtags: IgHashtagStat[] = [];
@@ -520,6 +600,54 @@ export default async function CaseDetailPage({
         .sort((a, b) => b.posts - a.posts);
     } catch (e) {
       console.warn("[ig] source dist fetch fail:", e);
+    }
+
+    // IG 풀 전체 (tier 분포 + pool summary용 — top 25뿐 아니라 모든 author)
+    try {
+      const { data: allAuthors } = await supabase
+        .from("ig_authors")
+        .select("username, max_likes, max_views, paid_posts, brand_matched_posts, total_likes")
+        .eq("case_id", c.id)
+        .limit(5000);
+      const filtered = (allAuthors ?? []).filter((a) =>
+        regionScope === "us-only" ? isLikelyUs(null, a.username) : true,
+      );
+      igTierDist = tierDistributionIg(
+        filtered.map((a) => ({
+          max_likes: a.max_likes,
+          brand_matched_posts: a.brand_matched_posts ?? 0,
+          paid_posts: a.paid_posts ?? 0,
+        })),
+      );
+      igPoolSummary = buildPoolSummary(
+        filtered.map((a) => ({
+          max_likes: a.max_likes,
+          max_views: a.max_views,
+          paid_posts: a.paid_posts ?? 0,
+          brand_matched_posts: a.brand_matched_posts ?? 0,
+          total_likes: a.total_likes,
+          username: a.username,
+        })),
+        igOwnedUsernames,
+      );
+    } catch (e) {
+      console.warn("[ig] tier/pool fetch fail:", e);
+    }
+
+    // IG 월별 트렌드 (posted_at + paid_signal)
+    try {
+      const { data: monthRaw } = await supabase
+        .from("ig_posts")
+        .select("posted_at, paid_signal, likes_count, owner_username")
+        .eq("case_id", c.id)
+        .eq("brand_matched", true)
+        .limit(5000);
+      const filtered = (monthRaw ?? []).filter((r) =>
+        regionScope === "us-only" ? isLikelyUs(null, r.owner_username) : true,
+      );
+      igMonthlyTrend = buildMonthlyTrend(filtered);
+    } catch (e) {
+      console.warn("[ig] monthly trend fail:", e);
     }
 
     try {
@@ -1238,6 +1366,9 @@ export default async function CaseDetailPage({
               topPaidVideos={igTopPaidVideos}
               sourceDist={igSourceDist}
               topHashtags={igTopHashtags}
+              tierDist={igTierDist}
+              monthlyTrend={igMonthlyTrend}
+              poolSummary={igPoolSummary}
             />
           )}
 
@@ -1261,6 +1392,9 @@ export default async function CaseDetailPage({
               topPaidVideos={ytTopPaidVideos}
               sourceDist={ytSourceDist}
               typeDist={ytTypeDist}
+              tierDist={ytTierDist}
+              monthlyTrend={ytMonthlyTrend}
+              poolSummary={ytPoolSummary}
             />
           )}
 
