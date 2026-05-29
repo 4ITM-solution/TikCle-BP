@@ -330,12 +330,129 @@ export function SectionDMockup({
         </div>
       )}
 
-      {/* Creator × SKU GMV matrix panel */}
+      {/* Creator × SKU GMV matrix panel — mockup line 1205-1221 */}
       {tab === "matrix" && (
         <div className="panel active">
-          <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-            —
-          </div>
+          {!kalodataVideos || kalodataVideos.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              —
+            </div>
+          ) : (
+            (() => {
+              // creator × product matrix
+              type Cell = { gmv: number; videos: number };
+              const matrix = new Map<string, Map<string, Cell>>(); // creator → (product → cell)
+              const productGmv = new Map<string, number>();
+              const creatorGmv = new Map<string, number>();
+              for (const v of kalodataVideos) {
+                const handle = v.creator_handle ?? "—";
+                const product = v.product_title ?? "기타";
+                const gmv = v.revenue_usd ?? 0;
+                if (gmv <= 0) continue;
+                if (!matrix.has(handle)) matrix.set(handle, new Map());
+                const cMap = matrix.get(handle)!;
+                const cur = cMap.get(product) ?? { gmv: 0, videos: 0 };
+                cur.gmv += gmv;
+                cur.videos += 1;
+                cMap.set(product, cur);
+                productGmv.set(product, (productGmv.get(product) ?? 0) + gmv);
+                creatorGmv.set(handle, (creatorGmv.get(handle) ?? 0) + gmv);
+              }
+              // Top 5 creator, Top 4 product (각자 GMV 내림차순) + 기타
+              const topCreators = [...creatorGmv.entries()]
+                .sort(([, a], [, b]) => b - a).slice(0, 5).map(([h]) => h);
+              const topProducts = [...productGmv.entries()]
+                .sort(([, a], [, b]) => b - a).slice(0, 4).map(([p]) => p);
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                    Creator × SKU별 GMV 기여 — 누가 어떤 SKU 잘 팔았나
+                  </div>
+                  <table style={{ fontSize: 11 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 130 }}>Creator</th>
+                        {topProducts.map((p) => (
+                          <th key={p} style={{ textAlign: "right" }} title={p}>
+                            {p.length > 10 ? `${p.slice(0, 10)}…` : p}
+                          </th>
+                        ))}
+                        <th style={{ textAlign: "right" }}>기타</th>
+                        <th style={{ textAlign: "right" }}>합계</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topCreators.map((handle) => {
+                        const cMap = matrix.get(handle)!;
+                        let restGmv = 0;
+                        const cells = topProducts.map((p) => cMap.get(p)?.gmv ?? 0);
+                        for (const [prod, cell] of cMap.entries()) {
+                          if (!topProducts.includes(prod)) restGmv += cell.gmv;
+                        }
+                        const total = creatorGmv.get(handle) ?? 0;
+                        const maxIdx = cells.indexOf(Math.max(...cells, restGmv));
+                        return (
+                          <tr key={handle}>
+                            <td><b>@{handle.replace(/^@/, "")}</b></td>
+                            {cells.map((g, i) => (
+                              <td
+                                key={i}
+                                style={{
+                                  textAlign: "right",
+                                  fontFamily: "monospace",
+                                  background: i === maxIdx ? "#fef3c7" : undefined,
+                                  fontWeight: i === maxIdx ? 700 : 400,
+                                }}
+                              >
+                                {formatUsdShort(g)}
+                              </td>
+                            ))}
+                            <td
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "monospace",
+                                background:
+                                  restGmv > Math.max(...cells) ? "#fef3c7" : undefined,
+                                fontWeight: restGmv > Math.max(...cells) ? 700 : 400,
+                              }}
+                            >
+                              {formatUsdShort(restGmv)}
+                            </td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>
+                              {formatUsdShort(total)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{ background: "#f9fafb", fontWeight: 700 }}>
+                        <td>SKU 합계</td>
+                        {topProducts.map((p) => (
+                          <td key={p} style={{ textAlign: "right", fontFamily: "monospace" }}>
+                            {formatUsdShort(productGmv.get(p) ?? 0)}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {formatUsdShort(
+                            [...productGmv.entries()]
+                              .filter(([p]) => !topProducts.includes(p))
+                              .reduce((s, [, g]) => s + g, 0),
+                          )}
+                        </td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {formatUsdShort([...productGmv.values()].reduce((s, g) => s + g, 0))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {creatorGmv.size > 5 && (
+                    <div style={{ fontSize: 10, color: "#9ca3af", textAlign: "center", marginTop: 8 }}>
+                      + {creatorGmv.size - 5}명 더보기
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          )}
         </div>
       )}
 
