@@ -25,6 +25,47 @@ export type CaseStatus =
 
 export type Platform = "AMAZON" | "TIKTOK_SHOP";
 
+/**
+ * data_channels — 이 케이스에서 어떤 데이터 채널을 분석 대상으로 활성화했는지.
+ * case.channel (단일 enum)과 별개로 multi-select. UI는 활성 채널만 입력 슬롯/결과 노출.
+ *
+ * - tiktok_video: Exolyt CSV로 들어오는 TikTok 영상 (브랜드 채널 무관)
+ * - amazon:       Helium10 매출/BSR (case.channel='amazon')
+ * - tt_shop:      TT Shop 제품/매출 (case.channel='tiktok_shop')
+ * - shopee:       Shopee 제품 (case.channel='shopee')
+ * - meta_ads:     Meta Ad Library 광고 (Phase 4a)
+ * - instagram:    IG 모니터링 (Phase 4c)
+ * - youtube:      YT 모니터링 (Phase 4d) 또는 YoutubeSeeding 라이트
+ */
+export type DataChannel =
+  | "tiktok_video"
+  | "amazon"
+  | "tt_shop"
+  | "shopee"
+  | "meta_ads"
+  | "instagram"
+  | "youtube";
+
+export const DATA_CHANNEL_LABELS: Record<DataChannel, string> = {
+  tiktok_video: "TikTok 영상",
+  amazon: "Amazon",
+  tt_shop: "TT Shop",
+  shopee: "Shopee",
+  meta_ads: "Meta 광고",
+  instagram: "Instagram",
+  youtube: "YouTube",
+};
+
+export const DATA_CHANNEL_ICONS: Record<DataChannel, string> = {
+  tiktok_video: "🎬",
+  amazon: "🛒",
+  tt_shop: "📱",
+  shopee: "🛍️",
+  meta_ads: "📢",
+  instagram: "📷",
+  youtube: "📺",
+};
+
 export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12";
@@ -116,6 +157,7 @@ export type Database = {
           yt_config: Json | null;
           key_stats: Json | null;
           options: Json | null;
+          data_channels: DataChannel[] | null;
           analyzed_at: string | null;
           created_at: string;
           updated_at: string;
@@ -134,6 +176,7 @@ export type Database = {
           yt_config?: Json | null;
           key_stats?: Json | null;
           options?: Json | null;
+          data_channels?: DataChannel[] | null;
           analyzed_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -152,6 +195,7 @@ export type Database = {
           yt_config?: Json | null;
           key_stats?: Json | null;
           options?: Json | null;
+          data_channels?: DataChannel[] | null;
           analyzed_at?: string | null;
           created_at?: string;
           updated_at?: string;

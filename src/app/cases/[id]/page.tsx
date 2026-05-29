@@ -19,6 +19,9 @@ import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
+import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
+import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
+import type { DataChannel } from "@/lib/supabase/types";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
 import { RevenueTierPicker } from "@/components/case-detail/RevenueTierPicker";
@@ -138,7 +141,7 @@ export default async function CaseDetailPage({
   const { data: c, error } = await supabase
     .from("cases")
     .select(
-      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, ig_config, yt_config, options, key_stats, created_at, updated_at, brand:brands(name)",
+      "id, country, channel, status, revenue_tier, brand_keyword, brand_meta_pages, tiktok_shop_store_url, ig_config, yt_config, options, key_stats, data_channels, analyzed_at, created_at, updated_at, brand:brands(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -904,7 +907,54 @@ export default async function CaseDetailPage({
     hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
   });
 
+  // CaseStatusStrip 용 — data_channels별 row 수 매핑.
+  // 각 phase의 stats에서 해당 채널 수치 뽑아서 strip에 한 줄로 노출.
+  const dataChannels = (c.data_channels ?? []) as DataChannel[];
+  const ksForStrip = (c.key_stats ?? {}) as {
+    phase2?: { total_contents?: number; sales_summary?: { total_revenue?: number } };
+    phase4a?: { total_ads?: number };
+    phase4c?: { total_posts?: number };
+    phase4d?: { total_videos?: number };
+  };
+  const channelStats: Partial<Record<DataChannel, string>> = {};
+  if (dataChannels.includes("tiktok_video") && ksForStrip.phase2?.total_contents) {
+    const n = ksForStrip.phase2.total_contents;
+    channelStats.tiktok_video = n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+  }
+  if (dataChannels.includes("meta_ads") && ksForStrip.phase4a?.total_ads) {
+    channelStats.meta_ads = `${ksForStrip.phase4a.total_ads}`;
+  }
+  if (dataChannels.includes("instagram") && ksForStrip.phase4c?.total_posts) {
+    channelStats.instagram = `${ksForStrip.phase4c.total_posts}`;
+  }
+  if (dataChannels.includes("youtube") && ksForStrip.phase4d?.total_videos) {
+    channelStats.youtube = `${ksForStrip.phase4d.total_videos}`;
+  }
+  if (dataChannels.includes("amazon") || dataChannels.includes("tt_shop") || dataChannels.includes("shopee")) {
+    const rev = ksForStrip.phase2?.sales_summary?.total_revenue;
+    if (rev) {
+      const label = rev >= 1_000_000
+        ? `$${(rev / 1_000_000).toFixed(1)}M`
+        : rev >= 1000
+          ? `$${(rev / 1000).toFixed(0)}K`
+          : `$${rev}`;
+      if (dataChannels.includes("amazon")) channelStats.amazon = label;
+      if (dataChannels.includes("tt_shop")) channelStats.tt_shop = label;
+      if (dataChannels.includes("shopee")) channelStats.shopee = label;
+    }
+  }
+
   return (
+    <>
+      <CaseStatusStrip
+        brand={brand}
+        country={c.country}
+        channel={c.channel}
+        status={c.status}
+        dataChannels={dataChannels}
+        channelStats={channelStats}
+        analyzedAt={c.analyzed_at}
+      />
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
       <nav className="breadcrumb">
         <Link href="/cases">Browse</Link>
@@ -1681,6 +1731,14 @@ export default async function CaseDetailPage({
           />
         </>
       )}
+
+      {/* ⚙️ DEV 액션 footer — Phase 1.6: 페이지 맨 아래로 이동. 평소엔 접힘 */}
+      <CaseDevFooter
+        case_id={c.id}
+        status={c.status}
+        costEstimate={costEstimate}
+      />
     </div>
+    </>
   );
 }
