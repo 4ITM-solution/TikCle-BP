@@ -19,7 +19,7 @@ import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
-import "./mockup.css";
+// mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
