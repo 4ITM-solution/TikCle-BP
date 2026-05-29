@@ -70,8 +70,8 @@ export async function runPhase2(
       ? await aggregateAmazonSalesAndBsr(supabase, c.id, c.channel)
       : { sales_summary: null, sku_sales: [], bsr_series: [] };
 
-  // ★ Phase 10: IG/YT 영상 수 통합 fetch — A 섹션 채널 toggle 활성용
-  const [{ count: igCount }, { count: ytCount }] = await Promise.all([
+  // ★ Phase 10/11: IG/YT 통합 — 영상 수 + 월별 분리 (A 채널 toggle stack chart 활성)
+  const [{ count: igCount }, { count: ytCount }, igRows, ytRows] = await Promise.all([
     supabase
       .from("ig_posts")
       .select("id", { count: "exact", head: true })
@@ -80,7 +80,49 @@ export async function runPhase2(
       .from("yt_videos")
       .select("id", { count: "exact", head: true })
       .eq("case_id", case_id),
+    supabase
+      .from("ig_posts")
+      .select("posted_at, paid_signal")
+      .eq("case_id", case_id)
+      .limit(20000),
+    supabase
+      .from("yt_videos")
+      .select("uploaded_at, paid_signal")
+      .eq("case_id", case_id)
+      .limit(20000),
   ]);
+
+  // 월별 채널별 집계
+  const aggMonthly = (
+    rows: Array<{ date: string | null; paid: boolean }>,
+  ): MonthlyVideoCount[] => {
+    const m = new Map<string, { paid: number; organic: number; total: number }>();
+    for (const r of rows) {
+      if (!r.date) continue;
+      const month = r.date.slice(0, 7);
+      const e = m.get(month) ?? { paid: 0, organic: 0, total: 0 };
+      if (r.paid) e.paid += 1;
+      else e.organic += 1;
+      e.total += 1;
+      m.set(month, e);
+    }
+    return Array.from(m.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, c]) => ({ month, ...c }));
+  };
+
+  const igMonthly = aggMonthly(
+    (igRows.data ?? []).map((r) => ({
+      date: r.posted_at,
+      paid: !!r.paid_signal,
+    })),
+  );
+  const ytMonthly = aggMonthly(
+    (ytRows.data ?? []).map((r) => ({
+      date: r.uploaded_at,
+      paid: !!r.paid_signal,
+    })),
+  );
 
   return {
     monthly_video_counts: monthly,
@@ -95,6 +137,11 @@ export async function runPhase2(
     // ★ 채널별 영상 수 (mockup A 채널 toggle 활성용)
     ig_total_videos: igCount ?? 0,
     yt_total_videos: ytCount ?? 0,
+    monthly_by_channel: {
+      tk: monthly,
+      ig: igMonthly,
+      yt: ytMonthly,
+    },
     computed_at: new Date().toISOString(),
   };
 }

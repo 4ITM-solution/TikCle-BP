@@ -124,6 +124,30 @@ export function MiniDashboard({
 }) {
   // ★ SKU selector state — D 안 모듈 5개 공유 (highlight)
   const [selectedSku, setSelectedSku] = useState<string>("all");
+  // ★ Section A 채널 mode — MonthlyTrendChart에 전파 (TK/IG/YT/all)
+  const [channelMode, setChannelMode] = useState<"all" | "tk" | "ig" | "yt">("all");
+  // 채널별 monthly 데이터 선택
+  const monthlyForChart = (() => {
+    const byCh = phase2.monthly_by_channel;
+    if (!byCh) return phase2.monthly_video_counts; // backfill 전 fallback
+    if (channelMode === "tk") return byCh.tk;
+    if (channelMode === "ig") return byCh.ig;
+    if (channelMode === "yt") return byCh.yt;
+    // all = 채널 합산 (월별 합)
+    const merged = new Map<string, { paid: number; organic: number; total: number }>();
+    for (const arr of [byCh.tk, byCh.ig, byCh.yt]) {
+      for (const r of arr) {
+        const e = merged.get(r.month) ?? { paid: 0, organic: 0, total: 0 };
+        e.paid += r.paid;
+        e.organic += r.organic;
+        e.total += r.total;
+        merged.set(r.month, e);
+      }
+    }
+    return Array.from(merged.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, c]) => ({ month, ...c }));
+  })();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -182,6 +206,7 @@ export function MiniDashboard({
             tk={tkKpi}
             ig={igVids > 0 ? { totalVideos: igVids, paidPct: 0, organicPct: 0, giftedPct: 0, totalViewsLabel: "-" } : undefined}
             yt={ytVids > 0 ? { totalVideos: ytVids, paidPct: 0, organicPct: 0, giftedPct: 0, totalViewsLabel: "-" } : undefined}
+            onChange={setChannelMode}
           />
         );
       })()}
@@ -189,7 +214,7 @@ export function MiniDashboard({
       <MonthlyTrendChart
         tierByMonth={phase3?.tier_dist_by_month}
         adTierByMonth={phase3?.ad_by_month_tier}
-        monthlyVideoCounts={phase2.monthly_video_counts}
+        monthlyVideoCounts={monthlyForChart}
         bsrSeries={phase2.bsr_series}
       />
 

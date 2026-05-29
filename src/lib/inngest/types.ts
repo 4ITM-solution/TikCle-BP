@@ -104,6 +104,12 @@ export type Phase2Stats = {
   // ★ Phase 10: 채널별 영상 수 (mockup A 채널 toggle 활성용)
   ig_total_videos?: number;
   yt_total_videos?: number;
+  // ★ Phase 11: 월별 영상 수 — 채널별 분리 (mockup A 채널 toggle 시 stack chart 갱신)
+  monthly_by_channel?: {
+    tk: MonthlyVideoCount[];
+    ig: MonthlyVideoCount[];
+    yt: MonthlyVideoCount[];
+  };
   computed_at: string;
 };
 

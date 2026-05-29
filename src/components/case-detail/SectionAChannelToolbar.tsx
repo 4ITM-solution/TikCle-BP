@@ -25,13 +25,19 @@ export function SectionAChannelToolbar({
   tk,
   ig,
   yt,
+  onChange,
 }: {
   all: ChannelKpi;
   tk?: ChannelKpi;
   ig?: ChannelKpi;
   yt?: ChannelKpi;
+  onChange?: (mode: "all" | "tk" | "ig" | "yt") => void;
 }) {
   const [mode, setMode] = useState<"all" | "tk" | "ig" | "yt">("all");
+  const handle = (m: typeof mode) => {
+    setMode(m);
+    onChange?.(m);
+  };
   const cur =
     mode === "tk" && tk
       ? tk
@@ -65,7 +71,7 @@ export function SectionAChannelToolbar({
               key={b.k}
               type="button"
               disabled={b.disabled}
-              onClick={() => setMode(b.k)}
+              onClick={() => handle(b.k)}
               style={{
                 padding: "5px 12px",
                 background:
