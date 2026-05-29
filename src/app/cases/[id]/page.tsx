@@ -27,6 +27,7 @@ import {
   type CrossPlatformAuthor,
 } from "@/components/case-detail/CaseInsightCard";
 import { DataChannelGrid } from "@/components/case-detail/DataChannelGrid";
+import { CaseKpiStrip } from "@/components/case-detail/CaseKpiStrip";
 import type { DataChannel } from "@/lib/supabase/types";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
@@ -1646,6 +1647,74 @@ export default async function CaseDetailPage({
                 />
                 <div style={{ height: 14 }} />
 
+                {/* ★ Phase 5-A: 상단 KpiStrip — 케이스 한눈 요약 6 KPI */}
+                {ks.phase2 && (() => {
+                  const totalVids = ks.phase2.total_contents ?? 0;
+                  const totalInf = ks.phase2.total_unique_creators ?? 0;
+                  const igTotal = (ks as { phase4c?: { total_posts?: number } }).phase4c?.total_posts ?? 0;
+                  const ytTotal = (ks as { phase4d?: { total_videos?: number } }).phase4d?.total_videos ?? 0;
+                  const allVids = totalVids + igTotal + ytTotal;
+                  const allInf = totalInf;
+                  // sum view (top_creators max_views top 100 합산 → 근사)
+                  const tcViews = (ks.phase2.top_creators ?? []).reduce(
+                    (s, c) => s + (c.max_views ?? 0),
+                    0,
+                  );
+                  const viewsLabel = tcViews >= 1_000_000_000
+                    ? `${(tcViews / 1_000_000_000).toFixed(1)}B`
+                    : tcViews >= 1_000_000
+                      ? `${Math.round(tcViews / 1_000_000)}M`
+                      : `${Math.round(tcViews / 1000)}K`;
+
+                  const rev = ks.phase2.sales_summary?.total_revenue;
+                  const salesLabel = rev
+                    ? rev >= 1_000_000
+                      ? `$${(rev / 1_000_000).toFixed(1)}M`
+                      : `$${Math.round(rev / 1000)}K`
+                    : null;
+
+                  const adTotal = ks.phase4a?.total_ads ?? 0;
+                  const adPartner = ks.phase4a?.partnership_creators ?? 0;
+
+                  return (
+                    <CaseKpiStrip
+                      totalVideos={{
+                        value: allVids,
+                        sub: `TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`,
+                      }}
+                      totalInfluencers={{
+                        value: allInf,
+                        sub: `top creators ${(ks.phase2.top_creators ?? []).length}명`,
+                      }}
+                      totalViews={{
+                        value: viewsLabel,
+                        sub: "top creator 합산 추정",
+                      }}
+                      salesValue={
+                        salesLabel
+                          ? {
+                              value: salesLabel,
+                              sub: `${ks.phase2.sales_summary?.sku_count ?? 0} SKU`,
+                            }
+                          : null
+                      }
+                      salesTrend={null}
+                      metaAdsCount={
+                        adTotal > 0
+                          ? {
+                              value: adTotal,
+                              sub: `partner 인플 ${adPartner}명`,
+                            }
+                          : null
+                      }
+                      costEstimate={{
+                        value: `$${costEstimate.total_max_usd.toFixed(2)}`,
+                        sub: "예상 최대",
+                      }}
+                    />
+                  );
+                })()}
+
                 {/* ★ G 종합 인사이트 — Phase 2: phase별 stats 자동 조립 (Phase 5 synthesis 도착 전까지 fallback) */}
                 {(() => {
                   const axes: AxisCardData[] = [];
@@ -1807,12 +1876,38 @@ export default async function CaseDetailPage({
                         lives: ks.kalodata_lives,
                         meta: ks.kalodata_creators_meta,
                       }}
-                      crossChannelMatrix={crossPlatformMatches.map((m) => ({
-                        name: m.name,
-                        tk: 0, // TK 영상 수는 핸들 매칭 한계로 일단 0. Phase 3-A.4에서 보강.
-                        ig: m.ig_posts,
-                        yt: m.yt_videos,
-                      }))}
+                      crossChannelMatrix={(() => {
+                        // Phase 3-A.4: TK top_creators 핸들 정규화 매칭.
+                        // 같은 인플이 TK/IG/YT 채널에 흩어져 있으면 핸들 normalize (소문자+영숫자만) 후 매칭.
+                        const norm = (s: string) =>
+                          s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                        const tkByHandle = new Map<string, number>();
+                        for (const tc of ks.phase2?.top_creators ?? []) {
+                          const k = norm(tc.handle);
+                          if (k.length >= 4) tkByHandle.set(k, tc.video_count);
+                        }
+                        return crossPlatformMatches.map((m) => {
+                          const k = norm(m.name);
+                          let tk = tkByHandle.get(k) ?? 0;
+                          // prefix 매칭 (cookinghacks vs cookinghacks_us 같은)
+                          if (tk === 0 && k.length >= 5) {
+                            for (const [tkKey, count] of tkByHandle.entries()) {
+                              if (tkKey.startsWith(k) || k.startsWith(tkKey)) {
+                                if (Math.min(tkKey.length, k.length) >= 5) {
+                                  tk = count;
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                          return {
+                            name: m.name,
+                            tk,
+                            ig: m.ig_posts,
+                            yt: m.yt_videos,
+                          };
+                        });
+                      })()}
                     />
                   </div>
                   <SectionTOC

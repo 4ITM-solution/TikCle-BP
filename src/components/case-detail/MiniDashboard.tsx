@@ -10,6 +10,7 @@ import { CrossChannelMatrix } from "./CrossChannelMatrix";
 import { KalodataInsightsModule } from "./KalodataInsightsModule";
 import { CreatorSkuMatrix } from "./CreatorSkuMatrix";
 import { CategoryRankingChart } from "./CategoryRankingChart";
+import { SkuSelectorBanner } from "./SkuSelectorBanner";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -208,6 +209,10 @@ export function MiniDashboard({
                 : ""
             }
           />
+          {/* ★ Phase 5: SKU selector 배너 (state lift 전 visual prototype) */}
+          {phase2.sku_sales.length > 1 && (
+            <SkuSelectorBanner skus={phase2.sku_sales} />
+          )}
           {/* Kalodata Video xlsx 들어온 케이스는 제품별 매출 분포에서 같은 정보 더 풍부하게 보여줘서 중복 — hide */}
           {!(kalodata?.videosXlsx?.length) && (
             <SkuSalesModule
