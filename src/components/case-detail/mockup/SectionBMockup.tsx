@@ -248,6 +248,16 @@ export function SectionBMockup({
         </div>
       </div>
 
+      {/* mockup line 839-842: 원본 raw details */}
+      <details style={{ marginTop: 16 }}>
+        <summary style={{ cursor: "pointer", fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+          ▶ 원본 raw 보기 (영상 list · 전체 인플 list · IG/YT raw)
+        </summary>
+        <div style={{ marginTop: 8, padding: 10, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
+          {phase2.top_creators?.length ?? 0}명 TikTok 작성자 · IG/YT raw 는 source CSV
+        </div>
+      </details>
+
       {/* Shop creator section */}
       {showShopSection && (
         <div

@@ -230,6 +230,13 @@ export function DataChannelsMockup({
             </div>
           );
         })}
+        {/* mockup line 557: + 채널 추가 카드 */}
+        <div className="ch-card" style={{ background: "#f9fafb" }}>
+          <div className="ch-card-h">
+            <span className="ic">＋</span>
+            <span className="nm" style={{ color: "#6b7280" }}>채널 추가</span>
+          </div>
+        </div>
       </div>
     </div>
   );
