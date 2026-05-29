@@ -1,28 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  /* === Color tokens (mockup 기준) === */
-  --color-bg: #F9F8F6;
-  --color-ink: #1A1A1A;
-  --color-g25: #FAFAF8;
-  --color-g50: #F5F4F2;
-  --color-g100: #ECEAE5;
-  --color-g200: #DDD9D2;
-  --color-g300: #B8B3A8;
-  --color-g400: #8A857A;
-  --color-g500: #5A554D;
-  --color-g600: #2E2C28;
+  /* === Color tokens — mockup v5 디자인 시스템 (Tailwind gray + sky/amber/rose 톤) === */
+  --color-bg: #f9fafb;
+  --color-ink: #111827;
+  --color-g25: #fafafa;
+  --color-g50: #f9fafb;
+  --color-g100: #f3f4f6;
+  --color-g200: #e5e7eb;
+  --color-g300: #d1d5db;
+  --color-g400: #9ca3af;
+  --color-g500: #6b7280;
+  --color-g600: #4b5563;
+  --color-g700: #374151;
 
-  --color-accent: #C73E2C;
-  --color-accent-soft: #FBE8E4;
-  --color-pos: #2E6B3F;
-  --color-pos-soft: #E5F0E8;
-  --color-warn: #B8841C;
-  --color-warn-soft: #FBF1D8;
-  --color-info: #2E5A8E;
-  --color-info-soft: #E5EDF5;
+  /* accent = partnership 핑크 (mockup ec4899) */
+  --color-accent: #ec4899;
+  --color-accent-soft: #fce7f3;
+  /* 긍정 = green-500 */
+  --color-pos: #10b981;
+  --color-pos-soft: #d1fae5;
+  /* 경고 = amber-500 */
+  --color-warn: #f59e0b;
+  --color-warn-soft: #fef3c7;
+  /* info = cyan-500 (mockup 영상 수 line, KPI 등) */
+  --color-info: #06b6d4;
+  --color-info-soft: #cffafe;
 
-  --font-sans: 'Plus Jakarta Sans', 'Noto Sans KR', -apple-system, system-ui, sans-serif;
+  /* mockup 다크 카드 — G 종합 인사이트용 */
+  --color-dark-bg: #1e293b;
+  --color-dark-bg-light: #334155;
+
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Plus Jakarta Sans', 'Noto Sans KR', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 

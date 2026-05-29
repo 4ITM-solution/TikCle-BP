@@ -11,6 +11,7 @@ import { KalodataInsightsModule } from "./KalodataInsightsModule";
 import { CreatorSkuMatrix } from "./CreatorSkuMatrix";
 import { CategoryRankingChart } from "./CategoryRankingChart";
 import { SkuSelectorBanner } from "./SkuSelectorBanner";
+import { MissingDataPlaceholder } from "./MissingDataPlaceholder";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -194,6 +195,13 @@ export function MiniDashboard({
             <UspKeywordsModule phase5={phase5} />
           )}
           {phase5 && <LanguageModule phase5={phase5} />}
+
+          {/* ★ mockup placeholder: 통합 클러스터 (TK + IG + YT 채널 column) — Phase 4b cluster 백엔드 변경 필요 */}
+          <MissingDataPlaceholder
+            title="통합 클러스터 (TK + IG + YT 채널 column)"
+            reason="현재는 TikTok hook 클러스터만 노출. mockup의 '리스트형 · BBQ/그릴 · Slushi DIY' 같은 채널 통합 hook 패턴 (TK 142 · IG 38 · YT 22 식) 은 Phase 4b cluster aggregator에 IG/YT 영상 input 추가 + Inngest 재실행 필요."
+            next="별도 PR — backend phase4b-clusters.ts 변경 + 케이스 재분석 (~$5)"
+          />
         </>
       )}
 
@@ -258,6 +266,15 @@ export function MiniDashboard({
           <CreatorSkuMatrix videos={kalodata.videosXlsx} />
           <CategoryRankingChart videos={kalodata.videosXlsx} />
         </>
+      )}
+
+      {/* ★ mockup placeholder: Affiliate code conversion 테이블 — 데이터 source 없음 */}
+      {phase2.sales_summary && (
+        <MissingDataPlaceholder
+          title="Affiliate code conversion 테이블 (NINJA20 · BBQDEAL 같은 code별 GMV/CVR)"
+          reason="현재 TT Shop US Affiliate CSV에는 인플 단위 GMV만 들어옴. mockup의 'code 별 GMV·CVR' 데이터는 별도 source 필요 (Helium10 Tracking · Bitly 등 외부 추가)."
+          next="데이터 source 협의 필요 — Helium10 affiliate report API 또는 별도 tracking CSV 업로드 추가"
+        />
       )}
 
       {/* Section E: Meta 광고 */}
