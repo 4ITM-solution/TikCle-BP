@@ -24,7 +24,67 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-28 (Sprint 1~3: IG + YouTube 브랜드 모니터링 + region_scope + 인플 풀 시각화 완성. Samsung 카테고리 정의자 BP 분석용)
+> **갱신 시점**: 2026-05-29 (케이스 페이지 UI 마이그레이션 Phase 1~4 + Meta 광고 partnership + YouTube 시딩 + 5월 추가 작업)
+
+### 2026-05-29 박힌 변화 요약 — 케이스 페이지 UI 마이그레이션 4-Phase
+
+**배경**: IG/YT 추가 후 케이스 페이지가 너무 길어지고 헷갈림. 사용자가 mockup 4회 review 거쳐서 점진적 layout 재구성. 4 commit으로 마이그레이션 70% 달성.
+
+**A. Phase 1 — 기반 (commit `8a0821b`)**
+- **migration 015**: `cases.data_channels jsonb` 추가 + 기존 케이스 자동 backfill (contents/products/meta_ads/ig_posts/yt_videos 보고 자동 매핑)
+- **types.ts**: `DataChannel` union ("tiktok_video" | "amazon" | "tt_shop" | "shopee" | "meta_ads" | "instagram" | "youtube") + `DATA_CHANNEL_LABELS` / `DATA_CHANNEL_ICONS` helper
+- **CaseStatusStrip** ([components/case-detail/CaseStatusStrip.tsx](src/components/case-detail/CaseStatusStrip.tsx)) — 페이지 최상단 sticky. 브랜드명 + 7 채널 dot (활성 초록 / 비활성 회색) + 적재 행 수 한 줄
+- **CaseDevFooter** — 기존 DevTestActions를 페이지 맨 아래 접힌 details로 wrapping (평소 숨김)
+- **CaseHeader / CaseKpiStrip / CaseSideTOC** — 컴포넌트만 작성 (page.tsx 박는 건 Phase 5+로 미룸 — 1700줄 layout 재구성 위험)
+
+**B. Phase 2 — 종합 인사이트 + 트렌드 차트 강화 (commit `c5cb00f` + `085f328`)**
+- **CaseInsightCard** ([CaseInsightCard.tsx](src/components/case-detail/CaseInsightCard.tsx)) — page.tsx의 종합 인사이트 다크 카드 (MiniDashboard 위)
+  - 5축 매핑 (제품 · 인플 · 콘텐츠 · 채널 · 시즈널리티) 자동 조립
+  - 핵심 발견 4개 자동 추출 (long-tail · partnership · 클러스터 · 매출)
+  - cross-platform 인플 top 5 + 비교 케이스 link
+- **page.tsx**: MiniDashboard 위에 CaseInsightCard 박힘. phase별 stats 자동 조립 (Phase 5 synthesis 도착 전 fallback).
+- **MonthlyTrendChart**: ★ "영상 수" cyan line 추가 — 볼륨↔BSR 시각 상관 가능
+  - cyan `#06b6d4` + white halo + 데이터 포인트 dot (stack 위에서도 명확)
+  - 호버 툴팁에 영상 수도 표시
+  - toggle 4번째 ("★ 영상 수 line")
+
+**C. Phase 3-A — cross-channel 인플 매트릭스 (commit `344aea9`)**
+- **CrossChannelMatrix** ([CrossChannelMatrix.tsx](src/components/case-detail/CrossChannelMatrix.tsx)) — TK · IG · YT 채널 활동 매트릭스. 2채널 이상 활동 인플만.
+- MiniDashboard Section B 안에 박힘 (CreatorActivityModule 아래).
+- 데이터: page.tsx의 `crossPlatformMatches` (이미 fetch됨, IG·YT 매칭) → `{name, tk:0, ig, yt}` 변환. **TK 영상 수는 핸들 매칭 한계로 일단 0 (Phase 3-A.4에서 보강 예정)**.
+- G 카드의 cross-platform 인플 데이터도 같이 채움 (top 10).
+
+**D. Phase 4 — TT Shop 깊은 데이터 + 데이터 채널 그리드 (commit `7e691a7`)**
+- **DataChannelGrid** ([DataChannelGrid.tsx](src/components/case-detail/DataChannelGrid.tsx)) — 7 채널 카드 그리드 + 활성/비활성 시각 분리
+  - page.tsx Section 02 위에 박힘. 카드 stat = `channelStats` (page.tsx에서 phase별 fetch).
+  - 입력 UI는 기존 Section 02 토글 유지 (위험 최소화 — uploadUI 흡수는 Phase 5+).
+- **CreatorSkuMatrix** ([CreatorSkuMatrix.tsx](src/components/case-detail/CreatorSkuMatrix.tsx)) — Kalodata video xlsx (creator_handle + product_title + revenue_usd) → Shop Creator × SKU GMV 매트릭스. 셀 highlight = 그 creator의 주력 SKU.
+- **CategoryRankingChart** ([CategoryRankingChart.tsx](src/components/case-detail/CategoryRankingChart.tsx)) — Kalodata video xlsx (publish_date + product_category + revenue_usd) → 월 × 카테고리 GMV heatmap (BSR 대용). TT Shop은 BSR 없지만 카테고리 ranking 시각화.
+- MiniDashboard에 KalodataInsightsModule 아래 CreatorSkuMatrix + CategoryRankingChart 추가 (`kalodata.videosXlsx` 있을 때만).
+
+**미완 (별도 PR로) — 위험 큰 작업**:
+1. **page.tsx layout 재구성** — CaseSideTOC 좌측 + CaseKpiStrip + CaseHeader 통합. 컴포넌트는 다 작성됨. page.tsx 1700+ 줄에서 inline header 제거 + 신규 컴포넌트 박기 = 충돌 위험. 별도 careful 작업.
+2. **Section C 통합 클러스터 재설계** — Phase 4b cluster input에 IG/YT 영상 통합. 백엔드 변경 + Inngest 재실행 필요. mockup에서 본 "통합 클러스터 + 채널 column" 형태.
+3. **SKU selector D 위 sticky** — Section D 모든 모듈 state lift (selectedSku) 필요. 모듈 5-6개 props 추가. refactor 큼.
+
+**mockup 파일 (참고용)**:
+- `~/Downloads/bp-case-detail-mockup.html` — v5 최종 mockup (시나리오 3개 인터랙티브)
+- `~/Downloads/bp-flowchart.html` — 시스템 phase 순서도
+- `~/Downloads/bp-architecture.html` — layer 분리 버전
+
+**오늘 작업한 사례 — SharkNinja Meta 광고 Partnership (commit `e22eb1b` 외)**
+- migration 011 — `meta_ads.creator_page_name` / `partner_page_name` / `partner_page_id` 컬럼 추가
+- `apify/facebook-ads-scraper` (공식) 액터 신규 통합 — detail endpoint로 partnership 정확
+- 하이브리드 모드: `cases.options.meta_ads_source = 'official' | 'hybrid' | undefined`
+  - cheap curious_coder 1000건 + 의심 ad만 공식 detail 재호출 → 케이스당 $1.43 (100% 비싼 모드 $3.4의 42%)
+- SharkNinja partnership 인플 **16명 자동 추출** (Justin Flom · Amanda Stanton · **David Beckham** 등)
+- PartnerCreatorsModule UI — 16명 테이블 + 썸네일 + 광고 수 + 활동 기간
+
+**오늘 작업한 사례 — YouTube 시딩 분석 (commit `f0d5243` + `cf15696`)**
+- YouTube Data API v3 통합 (무료 10K units/day · 키워드당 ~102 units)
+- `YoutubeSeedingSection` — 키워드 검색 → contents/influencers/key_stats 자동 적재
+- FTC disclosure 자동 분류: #ad/#sponsored/#paidpartnership → ad / #gifted/#pr/#prsample → seeded / 나머지 → organic
+- 함정 (#cf15696): `subscribersToTier()` 가 'sub-nano'/'unknown' 반환하는데 DB enum 안 받음 → influencer INSERT 통째로 fail. ENUM_TIERS set 체크로 fix.
 
 ### 2026-05-28 박힌 변화 요약 — Sprint 1~3 IG/YT BP
 
