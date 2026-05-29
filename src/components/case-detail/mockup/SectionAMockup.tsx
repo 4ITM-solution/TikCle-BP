@@ -237,7 +237,7 @@ export function SectionAMockup({
         <div className="kpi">
           <div className="kpi-label">gifted (시딩)</div>
           <div className="kpi-val">-</div>
-          <div className="kpi-sub">FTC 분류 미수집</div>
+          <div className="kpi-sub">—</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">총 view</div>
@@ -326,23 +326,16 @@ export function SectionAMockup({
                     />
                   );
                 })}
+                {/* tier 데이터 없으면 빈 막대 (단색 dim) — mockup엔 fallback 없음 */}
                 {show.tier && !hasTierData && total > 0 && (
-                  <>
-                    <div
-                      style={{
-                        height: `${(paid / Math.max(total, 1)) * 100}%`,
-                        background: "#ec4899",
-                      }}
-                      title={`paid ${paid}`}
-                    />
-                    <div
-                      style={{
-                        height: `${(organic / Math.max(total, 1)) * 100}%`,
-                        background: "#1f2937",
-                      }}
-                      title={`organic ${organic}`}
-                    />
-                  </>
+                  <div
+                    style={{
+                      height: "100%",
+                      background: "#e5e7eb",
+                      opacity: 0.5,
+                    }}
+                    title={`${total} 영상 (tier 데이터 없음)`}
+                  />
                 )}
                 <div className="sb-label" style={isPeak ? { color: "#ec4899", fontWeight: 700 } : {}}>
                   {`'${mo.slice(2)}`}
@@ -390,20 +383,11 @@ export function SectionAMockup({
                     );
                   })}
                   {tierTotal === 0 && total > 0 && (
-                    <>
-                      <tr>
-                        <td><span className="tt-color" style={{ background: "#ec4899" }} />paid</td>
-                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                          {paid}건
-                        </td>
-                      </tr>
-                      <tr>
-                        <td><span className="tt-color" style={{ background: "#1f2937" }} />organic</td>
-                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                          {(r?.organic ?? 0)}건
-                        </td>
-                      </tr>
-                    </>
+                    <tr>
+                      <td colSpan={2} style={{ color: "#9ca3af", fontSize: 10, paddingTop: 4 }}>
+                        티어 분포 미수집
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -414,14 +398,6 @@ export function SectionAMockup({
                     <br />
                     <span style={{ color: "#ef4444" }}>
                       <b>BSR #{Math.round(bsr).toLocaleString()}</b>
-                    </span>
-                  </>
-                )}
-                {tierTotal === 0 && (
-                  <>
-                    <br />
-                    <span style={{ color: "#9ca3af", fontSize: 10 }}>
-                      ★ 티어 분포 데이터 없음 — Phase 3 재실행 필요
                     </span>
                   </>
                 )}

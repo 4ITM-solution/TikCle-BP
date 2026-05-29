@@ -146,7 +146,7 @@ export function SkuHealthCards({
             videos={[...matchedVideos]
               .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
               .slice(0, 5)}
-            empty="매칭 영상 없음 (Phase 4b SKU 매칭 결과 부족)"
+            empty="매칭 영상 없음"
           />
           <VideoTopCard
             title="⭐ 매출 기여 추정 영상 (이 SKU)"
@@ -154,7 +154,7 @@ export function SkuHealthCards({
               .filter((v) => v.confidence === "high")
               .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
               .slice(0, 5)}
-            empty="high confidence 매칭 없음"
+            empty="—"
           />
         </div>
       ) : (

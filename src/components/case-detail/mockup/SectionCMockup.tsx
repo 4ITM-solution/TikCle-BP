@@ -112,15 +112,11 @@ export function SectionCMockup({
                 background: "#f9fafb",
                 borderRadius: 6,
                 fontSize: 11,
-                color: "#6b7280",
+                color: "#9ca3af",
+                textAlign: "center",
               }}
             >
-              통합 클러스터 데이터 없음. Phase 4b.4 (3-pass clustering) 실행 필요.
-              {phase4bClusters?.skipped_reason && (
-                <div style={{ marginTop: 6, color: "#ef4444" }}>
-                  → {phase4bClusters.skipped_reason}
-                </div>
-              )}
+              —
             </div>
           ) : (
             metas.map((m, i) => (
@@ -141,9 +137,6 @@ export function SectionCMockup({
               </div>
             ))
           )}
-          <div style={{ fontSize: 10, color: "#6b7280", marginTop: 12 }}>
-            ★ 통합 클러스터링 (Phase 4b.4) — TK + IG + YT 통합 input · 채널 무관 hook 패턴
-          </div>
         </div>
       )}
 
@@ -151,8 +144,8 @@ export function SectionCMockup({
       {tab === "usp" && (
         <div className="panel active">
           {uspKws.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
-              USP 키워드 데이터 없음. Phase 5 실행 필요.
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              —
             </div>
           ) : (
             <div className="usp-grid">
@@ -173,14 +166,9 @@ export function SectionCMockup({
               </div>
               <div className="usp-detail">
                 {selectedKw ? (
-                  <>
-                    <div className="ud-h">★ "{selectedKw}" 등장 영상</div>
-                    <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
-                      이 키워드가 캡션에 들어간 영상 — 영상별 상세는 Phase 5 USP 디테일 디테일 미수집
-                    </div>
-                  </>
+                  <div className="ud-h">"{selectedKw}"</div>
                 ) : (
-                  <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center", padding: 20 }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", padding: 20 }}>
                     ← 좌측에서 키워드 클릭
                   </div>
                 )}
@@ -206,8 +194,8 @@ export function SectionCMockup({
             </select>
           </div>
           {heatRows.length === 0 || metaOrder.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
-              시즈널리티 heatmap 데이터 없음. Phase 5 실행 필요 (pass3_meta cluster 기반).
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              —
             </div>
           ) : (
             <div

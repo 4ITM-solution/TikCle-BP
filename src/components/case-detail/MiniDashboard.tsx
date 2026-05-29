@@ -255,9 +255,6 @@ export function MiniDashboard({
                 ))}
               </div>
             </div>
-            <span style={{ fontSize: 10, color: "var(--color-g400)", marginLeft: "auto" }}>
-              ★ 채널 + 기간은 visual prototype (다음 PR 에서 active)
-            </span>
           </div>
 
           {/* SKU selector 배너 (sub-tabs 위에) — 선택 state는 D 안 모든 모듈 공유 */}
