@@ -217,6 +217,34 @@ export function MiniDashboard({
         bsrSeries={phase2.bsr_series}
       />
 
+      {/* mockup A: 볼륨↔BSR 상관 인사이트 callout (BSR inflection 있을 때만) */}
+      {phase5?.bsr_inflections && phase5.bsr_inflections.length > 0 && (() => {
+        const top = [...phase5.bsr_inflections].sort(
+          (a, b) => b.rank_improvement_pct - a.rank_improvement_pct,
+        )[0];
+        if (!top) return null;
+        const ratioPct = Math.round((top.views_ratio - 1) * 100);
+        return (
+          <div
+            style={{
+              padding: "10px 14px",
+              background: "#ecfdf5",
+              borderLeft: "3px solid #10b981",
+              borderRadius: 4,
+              fontSize: 11,
+              color: "#065f46",
+              marginBottom: 14,
+            }}
+          >
+            💡 <b>볼륨 ↔ BSR 상관:</b> {top.date} 시점 BSR #{top.rank_before.toLocaleString()} → #{top.rank_after.toLocaleString()}{" "}
+            ({Math.round(top.rank_improvement_pct)}% 개선). 직전 7일 뷰 합계 +{ratioPct}% 동조{top.is_mega_volume ? " (메가 볼륨)" : ""}.
+          </div>
+        );
+      })()}
+
+      {/* mockup A: 1인당 영상 분포 (long-tail 검증) */}
+      <CreatorActivityModule stats={phase2} />
+
       {/* Section B: 인플루언서 활동 — 채널 toggle + 월 필터 (mockup) */}
       <SectionHeader letter="B" title="인플루언서 활동" />
       <div
@@ -325,7 +353,6 @@ export function MiniDashboard({
       {topGmvCreators && topGmvCreators.length > 0 && (
         <TopGmvShopCreators creators={topGmvCreators} />
       )}
-      <CreatorActivityModule stats={phase2} />
       {crossChannelMatrix && crossChannelMatrix.length > 0 && (
         <div className="section-card">
           <div
