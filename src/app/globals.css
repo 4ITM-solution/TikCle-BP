@@ -221,8 +221,5 @@ a {
   100% { background-position: -200% 0; }
 }
 
-/* CaseSideTOC — 좌측 sticky 목차. 화면 ≥ 1500px 에서만 노출 (작은 화면에선 자리 부족) */
+/* CaseSideTOC — 좌측 sticky 목차. 기존 사이드바와 충돌 위험으로 일단 비활성. Phase 7+ layout 재구성 시 재활성 */
 .case-side-toc { display: none; }
-@media (min-width: 1500px) {
-  .case-side-toc { display: block; }
-}
