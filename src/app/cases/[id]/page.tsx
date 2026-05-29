@@ -1293,25 +1293,43 @@ export default async function CaseDetailPage({
             } | null;
             const lastError = ks?.last_error;
             if (!ks?.phase2) {
+              // BP-only 케이스 (ig_config 또는 yt_config 박혀있으면) — Dyson/Poppi 같은 IG/YT 전용
+              // TikTok Exolyt / Amazon 데이터 안 박는 케이스. phase2 없는 게 정상.
+              const isBpOnly = !!c.ig_config || !!c.yt_config;
               return (
                 <>
                   <div
                     style={{
                       padding: 18,
                       marginBottom: 14,
-                      background: "var(--color-warn-soft)",
-                      border: "1px solid var(--color-warn)",
+                      background: isBpOnly
+                        ? "var(--color-info-soft)"
+                        : "var(--color-warn-soft)",
+                      border: `1px solid ${isBpOnly ? "var(--color-info)" : "var(--color-warn)"}`,
                       borderRadius: 8,
                       fontSize: 12,
-                      color: "var(--color-warn)",
+                      color: isBpOnly ? "var(--color-info)" : "var(--color-warn)",
                       lineHeight: 1.6,
                     }}
                   >
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                      ⚠ key_stats에 phase2 결과가 없어요
+                      {isBpOnly
+                        ? "ℹ BP 분석 전용 케이스 (TikTok/Amazon 데이터 없음)"
+                        : "⚠ key_stats에 phase2 결과가 없어요"}
                     </div>
-                    다른 phase 결과(3 / 4a / 4b.* / 5)는 살아 있는데 phase2만 누락. 아래 PhaseProgress 펼쳐서{" "}
-                    <b>Phase 2만 재실행</b>하면 다른 결과는 보존된 채 phase2가 채워져요.
+                    {isBpOnly ? (
+                      <>
+                        이 케이스는 <b>IG / YouTube 카테고리 정의자 분석 전용</b>으로
+                        만들어진 케이스. 위 🎯 BP 박스에서 자동 발굴 → Phase 4c (IG) /
+                        Phase 4d (YT) 만 돌리면 됨. Phase 2~5 (Exolyt·Amazon 분석)는
+                        스킵해도 OK — 데이터 없으니까.
+                      </>
+                    ) : (
+                      <>
+                        다른 phase 결과(3 / 4a / 4b.* / 5)는 살아 있는데 phase2만 누락. 아래 PhaseProgress 펼쳐서{" "}
+                        <b>Phase 2만 재실행</b>하면 다른 결과는 보존된 채 phase2가 채워져요.
+                      </>
+                    )}
                   </div>
                   <PhaseProgressToggle
                     case_id={c.id}
