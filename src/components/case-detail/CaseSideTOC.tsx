@@ -51,63 +51,31 @@ export function CaseSideTOC() {
   }, []);
 
   return (
-    <nav
-      className="case-side-toc"
-      style={{
-        position: "sticky",
-        top: 90,
-        alignSelf: "start",
-        fontSize: 11,
-        padding: 0,
-      }}
-    >
-      {ITEMS.map((item, i) => {
-        const prevGroup = i > 0 ? ITEMS[i - 1]!.group : undefined;
-        const showGroupHeader = item.group && item.group !== prevGroup;
-        return (
-          <div key={item.id}>
-            {showGroupHeader && (
-              <div
-                style={{
-                  fontSize: 9,
-                  color: "var(--color-g400)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  margin: "10px 8px 4px",
+    <div className="bp-mockup">
+      <nav className="toc" style={{ position: "sticky", top: 90, alignSelf: "start" }}>
+        {ITEMS.map((item, i) => {
+          const prevGroup = i > 0 ? ITEMS[i - 1]!.group : undefined;
+          const showGroupHeader = item.group && item.group !== prevGroup;
+          return (
+            <div key={item.id}>
+              {showGroupHeader && <div className="toc-h">{item.group}</div>}
+              <a
+                href={`#${item.id}`}
+                className={active === item.id ? "active" : ""}
+                onClick={(e) => {
+                  e.preventDefault();
+                  document
+                    .getElementById(item.id)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setActive(item.id);
                 }}
               >
-                {item.group}
-              </div>
-            )}
-            <a
-              href={`#${item.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                document
-                  .getElementById(item.id)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                setActive(item.id);
-              }}
-              style={{
-                display: "block",
-                padding: "5px 8px",
-                color:
-                  active === item.id
-                    ? "var(--color-ink)"
-                    : "var(--color-g500)",
-                fontWeight: active === item.id ? 700 : 400,
-                borderLeft: `2px solid ${active === item.id ? "var(--color-ink)" : "transparent"}`,
-                background:
-                  active === item.id ? "var(--color-g25)" : "transparent",
-                textDecoration: "none",
-                cursor: "pointer",
-              }}
-            >
-              {item.label}
-            </a>
-          </div>
-        );
-      })}
-    </nav>
+                {item.label}
+              </a>
+            </div>
+          );
+        })}
+      </nav>
+    </div>
   );
 }

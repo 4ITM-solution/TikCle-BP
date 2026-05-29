@@ -20,6 +20,7 @@ export function CaseHeader({
   regionScope,
   createdAt,
   updatedAt,
+  actionsOnly = false,
 }: {
   case_id: string;
   brand: string;
@@ -30,7 +31,35 @@ export function CaseHeader({
   regionScope: RegionScope;
   createdAt?: string | null;
   updatedAt?: string | null;
+  /** true면 actions (CSV / 매출tier / region / 삭제) 만 렌더 — mockup case-header 의 .actions */
+  actionsOnly?: boolean;
 }) {
+  if (actionsOnly) {
+    return (
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <a
+          href={`/api/cases/${case_id}/creators-csv`}
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "5px 9px",
+            background: "var(--color-info-soft)",
+            color: "var(--color-info)",
+            border: "1px solid var(--color-info)",
+            borderRadius: 4,
+            textDecoration: "none",
+            fontFamily: "var(--font-mono)",
+          }}
+          title="이 케이스 협업 인플 전체 CSV 다운로드"
+        >
+          ⬇ 인플 CSV
+        </a>
+        <RevenueTierPicker case_id={case_id} current={revenueTier} />
+        <RegionScopeToggle case_id={case_id} currentScope={regionScope} />
+        <DeleteCaseButton case_id={case_id} brand_label={brand} />
+      </div>
+    );
+  }
   const statusColor =
     status === "ready"
       ? { bg: "var(--color-pos-soft)", fg: "var(--color-pos)" }

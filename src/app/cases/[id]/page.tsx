@@ -1004,7 +1004,7 @@ export default async function CaseDetailPage({
         <CaseSideTOC />
 
         <div style={{ minWidth: 0 }}>
-        {/* ★ mockup 1:1 case-header */}
+        {/* ★ mockup 1:1 case-header — rev_tier / region toggle / 삭제 actions 흡수 */}
         <div className="bp-mockup">
           <CaseHeaderMockup
             brand={brand}
@@ -1012,20 +1012,20 @@ export default async function CaseDetailPage({
             channel={c.channel}
             status={c.status}
             revenueTier={c.revenue_tier ? `★${"★".repeat(Math.max(0, Number(c.revenue_tier) - 1))}` : null}
-          />
-        </div>
-        {/* 옛 CaseHeader 기능 (rev_tier 수정 / region toggle / case 삭제) 유지 — 작은 toolbar */}
-        <div id="sec-header-actions" style={{ marginBottom: 12 }}>
-          <CaseHeader
-            case_id={c.id}
-            brand={brand}
-            country={c.country}
-            channel={c.channel}
-            status={c.status}
-            revenueTier={c.revenue_tier}
-            regionScope={regionScope}
-            createdAt={c.created_at}
-            updatedAt={c.updated_at}
+            actions={
+              <CaseHeader
+                case_id={c.id}
+                brand={brand}
+                country={c.country}
+                channel={c.channel}
+                status={c.status}
+                revenueTier={c.revenue_tier}
+                regionScope={regionScope}
+                createdAt={c.created_at}
+                updatedAt={c.updated_at}
+                actionsOnly
+              />
+            }
           />
         </div>
 

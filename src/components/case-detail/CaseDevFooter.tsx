@@ -16,32 +16,17 @@ export function CaseDevFooter({
   costEstimate: CostEstimate;
 }) {
   return (
-    <details
-      style={{
-        marginTop: 32,
-        padding: "14px 22px",
-        background: "var(--color-g25)",
-        borderRadius: 8,
-        fontSize: 11,
-        color: "var(--color-g500)",
-      }}
-    >
-      <summary
-        style={{
-          cursor: "pointer",
-          fontWeight: 700,
-          color: "var(--color-g600)",
-        }}
-      >
-        ⚙️ DEV / QA 액션 (펼치기) — 평소엔 사용 안 함
-      </summary>
-      <div style={{ marginTop: 12 }}>
-        <DevTestActions
-          case_id={case_id}
-          status={status}
-          costEstimate={costEstimate}
-        />
-      </div>
-    </details>
+    <div className="bp-mockup">
+      <details className="footer-dev" id="sec-dev">
+        <summary>⚙️ DEV / QA 액션 (펼치기)</summary>
+        <div style={{ marginTop: 10 }}>
+          <DevTestActions
+            case_id={case_id}
+            status={status}
+            costEstimate={costEstimate}
+          />
+        </div>
+      </details>
+    </div>
   );
 }

@@ -83,12 +83,15 @@ export function CaseHeaderMockup({
   channel,
   status,
   revenueTier,
+  actions,
 }: {
   brand: string;
   country: string;
   channel: string;
   status: string;
   revenueTier?: string | null;
+  /** rev-tier 수정 / region toggle / 삭제 등 우측 actions (옛 CaseHeader 기능). */
+  actions?: React.ReactNode;
 }) {
   const statusLabel = status === "ready" ? "ready" : status;
   const statusClass = status === "ready" ? "meta-pill ready" : "meta-pill";
@@ -103,6 +106,7 @@ export function CaseHeaderMockup({
           <span className="meta-pill">매출 tier: {revenueTier}</span>
         )}
       </div>
+      {actions && <div className="actions">{actions}</div>}
     </div>
   );
 }
