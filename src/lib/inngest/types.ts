@@ -99,8 +99,11 @@ export type Phase2Stats = {
   // 단일 viral outlier — video_count<20인데 max_views >= 1M인 인플 (mockup의
   // "Organic Top 3" 패턴: jooshica 13.7M views with 1 video). top 10.
   outlier_creators?: TopCreator[];
-  total_contents: number;
+  total_contents: number; // TikTok 영상 수 (contents 테이블)
   total_unique_creators: number;
+  // ★ Phase 10: 채널별 영상 수 (mockup A 채널 toggle 활성용)
+  ig_total_videos?: number;
+  yt_total_videos?: number;
   computed_at: string;
 };
 

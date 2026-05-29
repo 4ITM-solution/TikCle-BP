@@ -70,6 +70,18 @@ export async function runPhase2(
       ? await aggregateAmazonSalesAndBsr(supabase, c.id, c.channel)
       : { sales_summary: null, sku_sales: [], bsr_series: [] };
 
+  // ★ Phase 10: IG/YT 영상 수 통합 fetch — A 섹션 채널 toggle 활성용
+  const [{ count: igCount }, { count: ytCount }] = await Promise.all([
+    supabase
+      .from("ig_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", case_id),
+    supabase
+      .from("yt_videos")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", case_id),
+  ]);
+
   return {
     monthly_video_counts: monthly,
     sales_summary,
@@ -80,6 +92,9 @@ export async function runPhase2(
     outlier_creators,
     total_contents: contents.length,
     total_unique_creators: distribution.total_creators,
+    // ★ 채널별 영상 수 (mockup A 채널 toggle 활성용)
+    ig_total_videos: igCount ?? 0,
+    yt_total_videos: ytCount ?? 0,
     computed_at: new Date().toISOString(),
   };
 }

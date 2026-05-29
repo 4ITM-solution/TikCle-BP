@@ -30,16 +30,22 @@ export function HeroSkuMegaVideos({
   phase4bSku,
   currency,
   exchangeRates,
+  selectedSku = "all",
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   currency: string;
   exchangeRates: ExchangeRates;
+  selectedSku?: string; // "all" 또는 asin — 선택 시 그 SKU만 보임
 }) {
   if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
     return null;
   }
-  const top3 = phase2.sku_sales.slice(0, 3);
+  // selectedSku !== "all" 시 그 SKU만 보임. 아니면 Top 3.
+  const top3 =
+    selectedSku !== "all"
+      ? phase2.sku_sales.filter((s) => s.asin === selectedSku).slice(0, 3)
+      : phase2.sku_sales.slice(0, 3);
   const allDisplayed = phase4bSku?.displayed_videos ?? [];
 
   const sections = top3.map((sku) => {

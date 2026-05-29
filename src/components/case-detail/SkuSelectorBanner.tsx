@@ -1,21 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import type { SkuSalesEntry } from "@/lib/inngest/types";
 
 /**
- * SkuSelectorBanner — Section D 위 SKU 통합 selector 배너.
- *
- * 한 SKU 선택 시 D 안 모든 모듈이 그 SKU 기준으로 강조되어야 함이 목표.
- * 현재는 visual prototype — state 선택만 표시 (아래 모듈에 prop 전파는 Phase 5+).
- * 8 SKU 카드형 + "전체" + 선택 시 info bar.
+ * SkuSelectorBanner — controlled — Section D 위 SKU 통합 selector.
+ * MiniDashboard가 selectedSku state 보유. 모든 D 안 모듈이 같은 state 공유 → 선택 시 highlight.
  */
 export function SkuSelectorBanner({
   skus,
+  selected,
+  onChange,
 }: {
   skus: SkuSalesEntry[];
+  selected: string;
+  onChange: (sku: string) => void;
 }) {
-  const [selected, setSelected] = useState<string>("all");
   if (skus.length === 0) return null;
 
   const sorted = [...skus].sort((a, b) => b.revenue - a.revenue);
@@ -97,7 +96,7 @@ export function SkuSelectorBanner({
       >
         <button
           type="button"
-          onClick={() => setSelected("all")}
+          onClick={() => onChange("all")}
           style={btnStyle(selected === "all")}
         >
           전체 ({sorted.length} SKU)
@@ -106,7 +105,7 @@ export function SkuSelectorBanner({
           <button
             key={s.asin}
             type="button"
-            onClick={() => setSelected(s.asin)}
+            onClick={() => onChange(s.asin)}
             style={btnStyle(selected === s.asin)}
             title={`${s.name ?? ""} · ${fmt(s.revenue)}`}
           >

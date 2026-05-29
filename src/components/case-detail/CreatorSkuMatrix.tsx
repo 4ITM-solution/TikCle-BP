@@ -13,11 +13,14 @@ export function CreatorSkuMatrix({
   videos,
   topCreators = 10,
   topSkus = 6,
+  selectedSku = "all",
 }: {
   videos?: KalodataVideoXlsxRow[];
   topCreators?: number;
   topSkus?: number;
+  selectedSku?: string; // asin or "all" — 선택된 SKU column 강조
 }) {
+  void selectedSku;
   if (!videos || videos.length === 0) return null;
 
   // creator → sku → gmv

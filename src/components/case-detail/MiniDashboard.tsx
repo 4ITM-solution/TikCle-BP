@@ -122,6 +122,9 @@ export function MiniDashboard({
     } | null;
   };
 }) {
+  // ★ SKU selector state — D 안 모듈 5개 공유 (highlight)
+  const [selectedSku, setSelectedSku] = useState<string>("all");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* KPI strip */}
@@ -135,8 +138,10 @@ export function MiniDashboard({
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
       {(() => {
-        // mockup A 채널 toggle + 5 KPI — phase2 + phase4c/4d 통합 추정
+        // mockup A 채널 toggle + 5 KPI — phase2 + IG/YT count 통합
         const tkVids = phase2.total_contents ?? 0;
+        const igVids = phase2.ig_total_videos ?? 0;
+        const ytVids = phase2.yt_total_videos ?? 0;
         const tkPaid = phase2.monthly_video_counts.reduce(
           (s, m) => s + m.paid,
           0,
@@ -151,20 +156,34 @@ export function MiniDashboard({
           (s, c) => s + (c.max_views ?? 0),
           0,
         );
-        const viewLabel =
-          totalViews >= 1_000_000_000
-            ? `${(totalViews / 1_000_000_000).toFixed(1)}B`
-            : totalViews >= 1_000_000
-              ? `${Math.round(totalViews / 1_000_000)}M`
-              : `${Math.round(totalViews / 1000)}K`;
-        const all = {
+        const fmtView = (v: number) =>
+          v >= 1_000_000_000
+            ? `${(v / 1_000_000_000).toFixed(1)}B`
+            : v >= 1_000_000
+              ? `${Math.round(v / 1_000_000)}M`
+              : `${Math.round(v / 1000)}K`;
+        const tkKpi = {
           totalVideos: tkVids,
           paidPct: pct(tkPaid, tkVids),
           organicPct: pct(tkOrganic, tkVids),
           giftedPct: 0,
-          totalViewsLabel: viewLabel,
+          totalViewsLabel: fmtView(totalViews),
         };
-        return <SectionAChannelToolbar all={all} tk={all} />;
+        const allKpi = {
+          totalVideos: tkVids + igVids + ytVids,
+          paidPct: pct(tkPaid, tkVids), // 통합 paid는 mocked TK 기준
+          organicPct: pct(tkOrganic, tkVids),
+          giftedPct: 0,
+          totalViewsLabel: fmtView(totalViews),
+        };
+        return (
+          <SectionAChannelToolbar
+            all={allKpi}
+            tk={tkKpi}
+            ig={igVids > 0 ? { totalVideos: igVids, paidPct: 0, organicPct: 0, giftedPct: 0, totalViewsLabel: "-" } : undefined}
+            yt={ytVids > 0 ? { totalVideos: ytVids, paidPct: 0, organicPct: 0, giftedPct: 0, totalViewsLabel: "-" } : undefined}
+          />
+        );
       })()}
       <MonthlyVideosModule stats={phase2} />
       <MonthlyTrendChart
@@ -365,9 +384,13 @@ export function MiniDashboard({
                 : ""
             }
           />
-          {/* SKU selector 배너 (sub-tabs 위에) */}
+          {/* SKU selector 배너 (sub-tabs 위에) — 선택 state는 D 안 모든 모듈 공유 */}
           {phase2.sku_sales.length > 1 && (
-            <SkuSelectorBanner skus={phase2.sku_sales} />
+            <SkuSelectorBanner
+              skus={phase2.sku_sales}
+              selected={selectedSku}
+              onChange={setSelectedSku}
+            />
           )}
           <SectionCTabs
             tabs={[
@@ -383,6 +406,7 @@ export function MiniDashboard({
                         caseCountry={caseCountry}
                         exchangeRates={exchangeRates}
                         skuMeta={skuMeta}
+                        selectedSku={selectedSku}
                       />
                     )}
                     <HeroSkuMegaVideos
@@ -390,6 +414,7 @@ export function MiniDashboard({
                       phase4bSku={phase4bSku}
                       currency={currency}
                       exchangeRates={exchangeRates}
+                      selectedSku={selectedSku}
                     />
                     {phase2.bsr_series.length > 0 && (
                       <BsrTrendChart
@@ -421,7 +446,7 @@ export function MiniDashboard({
                 label: "Creator × SKU",
                 content:
                   kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 ? (
-                    <CreatorSkuMatrix videos={kalodata.videosXlsx} />
+                    <CreatorSkuMatrix videos={kalodata.videosXlsx} selectedSku={selectedSku} />
                   ) : null,
               },
               {
@@ -429,7 +454,7 @@ export function MiniDashboard({
                 label: "카테고리 ranking",
                 content:
                   kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 ? (
-                    <CategoryRankingChart videos={kalodata.videosXlsx} />
+                    <CategoryRankingChart videos={kalodata.videosXlsx} selectedSku={selectedSku} />
                   ) : null,
               },
               // Affiliate code tab — 데이터 source 자체 없음. 사용자 요청대로 hide.
@@ -2390,17 +2415,20 @@ function SkuSalesModule({
   caseCountry,
   exchangeRates,
   skuMeta,
+  selectedSku = "all",
 }: {
   stats: Phase2Stats;
   currency: string;
   caseCountry: string;
   exchangeRates: ExchangeRates;
+  selectedSku?: string; // asin or "all" — 선택된 row highlight
   skuMeta?: Record<
     string,
     { subcategory: string | null; launch_date: string | null }
   >;
 }) {
   const [showAll, setShowAll] = useState(false);
+  void selectedSku; // ★ Phase 10: SKU selector state lift — row highlight 추후 박을 자리
 
   if (!stats.sales_summary) return null;
   const max = Math.max(...stats.sku_sales.map((s) => s.revenue), 1);

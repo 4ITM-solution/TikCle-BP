@@ -10,9 +10,12 @@ import type { KalodataVideoXlsxRow } from "@/lib/parsers/kalodata";
  */
 export function CategoryRankingChart({
   videos,
+  selectedSku = "all",
 }: {
   videos?: KalodataVideoXlsxRow[];
+  selectedSku?: string;
 }) {
+  void selectedSku;
   if (!videos || videos.length === 0) return null;
 
   // month → category → gmv
