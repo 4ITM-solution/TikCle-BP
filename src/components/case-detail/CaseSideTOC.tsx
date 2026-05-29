@@ -54,13 +54,11 @@ export function CaseSideTOC() {
     <nav
       className="case-side-toc"
       style={{
-        position: "fixed",
-        top: 100,
-        left: "max(12px, calc((100vw - 1280px) / 2 - 180px))",
-        width: 160,
+        position: "sticky",
+        top: 90,
+        alignSelf: "start",
         fontSize: 11,
         padding: 0,
-        zIndex: 30,
       }}
     >
       {ITEMS.map((item, i) => {

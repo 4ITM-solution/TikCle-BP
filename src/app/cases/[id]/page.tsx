@@ -964,8 +964,7 @@ export default async function CaseDetailPage({
         channelStats={channelStats}
         analyzedAt={c.analyzed_at}
       />
-      <CaseSideTOC />
-    <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
+    <div style={{ padding: "24px 32px", maxWidth: 1480 }}>
       <nav className="breadcrumb">
         <Link href="/cases">Browse</Link>
         <span className="sep">/</span>
@@ -980,118 +979,30 @@ export default async function CaseDetailPage({
         </span>
       </nav>
 
-      {/* ★ Phase 6: CaseHeader — mockup의 깔끔한 메타 헤더 (위에) */}
-      <div id="sec-header">
-        <CaseHeader
-          case_id={c.id}
-          brand={brand}
-          country={c.country}
-          channel={c.channel}
-          status={c.status}
-          revenueTier={c.revenue_tier}
-          regionScope={regionScope}
-        />
-      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "180px minmax(0, 1fr)",
+          gap: 24,
+        }}
+      >
+        <CaseSideTOC />
 
-      {/* 옛 inline header — 정보(인플 CSV · timestamps) 보존을 위해 details로 접음 */}
-      <details style={{ marginBottom: 14 }}>
-        <summary
-          style={{
-            fontSize: 11,
-            color: "var(--color-g500)",
-            cursor: "pointer",
-            padding: "4px 8px",
-          }}
-        >
-          ▶ 추가 정보 펼치기 (인플 CSV · timestamps · id)
-        </summary>
-
-      {/* Header (옛 inline — details 안으로 들어감) */}
-      <div className="section-card" style={{ marginBottom: 14 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <h1 className="page-title" style={{ marginBottom: 0 }}>
-            {brand}
-          </h1>
-          <span className={`status-pill ${c.status}`}>{c.status}</span>
-          <div
-            style={{
-              marginLeft: "auto",
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <a
-              href={`/api/cases/${c.id}/creators-csv`}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "6px 10px",
-                background: "var(--color-info-soft)",
-                color: "var(--color-info)",
-                border: "1px solid var(--color-info)",
-                borderRadius: 4,
-                textDecoration: "none",
-                fontFamily: "var(--font-mono)",
-              }}
-              title="이 케이스 협업 인플 전체 CSV 다운로드"
-            >
-              ⬇ 인플 CSV
-            </a>
-            <DeleteCaseButton
-              case_id={c.id}
-              brand_label={`${brand} · ${c.country} · ${c.channel.toUpperCase()}`}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-          <span className="case-tag country">{c.country}</span>
-          <span className="case-tag platform">{c.channel.toUpperCase()}</span>
-          <RevenueTierPicker
+        <div style={{ minWidth: 0 }}>
+        {/* ★ Phase 7: CaseHeader — mockup의 깔끔한 메타 헤더 (유일한 헤더) */}
+        <div id="sec-header">
+          <CaseHeader
             case_id={c.id}
-            current={c.revenue_tier ?? null}
+            brand={brand}
+            country={c.country}
+            channel={c.channel}
+            status={c.status}
+            revenueTier={c.revenue_tier}
+            regionScope={regionScope}
+            createdAt={c.created_at}
+            updatedAt={c.updated_at}
           />
         </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 18,
-            flexWrap: "wrap",
-            fontSize: 11,
-            color: "var(--color-g500)",
-            fontFamily: "var(--font-mono)",
-            marginTop: 14,
-            paddingTop: 14,
-            borderTop: "1px solid var(--color-g100)",
-          }}
-        >
-          <span>
-            생성{" "}
-            <b style={{ color: "var(--color-ink)" }}>
-              {new Date(c.created_at).toLocaleString("ko-KR")}
-            </b>
-          </span>
-          <span>
-            업데이트{" "}
-            <b style={{ color: "var(--color-ink)" }}>
-              {new Date(c.updated_at).toLocaleString("ko-KR")}
-            </b>
-          </span>
-          <span>
-            id <b style={{ color: "var(--color-ink)" }}>{c.id.slice(0, 8)}</b>
-          </span>
-        </div>
-      </div>
-      </details>
 
       {/* Status branch */}
       {c.status === "draft" ? (
@@ -2025,7 +1936,9 @@ export default async function CaseDetailPage({
         status={c.status}
         costEstimate={costEstimate}
       />
-    </div>
+        </div>{/* /main minWidth */}
+      </div>{/* /grid */}
+    </div>{/* /outer maxWidth */}
     </>
   );
 }

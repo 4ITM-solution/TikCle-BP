@@ -18,6 +18,8 @@ export function CaseHeader({
   status,
   revenueTier,
   regionScope,
+  createdAt,
+  updatedAt,
 }: {
   case_id: string;
   brand: string;
@@ -26,6 +28,8 @@ export function CaseHeader({
   status: string;
   revenueTier: string | null;
   regionScope: RegionScope;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }) {
   const statusColor =
     status === "ready"
@@ -70,12 +74,67 @@ export function CaseHeader({
           display: "flex",
           gap: 8,
           alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
+        <a
+          href={`/api/cases/${case_id}/creators-csv`}
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "5px 9px",
+            background: "var(--color-info-soft)",
+            color: "var(--color-info)",
+            border: "1px solid var(--color-info)",
+            borderRadius: 4,
+            textDecoration: "none",
+            fontFamily: "var(--font-mono)",
+          }}
+          title="이 케이스 협업 인플 전체 CSV 다운로드"
+        >
+          ⬇ 인플 CSV
+        </a>
         <RevenueTierPicker case_id={case_id} current={revenueTier} />
         <RegionScopeToggle case_id={case_id} currentScope={regionScope} />
         <DeleteCaseButton case_id={case_id} brand_label={brand} />
       </div>
+
+      {(createdAt || updatedAt) && (
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            gap: 16,
+            marginTop: 8,
+            paddingTop: 10,
+            borderTop: "1px solid var(--color-g50)",
+            fontSize: 10,
+            color: "var(--color-g500)",
+            fontFamily: "var(--font-mono)",
+            flexWrap: "wrap",
+          }}
+        >
+          {createdAt && (
+            <span>
+              생성{" "}
+              <b style={{ color: "var(--color-g700)" }}>
+                {new Date(createdAt).toLocaleDateString("ko-KR")}
+              </b>
+            </span>
+          )}
+          {updatedAt && (
+            <span>
+              업데이트{" "}
+              <b style={{ color: "var(--color-g700)" }}>
+                {new Date(updatedAt).toLocaleDateString("ko-KR")}
+              </b>
+            </span>
+          )}
+          <span>
+            id <b style={{ color: "var(--color-g700)" }}>{case_id.slice(0, 8)}</b>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
