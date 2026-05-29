@@ -1722,8 +1722,21 @@ export default async function CaseDetailPage({
                   const oneLineSummary = `${brand} — 자동 종합 분석`;
                   const tagline = axes.map((a) => a.value).join(" × ");
 
-                  // cross-platform 인플 — 일단 빈 (Phase 2의 한계: B/4c/4d 데이터 join 코드 필요. Phase 3에서)
-                  const crossPlatform: CrossPlatformAuthor[] = [];
+                  // cross-platform 인플 — crossPlatformMatches (page 상단에서 이미 fetch)
+                  // IG·YT 둘 다 brand-matched 영상이 있는 인플만. 매칭 영상 합 내림차순 top 5.
+                  const crossPlatform: CrossPlatformAuthor[] = crossPlatformMatches
+                    .map((m) => ({
+                      name: m.name,
+                      channels: [
+                        m.ig_posts > 0 ? "IG" : null,
+                        m.yt_videos > 0 ? "YT" : null,
+                      ]
+                        .filter(Boolean)
+                        .join("·"),
+                      totalVideos: m.ig_posts + m.yt_videos,
+                    }))
+                    .sort((a, b) => b.totalVideos - a.totalVideos)
+                    .slice(0, 10);
 
                   return axes.length > 0 ? (
                     <CaseInsightCard
@@ -1773,6 +1786,12 @@ export default async function CaseDetailPage({
                         lives: ks.kalodata_lives,
                         meta: ks.kalodata_creators_meta,
                       }}
+                      crossChannelMatrix={crossPlatformMatches.map((m) => ({
+                        name: m.name,
+                        tk: 0, // TK 영상 수는 핸들 매칭 한계로 일단 0. Phase 3-A.4에서 보강.
+                        ig: m.ig_posts,
+                        yt: m.yt_videos,
+                      }))}
                     />
                   </div>
                   <SectionTOC

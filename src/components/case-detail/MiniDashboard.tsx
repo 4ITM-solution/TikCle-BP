@@ -6,6 +6,7 @@ import { TopCreatorsList } from "./TopCreatorsList";
 import { MetaAdsBrowser } from "./MetaAdsBrowser";
 import { BsrTrendChart, type WeeklyViewPoint } from "./BsrTrendChart";
 import { MonthlyTrendChart } from "./MonthlyTrendChart";
+import { CrossChannelMatrix } from "./CrossChannelMatrix";
 import { KalodataInsightsModule } from "./KalodataInsightsModule";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
@@ -76,6 +77,7 @@ export function MiniDashboard({
   weeklyViews,
   skuMeta,
   kalodata,
+  crossChannelMatrix,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -95,6 +97,7 @@ export function MiniDashboard({
   topGmvCreators?: TopGmvCreator[];
   shopGmvDistribution?: ShopGmvDistribution | null;
   weeklyViews?: WeeklyViewPoint[];
+  crossChannelMatrix?: import("./CrossChannelMatrix").MatrixRow[];
   skuMeta?: Record<
     string,
     { subcategory: string | null; launch_date: string | null }
@@ -143,6 +146,25 @@ export function MiniDashboard({
         <TopGmvShopCreators creators={topGmvCreators} />
       )}
       <CreatorActivityModule stats={phase2} />
+      {crossChannelMatrix && crossChannelMatrix.length > 0 && (
+        <div className="section-card">
+          <div
+            style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}
+          >
+            ⭐ cross-channel 인플 매트릭스
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--color-g500)",
+              marginBottom: 10,
+            }}
+          >
+            같은 인플이 TikTok·Instagram·YouTube 중 어디서 몇 영상 만들었나 — 일관된 partnership 풀 시그널
+          </div>
+          <CrossChannelMatrix rows={crossChannelMatrix} maxRows={10} />
+        </div>
+      )}
       <MonthlyTrendChart
         tierByMonth={phase3?.tier_dist_by_month}
         adTierByMonth={phase3?.ad_by_month_tier}
