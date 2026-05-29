@@ -647,10 +647,14 @@ export function MiniDashboard({
         </>
       )}
 
-      {/* Section E: Meta 광고 */}
+      {/* Section E: Meta 광고 + Partnership — mockup line 1285-1351 */}
       {phase4a && (
         <>
-          <SectionHeader letter="E" title="Meta 광고" />
+          <SectionHeader
+            letter="E"
+            title="Meta 광고 + Partnership"
+            subtitle="★ 필터 + 더보기 + partnership cross-channel"
+          />
           <MetaAdsModule phase4a={phase4a} />
           {phase4a.partner_creators && phase4a.partner_creators.length > 0 && (
             <PartnerCreatorsModule phase4a={phase4a} />
