@@ -65,14 +65,17 @@ import {
   isLikelyUs,
 } from "@/lib/case-detail/region-filter";
 import {
+  crossPlatformAuthors,
   monthlyTrend as buildMonthlyTrend,
   poolSummary as buildPoolSummary,
   tierDistributionIg,
   tierDistributionYt,
+  type CrossPlatformMatch,
   type MonthlyBucket,
   type PoolSummary,
   type TierBucket,
 } from "@/lib/case-detail/bp-analytics";
+import { BpUnifiedAnalysisSection } from "@/components/case-detail/BpUnifiedAnalysisSection";
 import type { KeyStats } from "@/lib/inngest/types";
 import type {
   KalodataBrandKpi,
@@ -374,6 +377,7 @@ export default async function CaseDetailPage({
     one_off_authors: 0,
     top5_views_share_pct: 0,
   };
+  let crossPlatformMatches: CrossPlatformMatch[] = [];
 
   if (phase4dStats && !phase4dStats.skipped_reason) {
     try {
@@ -511,6 +515,40 @@ export default async function CaseDetailPage({
         .sort((a, b) => b.count - a.count);
     } catch (e) {
       console.warn("[yt] type dist fail:", e);
+    }
+  }
+
+  // Cross-platform 매칭 — IG/YT 둘 다 있을 때 작성자 이름 부분 일치로 추정
+  if (phase4cStats && phase4dStats && !phase4cStats.skipped_reason && !phase4dStats.skipped_reason) {
+    try {
+      const [{ data: igAll }, { data: ytAll }] = await Promise.all([
+        supabase
+          .from("ig_authors")
+          .select("username, brand_matched_posts, paid_posts, max_likes")
+          .eq("case_id", c.id)
+          .limit(5000),
+        supabase
+          .from("yt_channels")
+          .select("channel_name, brand_matched_videos, paid_videos, max_views")
+          .eq("case_id", c.id)
+          .limit(5000),
+      ]);
+      crossPlatformMatches = crossPlatformAuthors(
+        (igAll ?? []).map((a) => ({
+          username: a.username,
+          brand_matched_posts: a.brand_matched_posts ?? 0,
+          paid_posts: a.paid_posts ?? 0,
+          max_likes: a.max_likes,
+        })),
+        (ytAll ?? []).map((ch) => ({
+          channel_name: ch.channel_name,
+          brand_matched_videos: ch.brand_matched_videos ?? 0,
+          paid_videos: ch.paid_videos ?? 0,
+          max_views: ch.max_views,
+        })),
+      );
+    } catch (e) {
+      console.warn("[bp-unified] cross-platform match fail:", e);
     }
   }
 
@@ -1366,9 +1404,6 @@ export default async function CaseDetailPage({
               topPaidVideos={igTopPaidVideos}
               sourceDist={igSourceDist}
               topHashtags={igTopHashtags}
-              tierDist={igTierDist}
-              monthlyTrend={igMonthlyTrend}
-              poolSummary={igPoolSummary}
             />
           )}
 
@@ -1392,9 +1427,22 @@ export default async function CaseDetailPage({
               topPaidVideos={ytTopPaidVideos}
               sourceDist={ytSourceDist}
               typeDist={ytTypeDist}
-              tierDist={ytTierDist}
-              monthlyTrend={ytMonthlyTrend}
-              poolSummary={ytPoolSummary}
+            />
+          )}
+
+          {/* ⭐ BP 통합 분석 — IG + YT 합쳐서 카테고리 정의자 모델 검증.
+              IG/YT raw 섹션 다음, 모든 시각화/cross-platform 인사이트 여기에 모음. */}
+          {(phase4cStats || phase4dStats) && (
+            <BpUnifiedAnalysisSection
+              hasIg={!!phase4cStats && !phase4cStats.skipped_reason}
+              hasYt={!!phase4dStats && !phase4dStats.skipped_reason}
+              igPool={igPoolSummary}
+              ytPool={ytPoolSummary}
+              igTier={igTierDist}
+              ytTier={ytTierDist}
+              igMonthly={igMonthlyTrend}
+              ytMonthly={ytMonthlyTrend}
+              crossPlatform={crossPlatformMatches}
             />
           )}
 

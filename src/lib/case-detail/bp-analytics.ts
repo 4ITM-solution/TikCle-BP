@@ -118,6 +118,81 @@ export function monthlyTrend(
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
+// Cross-platform 매칭 — IG username과 YT channel_name 부분 일치로 추정
+export type CrossPlatformMatch = {
+  name: string;
+  ig_posts: number;
+  ig_paid: number;
+  ig_max_likes: number | null;
+  yt_videos: number;
+  yt_paid: number;
+  yt_max_views: number | null;
+};
+
+export function crossPlatformAuthors(
+  igAuthors: Array<{
+    username: string;
+    brand_matched_posts: number;
+    paid_posts: number;
+    max_likes: number | null;
+  }>,
+  ytChannels: Array<{
+    channel_name: string;
+    brand_matched_videos: number;
+    paid_videos: number;
+    max_views: number | null;
+  }>,
+): CrossPlatformMatch[] {
+  // IG username normalize (소문자 + 영숫자만)
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const igMap = new Map<string, (typeof igAuthors)[0]>();
+  for (const a of igAuthors) {
+    const k = norm(a.username);
+    if (k.length >= 4) igMap.set(k, a);
+  }
+
+  const matches: CrossPlatformMatch[] = [];
+  const seen = new Set<string>();
+  for (const ch of ytChannels) {
+    const k = norm(ch.channel_name);
+    if (k.length < 4) continue;
+    // exact match 우선
+    let igMatch = igMap.get(k);
+    if (!igMatch) {
+      // prefix 매칭 (IG username이 channel name으로 시작 또는 vice versa)
+      for (const [igKey, a] of igMap.entries()) {
+        if (igKey === k) continue;
+        if (igKey.startsWith(k) || k.startsWith(igKey)) {
+          // 최소 5자 이상 prefix만 신뢰
+          if (Math.min(igKey.length, k.length) >= 5) {
+            igMatch = a;
+            break;
+          }
+        }
+      }
+    }
+    if (!igMatch) continue;
+    const dedupKey = `${igMatch.username}__${ch.channel_name}`;
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+    matches.push({
+      name: igMatch.username === ch.channel_name ? igMatch.username : `${igMatch.username} ↔ ${ch.channel_name}`,
+      ig_posts: igMatch.brand_matched_posts,
+      ig_paid: igMatch.paid_posts,
+      ig_max_likes: igMatch.max_likes,
+      yt_videos: ch.brand_matched_videos,
+      yt_paid: ch.paid_videos,
+      yt_max_views: ch.max_views,
+    });
+  }
+  // sort by combined weight
+  return matches.sort((a, b) => {
+    const aw = (a.ig_max_likes ?? 0) + (a.yt_max_views ?? 0);
+    const bw = (b.ig_max_likes ?? 0) + (b.yt_max_views ?? 0);
+    return bw - aw;
+  });
+}
+
 // 풀 summary
 export type PoolSummary = {
   total_authors: number;

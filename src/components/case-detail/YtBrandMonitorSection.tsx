@@ -1,9 +1,4 @@
 import type { Phase4dStats } from "@/lib/inngest/types";
-import type {
-  MonthlyBucket,
-  PoolSummary,
-  TierBucket,
-} from "@/lib/case-detail/bp-analytics";
 
 export type YtChannelRow = {
   channel_name: string;
@@ -54,9 +49,6 @@ export function YtBrandMonitorSection({
   topPaidVideos,
   sourceDist,
   typeDist,
-  tierDist,
-  monthlyTrend,
-  poolSummary,
 }: {
   phase4d: Phase4dStats;
   ownedChannels: string[];
@@ -64,9 +56,6 @@ export function YtBrandMonitorSection({
   topPaidVideos: YtPaidVideoRow[];
   sourceDist: YtSourceDist[];
   typeDist: YtTypeDist[];
-  tierDist: TierBucket[];
-  monthlyTrend: MonthlyBucket[];
-  poolSummary: PoolSummary;
 }) {
   const total = phase4d.total_brand_matched || 1;
   const paid = phase4d.total_paid_signal;
@@ -171,46 +160,6 @@ export function YtBrandMonitorSection({
           </div>
         ))}
       </div>
-
-      {/* 풀 summary */}
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 14, margin: "0 0 8px 0" }}>👥 채널 풀 summary</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, fontSize: 12 }}>
-          <YtPoolStat label="총 채널" value={poolSummary.total_authors} />
-          <YtPoolStat
-            label="paid 채널"
-            value={poolSummary.paid_authors}
-            note={`${poolSummary.total_authors > 0 ? Math.round((poolSummary.paid_authors / poolSummary.total_authors) * 100) : 0}%`}
-          />
-          <YtPoolStat label="owned" value={poolSummary.owned_authors} />
-          <YtPoolStat label="repeat (5+)" value={poolSummary.repeat_authors} note="committed" />
-          <YtPoolStat label="one-off" value={poolSummary.one_off_authors} note="1 video만" />
-          <YtPoolStat
-            label="Top 5 도미넌스"
-            value={`${poolSummary.top5_views_share_pct}%`}
-            note="총 views 中"
-          />
-        </div>
-      </div>
-
-      {/* 티어 분포 (subscriber_count 정확) */}
-      {tierDist.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 14, margin: "0 0 4px 0" }}>📊 티어 분포 (subscriber 기준)</h3>
-          <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginBottom: 8 }}>
-            Mega 1M+ / Macro 100K+ / Mid 10K+ / Micro 1K+ / Nano &lt;1K (YT API 정확)
-          </div>
-          <YtTierBars buckets={tierDist} />
-        </div>
-      )}
-
-      {/* 월별 트렌드 */}
-      {monthlyTrend.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 14, margin: "0 0 8px 0" }}>📈 월별 트렌드 (영상 수 + paid 비율)</h3>
-          <YtMonthlyBars buckets={monthlyTrend} />
-        </div>
-      )}
 
       <div style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, margin: "0 0 8px 0" }}>📡 Source 분포</h3>
@@ -361,134 +310,3 @@ function formatNum(n: number): string {
   return n.toLocaleString();
 }
 
-function YtPoolStat({ label, value, note }: { label: string; value: string | number; note?: string }) {
-  return (
-    <div
-      style={{
-        padding: "10px 12px",
-        border: "1px solid var(--color-border, #e5e7eb)",
-        borderRadius: 6,
-        background: "var(--color-bg-soft, #f9fafb)",
-        textAlign: "center",
-      }}
-    >
-      <div style={{ fontSize: 10, color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase" }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>
-        {typeof value === "number" ? value.toLocaleString() : value}
-      </div>
-      {note && <div style={{ fontSize: 9, color: "var(--color-text-muted)", marginTop: 2 }}>{note}</div>}
-    </div>
-  );
-}
-
-function YtTierBars({ buckets }: { buckets: TierBucket[] }) {
-  const maxAuthors = Math.max(...buckets.map((b) => b.authors), 1);
-  const tierColor: Record<string, string> = {
-    mega: "#7c3aed",
-    macro: "#3b82f6",
-    mid: "#10b981",
-    micro: "#f59e0b",
-    nano: "#94a3b8",
-    unknown: "#cbd5e1",
-  };
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {buckets.map((b) => (
-        <div key={b.tier} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              minWidth: 70,
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              color: tierColor[b.tier] ?? "#6b7280",
-            }}
-          >
-            {b.tier}
-          </span>
-          <div
-            style={{
-              flex: 1,
-              height: 16,
-              background: "var(--color-bg-soft, #f3f4f6)",
-              borderRadius: 4,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: `${(b.authors / maxAuthors) * 100}%`,
-                height: "100%",
-                background: tierColor[b.tier] ?? "#9ca3af",
-                opacity: 0.8,
-              }}
-            />
-          </div>
-          <span style={{ fontSize: 11, color: "var(--color-text-muted)", minWidth: 140, textAlign: "right" }}>
-            {b.authors}개 · 영상 {b.videos.toLocaleString()} · paid {b.paid_videos}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function YtMonthlyBars({ buckets }: { buckets: MonthlyBucket[] }) {
-  const maxVideos = Math.max(...buckets.map((b) => b.videos), 1);
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 100 }}>
-      {buckets.slice(-12).map((b) => {
-        const h = (b.videos / maxVideos) * 80;
-        const paidPct = b.videos > 0 ? (b.paid / b.videos) * 100 : 0;
-        return (
-          <div
-            key={b.month}
-            style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
-            title={`${b.month}: ${b.videos} videos, paid ${b.paid} (${paidPct.toFixed(0)}%)`}
-          >
-            <div
-              style={{
-                width: "100%",
-                height: `${h}px`,
-                background: "linear-gradient(to top, #dc2626 0%, #fca5a5 100%)",
-                borderRadius: "2px 2px 0 0",
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: `${paidPct}%`,
-                  background: "#f59e0b",
-                  opacity: 0.7,
-                  borderRadius: "0 0 2px 2px",
-                }}
-              />
-            </div>
-            <span style={{ fontSize: 9, color: "var(--color-text-muted)" }}>{b.month.slice(5)}</span>
-          </div>
-        );
-      })}
-      <div
-        style={{
-          marginLeft: 8,
-          fontSize: 10,
-          color: "var(--color-text-muted)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          alignSelf: "flex-start",
-          paddingTop: 4,
-        }}
-      >
-        <span><span style={{ color: "#dc2626" }}>■</span> 영상</span>
-        <span><span style={{ color: "#f59e0b" }}>■</span> paid</span>
-      </div>
-    </div>
-  );
-}
