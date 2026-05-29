@@ -268,9 +268,8 @@ export function SectionBMockup({
                   <thead>
                     <tr>
                       <th>핸들</th>
-                      <th style={{ textAlign: "right" }}>GMV</th>
-                      <th style={{ textAlign: "right" }}>영상</th>
-                      <th style={{ textAlign: "right" }}>GPM</th>
+                      <th style={{ textAlign: "right" }}>Lifetime GMV</th>
+                      <th style={{ textAlign: "right" }}>브랜드 협업</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -282,9 +281,6 @@ export function SectionBMockup({
                         </td>
                         <td style={{ textAlign: "right", fontFamily: "monospace" }}>
                           {c.total_brand_collabs ?? "—"}
-                        </td>
-                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                          {c.gpm_usd != null ? formatUsd(c.gpm_usd) : "—"}
                         </td>
                       </tr>
                     ))}

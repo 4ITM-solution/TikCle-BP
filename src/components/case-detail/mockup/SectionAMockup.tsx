@@ -129,7 +129,22 @@ export function SectionAMockup({
     for (const r of monthlyForMode) m.set(r.month, r.total);
     return m;
   }, [monthlyForMode]);
-  const maxVids = Math.max(1, ...Array.from(totalByMonth.values()));
+  // maxVids = 항상 "전체 합산" 기준 (채널 toggle 변경 시 막대 height 차이 시각화).
+  // TK mode 면 TK 막대가 작게, IG mode 면 IG 막대가 크게 — 채널별 영상 수 비교.
+  const globalMaxVids = useMemo(() => {
+    const ch = phase2.monthly_by_channel;
+    const tkArr = ch?.tk ?? phase2.monthly_video_counts;
+    const igArr = ch?.ig ?? [];
+    const ytArr = ch?.yt ?? [];
+    const merged = new Map<string, number>();
+    for (const arr of [tkArr, igArr, ytArr]) {
+      for (const r of arr) {
+        merged.set(r.month, (merged.get(r.month) ?? 0) + r.total);
+      }
+    }
+    return Math.max(1, ...Array.from(merged.values()));
+  }, [phase2]);
+  const maxVids = globalMaxVids;
 
   // 월별 광고 비중 (0~1)
   const adByMonth = useMemo(() => {
@@ -311,17 +326,7 @@ export function SectionAMockup({
                     />
                   );
                 })}
-                {show.tier && !hasTierData && totalTierFallback > 0 && total > 0 && TIERS.map((t) => {
-                  const ratio = (phase3?.tier_distribution?.[t.key] ?? 0) / totalTierFallback;
-                  return (
-                    <div
-                      key={t.key}
-                      className={`sb-${t.key.replace("sub-nano", "subnano")}`}
-                      style={{ height: `${ratio * 100}%`, background: t.color }}
-                    />
-                  );
-                })}
-                {show.tier && !hasTierData && totalTierFallback === 0 && total > 0 && (
+                {show.tier && !hasTierData && total > 0 && (
                   <>
                     <div
                       style={{
@@ -384,19 +389,7 @@ export function SectionAMockup({
                       </tr>
                     );
                   })}
-                  {tierTotal === 0 && totalTierFallback > 0 && TIERS.filter((t) => (phase3?.tier_distribution?.[t.key] ?? 0) > 0).map((t) => {
-                    const v = phase3?.tier_distribution?.[t.key] ?? 0;
-                    const pct = Math.round((v / totalTierFallback) * 100);
-                    return (
-                      <tr key={t.key}>
-                        <td><span className="tt-color" style={{ background: t.color }} />{t.label}</td>
-                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                          {v}명 ({pct}%) <span style={{ color: "#9ca3af", fontSize: 9 }}>전체</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {tierTotal === 0 && totalTierFallback === 0 && total > 0 && (
+                  {tierTotal === 0 && total > 0 && (
                     <>
                       <tr>
                         <td><span className="tt-color" style={{ background: "#ec4899" }} />paid</td>

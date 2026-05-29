@@ -1,4 +1,4 @@
-import type { Phase2Stats } from "@/lib/inngest/types";
+import type { Phase2Stats, Phase4bSkuStats, DisplayedVideoEntry } from "@/lib/inngest/types";
 
 /**
  * SkuHealthCards — mockup line 1063-1095 1:1.
@@ -21,9 +21,11 @@ const MID_DAYS = 365 * 3;
 
 export function SkuHealthCards({
   phase2,
+  phase4bSku,
   selectedSku = "all",
 }: {
   phase2: Phase2Stats;
+  phase4bSku?: Phase4bSkuStats;
   selectedSku?: string; // "all" 또는 asin
 }) {
   if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
@@ -111,6 +113,13 @@ export function SkuHealthCards({
     ? phase2.sku_sales.find((s) => s.asin === selectedSku)?.name ?? selectedSku
     : null;
 
+  // SKU 선택 시: 그 SKU 매칭 영상들 (phase4b_sku.displayed_videos 에서 filter)
+  const matchedVideos: DisplayedVideoEntry[] = isSingleSelected && phase4bSku
+    ? (phase4bSku.displayed_videos ?? []).filter(
+        (v) => Array.isArray(v.matched_skus) && v.matched_skus.includes(selectedSku),
+      )
+    : [];
+
   return (
     <div>
       {selectedSkuName && (
@@ -125,9 +134,30 @@ export function SkuHealthCards({
             border: "1px solid #fde68a",
           }}
         >
-          🎯 <b>{selectedSkuName}</b> 선택 — 매출 ${totalRev.toLocaleString()} · 전체의 {selectedShare}%
+          🎯 <b>{selectedSkuName}</b> 선택 — 매출 ${totalRev.toLocaleString()} · 전체의 {selectedShare}% · 매칭 영상 {matchedVideos.length}개
         </div>
       )}
+
+      {/* SKU 선택 시: 매출 잘 나온 영상 Top 5 + 뷰 잘 나온 영상 Top 5 — 2 col */}
+      {isSingleSelected ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <VideoTopCard
+            title="⭐ 뷰 Top 영상 (이 SKU)"
+            videos={[...matchedVideos]
+              .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+              .slice(0, 5)}
+            empty="매칭 영상 없음 (Phase 4b SKU 매칭 결과 부족)"
+          />
+          <VideoTopCard
+            title="⭐ 매출 기여 추정 영상 (이 SKU)"
+            videos={[...matchedVideos]
+              .filter((v) => v.confidence === "high")
+              .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+              .slice(0, 5)}
+            empty="high confidence 매칭 없음"
+          />
+        </div>
+      ) : (
       <div className="sku-health-grid">
       {/* 1. 매출 집중도 */}
       <div className="sku-health-card">
@@ -201,6 +231,113 @@ export function SkuHealthCards({
         </div>
       </div>
       </div>
+      )}
     </div>
   );
+}
+
+function VideoTopCard({
+  title,
+  videos,
+  empty,
+}: {
+  title: string;
+  videos: DisplayedVideoEntry[];
+  empty: string;
+}) {
+  return (
+    <div className="sku-health-card" style={{ padding: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      {videos.length === 0 ? (
+        <div style={{ fontSize: 10, color: "#9ca3af", padding: 8 }}>{empty}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {videos.map((v, i) => (
+            <a
+              key={v.content_id}
+              href={v.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                padding: 6,
+                background: "white",
+                borderRadius: 4,
+                border: "1px solid #f3f4f6",
+                textDecoration: "none",
+                color: "inherit",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#6b7280",
+                  width: 14,
+                  textAlign: "center",
+                }}
+              >
+                #{i + 1}
+              </span>
+              {v.thumbnail_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={v.thumbnail_url}
+                  alt=""
+                  style={{
+                    width: 32,
+                    height: 32,
+                    objectFit: "cover",
+                    borderRadius: 3,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: "#f3f4f6",
+                    borderRadius: 3,
+                  }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    lineHeight: 1.3,
+                    color: "#374151",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={v.caption_preview ?? ""}
+                >
+                  {v.caption_preview ?? "—"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#9ca3af",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {formatViewsCount(v.views)} views · {v.confidence ?? "—"}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatViewsCount(n: number | null): string {
+  if (n == null) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
 }

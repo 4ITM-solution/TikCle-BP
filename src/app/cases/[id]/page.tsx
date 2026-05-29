@@ -1789,13 +1789,7 @@ export default async function CaseDetailPage({
                   ) : null;
                 })()}
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(0, 1fr) 180px",
-                    gap: 24,
-                  }}
-                >
+                <div>
                   <div style={{ minWidth: 0 }}>
                     {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
                     <div className="bp-mockup">
@@ -1892,47 +1886,6 @@ export default async function CaseDetailPage({
                       </div>
                     )}
                   </div>
-                  <SectionTOC
-                    items={[
-                      { id: "section-a", letter: "A", label: "콘텐츠 활동" },
-                      ...(ks.phase3
-                        ? [
-                            {
-                              id: "section-b",
-                              letter: "B",
-                              label: "인플루언서 활동",
-                            },
-                          ]
-                        : []),
-                      ...(ks.phase4b_sample
-                        ? [
-                            {
-                              id: "section-c",
-                              letter: "C",
-                              label: "콘텐츠 포맷 분석",
-                            },
-                          ]
-                        : []),
-                      ...(ks.phase2.sales_summary
-                        ? [
-                            {
-                              id: "section-d",
-                              letter: "D",
-                              label: "매출 & 랭킹",
-                            },
-                          ]
-                        : []),
-                      ...(ks.phase4a
-                        ? [
-                            {
-                              id: "section-e",
-                              letter: "E",
-                              label: "Meta 광고",
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
                 </div>
               </>
             );
