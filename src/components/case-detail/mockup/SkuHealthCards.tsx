@@ -21,26 +21,49 @@ const MID_DAYS = 365 * 3;
 
 export function SkuHealthCards({
   phase2,
+  selectedSku = "all",
 }: {
   phase2: Phase2Stats;
+  selectedSku?: string; // "all" 또는 asin
 }) {
   if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
     return null;
   }
 
-  const summary = phase2.sales_summary;
-  const skus = phase2.sku_sales;
+  const isSingleSelected = selectedSku !== "all";
+  const skus = isSingleSelected
+    ? phase2.sku_sales.filter((s) => s.asin === selectedSku)
+    : phase2.sku_sales;
+
+  if (skus.length === 0) return null;
+
   const totalRev = skus.reduce((s, x) => s + (x.revenue ?? 0), 0);
 
   // ─── 1. 매출 집중도 ───
-  const top3Pct = Math.round((summary.top3_revenue_share ?? 0) * 100);
-  const top1Pct = Math.round((summary.top1_revenue_share ?? 0) * 100);
-  const sorted = [...skus].sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
-  const top2Pct =
-    totalRev > 0
-      ? Math.round(((sorted[1]?.revenue ?? 0) / totalRev) * 100)
+  // SKU 선택 시: Top1=선택 SKU 자체 = 100% (자기 한 SKU 안 집중도 의미 약함 — 비중만)
+  // 전체 시: phase2.sales_summary 의 top1/top3 share 사용 (정확)
+  const summary = phase2.sales_summary;
+  const fullTotal = phase2.sku_sales.reduce((s, x) => s + (x.revenue ?? 0), 0);
+  const selectedShare =
+    isSingleSelected && fullTotal > 0
+      ? Math.round((totalRev / fullTotal) * 100)
       : 0;
-  const top3OnlyPct = Math.max(0, top3Pct - top1Pct - top2Pct);
+
+  const top3Pct = isSingleSelected
+    ? selectedShare
+    : Math.round((summary.top3_revenue_share ?? 0) * 100);
+  const top1Pct = isSingleSelected
+    ? selectedShare
+    : Math.round((summary.top1_revenue_share ?? 0) * 100);
+  const sortedAll = [...phase2.sku_sales].sort(
+    (a, b) => (b.revenue ?? 0) - (a.revenue ?? 0),
+  );
+  const top2Pct = isSingleSelected
+    ? 0
+    : fullTotal > 0
+      ? Math.round(((sortedAll[1]?.revenue ?? 0) / fullTotal) * 100)
+      : 0;
+  const top3OnlyPct = isSingleSelected ? 0 : Math.max(0, top3Pct - top1Pct - top2Pct);
   const restPct = Math.max(0, 100 - top3Pct);
 
   // ─── 2. 카테고리 ───
@@ -84,13 +107,37 @@ export function SkuHealthCards({
   const midPct = totalRev > 0 ? Math.round((midRev / totalRev) * 100) : 0;
   const oldPct = totalRev > 0 ? Math.round((oldRev / totalRev) * 100) : 0;
 
+  const selectedSkuName = isSingleSelected
+    ? phase2.sku_sales.find((s) => s.asin === selectedSku)?.name ?? selectedSku
+    : null;
+
   return (
-    <div className="sku-health-grid">
+    <div>
+      {selectedSkuName && (
+        <div
+          style={{
+            marginBottom: 10,
+            fontSize: 11,
+            color: "#92400e",
+            background: "#fef3c7",
+            padding: "6px 12px",
+            borderRadius: 6,
+            border: "1px solid #fde68a",
+          }}
+        >
+          🎯 <b>{selectedSkuName}</b> 선택 — 매출 ${totalRev.toLocaleString()} · 전체의 {selectedShare}%
+        </div>
+      )}
+      <div className="sku-health-grid">
       {/* 1. 매출 집중도 */}
       <div className="sku-health-card">
-        <div className="sh-label">매출 집중도</div>
+        <div className="sh-label">{isSingleSelected ? "선택 SKU 비중" : "매출 집중도"}</div>
         <div className="sh-val">{top3Pct}%</div>
-        <div className="sh-desc">Top 3 SKU가 매출 합계 차지</div>
+        <div className="sh-desc">
+          {isSingleSelected
+            ? `이 SKU가 전체 매출 중`
+            : `Top 3 SKU가 매출 합계 차지`}
+        </div>
         <div className="sh-bar">
           {top1Pct > 0 && (
             <div className="sh-segment" style={{ background: "#3b82f6", flex: top1Pct }}>
@@ -152,6 +199,7 @@ export function SkuHealthCards({
               ? "신상 + 레거시 균형"
               : "레거시 위주 매출"}
         </div>
+      </div>
       </div>
     </div>
   );

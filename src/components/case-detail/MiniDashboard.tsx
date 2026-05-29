@@ -271,7 +271,7 @@ export function MiniDashboard({
 
           {/* mockup line 1063-1095: SKU 헬스 KPI 3 card — selector 다음, 히어로 위 */}
           <div className="bp-mockup">
-            <SkuHealthCards phase2={phase2} />
+            <SkuHealthCards phase2={phase2} selectedSku={selectedSku} />
           </div>
 
           {/* mockup line 1097: 히어로 SKU × 메가 viral 영상 — sub-tabs 위 메인 영역 */}

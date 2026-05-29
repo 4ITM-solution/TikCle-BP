@@ -42,7 +42,10 @@ export function SectionAMockup({
   phase5,
 }: {
   phase2: Phase2Stats;
-  phase3?: { tier_dist_by_month?: Record<string, TierDistribution> };
+  phase3?: {
+    tier_dist_by_month?: Record<string, TierDistribution>;
+    tier_distribution?: TierDistribution; // 전체 (월별 없을 때 fallback)
+  };
   phase5?: Phase5Stats;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
@@ -91,6 +94,10 @@ export function SectionAMockup({
 
   // ─────────── stack chart ───────────
   const tierByMonth = phase3?.tier_dist_by_month ?? {};
+  // 월별 tier 없을 때 전체 tier_distribution 비율로 fallback (모든 막대 같은 비율로 stack)
+  const totalTierFallback = phase3?.tier_distribution
+    ? TIERS.reduce((s, t) => s + (phase3.tier_distribution![t.key] ?? 0), 0)
+    : 0;
   // BSR by month
   const bsrByMonth = useMemo(() => {
     const m = new Map<string, { sum: number; n: number }>();
@@ -293,7 +300,7 @@ export function SectionAMockup({
                 onMouseLeave={() => setHoverIdx(null)}
                 title={`${mo} · ${total} 영상`}
               >
-                {/* 티어 데이터 있을 때만 stack. 없으면 paid/organic 두 색으로 fallback. */}
+                {/* 티어 데이터 있을 때 stack. 월별 없으면 전체 phase3.tier_distribution 비율로 fallback. */}
                 {show.tier && hasTierData && TIERS.map((t) => {
                   const ratio = (td![t.key] ?? 0) / tierTotal;
                   return (
@@ -304,7 +311,17 @@ export function SectionAMockup({
                     />
                   );
                 })}
-                {show.tier && !hasTierData && total > 0 && (
+                {show.tier && !hasTierData && totalTierFallback > 0 && total > 0 && TIERS.map((t) => {
+                  const ratio = (phase3?.tier_distribution?.[t.key] ?? 0) / totalTierFallback;
+                  return (
+                    <div
+                      key={t.key}
+                      className={`sb-${t.key.replace("sub-nano", "subnano")}`}
+                      style={{ height: `${ratio * 100}%`, background: t.color }}
+                    />
+                  );
+                })}
+                {show.tier && !hasTierData && totalTierFallback === 0 && total > 0 && (
                   <>
                     <div
                       style={{
@@ -367,7 +384,19 @@ export function SectionAMockup({
                       </tr>
                     );
                   })}
-                  {tierTotal === 0 && total > 0 && (
+                  {tierTotal === 0 && totalTierFallback > 0 && TIERS.filter((t) => (phase3?.tier_distribution?.[t.key] ?? 0) > 0).map((t) => {
+                    const v = phase3?.tier_distribution?.[t.key] ?? 0;
+                    const pct = Math.round((v / totalTierFallback) * 100);
+                    return (
+                      <tr key={t.key}>
+                        <td><span className="tt-color" style={{ background: t.color }} />{t.label}</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {v}명 ({pct}%) <span style={{ color: "#9ca3af", fontSize: 9 }}>전체</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {tierTotal === 0 && totalTierFallback === 0 && total > 0 && (
                     <>
                       <tr>
                         <td><span className="tt-color" style={{ background: "#ec4899" }} />paid</td>
