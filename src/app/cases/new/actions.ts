@@ -11,6 +11,10 @@ const schema = z.object({
   brand_keyword: z.string().optional().default(""),
   brand_meta_pages: z.string().optional().default(""),
   tiktok_shop_store_url: z.string().optional().default(""),
+  // BP IG/YT 분석 옵션 (모두 optional)
+  ig_seed_username: z.string().optional().default(""),
+  yt_seed_url: z.string().optional().default(""),
+  region_scope: z.enum(["global", "us-only"]).optional().default("global"),
 });
 
 export type ActionResult =
@@ -34,6 +38,9 @@ export async function createCaseDraft(
     brand_keyword: get("brand_keyword"),
     brand_meta_pages: get("brand_meta_pages"),
     tiktok_shop_store_url: get("tiktok_shop_store_url"),
+    ig_seed_username: get("ig_seed_username"),
+    yt_seed_url: get("yt_seed_url"),
+    region_scope: (get("region_scope") || "global") as "global" | "us-only",
   });
 
   if (!parsed.success) {
@@ -87,22 +94,61 @@ export async function createCaseDraft(
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // BP IG/YT seed 박혀있으면 status='ready' 자동 (매출 데이터 없어도 IG/YT 박스 노출 가능).
+  // 매출 데이터 나중에 추가하려면 일반 흐름 그대로 — IG/YT seed 안 박으면 draft.
+  const hasBpSeed =
+    !!parsed.data.ig_seed_username.trim() ||
+    !!parsed.data.yt_seed_url.trim();
+
+  const optionsBlob: Record<string, unknown> = {};
+  if (parsed.data.region_scope === "us-only") {
+    optionsBlob.region_scope = "us-only";
+  }
+
   const { data: created, error: caseErr } = await supabase
     .from("cases")
     .insert({
       brand_id,
       country,
       channel: platform,
-      status: "draft",
+      status: hasBpSeed ? "ready" : "draft",
       brand_keyword: parsed.data.brand_keyword || null,
       brand_meta_pages: meta_pages.length > 0 ? meta_pages : null,
       tiktok_shop_store_url: parsed.data.tiktok_shop_store_url || null,
+      options: Object.keys(optionsBlob).length > 0 ? (optionsBlob as never) : null,
     })
     .select("id")
     .single();
 
   if (caseErr || !created) {
     return { ok: false, error: `케이스 생성 실패: ${caseErr?.message}` };
+  }
+
+  // BP seed 박혀있으면 ig_config / yt_config에 seed 자동 박기 (사용자가 IG/YT 박스에서
+  // "자동 발굴 시작" 클릭하면 그 seed 사용). 단 prep까지 자동 trigger는 X — 사용자가
+  // case 페이지 가서 명시적으로 누르는 게 비용 투명 + 안전.
+  if (hasBpSeed) {
+    const igConfig: Record<string, unknown> = {};
+    const ytConfig: Record<string, unknown> = {};
+    if (parsed.data.ig_seed_username.trim()) {
+      igConfig.ig_owned_usernames = [
+        parsed.data.ig_seed_username.trim().replace(/^@/, ""),
+      ];
+    }
+    if (parsed.data.yt_seed_url.trim()) {
+      ytConfig.yt_owned_channels = [parsed.data.yt_seed_url.trim()];
+    }
+    if (Object.keys(igConfig).length > 0 || Object.keys(ytConfig).length > 0) {
+      await supabase
+        .from("cases")
+        .update({
+          ig_config:
+            Object.keys(igConfig).length > 0 ? (igConfig as never) : null,
+          yt_config:
+            Object.keys(ytConfig).length > 0 ? (ytConfig as never) : null,
+        })
+        .eq("id", created.id);
+    }
   }
 
   redirect(`/cases/${created.id}`);

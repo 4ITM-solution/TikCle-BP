@@ -377,6 +377,82 @@ export default function NewCasePage() {
               </span>
             )}
           </div>
+
+          {/* BP IG/YT 분석 옵션 — Dyson/Medicube/Poppi 같은 카테고리 정의자 분석용.
+              매출 데이터 없어도 OK. IG/YT seed 박으면 case 생성 시 status=ready 자동 +
+              IG/YT 박스에서 자동 발굴 시작 가능. */}
+          <details
+            style={{
+              marginTop: 14,
+              padding: 14,
+              borderRadius: 8,
+              border: "1px dashed var(--color-g200)",
+              background: "var(--color-g25)",
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                fontWeight: 700,
+                fontSize: 13,
+                color: "var(--color-g600)",
+                listStyle: "none",
+              }}
+            >
+              🎯 BP IG/YouTube 분석 추가 (옵션) — 카테고리 정의자 BP용
+            </summary>
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-g500)",
+                  marginBottom: 10,
+                  lineHeight: 1.6,
+                }}
+              >
+                IG/YT seed 둘 중 하나라도 박으면 케이스 생성 시{" "}
+                <b>status=ready 바로 박힘</b> (매출 데이터 안 박아도 OK). 케이스
+                페이지의 🎯 BP 박스에서 자동 발굴 → Accept → Phase 4c/4d 재실행 흐름.
+              </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label className="field-label">
+                  IG seed username (옵션)
+                </label>
+                <input
+                  className="field-input mono"
+                  name="ig_seed_username"
+                  placeholder="ninjakitchen / dyson / medicube_us / drinkpoppi"
+                />
+                <span className="field-help">
+                  @ 없이. 브랜드 owned IG 계정.
+                </span>
+              </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label className="field-label">
+                  YT seed channel URL (옵션)
+                </label>
+                <input
+                  className="field-input mono"
+                  name="yt_seed_url"
+                  placeholder="https://www.youtube.com/@ninjakitchen"
+                />
+                <span className="field-help">
+                  브랜드 owned YouTube 채널 URL.
+                </span>
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label className="field-label">Region scope (옵션)</label>
+                <select className="field-input" name="region_scope" defaultValue="global">
+                  <option value="global">🌍 글로벌 (default)</option>
+                  <option value="us-only">🇺🇸 US-only (휴리스틱 필터)</option>
+                </select>
+                <span className="field-help">
+                  나중에 케이스 페이지에서도 토글 가능.
+                </span>
+              </div>
+            </div>
+          </details>
+
           <div style={{ display: "flex", gap: 8 }}>
             <Link href="/cases" className="btn btn-ghost">
               취소
