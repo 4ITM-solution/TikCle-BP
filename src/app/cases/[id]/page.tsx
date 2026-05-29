@@ -22,6 +22,14 @@ import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
+import {
+  CaseStatusStripMockup,
+  CaseHeaderMockup,
+  KpiStripMockup,
+  DataChannelsMockup,
+  PhaseProgressMockup,
+  InsightCardMockup,
+} from "@/components/case-detail/mockup/HeaderMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
@@ -960,15 +968,17 @@ export default async function CaseDetailPage({
 
   return (
     <>
-      <CaseStatusStrip
-        brand={brand}
-        country={c.country}
-        channel={c.channel}
-        status={c.status}
-        dataChannels={dataChannels}
-        channelStats={channelStats}
-        analyzedAt={c.analyzed_at}
-      />
+      <div className="bp-mockup">
+        <CaseStatusStripMockup
+          brand={brand}
+          country={c.country}
+          channel={c.channel}
+          status={c.status}
+          dataChannels={dataChannels}
+          channelStats={channelStats}
+          analyzedAt={c.analyzed_at}
+        />
+      </div>
     <div style={{ padding: "24px 32px", maxWidth: 1480 }}>
       <nav className="breadcrumb">
         <Link href="/cases">Browse</Link>
@@ -994,8 +1004,18 @@ export default async function CaseDetailPage({
         <CaseSideTOC />
 
         <div style={{ minWidth: 0 }}>
-        {/* ★ Phase 7: CaseHeader — mockup의 깔끔한 메타 헤더 (유일한 헤더) */}
-        <div id="sec-header">
+        {/* ★ mockup 1:1 case-header */}
+        <div className="bp-mockup">
+          <CaseHeaderMockup
+            brand={brand}
+            country={c.country}
+            channel={c.channel}
+            status={c.status}
+            revenueTier={c.revenue_tier ? `★${"★".repeat(Math.max(0, Number(c.revenue_tier) - 1))}` : null}
+          />
+        </div>
+        {/* 옛 CaseHeader 기능 (rev_tier 수정 / region toggle / case 삭제) 유지 — 작은 toolbar */}
+        <div id="sec-header-actions" style={{ marginBottom: 12 }}>
           <CaseHeader
             case_id={c.id}
             brand={brand}
@@ -1625,41 +1645,22 @@ export default async function CaseDetailPage({
                   const adPartner = ks.phase4a?.partnership_creators ?? 0;
 
                   return (
-                    <CaseKpiStrip
-                      totalVideos={{
-                        value: allVids,
-                        sub: `TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`,
-                      }}
-                      totalInfluencers={{
-                        value: allInf,
-                        sub: `top creators ${(ks.phase2.top_creators ?? []).length}명`,
-                      }}
-                      totalViews={{
-                        value: viewsLabel,
-                        sub: "top creator 합산 추정",
-                      }}
-                      salesValue={
-                        salesLabel
-                          ? {
-                              value: salesLabel,
-                              sub: `${ks.phase2.sales_summary?.sku_count ?? 0} SKU`,
-                            }
-                          : null
-                      }
-                      salesTrend={null}
-                      metaAdsCount={
-                        adTotal > 0
-                          ? {
-                              value: adTotal,
-                              sub: `partner 인플 ${adPartner}명`,
-                            }
-                          : null
-                      }
-                      costEstimate={{
-                        value: `$${costEstimate.total_max_usd.toFixed(2)}`,
-                        sub: "예상 최대",
-                      }}
-                    />
+                    <div className="bp-mockup">
+                      <KpiStripMockup
+                        totalVideos={allVids}
+                        videoBreakdown={`TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`}
+                        totalCreators={allInf}
+                        creatorBreakdown={`top ${(ks.phase2.top_creators ?? []).length}명 활동`}
+                        totalViews={tcViews}
+                        viewBreakdown={"top creator 합산 추정"}
+                        ttShopGmv30d={rev ?? null}
+                        gmvTrend={salesLabel ? `${ks.phase2.sales_summary?.sku_count ?? 0} SKU` : undefined}
+                        metaAds={adTotal}
+                        metaBreakdown={adTotal > 0 ? `brand ${(ks.phase4a?.brand_official_ads ?? 0)} · partner ${adPartner}` : undefined}
+                        costEstimate={costEstimate.total_max_usd}
+                        costBreakdown={"예상 최대"}
+                      />
+                    </div>
                   );
                 })()}
 
@@ -1778,14 +1779,23 @@ export default async function CaseDetailPage({
                     .slice(0, 10);
 
                   return axes.length > 0 ? (
-                    <CaseInsightCard
-                      oneLineSummary={oneLineSummary}
-                      tagline={tagline}
-                      axes={axes}
-                      keyFindings={keyFindings}
-                      crossPlatform={crossPlatform}
-                      relatedCases={[]}
-                    />
+                    <div className="bp-mockup">
+                      <InsightCardMockup
+                        title={oneLineSummary}
+                        tagline={tagline}
+                        axisCards={axes.map((a) => ({
+                          h: a.axis,
+                          val: a.value,
+                          sub: a.sub,
+                        }))}
+                        keyFindings={keyFindings}
+                        crossPlatform={crossPlatform.map((p) => ({
+                          name: p.name,
+                          channels: p.channels,
+                          videos: p.totalVideos,
+                        }))}
+                      />
+                    </div>
                   ) : null;
                 })()}
 
