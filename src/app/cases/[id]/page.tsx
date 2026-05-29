@@ -28,6 +28,8 @@ import {
 } from "@/components/case-detail/CaseInsightCard";
 import { DataChannelGrid } from "@/components/case-detail/DataChannelGrid";
 import { CaseKpiStrip } from "@/components/case-detail/CaseKpiStrip";
+import { CaseSideTOC } from "@/components/case-detail/CaseSideTOC";
+import { CaseHeader } from "@/components/case-detail/CaseHeader";
 import type { DataChannel } from "@/lib/supabase/types";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
@@ -962,6 +964,7 @@ export default async function CaseDetailPage({
         channelStats={channelStats}
         analyzedAt={c.analyzed_at}
       />
+      <CaseSideTOC />
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
       <nav className="breadcrumb">
         <Link href="/cases">Browse</Link>
@@ -977,7 +980,33 @@ export default async function CaseDetailPage({
         </span>
       </nav>
 
-      {/* Header */}
+      {/* ★ Phase 6: CaseHeader — mockup의 깔끔한 메타 헤더 (위에) */}
+      <div id="sec-header">
+        <CaseHeader
+          case_id={c.id}
+          brand={brand}
+          country={c.country}
+          channel={c.channel}
+          status={c.status}
+          revenueTier={c.revenue_tier}
+          regionScope={regionScope}
+        />
+      </div>
+
+      {/* 옛 inline header — 정보(인플 CSV · timestamps) 보존을 위해 details로 접음 */}
+      <details style={{ marginBottom: 14 }}>
+        <summary
+          style={{
+            fontSize: 11,
+            color: "var(--color-g500)",
+            cursor: "pointer",
+            padding: "4px 8px",
+          }}
+        >
+          ▶ 추가 정보 펼치기 (인플 CSV · timestamps · id)
+        </summary>
+
+      {/* Header (옛 inline — details 안으로 들어감) */}
       <div className="section-card" style={{ marginBottom: 14 }}>
         <div
           style={{
@@ -1062,11 +1091,13 @@ export default async function CaseDetailPage({
           </span>
         </div>
       </div>
+      </details>
 
       {/* Status branch */}
       {c.status === "draft" ? (
         <>
           {/* ★ Phase 4: 데이터 채널 그리드 — 활성/비활성 한눈에. 입력은 Section 02 토글 유지 */}
+          <div id="sec-channels" style={{ scrollMarginTop: 80 }} />
           <DataChannelGrid
             cards={[
               "tiktok_video" as DataChannel,
@@ -1647,6 +1678,7 @@ export default async function CaseDetailPage({
                 />
                 <div style={{ height: 14 }} />
 
+                <div id="sec-kpi" style={{ scrollMarginTop: 80 }} />
                 {/* ★ Phase 5-A: 상단 KpiStrip — 케이스 한눈 요약 6 KPI */}
                 {ks.phase2 && (() => {
                   const totalVids = ks.phase2.total_contents ?? 0;
@@ -1715,6 +1747,7 @@ export default async function CaseDetailPage({
                   );
                 })()}
 
+                <div id="sec-g" style={{ scrollMarginTop: 80 }} />
                 {/* ★ G 종합 인사이트 — Phase 2: phase별 stats 자동 조립 (Phase 5 synthesis 도착 전까지 fallback) */}
                 {(() => {
                   const axes: AxisCardData[] = [];
@@ -1986,6 +2019,7 @@ export default async function CaseDetailPage({
       )}
 
       {/* ⚙️ DEV 액션 footer — Phase 1.6: 페이지 맨 아래로 이동. 평소엔 접힘 */}
+      <div id="sec-dev" style={{ scrollMarginTop: 80 }} />
       <CaseDevFooter
         case_id={c.id}
         status={c.status}

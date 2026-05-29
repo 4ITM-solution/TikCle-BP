@@ -18,13 +18,12 @@ const ITEMS: readonly TocItem[] = [
   { id: "sec-header", label: "📋 케이스 메타", group: "TOP" },
   { id: "sec-kpi", label: "📊 KPI 요약" },
   { id: "sec-channels", label: "📥 데이터 채널" },
-  { id: "sec-phase", label: "🔧 Phase 진행" },
-  { id: "sec-g", label: "🎯 G. 종합 인사이트" },
-  { id: "sec-a", label: "A. 콘텐츠 활동", group: "분석" },
-  { id: "sec-b", label: "B. 인플루언서 풀" },
-  { id: "sec-c", label: "C. 콘텐츠 포맷" },
-  { id: "sec-d", label: "D. 매출 & BSR" },
-  { id: "sec-e", label: "E. Meta 광고" },
+  { id: "sec-g", label: "🎯 종합 인사이트" },
+  { id: "section-a", label: "A. 콘텐츠 활동", group: "분석" },
+  { id: "section-b", label: "B. 인플루언서 풀" },
+  { id: "section-c", label: "C. 콘텐츠 포맷" },
+  { id: "section-d", label: "D. 매출 & BSR" },
+  { id: "section-e", label: "E. Meta 광고" },
   { id: "sec-dev", label: "⚙️ DEV 액션", group: "DEV" },
 ] as const;
 
@@ -53,12 +52,15 @@ export function CaseSideTOC() {
 
   return (
     <nav
+      className="case-side-toc"
       style={{
-        position: "sticky",
-        top: 90,
-        alignSelf: "start",
+        position: "fixed",
+        top: 100,
+        left: "max(12px, calc((100vw - 1280px) / 2 - 180px))",
+        width: 160,
         fontSize: 11,
         padding: 0,
+        zIndex: 30,
       }}
     >
       {ITEMS.map((item, i) => {
