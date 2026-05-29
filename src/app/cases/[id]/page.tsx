@@ -1035,7 +1035,9 @@ export default async function CaseDetailPage({
             costEstimate={costEstimate}
           />
         </>
-      ) : c.status === "ready" && c.key_stats ? (
+      ) : c.status === "ready" ? (
+        // key_stats null이어도 (분석 안 한 새 케이스) IG/YT BP 박스 노출 필요.
+        // main flow 안의 ks?.phase2 분기로 "분석 안 함" 메시지 자동 처리.
         <>
           {/* ready 케이스에도 추가 업로드 가능 — 우회 brand 만드는 패턴 차단 */}
           <details
