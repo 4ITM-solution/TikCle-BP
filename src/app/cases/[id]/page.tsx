@@ -21,6 +21,11 @@ import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
+import {
+  CaseInsightCard,
+  type AxisCardData,
+  type CrossPlatformAuthor,
+} from "@/components/case-detail/CaseInsightCard";
 import type { DataChannel } from "@/lib/supabase/types";
 import { SectionTOC } from "@/components/case-detail/SectionTOC";
 import { AutoRefresh } from "@/components/case-detail/AutoRefresh";
@@ -1619,6 +1624,119 @@ export default async function CaseDetailPage({
                   keyStats={ks as KeyStats}
                 />
                 <div style={{ height: 14 }} />
+
+                {/* ★ G 종합 인사이트 — Phase 2: phase별 stats 자동 조립 (Phase 5 synthesis 도착 전까지 fallback) */}
+                {(() => {
+                  const axes: AxisCardData[] = [];
+                  const ks2 = ks.phase2;
+                  const ks3 = ks.phase3;
+                  const ks4a = ks.phase4a;
+                  const ks4bC = ks.phase4b_clusters;
+
+                  // 제품 — Top SKU
+                  if (ks2?.sku_sales && ks2.sku_sales.length > 0) {
+                    const top = [...ks2.sku_sales]
+                      .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                      .slice(0, 2);
+                    const top2Names = top.map((s) => s.name?.slice(0, 18) ?? "").filter(Boolean).join(" + ");
+                    const total = ks2.sku_sales.reduce((s, x) => s + (x.revenue ?? 0), 0);
+                    const top2Sum = top.reduce((s, x) => s + (x.revenue ?? 0), 0);
+                    const pct = total > 0 ? Math.round((top2Sum / total) * 100) : 0;
+                    axes.push({
+                      axis: "제품",
+                      value: top2Names || "—",
+                      sub: `Top 2 SKU가 매출 ${pct}%`,
+                    });
+                  }
+
+                  // 인플
+                  if (ks3?.tier_distribution) {
+                    const t = ks3.tier_distribution;
+                    const total = (t.mega ?? 0) + (t.macro ?? 0) + (t.mid ?? 0) + (t.micro ?? 0) + (t.nano ?? 0);
+                    const microPct = total > 0 ? Math.round(((t.micro ?? 0) / total) * 100) : 0;
+                    const megaCount = t.mega ?? 0;
+                    axes.push({
+                      axis: "인플",
+                      value: `${total.toLocaleString()}명 (메가 ${megaCount})`,
+                      sub: `마이크로 ${microPct}% · portfolio 분산`,
+                    });
+                  }
+
+                  // 콘텐츠 — 메타 클러스터
+                  if (ks4bC?.meta_clusters && ks4bC.meta_clusters.length > 0) {
+                    const top = ks4bC.meta_clusters
+                      .slice(0, 2)
+                      .map((c) => c.name)
+                      .join(" + ");
+                    axes.push({
+                      axis: "콘텐츠",
+                      value: top || "—",
+                      sub: `${ks4bC.meta_clusters.length} 클러스터 · USP 추출됨`,
+                    });
+                  }
+
+                  // 채널
+                  if (dataChannels.length > 0) {
+                    const labels = dataChannels.map((d) => d.replace("_", " ")).join(" · ");
+                    axes.push({
+                      axis: "채널",
+                      value: `${dataChannels.length} 채널 활성`,
+                      sub: labels,
+                    });
+                  }
+
+                  // 시즈널리티 — 월별 peak
+                  if (ks2?.monthly_video_counts && ks2.monthly_video_counts.length > 0) {
+                    const peak = [...ks2.monthly_video_counts].sort(
+                      (a, b) => b.total - a.total,
+                    )[0];
+                    if (peak) {
+                      axes.push({
+                        axis: "시즈널리티",
+                        value: `${peak.month} peak`,
+                        sub: `${peak.total.toLocaleString()} 영상 · paid ${peak.total > 0 ? Math.round((peak.paid / peak.total) * 100) : 0}%`,
+                      });
+                    }
+                  }
+
+                  // 핵심 발견 (간단 자동)
+                  const keyFindings: string[] = [];
+                  if (ks2?.videos_per_creator) {
+                    const single = ks2.videos_per_creator["1"] ?? 0;
+                    const total = ks2.total_unique_creators ?? 0;
+                    const pct = total > 0 ? Math.round((single / total) * 100) : 0;
+                    if (pct > 0) {
+                      keyFindings.push(`인플 portfolio — 1편만 만든 인플 ${pct}% (long-tail 패턴)`);
+                    }
+                  }
+                  if (ks4a?.partnership_creators && ks4a.partnership_creators > 0) {
+                    keyFindings.push(`Meta partnership 인플 ${ks4a.partnership_creators}명 · 광고 ${ks4a.partnership_ads}건`);
+                  }
+                  if (ks4bC?.meta_clusters && ks4bC.meta_clusters.length > 0) {
+                    keyFindings.push(`viral 클러스터 ${ks4bC.meta_clusters.length}개 식별 · 콘텐츠 hook 패턴 추출`);
+                  }
+                  if (ks2?.sales_summary) {
+                    keyFindings.push(`30일 매출 ${Math.round(ks2.sales_summary.total_revenue / 1000).toLocaleString()}K · SKU ${ks2.sales_summary.sku_count}`);
+                  }
+
+                  const oneLineSummary = `${brand} — 자동 종합 분석`;
+                  const tagline = axes.map((a) => a.value).join(" × ");
+
+                  // cross-platform 인플 — 일단 빈 (Phase 2의 한계: B/4c/4d 데이터 join 코드 필요. Phase 3에서)
+                  const crossPlatform: CrossPlatformAuthor[] = [];
+
+                  return axes.length > 0 ? (
+                    <CaseInsightCard
+                      oneLineSummary={oneLineSummary}
+                      tagline={tagline}
+                      axes={axes}
+                      keyFindings={keyFindings}
+                      crossPlatform={crossPlatform}
+                      relatedCases={[]}
+                    />
+                  ) : null;
+                })()}
+
                 <div
                   style={{
                     display: "grid",

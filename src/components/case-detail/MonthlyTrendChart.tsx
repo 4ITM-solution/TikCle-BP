@@ -43,7 +43,12 @@ export function MonthlyTrendChart({
   monthlyVideoCounts: MonthlyVideoCount[];
   bsrSeries: BsrSeries[];
 }) {
-  const [show, setShow] = useState({ tier: true, ad: true, bsr: false });
+  const [show, setShow] = useState({
+    tier: true,
+    ad: true,
+    bsr: false,
+    videoCount: true, // ★ 영상 수 line (볼륨↔BSR 상관 시각용)
+  });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   // 월별 BSR 평균 (전 SKU)
@@ -125,6 +130,20 @@ export function MonthlyTrendChart({
     return H - inv * (H - 16) - 8;
   };
 
+  // ★ 영상 수 line — 절대 영상 수 시각화 (BSR과 시각 상관 비교용)
+  const videoCountByMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of monthlyVideoCounts) {
+      if (r.total > 0) m.set(r.month, r.total);
+    }
+    return m;
+  }, [monthlyVideoCounts]);
+  const videoCountVals = months
+    .filter((mo) => videoCountByMonth.has(mo))
+    .map((mo) => videoCountByMonth.get(mo)!);
+  const videoMax = videoCountVals.length ? Math.max(...videoCountVals) : 1;
+  const videoY = (v: number) => H - (v / videoMax) * (H - 16) - 8;
+
   // 월별 티어 누적 비율 (아래부터 쌓음)
   const cumByMonth = months.map((mo) => {
     const d = tierByMonth?.[mo];
@@ -172,12 +191,15 @@ export function MonthlyTrendChart({
           {(
             [
               { k: "tier" as const, label: "인플 티어 비중", color: "var(--color-ink)" },
+              { k: "videoCount" as const, label: "★ 영상 수 line", color: "var(--color-info)" },
               { k: "ad" as const, label: "광고 비중", color: "var(--color-warn)" },
               { k: "bsr" as const, label: "BSR (매출 대리)", color: "var(--color-accent)" },
             ]
           ).map(({ k, label, color }) => {
             const on = show[k];
-            const disabled = k === "bsr" && bsrVals.length === 0;
+            const disabled =
+              (k === "bsr" && bsrVals.length === 0) ||
+              (k === "videoCount" && videoCountVals.length === 0);
             return (
               <button
                 key={k}
@@ -308,6 +330,19 @@ export function MonthlyTrendChart({
             />
           )}
 
+          {/* ★ 영상 수 라인 — 절대 영상 수 시각화 (BSR과 시각 상관) */}
+          {show.videoCount && videoCountVals.length > 1 && (
+            <polyline
+              points={months
+                .filter((m) => videoCountByMonth.has(m))
+                .map((m) => `${xOf(m)},${videoY(videoCountByMonth.get(m)!)}`)
+                .join(" ")}
+              fill="none"
+              stroke="var(--color-info)"
+              strokeWidth="3"
+            />
+          )}
+
           {/* 호버 가이드라인 */}
           {hoverIdx !== null && months[hoverIdx] && (
             <line
@@ -330,6 +365,7 @@ export function MonthlyTrendChart({
             const total = d ? tierTotal(d) : 0;
             const ad = adByMonth.get(mo);
             const bsr = bsrByMonth.get(mo);
+            const videoCount = videoCountByMonth.get(mo);
             const leftPct = (xOf(mo) / W) * 100;
             const flip = leftPct > 58;
             return (
@@ -358,9 +394,23 @@ export function MonthlyTrendChart({
                     fontWeight: 700,
                     marginBottom: 5,
                     color: "var(--color-ink)",
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 6,
                   }}
                 >
-                  {mo}
+                  <span>{mo}</span>
+                  {videoCount != null && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "var(--color-info)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      · 영상 {videoCount.toLocaleString()}개
+                    </span>
+                  )}
                 </div>
                 {total > 0 ? (
                   TIERS.filter((t) => (d![t.key] ?? 0) > 0).map((t) => {
