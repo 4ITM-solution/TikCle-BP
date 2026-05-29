@@ -707,19 +707,28 @@ export type Database = {
 
       content_cluster_members: {
         Row: {
+          id: string;
           cluster_id: string;
-          content_id: string;
+          content_id: string | null;
           rank_in_cluster: number | null;
+          platform: string;
+          external_ref: string | null;
         };
         Insert: {
+          id?: string;
           cluster_id: string;
-          content_id: string;
+          content_id?: string | null;
           rank_in_cluster?: number | null;
+          platform?: string;
+          external_ref?: string | null;
         };
         Update: {
+          id?: string;
           cluster_id?: string;
-          content_id?: string;
+          content_id?: string | null;
           rank_in_cluster?: number | null;
+          platform?: string;
+          external_ref?: string | null;
         };
         Relationships: [];
       };

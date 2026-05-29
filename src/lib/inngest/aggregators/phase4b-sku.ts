@@ -264,7 +264,8 @@ async function fetchClusterRepresentatives(
   const childIds = Array.from(childIdToMeta.keys());
   if (childIds.length === 0) return out;
 
-  // 2. 자식 클러스터의 멤버 (rank_in_cluster 오름차순 = 영상 매출/뷰 상위)
+  // 2. 자식 클러스터의 멤버 (TikTok만 — SKU 매칭은 TikTok content 기반).
+  //    IG/YT 멤버는 platform 컬럼으로 분리되어 들어가 있어 여기선 자연 제외됨.
   const allMembers: Array<{
     cluster_id: string;
     content_id: string;
@@ -275,9 +276,19 @@ async function fetchClusterRepresentatives(
     const { data, error } = await supabase
       .from("content_cluster_members")
       .select("cluster_id, content_id, rank_in_cluster")
-      .in("cluster_id", slice);
+      .in("cluster_id", slice)
+      .eq("platform", "tiktok")
+      .not("content_id", "is", null);
     if (error) throw new Error(`cluster_members fetch: ${error.message}`);
-    if (data) allMembers.push(...data);
+    for (const r of data ?? []) {
+      if (r.content_id) {
+        allMembers.push({
+          cluster_id: r.cluster_id,
+          content_id: r.content_id,
+          rank_in_cluster: r.rank_in_cluster,
+        });
+      }
+    }
   }
 
   // 3. 컨텐츠 뷰 정보로 정렬 (rank_in_cluster이 빈 경우 fallback)

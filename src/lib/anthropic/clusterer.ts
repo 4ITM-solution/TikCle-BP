@@ -16,9 +16,20 @@ function getClient(): Anthropic {
 // =============================================================================
 // 입력 데이터 타입
 // =============================================================================
+export type ClusterPlatform = "tiktok" | "instagram" | "youtube";
+
 export type VideoForClustering = {
-  content_id: string;
-  vision_tags: VisionTags;
+  // LLM이 다루는 short id (prefix 포함, ex: "tk_a1b2c3d4" / "ig_BxYz1234" / "yt_dQw4w9Wg")
+  cluster_key: string;
+  platform: ClusterPlatform;
+  // TikTok: case_video_analyses.content_id (uuid). 그 외: null
+  content_id: string | null;
+  // IG: ig_id, YT: yt_id. TikTok: null
+  external_ref: string | null;
+  // TikTok: vision_tags (있을 때만). IG/YT는 null → caption 모드.
+  vision_tags: VisionTags | null;
+  // IG/YT: caption (또는 title+description). TikTok: 보통 null.
+  caption: string | null;
   views: number | null;
   collect_count: number | null;
 };
@@ -54,43 +65,73 @@ const PASS1_BATCH_SIZE = 80;
 // =============================================================================
 // 영상 한 줄 요약
 // =============================================================================
-function summarizeVideo(v: VideoForClustering): string {
-  const t = v.vision_tags;
-  const overlay =
-    t.overlay_text && t.overlay_text.length > 40
-      ? `${t.overlay_text.slice(0, 40)}…`
-      : (t.overlay_text ?? "");
-  return [
-    `ID:${v.content_id.slice(0, 8)}`,
-    `hook:${t.hook_tags.join(",") || "?"}`,
-    `angle:${t.content_angle}`,
-    `body:${t.body_format}`,
-    `style:${t.visual_style}`,
-    `intent:${t.purchase_intent}`,
-    overlay ? `overlay:"${overlay.replace(/"/g, "'")}"` : null,
-    t.cta_type ? `cta:${t.cta_type}` : null,
-    t.products_visible.length > 0
-      ? `products:${t.products_visible.slice(0, 3).join("|")}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
+const PLATFORM_TAG: Record<ClusterPlatform, string> = {
+  tiktok: "TT",
+  instagram: "IG",
+  youtube: "YT",
+};
+
+export function platformPrefix(p: ClusterPlatform): string {
+  return p === "tiktok" ? "tk" : p === "instagram" ? "ig" : "yt";
 }
 
-// short id → full id 매핑. LLM은 8자리 prefix를 쓰도록 안내하지만, 실제로는
-// 풀 UUID, dash 제거된 값 등 다양한 형식이 반환될 수 있어 여러 키를 미리 매핑.
+export function parseClusterKey(
+  key: string,
+): { platform: ClusterPlatform; shortId: string } | null {
+  if (key.startsWith("tk_")) return { platform: "tiktok", shortId: key.slice(3) };
+  if (key.startsWith("ig_")) return { platform: "instagram", shortId: key.slice(3) };
+  if (key.startsWith("yt_")) return { platform: "youtube", shortId: key.slice(3) };
+  return null;
+}
+
+function summarizeVideo(v: VideoForClustering): string {
+  const tag = `[${PLATFORM_TAG[v.platform]}]`;
+  // vision_tags 있으면 (TikTok) 기존 풍부 요약. 없으면 caption 모드.
+  if (v.vision_tags) {
+    const t = v.vision_tags;
+    const overlay =
+      t.overlay_text && t.overlay_text.length > 40
+        ? `${t.overlay_text.slice(0, 40)}…`
+        : (t.overlay_text ?? "");
+    return [
+      `ID:${v.cluster_key}`,
+      tag,
+      `hook:${t.hook_tags.join(",") || "?"}`,
+      `angle:${t.content_angle}`,
+      `body:${t.body_format}`,
+      `style:${t.visual_style}`,
+      `intent:${t.purchase_intent}`,
+      overlay ? `overlay:"${overlay.replace(/"/g, "'")}"` : null,
+      t.cta_type ? `cta:${t.cta_type}` : null,
+      t.products_visible.length > 0
+        ? `products:${t.products_visible.slice(0, 3).join("|")}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  // caption 모드 (IG/YT)
+  const cap = (v.caption ?? "").replace(/\s+/g, " ").trim();
+  const capTrim = cap.length > 220 ? `${cap.slice(0, 220)}…` : cap;
+  return [
+    `ID:${v.cluster_key}`,
+    tag,
+    capTrim ? `caption:"${capTrim.replace(/"/g, "'")}"` : "caption:(empty)",
+  ].join(" ");
+}
+
+// cluster_key 변형 → canonical cluster_key 매핑. LLM이 prefix를 떼거나 케이스를
+// 바꿔도 통과시키기 위해 여러 변형 등록.
 function buildIdMap(videos: VideoForClustering[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const v of videos) {
-    const full = v.content_id;
-    const short = full.slice(0, 8);
-    const noDash = full.replace(/-/g, "");
-    m.set(full, full);
-    m.set(short, full);
-    m.set(noDash, full);
-    m.set(noDash.slice(0, 8), full);
-    m.set(full.toLowerCase(), full);
-    m.set(short.toLowerCase(), full);
+    const key = v.cluster_key; // 예: "tk_a1b2c3d4"
+    m.set(key, key);
+    m.set(key.toLowerCase(), key);
+    // prefix 제거 변형 (LLM이 "a1b2c3d4"만 반환할 가능성)
+    const noPrefix = key.replace(/^(tk_|ig_|yt_)/, "");
+    m.set(noPrefix, key);
+    m.set(noPrefix.toLowerCase(), key);
   }
   return m;
 }
@@ -105,8 +146,6 @@ function resolveLlmId(
     idMap.get(trimmed) ??
     idMap.get(trimmed.toLowerCase()) ??
     idMap.get(trimmed.replace(/-/g, "")) ??
-    idMap.get(trimmed.slice(0, 8)) ??
-    idMap.get(trimmed.replace(/-/g, "").slice(0, 8)) ??
     null
   );
 }
@@ -114,9 +153,15 @@ function resolveLlmId(
 // =============================================================================
 // Pass 1 — 후보 클러스터 발견 (batch 단위)
 // =============================================================================
-const PASS1_SYSTEM = `You cluster TikTok content videos by similar HOOK strategy + BODY format patterns for brand-performance benchmarking.
+const PASS1_SYSTEM = `You cluster creator videos across TikTok ([TT]) / Instagram ([IG]) / YouTube ([YT]) by similar HOOK strategy + BODY format patterns for brand-performance benchmarking.
 
-Given a batch of video tags, identify 4-10 distinct clusters where each cluster represents a recurring "way of doing the video".
+Two input formats appear in the same batch:
+- [TT] rows: rich vision tags (hook/angle/body/style/intent/cta/overlay/products).
+- [IG] / [YT] rows: caption-only (vision tags unavailable). Infer hook/body pattern from caption text + hashtags + emoji + CTA phrases.
+
+Cross-platform clustering: a cluster CAN mix TT/IG/YT members when the underlying strategy is the same (예: "할인코드/스왑 CTA형", "Before/After 결과 시각화형"). Do not force platform-pure clusters.
+
+Each video ID has a platform prefix ("tk_"/"ig_"/"yt_") — preserve the prefix verbatim in member_ids.
 
 Rules:
 - A video can belong to multiple clusters (overlap OK).
@@ -132,7 +177,7 @@ Output ONLY valid JSON (no markdown, no commentary):
       "description": "한 줄 설명",
       "hook_pattern": "...",
       "body_pattern": "...",
-      "member_ids": ["8charID", ...]
+      "member_ids": ["tk_a1b2c3d4", "ig_BxYz1234", ...]
     }
   ]
 }`;

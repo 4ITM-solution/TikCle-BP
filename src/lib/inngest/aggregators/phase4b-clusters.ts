@@ -2,9 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import {
   calcClusterCost,
+  parseClusterKey,
   pass1FindCandidates,
   pass2Validate,
   pass3Meta,
+  platformPrefix,
+  type ClusterPlatform,
   type TokenUsage,
   type VideoForClustering,
 } from "@/lib/anthropic/clusterer";
@@ -41,18 +44,17 @@ export async function runPhase4bClusters(
   if (!process.env.ANTHROPIC_API_KEY) {
     return empty("ANTHROPIC_API_KEY 미설정");
   }
-  if (sample.sample_content_ids.length === 0) {
-    return empty("샘플 0개");
-  }
+  // sample.sample_content_ids는 TikTok 한정. 비어있어도 IG/YT가 있으면 진행 (다채널
+  // 통합 클러스터 — TT/IG/YT 중 하나만 있어도 cluster 가능).
 
-  // 1. vision_tags가 있는 영상만 가져옴 (입력)
+  // 1. 입력 수집 — TikTok(vision_tags) + IG(caption) + YT(title+desc) 통합
   const videos = await fetchClusteringInputs(
     supabase,
     case_id,
     sample.sample_content_ids,
   );
   if (videos.length === 0) {
-    return empty("vision_tags 있는 영상 0개 (Phase 4b.3 먼저 실행)");
+    return empty("입력 영상 0개 (TT vision_tags + IG/YT caption 모두 비어있음)");
   }
 
   const totalUsage: TokenUsage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
@@ -100,14 +102,13 @@ export async function runPhase4bClusters(
   // 5. 기존 클러스터 정리 (재실행 시 중복 방지)
   await cleanupExistingClusters(supabase, case_id);
 
+  // cluster_key → VideoForClustering 룩업 (insert 시 platform/refs 채우기 위함)
+  const videoByKey = new Map<string, VideoForClustering>();
+  for (const v of videos) videoByKey.set(v.cluster_key, v);
+
   // 6. DB 저장 — 메타 클러스터 → 자식 → 멤버
   const meta_clusters: MetaClusterEntry[] = [];
   let totalMemberships = 0;
-
-  // 자식 클러스터 인덱스별 DB id 매핑
-  const childIdxToDbId = new Map<number, string>();
-  const childIdxToMemberCount = new Map<number, number>();
-  const childIdxToName = new Map<number, string>();
 
   for (let metaOrder = 0; metaOrder < metas.length; metaOrder += 1) {
     const meta = metas[metaOrder]!;
@@ -156,21 +157,32 @@ export async function runPhase4bClusters(
         throw new Error(`child cluster insert: ${childErr?.message}`);
       }
 
-      childIdxToDbId.set(childIdx, childRow.id);
-      childIdxToMemberCount.set(childIdx, child.member_ids.length);
-      childIdxToName.set(childIdx, child.name);
       childInfos.push({
         id: childRow.id,
         name: child.name,
         member_count: child.member_ids.length,
       });
 
-      // 자식의 멤버를 cluster_members에 insert + 메타 union
-      const memberRows = child.member_ids.map((content_id, rank) => ({
-        cluster_id: childRow.id,
-        content_id,
-        rank_in_cluster: rank,
-      }));
+      // 자식의 멤버를 cluster_members에 insert (platform별 컬럼 분기)
+      // child.member_ids = cluster_key 배열 (예: "tk_a1b2c3d4")
+      type MemberInsert = Database["public"]["Tables"]["content_cluster_members"]["Insert"];
+      const memberRows: MemberInsert[] = [];
+      const tkContentIds: string[] = []; // pass3_meta_id 업데이트 대상
+      for (let rank = 0; rank < child.member_ids.length; rank += 1) {
+        const key = child.member_ids[rank]!;
+        const v = videoByKey.get(key);
+        if (!v) continue; // resolved 후에는 항상 있어야 하지만 안전망
+        memberRows.push({
+          cluster_id: childRow.id,
+          rank_in_cluster: rank,
+          platform: v.platform,
+          content_id: v.platform === "tiktok" ? v.content_id : null,
+          external_ref: v.platform === "tiktok" ? null : v.external_ref,
+        });
+        if (v.platform === "tiktok" && v.content_id) {
+          tkContentIds.push(v.content_id);
+        }
+      }
       for (let i = 0; i < memberRows.length; i += FETCH_CHUNK) {
         const slice = memberRows.slice(i, i + FETCH_CHUNK);
         const { error } = await supabase
@@ -184,10 +196,10 @@ export async function runPhase4bClusters(
 
       for (const id of child.member_ids) metaMemberSet.add(id);
 
-      // case_video_analyses.pass3_meta_id 업데이트
-      // (한 영상이 여러 자식 → 여러 메타 가능 — 첫 메타 우선)
-      for (let i = 0; i < child.member_ids.length; i += FETCH_CHUNK) {
-        const slice = child.member_ids.slice(i, i + FETCH_CHUNK);
+      // case_video_analyses.pass3_meta_id 업데이트 — TikTok 멤버만 (IG/YT 영상은
+      // case_video_analyses row가 없음)
+      for (let i = 0; i < tkContentIds.length; i += FETCH_CHUNK) {
+        const slice = tkContentIds.slice(i, i + FETCH_CHUNK);
         const { data: existing } = await supabase
           .from("case_video_analyses")
           .select("content_id, pass3_meta_id")
@@ -243,6 +255,11 @@ export async function runPhase4bClusters(
 // helpers
 // =============================================================================
 
+// IG/YT는 한 케이스 안에서도 영상 수가 수천 ~ 만 단위까지 갈 수 있어, 클러스터
+// 입력 토큰 폭증 방지용 상한. 상한 초과 시 view 내림차순으로 잘림 (인기 영상 우선).
+const IG_MAX = 600;
+const YT_MAX = 400;
+
 async function fetchClusteringInputs(
   supabase: SupaClient,
   case_id: string,
@@ -250,6 +267,7 @@ async function fetchClusteringInputs(
 ): Promise<VideoForClustering[]> {
   const inputs: VideoForClustering[] = [];
 
+  // ------------------- TikTok (vision_tags 기반) -------------------
   for (let i = 0; i < contentIds.length; i += FETCH_CHUNK) {
     const chunk = contentIds.slice(i, i + FETCH_CHUNK);
 
@@ -275,13 +293,77 @@ async function fetchClusteringInputs(
       const tags = a.vision_tags as VisionTags | null;
       if (!tags) continue;
       inputs.push({
+        cluster_key: `${platformPrefix("tiktok")}_${a.content_id.slice(0, 8)}`,
+        platform: "tiktok",
         content_id: a.content_id,
+        external_ref: null,
         vision_tags: tags,
+        caption: null,
         views: c?.views ?? null,
         collect_count: c?.collect_count ?? null,
       });
     }
   }
+
+  // ------------------- Instagram (caption 기반) -------------------
+  const { data: igRows, error: igErr } = await supabase
+    .from("ig_posts")
+    .select("ig_id, caption, hashtags, video_view_count, video_play_count, likes_count")
+    .eq("case_id", case_id)
+    .not("caption", "is", null)
+    .order("video_view_count", { ascending: false, nullsFirst: false })
+    .limit(IG_MAX);
+  if (igErr) throw new Error(`ig_posts fetch: ${igErr.message}`);
+  for (const r of igRows ?? []) {
+    const cap = (r.caption ?? "").trim();
+    if (cap.length < 10) continue; // 너무 짧으면 패턴 추출 불가
+    const hashStr =
+      r.hashtags && r.hashtags.length > 0
+        ? ` #${r.hashtags.slice(0, 10).join(" #")}`
+        : "";
+    inputs.push({
+      cluster_key: `${platformPrefix("instagram")}_${r.ig_id.slice(0, 8)}`,
+      platform: "instagram",
+      content_id: null,
+      external_ref: r.ig_id,
+      vision_tags: null,
+      caption: cap + hashStr,
+      views: r.video_view_count ?? r.video_play_count ?? r.likes_count ?? null,
+      collect_count: null,
+    });
+  }
+
+  // ------------------- YouTube (title + description 기반) -------------------
+  const { data: ytRows, error: ytErr } = await supabase
+    .from("yt_videos")
+    .select("yt_id, title, description, hashtags, view_count, like_count")
+    .eq("case_id", case_id)
+    .order("view_count", { ascending: false, nullsFirst: false })
+    .limit(YT_MAX);
+  if (ytErr) throw new Error(`yt_videos fetch: ${ytErr.message}`);
+  for (const r of ytRows ?? []) {
+    const title = (r.title ?? "").trim();
+    const desc = (r.description ?? "").trim();
+    if (title.length < 5 && desc.length < 10) continue;
+    const hashStr =
+      r.hashtags && r.hashtags.length > 0
+        ? ` #${r.hashtags.slice(0, 10).join(" #")}`
+        : "";
+    const combined = title
+      ? `${title} — ${desc.slice(0, 180)}`
+      : desc.slice(0, 220);
+    inputs.push({
+      cluster_key: `${platformPrefix("youtube")}_${r.yt_id.slice(0, 8)}`,
+      platform: "youtube",
+      content_id: null,
+      external_ref: r.yt_id,
+      vision_tags: null,
+      caption: combined + hashStr,
+      views: r.view_count ?? r.like_count ?? null,
+      collect_count: null,
+    });
+  }
+
   return inputs;
 }
 
