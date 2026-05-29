@@ -1864,6 +1864,8 @@ export default async function CaseDetailPage({
                           phase2={ks.phase2}
                           phase4bSku={ks.phase4b_sku}
                           phase5={ks.phase5}
+                          kalodataVideos={ks.kalodata_videos_xlsx}
+                          kalodataLives={ks.kalodata_lives}
                         />
                       )}
                     </div>

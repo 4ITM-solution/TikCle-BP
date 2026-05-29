@@ -7,6 +7,10 @@ import type {
   Phase4bSkuStats,
   Phase5Stats,
 } from "@/lib/inngest/types";
+import type {
+  KalodataVideoXlsxRow,
+  KalodataLiveRow,
+} from "@/lib/parsers/kalodata";
 import { SkuHealthCards } from "./SkuHealthCards";
 
 /**
@@ -28,10 +32,14 @@ type Tab = "sku" | "rank" | "matrix" | "affiliate" | "vid" | "live";
 export function SectionDMockup({
   phase2,
   phase4bSku,
+  kalodataVideos,
+  kalodataLives,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
+  kalodataVideos?: KalodataVideoXlsxRow[];
+  kalodataLives?: KalodataLiveRow[];
 }) {
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
@@ -340,21 +348,196 @@ export function SectionDMockup({
         </div>
       )}
 
-      {/* 영상별 매출 (Kalodata) panel */}
+      {/* 영상별 매출 (Kalodata) panel — mockup line 1247-1264 */}
       {tab === "vid" && (
         <div className="panel active">
-          <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-            —
-          </div>
+          {!kalodataVideos || kalodataVideos.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              —
+            </div>
+          ) : (
+            (() => {
+              const videos = kalodataVideos;
+              const withGmv = videos.filter((v) => (v.revenue_usd ?? 0) > 0);
+              const totalGmv = withGmv.reduce((s, v) => s + (v.revenue_usd ?? 0), 0);
+              const avgGmv = withGmv.length > 0 ? totalGmv / withGmv.length : 0;
+              const sorted = [...withGmv].sort(
+                (a, b) => (b.revenue_usd ?? 0) - (a.revenue_usd ?? 0),
+              );
+              const top10Gmv = sorted.slice(0, 10).reduce((s, v) => s + (v.revenue_usd ?? 0), 0);
+              const top10Pct = totalGmv > 0 ? Math.round((top10Gmv / totalGmv) * 100) : 0;
+              return (
+                <>
+                  <div
+                    className="kpi-grid"
+                    style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 12 }}
+                  >
+                    <div className="kpi">
+                      <div className="kpi-label">매출 발생 영상</div>
+                      <div className="kpi-val">{withGmv.length.toLocaleString()}</div>
+                      <div className="kpi-sub">총 {videos.length.toLocaleString()} 영상 중 {videos.length > 0 ? Math.round((withGmv.length / videos.length) * 100) : 0}%</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">영상당 평균 GMV</div>
+                      <div className="kpi-val">{formatUsdShort(avgGmv)}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Top 영상 1건 GMV</div>
+                      <div className="kpi-val">{formatUsdShort(sorted[0]?.revenue_usd ?? 0)}</div>
+                      <div className="kpi-sub">{sorted[0]?.creator_handle ?? "—"}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Top 10 영상 GMV 비중</div>
+                      <div className="kpi-val">{top10Pct}%</div>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>영상</th>
+                        <th>작성자</th>
+                        <th>제품</th>
+                        <th style={{ textAlign: "right" }}>조회</th>
+                        <th style={{ textAlign: "right" }}>GMV 기여</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.slice(0, 10).map((v, i) => (
+                        <tr key={`${v.video_url}-${i}`}>
+                          <td>
+                            <a
+                              href={v.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#1f2937" }}
+                            >
+                              {v.description && v.description.length > 30
+                                ? `${v.description.slice(0, 30)}…`
+                                : v.description ?? "—"}
+                            </a>
+                          </td>
+                          <td>{v.creator_handle ?? "—"}</td>
+                          <td title={v.product_title ?? ""}>
+                            {v.product_title && v.product_title.length > 22
+                              ? `${v.product_title.slice(0, 22)}…`
+                              : v.product_title ?? "—"}
+                          </td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                            {formatViews(v.views)}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: "right",
+                              fontFamily: "monospace",
+                              color: "#10b981",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {formatUsdShort(v.revenue_usd ?? 0)}
+                          </td>
+                        </tr>
+                      ))}
+                      {sorted.length > 10 && (
+                        <tr style={{ color: "#9ca3af" }}>
+                          <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                            + {sorted.length - 10} 영상 더보기
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              );
+            })()
+          )}
         </div>
       )}
 
-      {/* Live 매출 panel */}
+      {/* Live 매출 panel — mockup line 1266-1282 */}
       {tab === "live" && (
         <div className="panel active">
-          <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-            —
-          </div>
+          {!kalodataLives || kalodataLives.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              —
+            </div>
+          ) : (
+            (() => {
+              const lives = kalodataLives;
+              const totalGmv = lives.reduce((s, l) => s + (l.revenue_usd ?? 0), 0);
+              const avgViewer = lives.length > 0
+                ? lives.reduce((s, l) => s + (l.views ?? 0), 0) / lives.length
+                : 0;
+              const avgGmv = lives.length > 0 ? totalGmv / lives.length : 0;
+              return (
+                <>
+                  <div
+                    className="kpi-grid"
+                    style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 12 }}
+                  >
+                    <div className="kpi">
+                      <div className="kpi-label">총 Live</div>
+                      <div className="kpi-val">{lives.length.toLocaleString()}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Live GMV</div>
+                      <div className="kpi-val">{formatUsdShort(totalGmv)}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">평균 viewer</div>
+                      <div className="kpi-val">{formatViews(avgViewer)}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Live당 GMV</div>
+                      <div className="kpi-val">{formatUsdShort(avgGmv)}</div>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>날짜</th>
+                        <th>호스트</th>
+                        <th style={{ textAlign: "right" }}>duration</th>
+                        <th style={{ textAlign: "right" }}>viewer</th>
+                        <th style={{ textAlign: "right" }}>GMV</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lives.slice(0, 10).map((l, i) => (
+                        <tr key={`${l.title}-${i}`}>
+                          <td>{l.start_at ?? "—"}</td>
+                          <td title={l.title}>
+                            {l.title && l.title.length > 28 ? `${l.title.slice(0, 28)}…` : l.title}
+                          </td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                            {formatDuration(l.duration_s)}
+                          </td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                            {formatViews(l.views)}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: "right",
+                              fontFamily: "monospace",
+                              color: "#10b981",
+                            }}
+                          >
+                            {formatUsdShort(l.revenue_usd ?? 0)}
+                          </td>
+                        </tr>
+                      ))}
+                      {lives.length > 10 && (
+                        <tr style={{ color: "#9ca3af" }}>
+                          <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                            + {lives.length - 10} 라이브 더보기
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              );
+            })()
+          )}
         </div>
       )}
     </div>
@@ -372,4 +555,12 @@ function formatViews(n: number | null): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(n);
+}
+
+function formatDuration(sec: number | null): string {
+  if (!sec || sec <= 0) return "—";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${m}m`;
 }
