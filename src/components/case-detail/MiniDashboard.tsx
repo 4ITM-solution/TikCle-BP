@@ -15,6 +15,7 @@ import { MissingDataPlaceholder } from "./MissingDataPlaceholder";
 import { SectionAChannelToolbar } from "./SectionAChannelToolbar";
 import { SectionCTabs } from "./SectionCTabs";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
+import { TopAuthorsTable } from "./TopAuthorsTable";
 import {
   TopGmvShopCreators,
   type TopGmvCreator,
@@ -245,8 +246,14 @@ export function MiniDashboard({
       {/* mockup A: 1인당 영상 분포 (long-tail 검증) */}
       <CreatorActivityModule stats={phase2} />
 
-      {/* Section B: 인플루언서 활동 — 채널 toggle + 월 필터 (mockup) */}
-      <SectionHeader letter="B" title="인플루언서 활동" />
+      {/* Section B: 인플루언서 풀 — mockup line 754~843 1:1
+          채널 toggle + 월 select (prototype) → 2-col 그리드 (좌: 티어 + cross-channel matrix,
+          우: Top 작성자) → Shop creator GMV (TT Shop 활성 시) */}
+      <SectionHeader
+        letter="B"
+        title="인플루언서 풀"
+        subtitle="★ 채널 toggle + 월 필터 + cross-channel matrix + Shop creator + GMV 분포"
+      />
       <div
         className="section-card"
         style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
@@ -340,36 +347,59 @@ export function MiniDashboard({
           ★ 채널 + 월 필터는 visual prototype (다음 PR에서 active)
         </span>
       </div>
-      {phase3 && (
-        <TierDistributionModule
-          phase3={phase3}
-          phase35={phase35}
-          phase37={phase37}
-        />
-      )}
-      {shopGmvDistribution && (
-        <ShopCreatorGmvDistribution data={shopGmvDistribution} />
-      )}
-      {topGmvCreators && topGmvCreators.length > 0 && (
-        <TopGmvShopCreators creators={topGmvCreators} />
-      )}
-      {crossChannelMatrix && crossChannelMatrix.length > 0 && (
-        <div className="section-card">
-          <div
-            style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}
-          >
-            ⭐ cross-channel 인플 매트릭스
+      {/* mockup line 774: 2-col 그리드 (1fr 1.5fr) — 좌 (티어 + cross-channel matrix), 우 (Top 작성자) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {phase3 && (
+            <TierDistributionModule
+              phase3={phase3}
+              phase35={phase35}
+              phase37={phase37}
+            />
+          )}
+          {crossChannelMatrix && crossChannelMatrix.length > 0 && (
+            <div className="section-card">
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                ⭐ cross-channel 인플 매트릭스
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-g500)",
+                  marginBottom: 10,
+                }}
+              >
+                같은 인플이 TikTok·Instagram·YouTube 중 어디서 몇 영상 만들었나
+              </div>
+              <CrossChannelMatrix rows={crossChannelMatrix} maxRows={10} />
+            </div>
+          )}
+        </div>
+        <div>
+          <TopAuthorsTable
+            creators={phase2.top_creators}
+            crossChannel={crossChannelMatrix}
+          />
+        </div>
+      </div>
+
+      {/* mockup line 811-837: Shop creator section (TT Shop 활성 시) — 2-col (Top GMV / GMV 분포) */}
+      {(topGmvCreators?.length || shopGmvDistribution) && (
+        <div
+          className="section-card"
+          style={{ borderTop: "2px dashed var(--color-g200)" }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+            🛒 TT Shop Creator GMV (TT Shop 활성 시)
           </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--color-g500)",
-              marginBottom: 10,
-            }}
-          >
-            같은 인플이 TikTok·Instagram·YouTube 중 어디서 몇 영상 만들었나 — 일관된 partnership 풀 시그널
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            {topGmvCreators && topGmvCreators.length > 0 ? (
+              <TopGmvShopCreators creators={topGmvCreators} />
+            ) : <div />}
+            {shopGmvDistribution ? (
+              <ShopCreatorGmvDistribution data={shopGmvDistribution} />
+            ) : <div />}
           </div>
-          <CrossChannelMatrix rows={crossChannelMatrix} maxRows={10} />
         </div>
       )}
 
