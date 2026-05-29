@@ -191,7 +191,7 @@ export function MonthlyTrendChart({
           {(
             [
               { k: "tier" as const, label: "인플 티어 비중", color: "var(--color-ink)" },
-              { k: "videoCount" as const, label: "★ 영상 수 line", color: "var(--color-info)" },
+              { k: "videoCount" as const, label: "★ 영상 수 line", color: "#06b6d4" },
               { k: "ad" as const, label: "광고 비중", color: "var(--color-warn)" },
               { k: "bsr" as const, label: "BSR (매출 대리)", color: "var(--color-accent)" },
             ]
@@ -332,15 +332,45 @@ export function MonthlyTrendChart({
 
           {/* ★ 영상 수 라인 — 절대 영상 수 시각화 (BSR과 시각 상관) */}
           {show.videoCount && videoCountVals.length > 1 && (
-            <polyline
-              points={months
+            <>
+              <polyline
+                points={months
+                  .filter((m) => videoCountByMonth.has(m))
+                  .map((m) => `${xOf(m)},${videoY(videoCountByMonth.get(m)!)}`)
+                  .join(" ")}
+                fill="none"
+                stroke="white"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.95"
+              />
+              <polyline
+                points={months
+                  .filter((m) => videoCountByMonth.has(m))
+                  .map((m) => `${xOf(m)},${videoY(videoCountByMonth.get(m)!)}`)
+                  .join(" ")}
+                fill="none"
+                stroke="#06b6d4"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* 데이터 포인트 dot */}
+              {months
                 .filter((m) => videoCountByMonth.has(m))
-                .map((m) => `${xOf(m)},${videoY(videoCountByMonth.get(m)!)}`)
-                .join(" ")}
-              fill="none"
-              stroke="var(--color-info)"
-              strokeWidth="3"
-            />
+                .map((m) => (
+                  <circle
+                    key={`vc-${m}`}
+                    cx={xOf(m)}
+                    cy={videoY(videoCountByMonth.get(m)!)}
+                    r="4"
+                    fill="#06b6d4"
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                ))}
+            </>
           )}
 
           {/* 호버 가이드라인 */}
