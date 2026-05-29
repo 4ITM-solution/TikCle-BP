@@ -20,6 +20,7 @@ import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
 import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
 import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
+import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
@@ -1795,12 +1796,26 @@ export default async function CaseDetailPage({
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    {/* ★ mockup 1:1 — A 섹션 우선 진짜 mockup CSS로 적용 */}
+                    {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
                     <div className="bp-mockup">
                       <SectionAMockup
                         phase2={ks.phase2}
                         phase3={ks.phase3}
                         phase5={ks.phase5}
+                      />
+                      <SectionBMockup
+                        phase2={ks.phase2}
+                        phase3={ks.phase3}
+                        phase35={ks.phase35}
+                        phase37={ks.phase37}
+                        crossChannelMatrix={crossPlatformMatches.map((m) => ({
+                          name: m.name,
+                          tk: 0,
+                          ig: m.ig_posts,
+                          yt: m.yt_videos,
+                        }))}
+                        topGmvCreators={topGmvCreators}
+                        shopGmvDistribution={shopGmvDistribution}
                       />
                     </div>
                     <MiniDashboard
