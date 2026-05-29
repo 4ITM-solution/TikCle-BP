@@ -455,18 +455,100 @@ export function MiniDashboard({
         </>
       )}
 
-      {/* Section D: 매출 & 랭킹 — mockup sub-tabs */}
+      {/* Section D: 매출 & BSR — mockup line 1025-1283 1:1 */}
       {phase2.sales_summary && (
         <>
           <SectionHeader
             letter="D"
-            title="매출 & 랭킹"
-            subtitle={
-              phase2.sales_summary.period_start && phase2.sales_summary.period_end
-                ? `${phase2.sales_summary.period_start} ~ ${phase2.sales_summary.period_end}`
-                : ""
-            }
+            title="매출 & BSR"
+            subtitle="★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터"
           />
+
+          {/* mockup line 1033: 채널 + 기간 toggle (prototype) */}
+          <div
+            className="section-card"
+            style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}
+          >
+            <div>
+              <span style={{ fontSize: 11, color: "var(--color-g500)", marginRight: 8 }}>
+                채널:
+              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  fontSize: 11,
+                }}
+              >
+                <button
+                  type="button"
+                  style={{
+                    padding: "5px 12px",
+                    background: "var(--color-ink)",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
+                    borderRight: "1px solid var(--color-g200)",
+                  }}
+                >
+                  TT Shop
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  style={{
+                    padding: "5px 12px",
+                    background: "white",
+                    color: "var(--color-g400)",
+                    border: "none",
+                    cursor: "not-allowed",
+                    opacity: 0.5,
+                  }}
+                >
+                  Amazon
+                </button>
+              </div>
+            </div>
+            <div>
+              <span style={{ fontSize: 11, color: "var(--color-g500)", marginRight: 8 }}>
+                기간:
+              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  border: "1px solid var(--color-g200)",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  fontSize: 11,
+                }}
+              >
+                {["7일", "14일", "30일"].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    disabled={p !== "30일"}
+                    style={{
+                      padding: "5px 12px",
+                      background: p === "30일" ? "var(--color-ink)" : "white",
+                      color: p === "30일" ? "white" : "var(--color-g400)",
+                      border: "none",
+                      cursor: p === "30일" ? "default" : "not-allowed",
+                      opacity: p === "30일" ? 1 : 0.5,
+                      borderRight: p !== "30일" ? "1px solid var(--color-g200)" : "none",
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <span style={{ fontSize: 10, color: "var(--color-g400)", marginLeft: "auto" }}>
+              ★ 채널 + 기간은 visual prototype (다음 PR 에서 active)
+            </span>
+          </div>
+
           {/* SKU selector 배너 (sub-tabs 위에) — 선택 state는 D 안 모든 모듈 공유 */}
           {phase2.sku_sales.length > 1 && (
             <SkuSelectorBanner
@@ -475,11 +557,21 @@ export function MiniDashboard({
               onChange={setSelectedSku}
             />
           )}
+
+          {/* mockup line 1097: 히어로 SKU × 메가 viral 영상 — sub-tabs 위 메인 영역 */}
+          <HeroSkuMegaVideos
+            phase2={phase2}
+            phase4bSku={phase4bSku}
+            currency={currency}
+            exchangeRates={exchangeRates}
+            selectedSku={selectedSku}
+          />
+
           <SectionCTabs
             tabs={[
               {
                 id: "sku",
-                label: `SKU 매출 (${phase2.sku_sales.length})`,
+                label: `SKU 매출 표 (${phase2.sku_sales.length})`,
                 content: (
                   <>
                     {!(kalodata?.videosXlsx?.length) && (
@@ -492,13 +584,6 @@ export function MiniDashboard({
                         selectedSku={selectedSku}
                       />
                     )}
-                    <HeroSkuMegaVideos
-                      phase2={phase2}
-                      phase4bSku={phase4bSku}
-                      currency={currency}
-                      exchangeRates={exchangeRates}
-                      selectedSku={selectedSku}
-                    />
                     {phase2.bsr_series.length > 0 && (
                       <BsrTrendChart
                         bsrSeries={phase2.bsr_series}
@@ -507,6 +592,17 @@ export function MiniDashboard({
                       />
                     )}
                   </>
+                ),
+              },
+              {
+                id: "affiliate",
+                label: "★ Affiliate code conversion",
+                content: (
+                  <MissingDataPlaceholder
+                    title="Affiliate code conversion"
+                    reason="Kalodata Affiliate code · TT Shop API 미수집. 광고 영상의 code 추출 + conversion 매핑 별도 파이프 필요."
+                    next="Phase 4d.5 (신규) — code 추출 + GMV 매핑"
+                  />
                 ),
               },
               {
