@@ -1468,81 +1468,8 @@ export default async function CaseDetailPage({
             </div>
           </details>
 
-          {/* BP IG/YT 카테고리 정의자 분석 영역 (옛 main flow) — mockup 에 없음.
-              dev 액션 details 안으로 이동 (사용자 검토 필요시 펼침). */}
-          <details
-            style={{
-              marginTop: 24,
-              padding: "10px 14px",
-              background: "var(--color-g25)",
-              borderRadius: 6,
-              fontSize: 11,
-              color: "var(--color-g600)",
-            }}
-          >
-            <summary style={{ cursor: "pointer", fontWeight: 700 }}>
-              🎯 BP IG/YT 카테고리 정의자 분석 (펼치기 — config 학습용)
-            </summary>
-            <div style={{ marginTop: 12 }}>
-              <IgPrepBox
-                case_id={c.id}
-                hasIgConfig={!!c.ig_config}
-                suggestedConfig={igConfigSuggested}
-                debug={igPrepDebug}
-              />
-              <IgPostlearnBox
-                case_id={c.id}
-                hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
-                learnedConfig={igConfigLearned}
-                diff={igPostlearnDiff}
-              />
-              {phase4cStats && !phase4cStats.skipped_reason && (
-                <IgBrandMonitorSection
-                  phase4c={phase4cStats}
-                  ownedUsernames={igOwnedUsernames}
-                  topAuthors={igTopAuthors}
-                  topPaidVideos={igTopPaidVideos}
-                  sourceDist={igSourceDist}
-                  topHashtags={igTopHashtags}
-                />
-              )}
-              <YtPrepBox
-                case_id={c.id}
-                hasYtConfig={!!c.yt_config}
-                suggestedConfig={ytConfigSuggested}
-                debug={ytPrepDebug}
-              />
-              <YtPostlearnBox
-                case_id={c.id}
-                hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
-                learnedConfig={ytConfigLearned}
-                diff={ytPostlearnDiff}
-              />
-              {phase4dStats && !phase4dStats.skipped_reason && (
-                <YtBrandMonitorSection
-                  phase4d={phase4dStats}
-                  ownedChannels={ytOwnedChannels}
-                  topChannels={ytTopChannels}
-                  topPaidVideos={ytTopPaidVideos}
-                  sourceDist={ytSourceDist}
-                  typeDist={ytTypeDist}
-                />
-              )}
-              {(phase4cStats || phase4dStats) && (
-                <BpUnifiedAnalysisSection
-                  hasIg={!!phase4cStats && !phase4cStats.skipped_reason}
-                  hasYt={!!phase4dStats && !phase4dStats.skipped_reason}
-                  igPool={igPoolSummary}
-                  ytPool={ytPoolSummary}
-                  igTier={igTierDist}
-                  ytTier={ytTierDist}
-                  igMonthly={igMonthlyTrend}
-                  ytMonthly={ytMonthlyTrend}
-                  crossPlatform={crossPlatformMatches}
-                />
-              )}
-            </div>
-          </details>
+          {/* IG/YT prep/postlearn/brand monitor 박스 통째 제거 — mockup 에 없음.
+              IG/YT 데이터는 이미 case_id 기반 phase4c/4d 로 분석되어 mockup A/B/C 안 통합됨. */}
 
           {(() => {
             const ks = c.key_stats as {

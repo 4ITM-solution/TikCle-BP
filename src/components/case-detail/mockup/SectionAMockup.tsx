@@ -374,18 +374,40 @@ export function SectionAMockup({
           const paid = r?.paid ?? 0;
           const adPct = total > 0 ? Math.round((paid / total) * 100) : 0;
           const bsr = bsrByMonth.get(mo);
-          const isPeak = hoverIdx === months.length - 1;
+          // vs prev — 이전 month 와 변화율
+          const prevMo = hoverIdx > 0 ? months[hoverIdx - 1] : null;
+          const prevTotal = prevMo ? (totalByMonth.get(prevMo) ?? 0) : 0;
+          const vsPrevPct = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : 0;
+          const prevBsr = prevMo ? bsrByMonth.get(prevMo) : undefined;
+          const bsrChangePct =
+            bsr !== undefined && prevBsr !== undefined && prevBsr > 0
+              ? Math.round(((bsr - prevBsr) / prevBsr) * 100)
+              : null;
+          const isPeak = hoverIdx === months.length - 1 && total > 0;
+          const isInflection =
+            Math.abs(vsPrevPct) >= 40 || (bsrChangePct !== null && Math.abs(bsrChangePct) >= 50);
           return (
             <div className="trend-tooltip" style={{ right: 30 }}>
-              <div className="tt-h">{mo}{isPeak ? " ★ 변곡점" : ""}</div>
+              <div className="tt-h">
+                {mo}
+                {isPeak ? " ★ 최신" : ""}
+                {isInflection ? " ★ 변곡점" : ""}
+              </div>
               <table>
                 <tbody>
                   <tr>
                     <td><span className="tt-color" style={{ background: "#06b6d4" }} />총 영상</td>
                     <td style={{ textAlign: "right", fontFamily: "monospace", color: "#06b6d4" }}>
-                      <b>{total}개</b>
+                      <b>{total}개{vsPrevPct > 0 ? " ▲" : vsPrevPct < 0 ? " ▼" : ""}</b>
                     </td>
                   </tr>
+                  {prevMo && prevTotal > 0 && (
+                    <tr>
+                      <td colSpan={2} style={{ fontSize: 9, color: "#9ca3af" }}>
+                        vs {prevMo.slice(2)}: {prevTotal} → {vsPrevPct > 0 ? "+" : ""}{vsPrevPct}%
+                      </td>
+                    </tr>
+                  )}
                   {tierTotal > 0 && TIERS.filter((t) => (td![t.key] ?? 0) > 0).map((t) => {
                     const v = td![t.key] ?? 0;
                     const pct = Math.round((v / tierTotal) * 100);
@@ -413,7 +435,20 @@ export function SectionAMockup({
                   <>
                     <br />
                     <span style={{ color: "#ef4444" }}>
-                      <b>BSR #{Math.round(bsr).toLocaleString()}</b>
+                      <b>BSR #{Math.round(bsr).toLocaleString()}{bsrChangePct !== null && bsrChangePct < 0 ? " ▼" : bsrChangePct !== null && bsrChangePct > 0 ? " ▲" : ""}</b>
+                    </span>
+                    {bsrChangePct !== null && (
+                      <span style={{ color: "#9ca3af", fontSize: 9 }}>
+                        {" "}({bsrChangePct > 0 ? "+" : ""}{bsrChangePct}%)
+                      </span>
+                    )}
+                  </>
+                )}
+                {isInflection && vsPrevPct > 0 && bsrChangePct !== null && bsrChangePct < 0 && (
+                  <>
+                    <br />
+                    <span style={{ color: "#10b981", fontSize: 10 }}>
+                      → 영상 수+{vsPrevPct}% & BSR{bsrChangePct}% 동조
                     </span>
                   </>
                 )}
@@ -475,6 +510,30 @@ export function SectionAMockup({
               strokeDasharray="2 2"
             />
           )}
+          {/* 호버 vertical line + 변곡점 marker (마지막 month 또는 hover) */}
+          {(() => {
+            const idx = hoverIdx ?? months.length - 1;
+            if (idx < 0 || months.length === 0) return null;
+            const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
+            const mo = months[idx]!;
+            const total = totalByMonth.get(mo) ?? 0;
+            const vcY = total > 0 ? 222 - (total / maxVids) * 222 : 222;
+            const bsr = bsrByMonth.get(mo);
+            const bsrY = bsr !== undefined && bsrVals.length > 0
+              ? 222 - (1 - (bsr - bsrMin) / bsrRange) * 222
+              : null;
+            return (
+              <>
+                <line x1={x} y1="0" x2={x} y2="222" stroke="#1f2937" strokeWidth="1" strokeDasharray="2" />
+                {show.vc && total > 0 && (
+                  <circle cx={x} cy={vcY} r="5" fill="#06b6d4" stroke="white" strokeWidth="2" />
+                )}
+                {show.bsr && bsrY !== null && (
+                  <circle cx={x} cy={bsrY} r="5" fill="#ef4444" stroke="white" strokeWidth="2" />
+                )}
+              </>
+            );
+          })()}
         </svg>
       </div>
 
