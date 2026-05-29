@@ -196,10 +196,24 @@ export async function finalizePhase35(
       setup.unique_inflids.length > 0
         ? await fetchInfluencers(supabase, setup.unique_inflids)
         : [];
+    // ★ phase3.5 skip 분기에서도 activityByMonth 포함된 phase3 계산 — 안 그러면
+    //   wrap fallback 이 tier_dist_by_month 없는 phase3 만들어서 옛 phase3 결과 덮어씌움.
+    //   (이전: SharkNinja / Anua 등 phase35.skipped_reason="Unknown 0명" 일 때
+    //    A 차트 tier stack 데이터 잃음 — 사용자 캡쳐 1번 문제)
+    const phase3Updated =
+      setup.brand_id && setup.country
+        ? await computePhase3StatsWithMonthly(
+            supabase,
+            setup.brand_id,
+            setup.country,
+            allInfluencers,
+          )
+        : undefined;
     return wrap(
       empty35(setup.skipped_reason),
       allInfluencers,
       existingTopCreators,
+      phase3Updated,
     );
   }
 
