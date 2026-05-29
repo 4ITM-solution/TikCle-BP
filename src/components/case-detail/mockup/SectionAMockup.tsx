@@ -115,13 +115,29 @@ export function SectionAMockup({
     return out;
   }, [phase2.bsr_series]);
 
-  // 월 union (티어 + monthly + bsr 안 12개월)
+  // 월 union — 데이터 있는 month 합집합. 빈 month 도 12개월 grid 위해 채워 일관성.
   const months = useMemo(() => {
     const set = new Set<string>();
     for (const mo of Object.keys(tierByMonth)) set.add(mo);
     for (const r of phase2.monthly_video_counts ?? []) set.add(r.month);
-    return [...set].sort().slice(-12);
-  }, [tierByMonth, phase2.monthly_video_counts]);
+    const ch = phase2.monthly_by_channel;
+    for (const arr of [ch?.ig, ch?.yt]) {
+      if (arr) for (const r of arr) set.add(r.month);
+    }
+    const arr = [...set].sort();
+    if (arr.length === 0) return arr;
+    // 데이터 있는 month 의 마지막 month 기준으로 직전 12개월 grid 만듦 (빈 month 채움)
+    const last = arr[arr.length - 1]!;
+    const [ly, lm] = last.split("-").map(Number);
+    const result: string[] = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const totalMonths = ly! * 12 + (lm! - 1) - i;
+      const yy = Math.floor(totalMonths / 12);
+      const mm = (totalMonths % 12) + 1;
+      result.push(`${yy}-${String(mm).padStart(2, "0")}`);
+    }
+    return result;
+  }, [tierByMonth, phase2.monthly_video_counts, phase2.monthly_by_channel]);
 
   // 월별 영상 수 (해당 mode)
   const totalByMonth = useMemo(() => {

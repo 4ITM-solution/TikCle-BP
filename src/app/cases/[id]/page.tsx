@@ -919,6 +919,33 @@ export default async function CaseDetailPage({
   const caseCurrency = defaultCurrency(c.country);
   const exchangeRates = await fetchExchangeRates();
 
+  // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — SectionCMockup USP detail panel 용
+  const uspSampleVideos = await (async () => {
+    const map: Record<string, Array<{ url: string; caption: string; views: number }>> = {};
+    const ks = (c.key_stats as { phase5?: { usp_keywords?: Array<{ keyword: string }> } });
+    const kws = (ks.phase5?.usp_keywords ?? []).slice(0, 24).map((k) => k.keyword);
+    if (kws.length === 0) return map;
+    for (const kw of kws) {
+      if (!brand_id) continue;
+      const { data } = await supabase
+        .from("contents")
+        .select("url, caption, views")
+        .eq("brand_id", brand_id)
+        .eq("country", c.country)
+        .ilike("caption", `%${kw}%`)
+        .order("views", { ascending: false, nullsFirst: false })
+        .limit(3);
+      if (data && data.length > 0) {
+        map[kw] = data.map((r) => ({
+          url: r.url,
+          caption: r.caption ?? "",
+          views: r.views ?? 0,
+        }));
+      }
+    }
+    return map;
+  })();
+
   // ★ cluster member 채널 breakdown — meta_cluster_id → { tk, ig, yt }
   const clusterChannelBreakdown = await (async () => {
     const map: Record<string, { tk: number; ig: number; yt: number }> = {};
@@ -1441,86 +1468,81 @@ export default async function CaseDetailPage({
             </div>
           </details>
 
-          {/* BP 분석 (IG + YT) 상단 — region scope toggle */}
-          <div
+          {/* BP IG/YT 카테고리 정의자 분석 영역 (옛 main flow) — mockup 에 없음.
+              dev 액션 details 안으로 이동 (사용자 검토 필요시 펼침). */}
+          <details
             style={{
               marginTop: 24,
-              marginBottom: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
+              padding: "10px 14px",
+              background: "var(--color-g25)",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "var(--color-g600)",
             }}
           >
-            <h2 style={{ fontSize: 18, margin: 0 }}>
-              🎯 BP 카테고리 정의자 분석 (IG + YouTube)
-            </h2>
-            <RegionScopeToggle case_id={c.id} currentScope={regionScope} />
-          </div>
-
-          {/* IG Brand Monitoring (Phase 4c) — 카테고리 정의자 BP 분석용.
-              데이터 추가 업로드 토글 밖, ready 케이스의 main flow에 노출. */}
-          <IgPrepBox
-            case_id={c.id}
-            hasIgConfig={!!c.ig_config}
-            suggestedConfig={igConfigSuggested}
-            debug={igPrepDebug}
-          />
-          <IgPostlearnBox
-            case_id={c.id}
-            hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
-            learnedConfig={igConfigLearned}
-            diff={igPostlearnDiff}
-          />
-          {phase4cStats && !phase4cStats.skipped_reason && (
-            <IgBrandMonitorSection
-              phase4c={phase4cStats}
-              ownedUsernames={igOwnedUsernames}
-              topAuthors={igTopAuthors}
-              topPaidVideos={igTopPaidVideos}
-              sourceDist={igSourceDist}
-              topHashtags={igTopHashtags}
-            />
-          )}
-
-          <YtPrepBox
-            case_id={c.id}
-            hasYtConfig={!!c.yt_config}
-            suggestedConfig={ytConfigSuggested}
-            debug={ytPrepDebug}
-          />
-          <YtPostlearnBox
-            case_id={c.id}
-            hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
-            learnedConfig={ytConfigLearned}
-            diff={ytPostlearnDiff}
-          />
-          {phase4dStats && !phase4dStats.skipped_reason && (
-            <YtBrandMonitorSection
-              phase4d={phase4dStats}
-              ownedChannels={ytOwnedChannels}
-              topChannels={ytTopChannels}
-              topPaidVideos={ytTopPaidVideos}
-              sourceDist={ytSourceDist}
-              typeDist={ytTypeDist}
-            />
-          )}
-
-          {/* ⭐ BP 통합 분석 — IG + YT 합쳐서 카테고리 정의자 모델 검증.
-              IG/YT raw 섹션 다음, 모든 시각화/cross-platform 인사이트 여기에 모음. */}
-          {(phase4cStats || phase4dStats) && (
-            <BpUnifiedAnalysisSection
-              hasIg={!!phase4cStats && !phase4cStats.skipped_reason}
-              hasYt={!!phase4dStats && !phase4dStats.skipped_reason}
-              igPool={igPoolSummary}
-              ytPool={ytPoolSummary}
-              igTier={igTierDist}
-              ytTier={ytTierDist}
-              igMonthly={igMonthlyTrend}
-              ytMonthly={ytMonthlyTrend}
-              crossPlatform={crossPlatformMatches}
-            />
-          )}
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+              🎯 BP IG/YT 카테고리 정의자 분석 (펼치기 — config 학습용)
+            </summary>
+            <div style={{ marginTop: 12 }}>
+              <IgPrepBox
+                case_id={c.id}
+                hasIgConfig={!!c.ig_config}
+                suggestedConfig={igConfigSuggested}
+                debug={igPrepDebug}
+              />
+              <IgPostlearnBox
+                case_id={c.id}
+                hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
+                learnedConfig={igConfigLearned}
+                diff={igPostlearnDiff}
+              />
+              {phase4cStats && !phase4cStats.skipped_reason && (
+                <IgBrandMonitorSection
+                  phase4c={phase4cStats}
+                  ownedUsernames={igOwnedUsernames}
+                  topAuthors={igTopAuthors}
+                  topPaidVideos={igTopPaidVideos}
+                  sourceDist={igSourceDist}
+                  topHashtags={igTopHashtags}
+                />
+              )}
+              <YtPrepBox
+                case_id={c.id}
+                hasYtConfig={!!c.yt_config}
+                suggestedConfig={ytConfigSuggested}
+                debug={ytPrepDebug}
+              />
+              <YtPostlearnBox
+                case_id={c.id}
+                hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
+                learnedConfig={ytConfigLearned}
+                diff={ytPostlearnDiff}
+              />
+              {phase4dStats && !phase4dStats.skipped_reason && (
+                <YtBrandMonitorSection
+                  phase4d={phase4dStats}
+                  ownedChannels={ytOwnedChannels}
+                  topChannels={ytTopChannels}
+                  topPaidVideos={ytTopPaidVideos}
+                  sourceDist={ytSourceDist}
+                  typeDist={ytTypeDist}
+                />
+              )}
+              {(phase4cStats || phase4dStats) && (
+                <BpUnifiedAnalysisSection
+                  hasIg={!!phase4cStats && !phase4cStats.skipped_reason}
+                  hasYt={!!phase4dStats && !phase4dStats.skipped_reason}
+                  igPool={igPoolSummary}
+                  ytPool={ytPoolSummary}
+                  igTier={igTierDist}
+                  ytTier={ytTierDist}
+                  igMonthly={igMonthlyTrend}
+                  ytMonthly={ytMonthlyTrend}
+                  crossPlatform={crossPlatformMatches}
+                />
+              )}
+            </div>
+          </details>
 
           {(() => {
             const ks = c.key_stats as {
@@ -1891,12 +1913,14 @@ export default async function CaseDetailPage({
                         phase4bClusters={ks.phase4b_clusters}
                         phase5={ks.phase5}
                         clusterChannelBreakdown={clusterChannelBreakdown}
+                        uspSampleVideos={uspSampleVideos}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup
                           phase2={ks.phase2}
                           phase4bSku={ks.phase4b_sku}
                           phase5={ks.phase5}
+                          caseChannel={c.channel}
                           kalodataVideos={ks.kalodata_videos_xlsx}
                           kalodataLives={ks.kalodata_lives}
                         />

@@ -32,12 +32,15 @@ type Tab = "sku" | "rank" | "matrix" | "affiliate" | "vid" | "live";
 export function SectionDMockup({
   phase2,
   phase4bSku,
+  caseChannel,
   kalodataVideos,
   kalodataLives,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
+  /** case.channel — "amazon" 이면 Amazon active, "tiktok_shop" 이면 TT Shop active */
+  caseChannel?: string;
   kalodataVideos?: KalodataVideoXlsxRow[];
   kalodataLives?: KalodataLiveRow[];
 }) {
@@ -84,16 +87,24 @@ export function SectionDMockup({
         <span className="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
       </div>
 
-      {/* 채널 + 기간 toggle (prototype) */}
+      {/* 채널 + 기간 toggle (prototype) — case.channel 에 따라 active 채널 결정 */}
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
         <div>
           <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널:</span>
           <div className="ch-toggle">
-            <button className="active">
-              TT Shop {totalRev > 0 ? `(${formatUsdShort(totalRev)})` : ""}
+            <button
+              className={caseChannel !== "amazon" ? "active" : ""}
+              disabled={caseChannel === "amazon"}
+              style={caseChannel === "amazon" ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            >
+              TT Shop {caseChannel !== "amazon" && totalRev > 0 ? `(${formatUsdShort(totalRev)})` : ""}
             </button>
-            <button style={{ opacity: 0.4, cursor: "not-allowed" }} disabled>
-              Amazon
+            <button
+              className={caseChannel === "amazon" ? "active" : ""}
+              disabled={caseChannel !== "amazon"}
+              style={caseChannel !== "amazon" ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            >
+              Amazon {caseChannel === "amazon" && totalRev > 0 ? `(${formatUsdShort(totalRev)})` : ""}
             </button>
           </div>
         </div>

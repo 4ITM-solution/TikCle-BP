@@ -25,12 +25,15 @@ export function SectionCMockup({
   phase4bClusters,
   phase5,
   clusterChannelBreakdown,
+  uspSampleVideos,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
   phase5?: Phase5Stats;
   /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (page.tsx 에서 server-side SQL) */
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
+  /** USP 키워드 → top 3 매칭 영상 (caption ilike) — page.tsx SQL */
+  uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -179,7 +182,63 @@ export function SectionCMockup({
               </div>
               <div className="usp-detail">
                 {selectedKw ? (
-                  <div className="ud-h">"{selectedKw}"</div>
+                  (() => {
+                    const vids = uspSampleVideos?.[selectedKw] ?? [];
+                    const kw = uspKws.find((k) => k.keyword === selectedKw);
+                    return (
+                      <>
+                        <div className="ud-h">★ "{selectedKw}" 등장 영상 {kw?.count ?? 0}건</div>
+                        {vids.length === 0 ? (
+                          <div style={{ fontSize: 10, color: "#9ca3af", padding: 8 }}>
+                            매칭 영상 미수집
+                          </div>
+                        ) : (
+                          vids.map((v, i) => (
+                            <a
+                              key={i}
+                              href={v.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ud-vid"
+                              style={{
+                                textDecoration: "none",
+                                color: "inherit",
+                                display: "flex",
+                                gap: 8,
+                                alignItems: "center",
+                                padding: 6,
+                                borderTop: "1px solid #f3f4f6",
+                              }}
+                            >
+                              <div className="ud-vid-thumb" />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                  title={v.caption}
+                                >
+                                  {v.caption.length > 36 ? `${v.caption.slice(0, 36)}…` : v.caption}
+                                </div>
+                                <div style={{ fontSize: 10, color: "#6b7280" }}>
+                                  {v.views >= 1_000_000
+                                    ? `${(v.views / 1_000_000).toFixed(1)}M`
+                                    : v.views >= 1_000
+                                      ? `${Math.round(v.views / 1_000)}K`
+                                      : v.views.toLocaleString()}{" "}
+                                  views
+                                </div>
+                              </div>
+                            </a>
+                          ))
+                        )}
+                      </>
+                    );
+                  })()
                 ) : (
                   <div style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", padding: 20 }}>
                     ← 좌측에서 키워드 클릭

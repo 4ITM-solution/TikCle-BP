@@ -49,6 +49,22 @@ export function SectionEMockup({
 
   const ads = metaAdsList ?? phase4a.ads_preview ?? [];
 
+  // 데이터 자체 없으면 (brand_meta_pages 비어있어 분석 skip 등) 빈 mockup 대신 짧은 "—"
+  if (phase4a.total_ads === 0) {
+    return (
+      <div className="section" id="sec-e">
+        <div className="section-h">
+          <span className="letter">E</span>
+          <span className="title">Meta 광고 + Partnership</span>
+          <span className="sub">★ 필터 + 더보기 + partnership cross-channel</span>
+        </div>
+        <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+          —{phase4a.skipped_reason ? ` (${phase4a.skipped_reason})` : ""}
+        </div>
+      </div>
+    );
+  }
+
   // ── 필터 적용 ──
   const filteredAds = useMemo(() => {
     let r = ads;
