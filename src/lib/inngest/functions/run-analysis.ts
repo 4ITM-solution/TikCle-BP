@@ -48,6 +48,7 @@ import type {
   Phase37Stats,
   Phase3Stats,
   Phase4aStats,
+  Phase4bClusterStats,
   TopCreator,
 } from "@/lib/inngest/types";
 
@@ -868,17 +869,39 @@ export const runAnalysis = inngest.createFunction(
         return sanitizeDeep(existing.phase4b_clusters);
       }
       logger.info("[Phase 4b.4] 3-pass clustering", { case_id });
-      const stats = await runPhase4bClusters(supabase, case_id, phase4bSample);
-      logger.info("[Phase 4b.4] done", {
-        input: stats.total_input_videos,
-        candidates: stats.pass1_candidates,
-        validated: stats.pass2_validated,
-        meta: stats.pass3_meta,
-        memberships: stats.total_memberships,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
-      });
-      return sanitizeDeep(stats);
+      try {
+        const stats = await runPhase4bClusters(supabase, case_id, phase4bSample);
+        logger.info("[Phase 4b.4] done", {
+          input: stats.total_input_videos,
+          candidates: stats.pass1_candidates,
+          validated: stats.pass2_validated,
+          meta: stats.pass3_meta,
+          memberships: stats.total_memberships,
+          cost: stats.cost_actual_usd,
+          skipped: stats.skipped_reason,
+        });
+        return sanitizeDeep(stats);
+      } catch (e) {
+        // 명확한 에러 메시지 + last_error 박기 (이전: Internal Server Error 만 보임)
+        const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}`.slice(0, 800) : String(e);
+        logger.error("[Phase 4b.4] FAILED", { case_id, msg });
+        // 빈 결과 + skipped_reason 으로 박음 (분석 흐름은 계속)
+        const empty: Phase4bClusterStats = {
+          total_input_videos: 0,
+          pass1_candidates: 0,
+          pass2_validated: 0,
+          pass3_meta: 0,
+          total_memberships: 0,
+          cost_actual_usd: 0,
+          tokens_input: 0,
+          tokens_output: 0,
+          tokens_cache_read: 0,
+          meta_clusters: [],
+          skipped_reason: `에러: ${msg}`,
+          computed_at: new Date().toISOString(),
+        };
+        return sanitizeDeep(empty) as Phase4bClusterStats;
+      }
     });
 
     const phase4bClustersNew =
