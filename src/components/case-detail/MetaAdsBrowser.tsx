@@ -79,11 +79,15 @@ export function MetaAdsBrowser({
   const [selectedLanding, setSelectedLanding] = useState<"all" | LandingType>(
     "all",
   );
+  const [selectedFormat, setSelectedFormat] = useState<string>("all");
+  const [searchQ, setSearchQ] = useState<string>("");
   const [activeOnly, setActiveOnly] = useState(false);
   const [brandOfficialOnly, setBrandOfficialOnly] = useState(true);
+  const [partnershipOnly, setPartnershipOnly] = useState(false);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const filtered = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
     return ads.filter((a) => {
       if (selectedMonth !== "all") {
         if (!a.start_date || a.start_date.slice(0, 7) !== selectedMonth) {
@@ -92,9 +96,17 @@ export function MetaAdsBrowser({
       }
       if (activeOnly && !a.is_active) return false;
       if (brandOfficialOnly && !a.is_brand_official) return false;
+      if (partnershipOnly && !a.partner_page_name) return false;
       if (selectedLanding !== "all") {
         const landing = adLandings.get(a.id) ?? "none";
         if (landing !== selectedLanding) return false;
+      }
+      if (selectedFormat !== "all") {
+        if ((a.format ?? "").toLowerCase() !== selectedFormat) return false;
+      }
+      if (q) {
+        const hay = `${a.page_name ?? ""} ${a.body_text ?? ""} ${a.partner_page_name ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
@@ -103,7 +115,10 @@ export function MetaAdsBrowser({
     selectedMonth,
     activeOnly,
     brandOfficialOnly,
+    partnershipOnly,
     selectedLanding,
+    selectedFormat,
+    searchQ,
     adLandings,
   ]);
 
@@ -161,6 +176,67 @@ export function MetaAdsBrowser({
             flexWrap: "wrap",
           }}
         >
+          <input
+            type="search"
+            placeholder="🔍 검색 (page · body · partner)"
+            value={searchQ}
+            onChange={(e) => {
+              setSearchQ(e.target.value);
+              setPageSize(PAGE_SIZE);
+            }}
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              background: "white",
+              minWidth: 180,
+            }}
+          />
+          <select
+            value={selectedFormat}
+            onChange={(e) => {
+              setSelectedFormat(e.target.value);
+              setPageSize(PAGE_SIZE);
+            }}
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              padding: "4px 8px",
+              border: "1px solid var(--color-g200)",
+              borderRadius: 4,
+              background: "white",
+              color: "var(--color-ink)",
+              cursor: "pointer",
+            }}
+          >
+            <option value="all">전체 format</option>
+            <option value="video">VIDEO</option>
+            <option value="image">IMAGE</option>
+            <option value="carousel">CAROUSEL</option>
+            <option value="dco">DCO</option>
+          </select>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: "var(--color-g600)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={partnershipOnly}
+              onChange={(e) => {
+                setPartnershipOnly(e.target.checked);
+                setPageSize(PAGE_SIZE);
+              }}
+              style={{ cursor: "pointer" }}
+            />
+            partnership만
+          </label>
           <select
             value={selectedMonth}
             onChange={(e) => {

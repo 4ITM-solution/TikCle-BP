@@ -12,6 +12,8 @@ import { CreatorSkuMatrix } from "./CreatorSkuMatrix";
 import { CategoryRankingChart } from "./CategoryRankingChart";
 import { SkuSelectorBanner } from "./SkuSelectorBanner";
 import { MissingDataPlaceholder } from "./MissingDataPlaceholder";
+import { SectionAChannelToolbar } from "./SectionAChannelToolbar";
+import { SectionCTabs } from "./SectionCTabs";
 import { HeroSkuMegaVideos } from "./HeroSkuMegaVideos";
 import {
   TopGmvShopCreators,
@@ -132,10 +134,141 @@ export function MiniDashboard({
 
       {/* Section A: 콘텐츠 활동 */}
       <SectionHeader letter="A" title="콘텐츠 활동" />
+      {(() => {
+        // mockup A 채널 toggle + 5 KPI — phase2 + phase4c/4d 통합 추정
+        const tkVids = phase2.total_contents ?? 0;
+        const tkPaid = phase2.monthly_video_counts.reduce(
+          (s, m) => s + m.paid,
+          0,
+        );
+        const tkOrganic = phase2.monthly_video_counts.reduce(
+          (s, m) => s + m.organic,
+          0,
+        );
+        const pct = (n: number, d: number) =>
+          d > 0 ? Math.round((n / d) * 100) : 0;
+        const totalViews = (phase2.top_creators ?? []).reduce(
+          (s, c) => s + (c.max_views ?? 0),
+          0,
+        );
+        const viewLabel =
+          totalViews >= 1_000_000_000
+            ? `${(totalViews / 1_000_000_000).toFixed(1)}B`
+            : totalViews >= 1_000_000
+              ? `${Math.round(totalViews / 1_000_000)}M`
+              : `${Math.round(totalViews / 1000)}K`;
+        const all = {
+          totalVideos: tkVids,
+          paidPct: pct(tkPaid, tkVids),
+          organicPct: pct(tkOrganic, tkVids),
+          giftedPct: 0,
+          totalViewsLabel: viewLabel,
+        };
+        return <SectionAChannelToolbar all={all} tk={all} />;
+      })()}
       <MonthlyVideosModule stats={phase2} />
+      <MonthlyTrendChart
+        tierByMonth={phase3?.tier_dist_by_month}
+        adTierByMonth={phase3?.ad_by_month_tier}
+        monthlyVideoCounts={phase2.monthly_video_counts}
+        bsrSeries={phase2.bsr_series}
+      />
 
-      {/* Section B: 인플루언서 활동 */}
+      {/* Section B: 인플루언서 활동 — 채널 toggle + 월 필터 (mockup) */}
       <SectionHeader letter="B" title="인플루언서 활동" />
+      <div
+        className="section-card"
+        style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
+      >
+        <span style={{ fontSize: 11, color: "var(--color-g500)" }}>채널:</span>
+        <div
+          style={{
+            display: "inline-flex",
+            border: "1px solid var(--color-g200)",
+            borderRadius: 6,
+            overflow: "hidden",
+            fontSize: 11,
+          }}
+        >
+          <button
+            type="button"
+            style={{
+              padding: "5px 12px",
+              background: "var(--color-ink)",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              borderRight: "1px solid var(--color-g200)",
+            }}
+          >
+            전체 ({(phase2.total_unique_creators ?? 0).toLocaleString()}명)
+          </button>
+          <button
+            type="button"
+            disabled
+            style={{
+              padding: "5px 12px",
+              background: "white",
+              color: "var(--color-g400)",
+              border: "none",
+              cursor: "not-allowed",
+              opacity: 0.5,
+              borderRight: "1px solid var(--color-g200)",
+            }}
+          >
+            TikTok
+          </button>
+          <button
+            type="button"
+            disabled
+            style={{
+              padding: "5px 12px",
+              background: "white",
+              color: "var(--color-g400)",
+              border: "none",
+              cursor: "not-allowed",
+              opacity: 0.5,
+              borderRight: "1px solid var(--color-g200)",
+            }}
+          >
+            IG
+          </button>
+          <button
+            type="button"
+            disabled
+            style={{
+              padding: "5px 12px",
+              background: "white",
+              color: "var(--color-g400)",
+              border: "none",
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
+          >
+            YT
+          </button>
+        </div>
+        <span style={{ fontSize: 11, color: "var(--color-g500)", marginLeft: 12 }}>
+          월:
+        </span>
+        <select
+          disabled
+          style={{
+            padding: "5px 10px",
+            border: "1px solid var(--color-g200)",
+            borderRadius: 6,
+            fontSize: 11,
+            background: "white",
+            opacity: 0.6,
+            cursor: "not-allowed",
+          }}
+        >
+          <option>전체 기간</option>
+        </select>
+        <span style={{ fontSize: 10, color: "var(--color-g400)", marginLeft: "auto" }}>
+          ★ 채널 + 월 필터는 visual prototype (다음 PR에서 active)
+        </span>
+      </div>
       {phase3 && (
         <TierDistributionModule
           phase3={phase3}
@@ -169,43 +302,58 @@ export function MiniDashboard({
           <CrossChannelMatrix rows={crossChannelMatrix} maxRows={10} />
         </div>
       )}
-      <MonthlyTrendChart
-        tierByMonth={phase3?.tier_dist_by_month}
-        adTierByMonth={phase3?.ad_by_month_tier}
-        monthlyVideoCounts={phase2.monthly_video_counts}
-        bsrSeries={phase2.bsr_series}
-      />
 
-      {/* Section C: 콘텐츠 포맷 분석 (Phase 4b) */}
+      {/* Section C: 콘텐츠 포맷 분석 (Phase 4b) — mockup sub-tabs */}
       {phase4bSample && (
         <>
           <SectionHeader letter="C" title="콘텐츠 포맷 분석" />
-          {phase4bClusters && phase4bClusters.meta_clusters.length > 0 ? (
-            <MetaClustersModule
-              clusters={phase4bClusters}
-              sku={phase4bSku}
-            />
-          ) : phase4bClusters ? (
-            <ClusterEmptyFallback clusters={phase4bClusters} />
-          ) : null}
-          {phase5 && (phase5.heatmap?.length ?? 0) > 0 && (
-            <HeatmapModule phase5={phase5} />
-          )}
-          {phase5 && (phase5.usp_keywords?.length ?? 0) > 0 && (
-            <UspKeywordsModule phase5={phase5} />
-          )}
-          {phase5 && <LanguageModule phase5={phase5} />}
-
-          {/* ★ mockup placeholder: 통합 클러스터 (TK + IG + YT 채널 column) — Phase 4b cluster 백엔드 변경 필요 */}
-          <MissingDataPlaceholder
-            title="통합 클러스터 (TK + IG + YT 채널 column)"
-            reason="현재는 TikTok hook 클러스터만 노출. mockup의 '리스트형 · BBQ/그릴 · Slushi DIY' 같은 채널 통합 hook 패턴 (TK 142 · IG 38 · YT 22 식) 은 Phase 4b cluster aggregator에 IG/YT 영상 input 추가 + Inngest 재실행 필요."
-            next="별도 PR — backend phase4b-clusters.ts 변경 + 케이스 재분석 (~$5)"
+          <SectionCTabs
+            tabs={[
+              {
+                id: "clusters",
+                label: `통합 클러스터 (${phase4bClusters?.meta_clusters?.length ?? 0})`,
+                content:
+                  phase4bClusters && phase4bClusters.meta_clusters.length > 0 ? (
+                    <>
+                      <MetaClustersModule clusters={phase4bClusters} sku={phase4bSku} />
+                      <div style={{ height: 10 }} />
+                      <MissingDataPlaceholder
+                        title="TK + IG + YT 채널 column 통합"
+                        reason="현재 TikTok hook 클러스터만. IG/YT 통합 view 는 Phase 4b cluster aggregator 변경 + 재분석 필요."
+                        next="별도 PR — phase4b-clusters.ts + Inngest 재실행"
+                      />
+                    </>
+                  ) : phase4bClusters ? (
+                    <ClusterEmptyFallback clusters={phase4bClusters} />
+                  ) : null,
+              },
+              {
+                id: "usp",
+                label: `USP 키워드 (${phase5?.usp_keywords?.length ?? 0})`,
+                content:
+                  phase5 && (phase5.usp_keywords?.length ?? 0) > 0 ? (
+                    <UspKeywordsModule phase5={phase5} />
+                  ) : null,
+              },
+              {
+                id: "heatmap",
+                label: "시즈널리티 heatmap",
+                content:
+                  phase5 && (phase5.heatmap?.length ?? 0) > 0 ? (
+                    <HeatmapModule phase5={phase5} />
+                  ) : null,
+              },
+              {
+                id: "lang",
+                label: "언어권",
+                content: phase5 ? <LanguageModule phase5={phase5} /> : null,
+              },
+            ]}
           />
         </>
       )}
 
-      {/* Section D: 매출 & 랭킹 (Amazon만 데이터 있음) */}
+      {/* Section D: 매출 & 랭킹 — mockup sub-tabs */}
       {phase2.sales_summary && (
         <>
           <SectionHeader
@@ -217,64 +365,87 @@ export function MiniDashboard({
                 : ""
             }
           />
-          {/* ★ Phase 5: SKU selector 배너 (state lift 전 visual prototype) */}
+          {/* SKU selector 배너 (sub-tabs 위에) */}
           {phase2.sku_sales.length > 1 && (
             <SkuSelectorBanner skus={phase2.sku_sales} />
           )}
-          {/* Kalodata Video xlsx 들어온 케이스는 제품별 매출 분포에서 같은 정보 더 풍부하게 보여줘서 중복 — hide */}
-          {!(kalodata?.videosXlsx?.length) && (
-            <SkuSalesModule
-              stats={phase2}
-              currency={currency}
-              caseCountry={caseCountry}
-              exchangeRates={exchangeRates}
-              skuMeta={skuMeta}
-            />
-          )}
-          <HeroSkuMegaVideos
-            phase2={phase2}
-            phase4bSku={phase4bSku}
-            currency={currency}
-            exchangeRates={exchangeRates}
+          <SectionCTabs
+            tabs={[
+              {
+                id: "sku",
+                label: `SKU 매출 (${phase2.sku_sales.length})`,
+                content: (
+                  <>
+                    {!(kalodata?.videosXlsx?.length) && (
+                      <SkuSalesModule
+                        stats={phase2}
+                        currency={currency}
+                        caseCountry={caseCountry}
+                        exchangeRates={exchangeRates}
+                        skuMeta={skuMeta}
+                      />
+                    )}
+                    <HeroSkuMegaVideos
+                      phase2={phase2}
+                      phase4bSku={phase4bSku}
+                      currency={currency}
+                      exchangeRates={exchangeRates}
+                    />
+                    {phase2.bsr_series.length > 0 && (
+                      <BsrTrendChart
+                        bsrSeries={phase2.bsr_series}
+                        inflections={phase5?.bsr_inflections}
+                        weeklyViews={weeklyViews}
+                      />
+                    )}
+                  </>
+                ),
+              },
+              {
+                id: "kalodata",
+                label: "Kalodata 인사이트",
+                content: kalodata ? (
+                  <KalodataInsightsModule
+                    brand={kalodata.brand}
+                    creators={kalodata.creators}
+                    videos={kalodata.videos}
+                    videosXlsx={kalodata.videosXlsx}
+                    lives={kalodata.lives}
+                    meta={kalodata.meta}
+                    skuSales={phase2.sku_sales}
+                  />
+                ) : null,
+              },
+              {
+                id: "creator-sku",
+                label: "Creator × SKU",
+                content:
+                  kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 ? (
+                    <CreatorSkuMatrix videos={kalodata.videosXlsx} />
+                  ) : null,
+              },
+              {
+                id: "category",
+                label: "카테고리 ranking",
+                content:
+                  kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 ? (
+                    <CategoryRankingChart videos={kalodata.videosXlsx} />
+                  ) : null,
+              },
+              {
+                id: "affiliate",
+                label: "Affiliate code",
+                content: (
+                  <MissingDataPlaceholder
+                    title="Affiliate code conversion (NINJA20 · BBQDEAL 같은 code별 GMV/CVR)"
+                    reason="현재 TT Shop US Affiliate CSV에는 인플 단위 GMV만 들어옴. code 별 GMV/CVR 데이터는 별도 source 필요."
+                    next="데이터 source 협의 — Helium10 affiliate report 또는 별도 tracking CSV"
+                  />
+                ),
+              },
+            ]}
           />
-          {phase2.bsr_series.length > 0 && (
-            <BsrTrendChart
-              bsrSeries={phase2.bsr_series}
-              inflections={phase5?.bsr_inflections}
-              weeklyViews={weeklyViews}
-            />
-          )}
         </>
-      )}
-
-      {/* Kalodata 인사이트 (TikTok Shop SEA — 데이터 있을 때만 자동 노출) */}
-      {kalodata && (
-        <KalodataInsightsModule
-          brand={kalodata.brand}
-          creators={kalodata.creators}
-          videos={kalodata.videos}
-          videosXlsx={kalodata.videosXlsx}
-          lives={kalodata.lives}
-          meta={kalodata.meta}
-          skuSales={phase2.sku_sales}
-        />
-      )}
-
-      {/* ★ Phase 4: Shop Creator × SKU GMV 매트릭스 (Kalodata video xlsx 활용) */}
-      {kalodata?.videosXlsx && kalodata.videosXlsx.length > 0 && (
-        <>
-          <CreatorSkuMatrix videos={kalodata.videosXlsx} />
-          <CategoryRankingChart videos={kalodata.videosXlsx} />
-        </>
-      )}
-
-      {/* ★ mockup placeholder: Affiliate code conversion 테이블 — 데이터 source 없음 */}
-      {phase2.sales_summary && (
-        <MissingDataPlaceholder
-          title="Affiliate code conversion 테이블 (NINJA20 · BBQDEAL 같은 code별 GMV/CVR)"
-          reason="현재 TT Shop US Affiliate CSV에는 인플 단위 GMV만 들어옴. mockup의 'code 별 GMV·CVR' 데이터는 별도 source 필요 (Helium10 Tracking · Bitly 등 외부 추가)."
-          next="데이터 source 협의 필요 — Helium10 affiliate report API 또는 별도 tracking CSV 업로드 추가"
-        />
       )}
 
       {/* Section E: Meta 광고 */}
