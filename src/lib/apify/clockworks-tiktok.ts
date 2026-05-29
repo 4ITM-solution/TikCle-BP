@@ -103,7 +103,13 @@ export async function fetchTikTokVideos(opts: {
       status === "ABORTED" ||
       status === "TIMED-OUT"
     ) {
-      throw new Error(`Apify clockworks: actor run ${status}`);
+      // 외부 의존성 실패 — throw 대신 skipped_reason 반환해서 분석 흐름 continue.
+      // (이전: throw → step.run 실패 → cluster step 까지 도달 안 함)
+      return {
+        items: [],
+        cost_estimate_usd: 0,
+        skipped_reason: `Apify clockworks: actor run ${status}`,
+      };
     }
   }
 
