@@ -24,7 +24,80 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-27 (5/27 추가 변화. 케이스 비교 페이지 rule-based fact 카드 + Phase 1.5 only 트리거 + TT Shop US 슬롯 draft 노출 + product 드롭다운 검색·매출 라벨)
+> **갱신 시점**: 2026-05-28 (Sprint 1~3: IG + YouTube 브랜드 모니터링 + region_scope + 인플 풀 시각화 완성. Samsung 카테고리 정의자 BP 분석용)
+
+### 2026-05-28 박힌 변화 요약 — Sprint 1~3 IG/YT BP
+
+**배경**: Samsung 제안서 4개 BP (SharkNinja/Dyson/Medicube/Poppi) 분석용 — TikTok-only 시스템의 가장 큰 gap이었던 셀럽/메가 인플 풀을 IG/YT에서 잡음.
+
+**A. Phase 4c — IG Brand Monitoring (migration 012, 013)**
+- 4-소스 통합: `apify/instagram-hashtag-scraper` + `apify/instagram-post-scraper` + (search) `apify/instagram-scraper`
+- 후처리: dedup by ig_id → brand regex 매칭 → paid 시그널 추출 (caption 텍스트 매칭, IG는 paid partnership 라벨 API 미노출)
+- 정규화 테이블: `ig_posts` (post/reel 단위), `ig_authors` (작성자 unique), `ig_runs` (Apify run 추적)
+- cases.ig_config jsonb (7-필드): owned_usernames/brand_hashtags/brand_regex/author_seeds/celeb_handles/paid_keywords/use_reels_type
+- SharkNinja 검증: 2,152 unique posts / 763 authors / paid 420건 (19.5%) / **#NinjaPartner 100% paid + Beckham 자동 발견**
+- Aggregator: [src/lib/inngest/aggregators/phase4c-ig-monitor.ts](src/lib/inngest/aggregators/phase4c-ig-monitor.ts)
+
+**B. Phase 4d — YouTube Brand Monitoring (migration 014)**
+- 2-소스: `streamers/youtube-scraper` × searchQueries + × startUrls (channel deep dive)
+- Shorts vs long-form 자동 분리 (maxResults + maxResultsShorts), monetizationStatus 라벨 (IG보다 정확)
+- 정규화: `yt_videos` (type: video/short/stream), `yt_channels` (subscriber_count 정확)
+- cases.yt_config jsonb (owned_channels/brand_keywords/regex/author_seeds/celeb_handles/paid_keywords/max_videos/max_shorts)
+- Aggregator: [phase4d-yt-monitor.ts](src/lib/inngest/aggregators/phase4d-yt-monitor.ts) — channel batch 5개씩 (timeout 회피)
+
+**C. 자동화 2-pass (prep + postlearn)**
+- **Phase 4c-prep / 4d-prep**: seed username 1개만 박으면 시스템이 hashtag 빈도 / mention 빈도 / brand regex 자동 발굴 → 추천 ig_config / yt_config
+  - 사용자 부담: 30분 데스크리서치 → 1분 클릭
+  - 결과는 `cases.options.{ig,yt}_config_suggested`에 박힘. UI에서 Accept → cases.{ig,yt}_config commit
+- **Phase 4c-postlearn / 4d-postlearn**: 1차 phase4c/4d 결과에서 max_likes top 30 → author_seeds 자동, paid + 1M views → celeb_handles 자동, paid % 80%+ hashtag → brand_hashtags + paid_keywords 자동
+  - SharkNinja 검증: author_seeds 10 → 37 (+27 자동), celebs 5 → 41 (+36 자동, justinflom 13.7M views 등)
+- Server actions: [ig-prep-actions.ts](src/app/cases/[id]/ig-prep-actions.ts), [yt-prep-actions.ts](src/app/cases/[id]/yt-prep-actions.ts)
+- UI: IgPrepBox / IgPostlearnBox / YtPrepBox / YtPostlearnBox
+
+**D. UI 섹션 — IgBrandMonitorSection / YtBrandMonitorSection**
+- 4-metric KPI: 자발 게시 배수 / Owned 비중 / Top viral 도달 / Paid 인플 풀 (또는 Shorts 비중 for YT)
+- 인플 풀 summary 6 stats (총/paid/owned/repeat/one-off/Top5 도미넌스)
+- 티어 분포 막대 (IG max_likes proxy / YT subscriber 정확)
+- 월별 트렌드 차트 (영상 수 + paid 비율 overlay)
+- Source 분포 / Top hashtag (paid % desc) / Top authors 25명 / Top paid videos 12개 그리드
+- 헬퍼: [bp-analytics.ts](src/lib/case-detail/bp-analytics.ts) — tierDistributionIg/Yt, monthlyTrend, poolSummary
+
+**E. region_scope 옵션 (case당)**
+- IG/YT는 글로벌 풀 수집 (액터에 country filter 없음). 일부 케이스는 US 시장만 필요.
+- `cases.options.region_scope`: `"global"` (default) | `"us-only"`
+- US-only 휴리스틱 필터 ([region-filter.ts](src/lib/case-detail/region-filter.ts)):
+  - caption/title non-Latin script 50%+ → 제외 (한국/일본/중국/아랍/태국 등)
+  - owner/channel name에 country suffix → 제외 (uk/de/fr/kr/nordics/bnl 등)
+- UI: RegionScopeToggle (case 페이지 BP 섹션 상단)
+- 한계: 영국/호주/캐나다 영어권은 US와 구분 불가. "us-only" = "글로벌 풀 - 명백한 non-US" 정의
+
+**F. /cases/new에 BP 옵션 통합**
+- 접이식 "🎯 BP IG/YouTube 분석 추가 (옵션)" 박스 추가
+- IG seed + YT seed 중 하나라도 박히면 → status='ready' 자동 (매출 데이터 없어도 OK)
+- 둘 다 비어있으면 → 기존 status='draft' 흐름
+- options에 region_scope 같이 박힘
+- 별도 /cases/new-bp 페이지 X — 기존 흐름에 통합 (사용자 피드백 반영)
+
+**G. case 페이지 분기 fix**
+- `c.status === "ready" && c.key_stats ?` → `c.status === "ready" ?` 만으로 (key_stats null인 BP-only 케이스도 main flow 노출)
+- ig_config / yt_config 박힌 BP-only 케이스에선 "⚠ phase2 없어요" → "ℹ BP 분석 전용 케이스" 안내로 분기
+- IG/YT 박스를 데이터 추가 업로드 토글 밖으로 이동 (페이지 메인 영역 노출)
+- PhaseProgress 단독 phase 재실행 시 `skipAutoForce: true` 옵션 (정상 skip phase까지 force돼서 clockworks fail되는 부작용 차단)
+
+**H. 함정 fix 누적** (자세한 건 ../bp_bugs.md 54~63번 참고)
+- Migration 012 RLS 정책 누락 (013에서 fix)
+- Vercel ICU 한계로 `toLocaleString("ko-KR")` throw — UTC YYYY-MM-DD HH:mm 포맷으로 교체
+- post-scraper input 39명 timeout — 20명 batch (IG) / 5명 batch (YT)
+- IG fetch 블록 try/catch wrap (silent fallback)
+
+**비용 (4개 BP 모두 풀 분석 시)**:
+- IG: $6 / case (hashtag 8 × 300 + post 12 × 50 = $5.45 + 후속 postlearn $1)
+- YT: $2.5 / case (search 60 + channel 12 × 60 = $1.7 + postlearn $1)
+- 합 ~$8.5 / case × 4 BP = **$34** Samsung 슬라이드용 evidence 완성
+
+---
+
+### 2026-05-27 박힌 변화 요약
 
 ### 2026-05-27 박힌 변화 요약
 
