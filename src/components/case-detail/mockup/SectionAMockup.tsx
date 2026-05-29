@@ -55,13 +55,28 @@ export function SectionAMockup({
   const ytVids = phase2.yt_total_videos ?? 0;
   const allVids = tkVids + igVids + ytVids;
 
-  // 채널 mode에 맞는 monthly (paid/organic) 추출
+  // 채널 mode에 맞는 monthly (paid/organic) 추출.
+  // "all" = TK + IG + YT 합산 (각 월별 paid/organic/total).
   const monthlyForMode = useMemo<MonthlyVideoCount[]>(() => {
-    if (channelMode === "all") return phase2.monthly_video_counts;
     const ch = phase2.monthly_by_channel;
-    if (ch && ch[channelMode]) return ch[channelMode] ?? [];
-    if (channelMode === "tk") return phase2.monthly_video_counts;
-    return [];
+    if (channelMode === "tk") return ch?.tk ?? phase2.monthly_video_counts;
+    if (channelMode === "ig") return ch?.ig ?? [];
+    if (channelMode === "yt") return ch?.yt ?? [];
+    // all = 합산
+    const tkArr = ch?.tk ?? phase2.monthly_video_counts;
+    const igArr = ch?.ig ?? [];
+    const ytArr = ch?.yt ?? [];
+    const merged = new Map<string, MonthlyVideoCount>();
+    for (const arr of [tkArr, igArr, ytArr]) {
+      for (const r of arr) {
+        const cur = merged.get(r.month) ?? { month: r.month, paid: 0, organic: 0, total: 0 };
+        cur.paid += r.paid;
+        cur.organic += r.organic;
+        cur.total += r.total;
+        merged.set(r.month, cur);
+      }
+    }
+    return [...merged.values()].sort((a, b) => (a.month < b.month ? -1 : 1));
   }, [channelMode, phase2]);
 
   const totalPaid = monthlyForMode.reduce((s, m) => s + m.paid, 0);
@@ -261,7 +276,11 @@ export function SectionAMockup({
             const heightPct = barMode === "abs" ? (total / maxVids) * 100 : 100;
             const td = tierByMonth[mo];
             const tierTotal = td ? TIERS.reduce((s, t) => s + (td[t.key] ?? 0), 0) : 0;
+            const hasTierData = tierTotal > 0;
             const isPeak = i === months.length - 1; // ★ 마지막 달 강조
+            const r = monthlyForMode.find((x) => x.month === mo);
+            const paid = r?.paid ?? 0;
+            const organic = r?.organic ?? 0;
             return (
               <div
                 key={mo}
@@ -274,8 +293,9 @@ export function SectionAMockup({
                 onMouseLeave={() => setHoverIdx(null)}
                 title={`${mo} · ${total} 영상`}
               >
-                {show.tier && TIERS.map((t) => {
-                  const ratio = tierTotal > 0 ? (td![t.key] ?? 0) / tierTotal : 0;
+                {/* 티어 데이터 있을 때만 stack. 없으면 paid/organic 두 색으로 fallback. */}
+                {show.tier && hasTierData && TIERS.map((t) => {
+                  const ratio = (td![t.key] ?? 0) / tierTotal;
                   return (
                     <div
                       key={t.key}
@@ -284,6 +304,24 @@ export function SectionAMockup({
                     />
                   );
                 })}
+                {show.tier && !hasTierData && total > 0 && (
+                  <>
+                    <div
+                      style={{
+                        height: `${(paid / Math.max(total, 1)) * 100}%`,
+                        background: "#ec4899",
+                      }}
+                      title={`paid ${paid}`}
+                    />
+                    <div
+                      style={{
+                        height: `${(organic / Math.max(total, 1)) * 100}%`,
+                        background: "#1f2937",
+                      }}
+                      title={`organic ${organic}`}
+                    />
+                  </>
+                )}
                 <div className="sb-label" style={isPeak ? { color: "#ec4899", fontWeight: 700 } : {}}>
                   {`'${mo.slice(2)}`}
                   <br />
@@ -294,6 +332,81 @@ export function SectionAMockup({
             );
           })}
         </div>
+
+        {/* ★ 호버 시 디테일 tooltip (mockup line 705-722) */}
+        {hoverIdx !== null && months[hoverIdx] && (() => {
+          const mo = months[hoverIdx]!;
+          const total = totalByMonth.get(mo) ?? 0;
+          const td = tierByMonth[mo];
+          const tierTotal = td ? TIERS.reduce((s, t) => s + (td[t.key] ?? 0), 0) : 0;
+          const r = monthlyForMode.find((x) => x.month === mo);
+          const paid = r?.paid ?? 0;
+          const adPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+          const bsr = bsrByMonth.get(mo);
+          const isPeak = hoverIdx === months.length - 1;
+          return (
+            <div className="trend-tooltip" style={{ right: 30 }}>
+              <div className="tt-h">{mo}{isPeak ? " ★ 변곡점" : ""}</div>
+              <table>
+                <tbody>
+                  <tr>
+                    <td><span className="tt-color" style={{ background: "#06b6d4" }} />총 영상</td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", color: "#06b6d4" }}>
+                      <b>{total}개</b>
+                    </td>
+                  </tr>
+                  {tierTotal > 0 && TIERS.filter((t) => (td![t.key] ?? 0) > 0).map((t) => {
+                    const v = td![t.key] ?? 0;
+                    const pct = Math.round((v / tierTotal) * 100);
+                    return (
+                      <tr key={t.key}>
+                        <td><span className="tt-color" style={{ background: t.color }} />{t.label}</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {v}명 ({pct}%)
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {tierTotal === 0 && total > 0 && (
+                    <>
+                      <tr>
+                        <td><span className="tt-color" style={{ background: "#ec4899" }} />paid</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {paid}건
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><span className="tt-color" style={{ background: "#1f2937" }} />organic</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                          {(r?.organic ?? 0)}건
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+              <div className="tt-stat">
+                <span style={{ color: "#f59e0b" }}>광고 비중 {adPct}%</span>
+                {bsr !== undefined && (
+                  <>
+                    <br />
+                    <span style={{ color: "#ef4444" }}>
+                      <b>BSR #{Math.round(bsr).toLocaleString()}</b>
+                    </span>
+                  </>
+                )}
+                {tierTotal === 0 && (
+                  <>
+                    <br />
+                    <span style={{ color: "#9ca3af", fontSize: 10 }}>
+                      ★ 티어 분포 데이터 없음 — Phase 3 재실행 필요
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* SVG overlay — 3 line */}
         <svg className="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">
