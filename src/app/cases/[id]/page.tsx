@@ -1789,6 +1789,31 @@ export default async function CaseDetailPage({
                   ) : null;
                 })()}
 
+                {(() => {
+                  // SectionBMockup + MiniDashboard 공용 crossChannelMatrix (TK 매칭 포함)
+                  const normHandle = (s: string) =>
+                    s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                  const tkByHandleMap = new Map<string, number>();
+                  for (const tc of ks.phase2?.top_creators ?? []) {
+                    const k = normHandle(tc.handle);
+                    if (k.length >= 4) tkByHandleMap.set(k, tc.video_count);
+                  }
+                  const sharedMatrix = crossPlatformMatches.map((m) => {
+                    const k = normHandle(m.name);
+                    let tk = tkByHandleMap.get(k) ?? 0;
+                    if (tk === 0 && k.length >= 5) {
+                      for (const [tkKey, count] of tkByHandleMap.entries()) {
+                        if (tkKey.startsWith(k) || k.startsWith(tkKey)) {
+                          if (Math.min(tkKey.length, k.length) >= 5) {
+                            tk = count;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    return { name: m.name, tk, ig: m.ig_posts, yt: m.yt_videos };
+                  });
+                  return (
                 <div>
                   <div style={{ minWidth: 0 }}>
                     {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
@@ -1803,12 +1828,7 @@ export default async function CaseDetailPage({
                         phase3={ks.phase3}
                         phase35={ks.phase35}
                         phase37={ks.phase37}
-                        crossChannelMatrix={crossPlatformMatches.map((m) => ({
-                          name: m.name,
-                          tk: 0,
-                          ig: m.ig_posts,
-                          yt: m.yt_videos,
-                        }))}
+                        crossChannelMatrix={sharedMatrix}
                         topGmvCreators={topGmvCreators}
                         shopGmvDistribution={shopGmvDistribution}
                       />
@@ -1846,38 +1866,7 @@ export default async function CaseDetailPage({
                         lives: ks.kalodata_lives,
                         meta: ks.kalodata_creators_meta,
                       }}
-                      crossChannelMatrix={(() => {
-                        // Phase 3-A.4: TK top_creators 핸들 정규화 매칭.
-                        // 같은 인플이 TK/IG/YT 채널에 흩어져 있으면 핸들 normalize (소문자+영숫자만) 후 매칭.
-                        const norm = (s: string) =>
-                          s.toLowerCase().replace(/[^a-z0-9]/g, "");
-                        const tkByHandle = new Map<string, number>();
-                        for (const tc of ks.phase2?.top_creators ?? []) {
-                          const k = norm(tc.handle);
-                          if (k.length >= 4) tkByHandle.set(k, tc.video_count);
-                        }
-                        return crossPlatformMatches.map((m) => {
-                          const k = norm(m.name);
-                          let tk = tkByHandle.get(k) ?? 0;
-                          // prefix 매칭 (cookinghacks vs cookinghacks_us 같은)
-                          if (tk === 0 && k.length >= 5) {
-                            for (const [tkKey, count] of tkByHandle.entries()) {
-                              if (tkKey.startsWith(k) || k.startsWith(tkKey)) {
-                                if (Math.min(tkKey.length, k.length) >= 5) {
-                                  tk = count;
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                          return {
-                            name: m.name,
-                            tk,
-                            ig: m.ig_posts,
-                            yt: m.yt_videos,
-                          };
-                        });
-                      })()}
+                      crossChannelMatrix={sharedMatrix}
                     />
                     {/* ★ Section E mockup 1:1 — MiniDashboard 다음에 박음 (MiniDashboard 안 E는 비워둠) */}
                     {ks.phase4a && (
@@ -1887,6 +1876,8 @@ export default async function CaseDetailPage({
                     )}
                   </div>
                 </div>
+                  );
+                })()}
               </>
             );
           })()}
