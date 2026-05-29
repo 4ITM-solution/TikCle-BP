@@ -43,11 +43,13 @@ export function MonthlyTrendChart({
   monthlyVideoCounts: MonthlyVideoCount[];
   bsrSeries: BsrSeries[];
 }) {
+  // mockup 기본: 4개 toggle 모두 ON (있는 데이터만 자동 표시).
+  // BSR / 영상 수는 데이터 없으면 disabled → 안 그려짐.
   const [show, setShow] = useState({
     tier: true,
     ad: true,
-    bsr: false,
-    videoCount: true, // ★ 영상 수 line (볼륨↔BSR 상관 시각용)
+    bsr: true,
+    videoCount: true,
   });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -175,7 +177,7 @@ export function MonthlyTrendChart({
       >
         <div>
           <div style={{ fontSize: 14, fontWeight: 700 }}>
-            월간 인플·광고 트렌드
+            월간 인플 · 광고 · BSR 통합 트렌드 (12개월)
           </div>
           <div
             style={{
@@ -184,16 +186,17 @@ export function MonthlyTrendChart({
               fontFamily: "var(--font-mono)",
             }}
           >
-            월별 · 티어 비중은 그 달 활동 인플루언서 수 기준 100% 누적
+            인플 티어 stack + 광고 비중 / BSR / 영상 수 line overlay · 호버 시 디테일
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(
+            // mockup line 664-669 순서 그대로: 티어 → 광고 → BSR → 영상 수
             [
-              { k: "tier" as const, label: "인플 티어 비중", color: "var(--color-ink)" },
+              { k: "tier" as const, label: "인플 티어 stack", color: "var(--color-ink)" },
+              { k: "ad" as const, label: "광고 비중 line", color: "var(--color-warn)" },
+              { k: "bsr" as const, label: "BSR line", color: "var(--color-accent)" },
               { k: "videoCount" as const, label: "★ 영상 수 line", color: "#06b6d4" },
-              { k: "ad" as const, label: "광고 비중", color: "var(--color-warn)" },
-              { k: "bsr" as const, label: "BSR (매출 대리)", color: "var(--color-accent)" },
             ]
           ).map(({ k, label, color }) => {
             const on = show[k];
