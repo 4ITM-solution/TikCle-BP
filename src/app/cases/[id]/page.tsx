@@ -18,6 +18,8 @@ import { StartAnalysisButton } from "@/components/case-detail/StartAnalysisButto
 import { DeleteCaseButton } from "@/components/case-detail/DeleteCaseButton";
 import { DevTestActions } from "@/components/case-detail/RunningPlaceholder";
 import { MiniDashboard } from "@/components/case-detail/MiniDashboard";
+import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
+import "./mockup.css";
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
@@ -1792,6 +1794,14 @@ export default async function CaseDetailPage({
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
+                    {/* ★ mockup 1:1 — A 섹션 우선 진짜 mockup CSS로 적용 */}
+                    <div className="bp-mockup">
+                      <SectionAMockup
+                        phase2={ks.phase2}
+                        phase3={ks.phase3}
+                        phase5={ks.phase5}
+                      />
+                    </div>
                     <MiniDashboard
                       phase2={ks.phase2}
                       phase3={ks.phase3}
