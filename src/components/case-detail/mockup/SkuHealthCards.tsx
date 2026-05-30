@@ -286,6 +286,16 @@ function VideoTopCard({
                 <img
                   src={v.thumbnail_url}
                   alt=""
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const t = e.currentTarget;
+                    t.style.display = "none";
+                    if (t.parentElement) {
+                      const ph = document.createElement("div");
+                      ph.style.cssText = "width:32px;height:32px;background:#f3f4f6;border-radius:3px;display:inline-block;";
+                      t.parentElement.insertBefore(ph, t);
+                    }
+                  }}
                   style={{
                     width: 32,
                     height: 32,

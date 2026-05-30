@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Compare 탭 제거 — Browse 안 비교 기능과 사실상 동일 (어차피 Browse 로 리다이렉트). 사용자 의도 따름.
 const items = [
   { href: "/cases", label: "Browse", icon: "🏠" },
-  { href: "/cases/compare", label: "Compare", icon: "⚖" },
   { href: "/settings/exchange-rates", label: "환율 설정", icon: "$" },
 ];
 

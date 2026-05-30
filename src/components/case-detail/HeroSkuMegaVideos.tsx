@@ -297,6 +297,10 @@ function VideoCard({ v }: { v: DisplayedVideoEntry }) {
           <img
             src={v.thumbnail_url}
             alt=""
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
             style={{
               width: "100%",
               height: "100%",
