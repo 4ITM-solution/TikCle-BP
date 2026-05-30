@@ -168,16 +168,27 @@ export function SectionCMockup({
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>USP 키워드 (클릭 시 →)</div>
                 <div>
-                  {uspKws.map((k) => (
-                    <span
-                      key={k.keyword}
-                      className={`usp-keyword ${selectedKw === k.keyword ? "active" : ""}`}
-                      onClick={() => setSelectedKw(k.keyword)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {k.keyword} <span className="uk-count">{k.count}</span>
-                    </span>
-                  ))}
+                  {uspKws.map((k) => {
+                    // mockup line 957-958: CTA 키워드 (link in bio / code XXX) 노란 highlight
+                    const isCta =
+                      /^(link\s*in\s*bio|code\s|promo|use\s+code|coupon|discount|sale)/i.test(k.keyword) ||
+                      /^\d{2,}off$/i.test(k.keyword);
+                    return (
+                      <span
+                        key={k.keyword}
+                        className={`usp-keyword ${selectedKw === k.keyword ? "active" : ""}`}
+                        onClick={() => setSelectedKw(k.keyword)}
+                        style={{
+                          cursor: "pointer",
+                          ...(isCta && selectedKw !== k.keyword
+                            ? { background: "#fef3c7", borderColor: "#d97706" }
+                            : {}),
+                        }}
+                      >
+                        {k.keyword} <span className="uk-count">{k.count}{isCta ? " CTA" : ""}</span>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               <div className="usp-detail">

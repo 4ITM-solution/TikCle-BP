@@ -35,9 +35,13 @@ type AdLike = {
 export function SectionEMockup({
   phase4a,
   metaAdsList,
+  partnerChannelMap,
 }: {
   phase4a: Phase4aStats;
   metaAdsList?: AdLike[];
+  /** creator_page_name 정규화 → 다른 채널 활동 (TK/IG/YT count + 팔로워).
+   * page.tsx 에서 crossPlatformMatches + top_creators handle 매칭으로 만듦. */
+  partnerChannelMap?: Record<string, { tk: number; ig: number; yt: number; follower?: number | null }>;
 }) {
   const [search, setSearch] = useState("");
   const [landingFilter, setLandingFilter] = useState<string>("all");
@@ -347,49 +351,65 @@ export function SectionEMockup({
               <tr>
                 <th></th>
                 <th>인플</th>
-                <th>광고</th>
-                <th>active</th>
+                <th style={{ textAlign: "right" }}>팔로워</th>
+                <th style={{ textAlign: "right" }}>광고</th>
+                <th>다른 채널 활동</th>
                 <th>활동 기간</th>
               </tr>
             </thead>
             <tbody>
-              {phase4a.partner_creators.slice(0, 10).map((c) => (
-                <tr key={c.creator_page_name}>
-                  <td>
-                    <span
-                      className="thumb"
-                      style={{
-                        background: c.sample_thumbnail
-                          ? `url(${c.sample_thumbnail}) center/cover`
-                          : undefined,
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <b>{c.creator_page_name}</b>
-                    {c.partner_page_name && (
-                      <span style={{ color: "#6b7280", fontSize: 10 }}>
-                        {" "}
-                        × {c.partner_page_name}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                    {c.ad_count}
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                    {c.active_count}
-                  </td>
-                  <td style={{ fontSize: 10, color: "#6b7280" }}>
-                    {c.first_seen ?? "—"}
-                    {c.first_seen !== c.last_seen && c.last_seen ? ` ~ ${c.last_seen}` : ""}
-                  </td>
-                </tr>
-              ))}
-              {phase4a.partner_creators.length > 10 && (
+              {phase4a.partner_creators.slice(0, 5).map((c) => {
+                // partnerChannelMap 에서 normalize 매칭 — name 기준
+                const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                const xc = partnerChannelMap?.[norm(c.creator_page_name)];
+                return (
+                  <tr key={c.creator_page_name}>
+                    <td>
+                      <span
+                        className="thumb"
+                        style={{
+                          background: c.sample_thumbnail
+                            ? `url(${c.sample_thumbnail}) center/cover`
+                            : undefined,
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <b>{c.creator_page_name}</b>
+                      {c.partner_page_name && (
+                        <span style={{ color: "#6b7280", fontSize: 10 }}>
+                          {" "}× {c.partner_page_name}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", color: "#6b7280" }}>
+                      {xc?.follower ? formatFollowers(xc.follower) : "—"}
+                    </td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                      {c.ad_count}
+                    </td>
+                    <td>
+                      {xc && (xc.tk > 0 || xc.ig > 0 || xc.yt > 0) ? (
+                        <>
+                          {xc.tk > 0 && <span className="ch-pill pill-tk">TK{xc.tk}</span>}
+                          {xc.ig > 0 && <span className="ch-pill pill-ig">IG{xc.ig}</span>}
+                          {xc.yt > 0 && <span className="ch-pill pill-yt">YT{xc.yt}</span>}
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 10, color: "#9ca3af" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 10, color: "#6b7280" }}>
+                      {c.first_seen ?? "—"}
+                      {c.first_seen !== c.last_seen && c.last_seen ? ` ~ ${c.last_seen}` : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+              {phase4a.partner_creators.length > 5 && (
                 <tr style={{ color: "#9ca3af" }}>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
-                    + {phase4a.partner_creators.length - 10}명 더보기
+                  <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
+                    + {phase4a.partner_creators.length - 5}명 더보기
                   </td>
                 </tr>
               )}
@@ -399,4 +419,10 @@ export function SectionEMockup({
       )}
     </div>
   );
+}
+
+function formatFollowers(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return n.toLocaleString();
 }

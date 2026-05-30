@@ -1635,21 +1635,83 @@ export default async function CaseDetailPage({
                         totalViews={tcViews}
                         viewBreakdown={"top creator 합산 추정"}
                         ttShopGmv30d={rev ?? null}
-                        gmvTrend={salesLabel ? `${ks.phase2.sales_summary?.sku_count ?? 0} SKU` : undefined}
+                        gmvTrend={
+                          ks.phase2.sales_summary?.sku_count
+                            ? `${ks.phase2.sales_summary.sku_count} SKU`
+                            : undefined
+                        }
                         metaAds={adTotal}
                         metaBreakdown={adTotal > 0 ? `brand ${(ks.phase4a?.brand_official_ads ?? 0)} · partner ${adPartner}` : undefined}
                         costEstimate={costEstimate.total_max_usd}
                         costBreakdown={"예상 최대"}
                       />
-                      {/* mockup line 542-559: 데이터 채널 */}
+                      {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
                       <DataChannelsMockup
                         dataChannels={dataChannels}
-                        channelDetails={Object.fromEntries(
-                          (Object.keys(channelStats) as DataChannel[]).map((ch) => [
-                            ch,
-                            { stat: channelStats[ch] ?? "", sub: dataChannels.includes(ch) ? "활성" : undefined },
-                          ]),
-                        )}
+                        channelDetails={(() => {
+                          const tkViews = (ks.phase2?.top_creators ?? []).reduce((s, c) => s + (c.max_views ?? 0), 0);
+                          const fmtViews = (n: number) =>
+                            n >= 1_000_000 ? `${Math.round(n / 1_000_000)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
+                          const fmtUsd = (n: number) =>
+                            n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${n}`;
+                          const details: Partial<Record<DataChannel, { stat: string; sub?: string }>> = {};
+                          if (dataChannels.includes("tiktok_video")) {
+                            const n = ks.phase2?.total_contents ?? 0;
+                            details.tiktok_video = {
+                              stat: `${n.toLocaleString()} 영상 · ${fmtViews(tkViews)} views`,
+                              sub: "Exolyt CSV",
+                            };
+                          }
+                          if (dataChannels.includes("tt_shop")) {
+                            const skun = ks.phase2?.sales_summary?.sku_count ?? 0;
+                            const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
+                            details.tt_shop = {
+                              stat: `${skun} 제품${rev > 0 ? ` · ${fmtUsd(rev)} GMV` : ""}`,
+                              sub: "store URL · Helium10",
+                            };
+                          }
+                          if (dataChannels.includes("meta_ads")) {
+                            const ads = ks.phase4a?.total_ads ?? 0;
+                            const partner = ks.phase4a?.partnership_creators ?? 0;
+                            details.meta_ads = {
+                              stat: `${ads.toLocaleString()} 광고${partner > 0 ? ` · ${partner} partnership` : ""}`,
+                              sub: `하이브리드 $${(ks.phase4a?.cost_actual_usd ?? 0).toFixed(2)}`,
+                            };
+                          }
+                          if (dataChannels.includes("instagram")) {
+                            const ph4c = (ks as { phase4c?: { total_unique?: number; unique_authors?: number } }).phase4c;
+                            const posts = ph4c?.total_unique ?? 0;
+                            const authors = ph4c?.unique_authors ?? 0;
+                            details.instagram = {
+                              stat: `${posts.toLocaleString()} posts${authors > 0 ? ` · ${authors} authors` : ""}`,
+                              sub: "Phase 4c",
+                            };
+                          }
+                          if (dataChannels.includes("youtube")) {
+                            const ph4d = (ks as { phase4d?: { total_unique?: number; unique_channels?: number } }).phase4d;
+                            const vids = ph4d?.total_unique ?? 0;
+                            const chans = ph4d?.unique_channels ?? 0;
+                            details.youtube = {
+                              stat: `${vids.toLocaleString()} 영상${chans > 0 ? ` · ${chans} 채널` : ""}`,
+                              sub: "Phase 4d",
+                            };
+                          }
+                          if (dataChannels.includes("amazon")) {
+                            const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
+                            details.amazon = {
+                              stat: rev > 0 ? `${fmtUsd(rev)} 매출` : "—",
+                              sub: "Amazon",
+                            };
+                          }
+                          if (dataChannels.includes("shopee")) {
+                            const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
+                            details.shopee = {
+                              stat: rev > 0 ? `${fmtUsd(rev)} 매출` : "—",
+                              sub: "Shopee",
+                            };
+                          }
+                          return details;
+                        })()}
                       />
                       {/* mockup line 561-581: Phase progress (펼치기) */}
                       <PhaseProgressMockup ks={ks as KeyStats} />
@@ -1776,6 +1838,13 @@ export default async function CaseDetailPage({
                       <InsightCardMockup
                         title={oneLineSummary}
                         tagline={tagline}
+                        metaLine={(() => {
+                          // mockup line 588: "주력 언어: 영어 78% · 스페인어 9% · UK 6%"
+                          const langs = ks.phase5?.languages ?? [];
+                          if (langs.length === 0) return undefined;
+                          const top3 = langs.slice(0, 3);
+                          return `주력 언어: ${top3.map((l) => `${l.label} ${Math.round(l.pct)}%`).join(" · ")}`;
+                        })()}
                         axisCards={axes.map((a) => ({
                           h: a.axis,
                           val: a.value,
@@ -1856,7 +1925,28 @@ export default async function CaseDetailPage({
                     {/* ★ Section E mockup 1:1 */}
                     {ks.phase4a && (
                       <div className="bp-mockup">
-                        <SectionEMockup phase4a={ks.phase4a} metaAdsList={metaAdsList} />
+                        <SectionEMockup
+                          phase4a={ks.phase4a}
+                          metaAdsList={metaAdsList}
+                          partnerChannelMap={(() => {
+                            // partner_creators 의 creator_page_name → cross-channel + follower 매칭
+                            const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                            const followerByHandle = new Map<string, number | null>();
+                            for (const tc of ks.phase2?.top_creators ?? []) {
+                              followerByHandle.set(norm(tc.handle), tc.follower_count);
+                            }
+                            const result: Record<string, { tk: number; ig: number; yt: number; follower?: number | null }> = {};
+                            for (const m of sharedMatrix) {
+                              result[norm(m.name)] = {
+                                tk: m.tk,
+                                ig: m.ig,
+                                yt: m.yt,
+                                follower: followerByHandle.get(norm(m.name)) ?? null,
+                              };
+                            }
+                            return result;
+                          })()}
+                        />
                       </div>
                     )}
                   </div>

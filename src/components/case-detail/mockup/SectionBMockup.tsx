@@ -28,12 +28,15 @@ import type { ShopGmvDistribution } from "../ShopCreatorGmvDistribution";
 
 type ChannelMode = "all" | "tk" | "ig" | "yt";
 
+// mockup line 777-781: Mega ~ Nano 5 row 만 표시. Sub-nano / Unknown 0 이면 hide
 const TIERS_ORDER: { key: TierBucket; label: string }[] = [
   { key: "mega", label: "Mega" },
   { key: "macro", label: "Macro" },
   { key: "mid", label: "Mid" },
   { key: "micro", label: "Micro" },
   { key: "nano", label: "Nano" },
+];
+const TIERS_EXTRA: { key: TierBucket; label: string }[] = [
   { key: "sub-nano", label: "Sub-nano" },
   { key: "unknown", label: "Unknown" },
 ];
@@ -140,20 +143,27 @@ export function SectionBMockup({
         {/* 좌 column: 티어 분포 + cross-channel matrix */}
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>티어 분포 (전 채널)</div>
-          {TIERS_ORDER.map((t) => {
-            const n = tierDist?.[t.key] ?? 0;
-            const maxN = tierDist ? Math.max(...TIERS_ORDER.map((x) => tierDist[x.key] ?? 0)) : 1;
-            const pct = maxN > 0 ? (n / maxN) * 100 : 0;
-            return (
-              <div key={t.key} className="tier-row">
-                <span>{t.label}</span>
-                <div className="tier-bar">
-                  <div className="tier-fill" style={{ width: `${pct}%` }} />
+          {(() => {
+            // mockup line 777-781: 5 row 만. 추가 row (sub-nano/unknown) 는 데이터 있을 때만.
+            const rowsToShow = [
+              ...TIERS_ORDER,
+              ...TIERS_EXTRA.filter((t) => (tierDist?.[t.key] ?? 0) > 0),
+            ];
+            const maxN = tierDist ? Math.max(...rowsToShow.map((x) => tierDist[x.key] ?? 0)) : 1;
+            return rowsToShow.map((t) => {
+              const n = tierDist?.[t.key] ?? 0;
+              const pct = maxN > 0 ? (n / maxN) * 100 : 0;
+              return (
+                <div key={t.key} className="tier-row">
+                  <span>{t.label}</span>
+                  <div className="tier-bar">
+                    <div className="tier-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span style={{ textAlign: "right" }}>{n.toLocaleString()}</span>
                 </div>
-                <span style={{ textAlign: "right" }}>{n.toLocaleString()}</span>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
 
           {xcTop.length > 0 && (
             <>
@@ -211,7 +221,7 @@ export function SectionBMockup({
               </tr>
             </thead>
             <tbody>
-              {topCreators.slice(0, 10).map((c) => {
+              {topCreators.slice(0, 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
                 return (
@@ -236,10 +246,10 @@ export function SectionBMockup({
                   </tr>
                 );
               })}
-              {topCreators.length > 10 && (
+              {topCreators.length > 5 && (
                 <tr style={{ color: "#9ca3af" }}>
                   <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
-                    + {topCreators.length - 10}명 더보기
+                    + {topCreators.length - 5}명 더보기
                   </td>
                 </tr>
               )}
