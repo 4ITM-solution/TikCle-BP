@@ -33,14 +33,20 @@ export function SectionDMockup({
   phase2,
   phase4bSku,
   caseChannel,
+  availableSalesChannels,
+  skuChannelMap,
   kalodataVideos,
   kalodataLives,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   phase5?: Phase5Stats;
-  /** case.channel — "amazon" 이면 Amazon active, "tiktok_shop" 이면 TT Shop active */
+  /** case.channel — fallback */
   caseChannel?: string;
+  /** 이 case 의 products 에 실제 존재하는 sales channel list (tt_shop / amazon / shopee) */
+  availableSalesChannels?: string[];
+  /** asin → channel — SKU 매출 filter 용 */
+  skuChannelMap?: Record<string, string>;
   kalodataVideos?: KalodataVideoXlsxRow[];
   kalodataLives?: KalodataLiveRow[];
 }) {
@@ -48,10 +54,24 @@ export function SectionDMockup({
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const onSelectSku = setSelectedSku;
 
+  // 채널 toggle state — 기본 case.channel 또는 첫 available
+  const defaultCh =
+    (availableSalesChannels?.includes(caseChannel ?? "") ? caseChannel : null) ??
+    availableSalesChannels?.[0] ??
+    caseChannel ??
+    "tiktok_shop";
+  const [selectedChannel, setSelectedChannel] = useState<string>(defaultCh);
+
+  // sku_sales 채널 filter
+  const filteredSkus =
+    skuChannelMap && availableSalesChannels && availableSalesChannels.length > 1
+      ? phase2.sku_sales.filter((s) => !s.asin || skuChannelMap[s.asin] === selectedChannel)
+      : phase2.sku_sales;
+
   if (!phase2.sales_summary) return null;
 
   const summary = phase2.sales_summary;
-  const skus = phase2.sku_sales;
+  const skus = filteredSkus;
   const totalRev = skus.reduce((s, x) => s + (x.revenue ?? 0), 0);
   const totalUnits = summary.total_units ?? 0;
 
@@ -87,25 +107,28 @@ export function SectionDMockup({
         <span className="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
       </div>
 
-      {/* 채널 + 기간 toggle (prototype) — case.channel 에 따라 active 채널 결정 */}
+      {/* 채널 + 기간 toggle — availableSalesChannels (products.channel 분포) 기반 active.
+          여러 채널 있는 케이스면 toggle 클릭 시 sku_sales filter. 1 채널만 있으면 그 채널 active 만. */}
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
         <div>
           <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널:</span>
           <div className="ch-toggle">
-            <button
-              className={caseChannel !== "amazon" ? "active" : ""}
-              disabled={caseChannel === "amazon"}
-              style={caseChannel === "amazon" ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-            >
-              TT Shop {caseChannel !== "amazon" && totalRev > 0 ? `(${formatUsdShort(totalRev)})` : ""}
-            </button>
-            <button
-              className={caseChannel === "amazon" ? "active" : ""}
-              disabled={caseChannel !== "amazon"}
-              style={caseChannel !== "amazon" ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-            >
-              Amazon {caseChannel === "amazon" && totalRev > 0 ? `(${formatUsdShort(totalRev)})` : ""}
-            </button>
+            {(["tiktok_shop", "amazon", "shopee"] as const).map((ch) => {
+              const exists = availableSalesChannels?.includes(ch);
+              const active = selectedChannel === ch && exists;
+              return (
+                <button
+                  key={ch}
+                  className={active ? "active" : ""}
+                  disabled={!exists}
+                  onClick={() => exists && setSelectedChannel(ch)}
+                  style={!exists ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                >
+                  {ch === "tiktok_shop" ? "TT Shop" : ch === "amazon" ? "Amazon" : "Shopee"}
+                  {active && totalRev > 0 ? ` (${formatUsdShort(totalRev)})` : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
         <div>

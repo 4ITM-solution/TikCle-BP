@@ -919,6 +919,20 @@ export default async function CaseDetailPage({
   const caseCurrency = defaultCurrency(c.country);
   const exchangeRates = await fetchExchangeRates();
 
+  // ★ products channel 분포 → SectionDMockup 채널 toggle (실제 가능한 채널 enable + filter)
+  const skuChannelMap = await (async () => {
+    const map: Record<string, string> = {}; // asin → channel
+    const { data } = await supabase
+      .from("products")
+      .select("asin, channel")
+      .eq("case_id", c.id);
+    for (const r of data ?? []) {
+      if (r.asin) map[r.asin] = String(r.channel ?? "");
+    }
+    return map;
+  })();
+  const availableSalesChannels = Array.from(new Set(Object.values(skuChannelMap).filter(Boolean))) as string[];
+
   // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — SectionCMockup USP detail panel 용
   const uspSampleVideos = await (async () => {
     const map: Record<string, Array<{ url: string; caption: string; views: number }>> = {};
@@ -1980,6 +1994,8 @@ export default async function CaseDetailPage({
                           phase4bSku={ks.phase4b_sku}
                           phase5={ks.phase5}
                           caseChannel={c.channel}
+                          availableSalesChannels={availableSalesChannels}
+                          skuChannelMap={skuChannelMap}
                           kalodataVideos={ks.kalodata_videos_xlsx}
                           kalodataLives={ks.kalodata_lives}
                         />
