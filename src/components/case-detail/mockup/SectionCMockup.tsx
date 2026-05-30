@@ -25,6 +25,7 @@ export function SectionCMockup({
   phase4bClusters,
   phase5,
   clusterChannelBreakdown,
+  clusterMetrics,
   uspSampleVideos,
 }: {
   phase2: Phase2Stats;
@@ -32,6 +33,8 @@ export function SectionCMockup({
   phase5?: Phase5Stats;
   /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (page.tsx 에서 server-side SQL) */
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
+  /** meta_cluster_id → { avg_views, paid_count, save_rate_pct, member_count } — uc-metrics 용 */
+  clusterMetrics?: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>;
   /** USP 키워드 → top 3 매칭 영상 (caption ilike) — page.tsx SQL */
   uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
 }) {
@@ -127,6 +130,11 @@ export function SectionCMockup({
           ) : (
             metas.map((m, i) => {
               const ch = clusterChannelBreakdown?.[m.id];
+              const cm = clusterMetrics?.[m.id];
+              const paidPct =
+                cm && cm.member_count > 0 ? Math.round((cm.paid_count / cm.member_count) * 100) : 0;
+              const fmtV = (n: number) =>
+                n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
               return (
                 <div key={m.id} className="unified-cluster">
                   <div className="uc-h">
@@ -147,7 +155,17 @@ export function SectionCMockup({
                   </div>
                   <div className="uc-desc">{m.description || "—"}</div>
                   <div className="uc-metrics">
-                    {m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")}
+                    {cm && cm.member_count > 0 ? (
+                      <>
+                        avg views {fmtV(cm.avg_views)}
+                        {cm.save_rate_pct > 0 && ` · save ${cm.save_rate_pct.toFixed(1)}%`}
+                        {paidPct > 0 && ` · paid ${paidPct}%`}
+                        {" · "}
+                        {m.child_clusters.length} 자식 cluster
+                      </>
+                    ) : (
+                      m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")
+                    )}
                   </div>
                 </div>
               );

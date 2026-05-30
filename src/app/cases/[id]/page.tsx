@@ -946,6 +946,68 @@ export default async function CaseDetailPage({
     return map;
   })();
 
+  // ★ cluster member 디테일 — meta_cluster_id → { avg_views, paid_count, save_rate_pct, member_count }
+  const clusterMetrics = await (async () => {
+    const map: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }> = {};
+    const metaList = ((c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } })?.phase4b_clusters?.meta_clusters) ?? [];
+    if (metaList.length === 0) return map;
+    const childToMeta = new Map<string, string>();
+    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
+    const childIds = [...childToMeta.keys()];
+    if (childIds.length === 0) return map;
+    // child cluster member content_id 다 가져옴
+    const allMembers: Array<{ cluster_id: string; content_id: string | null }> = [];
+    for (let i = 0; i < childIds.length; i += 200) {
+      const slice = childIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("content_cluster_members")
+        .select("cluster_id, content_id")
+        .in("cluster_id", slice)
+        .eq("platform", "tiktok")
+        .not("content_id", "is", null);
+      for (const r of data ?? []) {
+        if (r.content_id) allMembers.push({ cluster_id: r.cluster_id, content_id: r.content_id });
+      }
+    }
+    const cids = [...new Set(allMembers.map((m) => m.content_id!))];
+    const ctMap = new Map<string, { views: number; is_ad: boolean; collect_count: number }>();
+    for (let i = 0; i < cids.length; i += 200) {
+      const slice = cids.slice(i, i + 200);
+      const { data } = await supabase
+        .from("contents")
+        .select("id, views, is_ad, collect_count")
+        .in("id", slice);
+      for (const r of data ?? []) {
+        ctMap.set(r.id, { views: r.views ?? 0, is_ad: !!r.is_ad, collect_count: r.collect_count ?? 0 });
+      }
+    }
+    // meta 별 집계
+    const agg = new Map<string, { totalViews: number; n: number; paid: number; saveRates: number[] }>();
+    for (const m of allMembers) {
+      const metaId = childToMeta.get(m.cluster_id);
+      if (!metaId || !m.content_id) continue;
+      const ct = ctMap.get(m.content_id);
+      if (!ct) continue;
+      const cur = agg.get(metaId) ?? { totalViews: 0, n: 0, paid: 0, saveRates: [] };
+      cur.totalViews += ct.views;
+      cur.n += 1;
+      if (ct.is_ad) cur.paid += 1;
+      if (ct.views > 0 && ct.collect_count > 0) cur.saveRates.push((ct.collect_count / ct.views) * 100);
+      agg.set(metaId, cur);
+    }
+    for (const [metaId, v] of agg.entries()) {
+      const sortedRates = [...v.saveRates].sort((a, b) => a - b);
+      const median = sortedRates.length > 0 ? sortedRates[Math.floor(sortedRates.length / 2)]! : 0;
+      map[metaId] = {
+        avg_views: v.n > 0 ? Math.round(v.totalViews / v.n) : 0,
+        paid_count: v.paid,
+        save_rate_pct: median,
+        member_count: v.n,
+      };
+    }
+    return map;
+  })();
+
   // ★ cluster member 채널 breakdown — meta_cluster_id → { tk, ig, yt }
   const clusterChannelBreakdown = await (async () => {
     const map: Record<string, { tk: number; ig: number; yt: number }> = {};
@@ -1909,6 +1971,7 @@ export default async function CaseDetailPage({
                         phase4bClusters={ks.phase4b_clusters}
                         phase5={ks.phase5}
                         clusterChannelBreakdown={clusterChannelBreakdown}
+                        clusterMetrics={clusterMetrics}
                         uspSampleVideos={uspSampleVideos}
                       />
                       {ks.phase2.sales_summary && (
