@@ -218,6 +218,66 @@ export function SectionDMockup({
       {/* SKU 헬스 KPI 3 card */}
       <SkuHealthCards phase2={phase2} phase4bSku={phase4bSku} selectedSku={selectedSku} />
 
+      {/* SKU 선택 시 GMV 시계열 (Kalodata 영상매출 publish_date 그룹) — mockup line 1163-1173 */}
+      {selectedSku !== "all" && kalodataVideos && kalodataVideos.length > 0 && (() => {
+        const selectedSkuName = skus.find((s) => s.asin === selectedSku)?.name;
+        const matched = kalodataVideos.filter((v) =>
+          selectedSkuName && v.product_title && v.product_title.toLowerCase().includes(selectedSkuName.toLowerCase().slice(0, 12)),
+        );
+        if (matched.length === 0) return null;
+        // publish_date YYYY-MM 그룹 합산
+        const byMonth = new Map<string, number>();
+        for (const v of matched) {
+          if (!v.publish_date) continue;
+          const m = v.publish_date.slice(0, 7);
+          byMonth.set(m, (byMonth.get(m) ?? 0) + (v.revenue_usd ?? 0));
+        }
+        const sortedMonths = [...byMonth.keys()].sort();
+        if (sortedMonths.length < 2) return null;
+        const values = sortedMonths.map((m) => byMonth.get(m)!);
+        const maxV = Math.max(...values);
+        const w = 600, h = 80, padX = 30, padY = 10;
+        const sx = (i: number) => padX + (sortedMonths.length > 1 ? (i / (sortedMonths.length - 1)) * (w - padX * 2) : 0);
+        const sy = (v: number) => h - padY - (v / maxV) * (h - padY * 2);
+        const path = values.map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ");
+        return (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              border: "1px solid #e5e7eb",
+              borderRadius: 6,
+              background: "#fafafa",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>
+              📈 선택 SKU의 GMV 시계열 (Kalodata 영상매출 매칭, 월별)
+            </div>
+            <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 80 }}>
+              <path d={path} fill="none" stroke="#10b981" strokeWidth={2} />
+              {values.map((v, i) => (
+                <circle key={i} cx={sx(i)} cy={sy(v)} r={3} fill="#10b981" />
+              ))}
+              {sortedMonths.map((m, i) => (
+                <text
+                  key={m}
+                  x={sx(i)}
+                  y={h - 1}
+                  fontSize="8"
+                  textAnchor="middle"
+                  fill="#6b7280"
+                >
+                  {m.slice(5)}
+                </text>
+              ))}
+            </svg>
+            <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
+              매칭 영상 {matched.length}개 · 최대 월 GMV {formatUsdShort(maxV)}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 히어로 SKU × 메가 viral 영상 (mockup 1097) */}
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, marginTop: 16 }}>
         ⭐ 히어로 SKU × 메가 viral 영상 (1M+ views 매칭)
@@ -298,7 +358,7 @@ export function SectionDMockup({
         </button>
       </div>
 
-      {/* SKU 매출 표 panel */}
+      {/* SKU 매출 표 panel — mockup 컬럼 확장: 카테고리/출시/가격/동반 영상 */}
       {tab === "sku" && (
         <div className="panel active">
           <table>
@@ -306,50 +366,71 @@ export function SectionDMockup({
               <tr>
                 <th>제품</th>
                 <th>ASIN</th>
+                <th>카테고리</th>
+                <th style={{ textAlign: "right" }}>출시</th>
+                <th style={{ textAlign: "right" }}>가격</th>
                 <th style={{ textAlign: "right" }}>30d GMV</th>
                 <th style={{ textAlign: "right" }}>판매</th>
                 <th style={{ textAlign: "right" }}>BSR</th>
+                <th style={{ textAlign: "right" }}>동반 영상</th>
               </tr>
             </thead>
             <tbody>
               {skus
                 .filter((s) => selectedSku === "all" || s.asin === selectedSku)
                 .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
-                .map((s) => (
-                  <tr key={s.asin}>
-                    <td>
-                      <b>
-                        {s.name && s.name.length > 50 ? `${s.name.slice(0, 50)}…` : s.name}
-                      </b>
-                    </td>
-                    <td>
-                      <a
-                        href={s.url ?? "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontFamily: "monospace", fontSize: 10, color: "#1f2937" }}
+                .map((s) => {
+                  const matched = allDisplayed.filter((v) =>
+                    Array.isArray(v.matched_skus) && s.asin && v.matched_skus.includes(s.asin),
+                  ).length;
+                  return (
+                    <tr key={s.asin}>
+                      <td>
+                        <b>
+                          {s.name && s.name.length > 40 ? `${s.name.slice(0, 40)}…` : s.name}
+                        </b>
+                      </td>
+                      <td>
+                        <a
+                          href={s.url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontFamily: "monospace", fontSize: 10, color: "#1f2937" }}
+                        >
+                          {s.asin}
+                        </a>
+                      </td>
+                      <td style={{ fontSize: 10, color: "#6b7280" }}>
+                        {s.category ?? "—"}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#6b7280" }}>
+                        {s.launch_date ?? "—"}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>
+                        {s.price != null ? `$${s.price.toLocaleString()}` : "—"}
+                      </td>
+                      <td
+                        style={{
+                          textAlign: "right",
+                          fontFamily: "monospace",
+                          color: "#10b981",
+                          fontWeight: 700,
+                        }}
                       >
-                        {s.asin}
-                      </a>
-                    </td>
-                    <td
-                      style={{
-                        textAlign: "right",
-                        fontFamily: "monospace",
-                        color: "#10b981",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {formatUsdShort(s.revenue ?? 0)}
-                    </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                      {(s.units ?? 0).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace", color: "#9ca3af" }}>
-                      —
-                    </td>
-                  </tr>
-                ))}
+                        {formatUsdShort(s.revenue ?? 0)}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                        {(s.units ?? 0).toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", color: s.bsr_latest != null ? "#1f2937" : "#9ca3af" }}>
+                        {s.bsr_latest != null ? `#${s.bsr_latest.toLocaleString()}` : "—"}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", color: matched > 0 ? "#ec4899" : "#9ca3af" }}>
+                        {matched > 0 ? `${matched}개` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

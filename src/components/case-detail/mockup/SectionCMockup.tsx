@@ -27,6 +27,7 @@ export function SectionCMockup({
   clusterChannelBreakdown,
   clusterMetrics,
   uspSampleVideos,
+  clusterGmvByMonth,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
@@ -37,11 +38,13 @@ export function SectionCMockup({
   clusterMetrics?: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>;
   /** USP 키워드 → top 3 매칭 영상 (caption ilike) — page.tsx SQL */
   uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
+  /** meta_cluster_id → { "YYYY-MM": gmv_usd } — heatmap GMV measure 용 (Kalodata 매칭) */
+  clusterGmvByMonth?: Record<string, Record<string, number>>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
-  const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct">("count");
+  const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
 
   // ── 통합 클러스터 panel ──
   const metas = phase4bClusters?.meta_clusters ?? [];
@@ -292,7 +295,13 @@ export function SectionCMockup({
               <option value="count">영상 수</option>
               <option value="view">view 합산</option>
               <option value="paid_pct">paid 비중</option>
+              <option value="gmv">★ GMV 기여 (Kalodata)</option>
             </select>
+            {heatMeasure === "gmv" && (
+              <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                ★ Kalodata 영상매출 매칭 — D 섹션과 연결
+              </span>
+            )}
           </div>
           {heatRows.length === 0 || monthOrder.length === 0 ? (
             // mockup 빈 case placeholder — cluster 이름 + 12개월 grid 형태만 잡고
@@ -383,11 +392,17 @@ export function SectionCMockup({
                 </div>
               ))}
               {heatRows.map((row) => {
-                const allVals = row.cells.map((c) =>
-                  heatMeasure === "count" ? c.video_count :
-                  heatMeasure === "view" ? c.views_sum :
-                  c.video_count > 0 ? Math.round((c.paid_count / c.video_count) * 100) : 0,
-                );
+                const gmvMap = clusterGmvByMonth?.[row.meta_id] ?? {};
+                const valueOf = (c: typeof row.cells[number]) => {
+                  if (heatMeasure === "count") return c.video_count;
+                  if (heatMeasure === "view") return c.views_sum;
+                  if (heatMeasure === "paid_pct") {
+                    return c.video_count > 0 ? Math.round((c.paid_count / c.video_count) * 100) : 0;
+                  }
+                  // gmv
+                  return Math.round(gmvMap[c.month] ?? 0);
+                };
+                const allVals = row.cells.map(valueOf);
                 const maxV = Math.max(...allVals, 1);
                 return (
                   <div style={{ display: "contents" }} key={row.meta_id}>
@@ -397,10 +412,7 @@ export function SectionCMockup({
                         : row.meta_name}
                     </div>
                     {row.cells.map((c) => {
-                      const v =
-                        heatMeasure === "count" ? c.video_count :
-                        heatMeasure === "view" ? c.views_sum :
-                        c.video_count > 0 ? Math.round((c.paid_count / c.video_count) * 100) : 0;
+                      const v = valueOf(c);
                       const intensity = v / maxV;
                       const bg = intensity > 0.8 ? "#7f1d1d" :
                                  intensity > 0.6 ? "#dc2626" :
@@ -408,14 +420,22 @@ export function SectionCMockup({
                                  intensity > 0.25 ? "#d97706" :
                                  intensity > 0.1 ? "#f59e0b" :
                                  intensity > 0 ? "#fcd34d" : "#fde68a";
+                      const fmt =
+                        heatMeasure === "gmv"
+                          ? (v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` :
+                             v >= 1000 ? `$${Math.round(v / 1000)}K` :
+                             v > 0 ? `$${v}` : "")
+                          : heatMeasure === "view" && v >= 1000
+                            ? `${Math.round(v / 1000)}K`
+                            : (v > 0 ? `${v}${heatMeasure === "paid_pct" ? "%" : ""}` : "");
                       return (
                         <div
                           key={c.month}
                           className="cell"
                           style={{ background: bg, color: intensity > 0.5 ? "white" : "#374151" }}
-                          title={`${row.meta_name} · ${c.month}: ${v}${heatMeasure === "paid_pct" ? "%" : ""}`}
+                          title={`${row.meta_name} · ${c.month}: ${fmt || v}`}
                         >
-                          {v > 0 ? (heatMeasure === "view" && v >= 1000 ? `${Math.round(v / 1000)}K` : v) : ""}
+                          {fmt}
                         </div>
                       );
                     })}

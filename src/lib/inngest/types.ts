@@ -20,6 +20,9 @@ export type SkuSalesEntry = {
   currency: string; // USD/KRW/SAR/...
   country: string | null; // 권역 case의 sub-marketplace 분리 키
   bsr_latest: number | null;
+  category?: string | null;
+  launch_date?: string | null; // YYYY-MM-DD
+  price?: number | null;
 };
 
 export type BsrSeriesPoint = {
@@ -77,6 +80,9 @@ export type SalesSummary = {
   sku_count: number;
   top1_revenue_share: number; // 0~1
   top3_revenue_share: number;
+  // 직전 period 합산 (각 product 의 latest 다음 row 합). null = prev 데이터 없음.
+  prev_period_revenue?: number | null;
+  prev_period_end?: string | null;
   // 권역 case의 by-country sub. country 코드(SA/AE/...)가 키. 단일 case는 키 1개만.
   by_country?: Record<
     string,

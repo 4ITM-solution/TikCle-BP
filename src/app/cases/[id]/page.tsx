@@ -1069,6 +1069,83 @@ export default async function CaseDetailPage({
     return map;
   })();
 
+  // ★ 같은 country 의 다른 brand 케이스 (G InsightCard related-cases 용 B6)
+  const relatedCases = await (async () => {
+    if (!c.country) return [] as Array<{ label: string; href: string }>;
+    const { data } = await supabase
+      .from("cases")
+      .select("id, country, brand:brands(name)")
+      .eq("country", c.country)
+      .neq("id", c.id)
+      .eq("status", "ready")
+      .limit(4);
+    return (data ?? []).map((r) => ({
+      label: `${(r.brand as unknown as { name: string } | null)?.name ?? "(no brand)"} (${r.country})`,
+      href: `/cases/${r.id}`,
+    }));
+  })();
+
+  // ★ cluster × month GMV (Kalodata 매칭) — heatmap "GMV 기여" measure 용 (B4)
+  // 각 cluster member content 의 URL을 kalodataVideos.video_url 과 매칭 후 publish_date 월별 합산.
+  const clusterGmvByMonth = await (async () => {
+    const out: Record<string, Record<string, number>> = {};
+    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } });
+    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
+    if (metaList.length === 0) return out;
+    const childToMeta = new Map<string, string>();
+    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
+    const childIds = [...childToMeta.keys()];
+    if (childIds.length === 0) return out;
+
+    // cluster_id → content_ids
+    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
+    for (let i = 0; i < childIds.length; i += 200) {
+      const slice = childIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("content_cluster_members")
+        .select("cluster_id, content_id")
+        .in("cluster_id", slice)
+        .eq("platform", "tiktok")
+        .not("content_id", "is", null);
+      for (const r of data ?? []) {
+        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
+      }
+    }
+    if (cluToContent.length === 0) return out;
+
+    // content_id → url
+    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
+    const urlByContent = new Map<string, string>();
+    for (let i = 0; i < cids.length; i += 200) {
+      const slice = cids.slice(i, i + 200);
+      const { data } = await supabase.from("contents").select("id, url").in("id", slice);
+      for (const r of data ?? []) if (r.url) urlByContent.set(r.id, r.url as string);
+    }
+
+    // kalodata video_url + publish_date + revenue_usd map (key_stats 안 ks 에 박힘)
+    const kdVids = (keyStats as unknown as { kalodata_videos_xlsx?: Array<{ video_url: string | null; publish_date: string | null; revenue_usd: number | null }> }).kalodata_videos_xlsx ?? [];
+    const kdMap = new Map<string, { month: string; gmv: number }>();
+    for (const v of kdVids) {
+      if (!v.video_url || !v.publish_date || (v.revenue_usd ?? 0) <= 0) continue;
+      const month = v.publish_date.slice(0, 7);
+      kdMap.set(v.video_url, { month, gmv: v.revenue_usd ?? 0 });
+    }
+    if (kdMap.size === 0) return out;
+
+    // cluster → meta → month → gmv 합산
+    for (const m of cluToContent) {
+      const metaId = childToMeta.get(m.cluster_id);
+      if (!metaId) continue;
+      const url = urlByContent.get(m.content_id);
+      if (!url) continue;
+      const hit = kdMap.get(url);
+      if (!hit) continue;
+      if (!out[metaId]) out[metaId] = {};
+      out[metaId][hit.month] = (out[metaId][hit.month] ?? 0) + hit.gmv;
+    }
+    return out;
+  })();
+
   // 5b. 비용 추정
   const costEstimate = estimateCost({
     channel: c.channel,
@@ -1563,11 +1640,21 @@ export default async function CaseDetailPage({
                         totalViews={tcViews}
                         viewBreakdown={"top creator 합산 추정"}
                         ttShopGmv30d={rev ?? null}
-                        gmvTrend={
-                          ks.phase2.sales_summary?.sku_count
-                            ? `${ks.phase2.sales_summary.sku_count} SKU`
-                            : undefined
-                        }
+                        gmvTrend={(() => {
+                          const summary = ks.phase2.sales_summary;
+                          if (!summary) return undefined;
+                          const prev = summary.prev_period_revenue;
+                          const cur = summary.total_revenue ?? 0;
+                          const skuLabel = summary.sku_count
+                            ? ` · ${summary.sku_count} SKU`
+                            : "";
+                          if (prev != null && prev > 0) {
+                            const pct = ((cur - prev) / prev) * 100;
+                            const arrow = pct >= 0 ? "▲" : "▼";
+                            return `${arrow} ${Math.abs(pct).toFixed(0)}% vs 직전${skuLabel}`;
+                          }
+                          return summary.sku_count ? `${summary.sku_count} SKU` : undefined;
+                        })()}
                         metaAds={adTotal}
                         metaBreakdown={adTotal > 0 ? `brand ${(ks.phase4a?.brand_official_ads ?? 0)} · partner ${adPartner}` : undefined}
                         costEstimate={costEstimate.total_max_usd}
@@ -1891,6 +1978,7 @@ export default async function CaseDetailPage({
                           channels: p.channels,
                           videos: p.totalVideos,
                         }))}
+                        relatedCases={relatedCases}
                       />
                     </div>
                   ) : null;
@@ -1946,6 +2034,7 @@ export default async function CaseDetailPage({
                         clusterChannelBreakdown={clusterChannelBreakdown}
                         clusterMetrics={clusterMetrics}
                         uspSampleVideos={uspSampleVideos}
+                        clusterGmvByMonth={clusterGmvByMonth}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup

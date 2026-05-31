@@ -374,9 +374,10 @@ async function aggregateAmazonSalesAndBsr(
   bsr_series: BsrSeries[];
 }> {
   // products (case scope) — country 포함 (권역 case의 SA/AE 분리용)
+  // category/launch_date/price 추가 (D SKU 매출 표 컬럼 확장 B2).
   const { data: prods } = await supabase
     .from("products")
-    .select("id, asin, external_product_id, name, product_url, country")
+    .select("id, asin, external_product_id, name, product_url, country, category, launch_date, price")
     .eq("case_id", case_id);
 
   if (!prods || prods.length === 0) {
@@ -405,10 +406,28 @@ async function aggregateAmazonSalesAndBsr(
       period_end: string | null;
     }
   >();
+  // 직전 period revenue (각 product 의 두 번째 row)
+  const prevByProduct = new Map<string, number>();
+  let latestPeriodEnd: string | null = null;
+  let prevPeriodEnd: string | null = null;
+  const seenSeconds = new Map<string, number>(); // product_id → seen 횟수
   for (const s of salesAll ?? []) {
-    if (!latestByProduct.has(s.product_id)) {
+    const seen = seenSeconds.get(s.product_id) ?? 0;
+    if (seen === 0) {
       latestByProduct.set(s.product_id, s);
+      if (s.period_end && (!latestPeriodEnd || s.period_end > latestPeriodEnd)) {
+        latestPeriodEnd = s.period_end;
+      }
+    } else if (seen === 1) {
+      prevByProduct.set(s.product_id, s.revenue_30d ?? 0);
+      if (s.period_end && (!prevPeriodEnd || s.period_end > prevPeriodEnd)) {
+        // prev 는 latest 와 같을 수 없음
+        if (s.period_end !== latestPeriodEnd) {
+          prevPeriodEnd = s.period_end;
+        }
+      }
     }
+    seenSeconds.set(s.product_id, seen + 1);
   }
 
   // 최신 BSR 한 점 (Amazon만 — tiktok_shop은 BSR 개념 없음).
@@ -448,6 +467,9 @@ async function aggregateAmazonSalesAndBsr(
         currency: s?.currency ?? "USD",
         country: p.country ?? null,
         bsr_latest: latestBsrByProduct.get(p.id) ?? null,
+        category: p.category ?? null,
+        launch_date: p.launch_date ?? null,
+        price: p.price != null ? Number(p.price) : null,
       };
     })
     .sort((a, b) => b.revenue - a.revenue);
@@ -478,6 +500,9 @@ async function aggregateAmazonSalesAndBsr(
 
   // 가장 최근 period 기준
   const latestPeriod = Array.from(latestByProduct.values())[0];
+  const prev_period_revenue = prevByProduct.size > 0
+    ? Array.from(prevByProduct.values()).reduce((s, v) => s + v, 0)
+    : null;
   const sales_summary: SalesSummary = {
     period_start: latestPeriod?.period_start ?? null,
     period_end: latestPeriod?.period_end ?? null,
@@ -486,6 +511,8 @@ async function aggregateAmazonSalesAndBsr(
     sku_count: sku_sales.length,
     top1_revenue_share: total_revenue > 0 ? top1 / total_revenue : 0,
     top3_revenue_share: total_revenue > 0 ? top3 / total_revenue : 0,
+    prev_period_revenue,
+    prev_period_end: prevPeriodEnd,
     by_country,
   };
 
