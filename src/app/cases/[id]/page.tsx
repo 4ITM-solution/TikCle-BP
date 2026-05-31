@@ -33,6 +33,7 @@ import {
 import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
+import { listMergeCandidates } from "@/app/cases/[id]/case-actions";
 import {
   CaseInsightCard,
   type AxisCardData,
@@ -2031,6 +2032,7 @@ export default async function CaseDetailPage({
         costEstimate={costEstimate}
         keyStats={keyStats}
         lastError={(keyStats as { last_error?: { message: string } } | null)?.last_error?.message ?? null}
+        mergeCandidates={await listMergeCandidates(c.id)}
       />
         </div>{/* /main minWidth */}
       </div>{/* /grid */}
