@@ -1137,6 +1137,136 @@ export default async function CaseDetailPage({
     return out;
   })();
 
+  // ★ 각 채널별 데이터 수집 기간 (min/max date) — DataChannelsMockup sub 라벨용
+  // 사용자가 delta upload 할 때 "어디까지 적재됐는지" 즉답
+  const dataRanges = await (async () => {
+    const out: Record<string, { min: string | null; max: string | null }> = {};
+    if (brand_id) {
+      // TikTok contents (brand+country scope)
+      const { data: tkMin } = await supabase
+        .from("contents")
+        .select("uploaded_at")
+        .eq("brand_id", brand_id)
+        .eq("country", c.country)
+        .not("uploaded_at", "is", null)
+        .order("uploaded_at", { ascending: true })
+        .limit(1);
+      const { data: tkMax } = await supabase
+        .from("contents")
+        .select("uploaded_at")
+        .eq("brand_id", brand_id)
+        .eq("country", c.country)
+        .not("uploaded_at", "is", null)
+        .order("uploaded_at", { ascending: false })
+        .limit(1);
+      if (tkMin?.[0] || tkMax?.[0]) {
+        out.tiktok_video = {
+          min: tkMin?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+          max: tkMax?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+        };
+      }
+    }
+    // Meta ads (case scope)
+    const { data: maMin } = await supabase
+      .from("meta_ads")
+      .select("start_date")
+      .eq("case_id", c.id)
+      .not("start_date", "is", null)
+      .order("start_date", { ascending: true })
+      .limit(1);
+    const { data: maMax } = await supabase
+      .from("meta_ads")
+      .select("start_date")
+      .eq("case_id", c.id)
+      .not("start_date", "is", null)
+      .order("start_date", { ascending: false })
+      .limit(1);
+    if (maMin?.[0] || maMax?.[0]) {
+      out.meta_ads = {
+        min: maMin?.[0]?.start_date ?? null,
+        max: maMax?.[0]?.start_date ?? null,
+      };
+    }
+    // IG posts
+    const { data: igMin } = await supabase
+      .from("ig_posts")
+      .select("posted_at")
+      .eq("case_id", c.id)
+      .not("posted_at", "is", null)
+      .order("posted_at", { ascending: true })
+      .limit(1);
+    const { data: igMax } = await supabase
+      .from("ig_posts")
+      .select("posted_at")
+      .eq("case_id", c.id)
+      .not("posted_at", "is", null)
+      .order("posted_at", { ascending: false })
+      .limit(1);
+    if (igMin?.[0] || igMax?.[0]) {
+      out.instagram = {
+        min: igMin?.[0]?.posted_at?.slice(0, 10) ?? null,
+        max: igMax?.[0]?.posted_at?.slice(0, 10) ?? null,
+      };
+    }
+    // YT videos
+    const { data: ytMin } = await supabase
+      .from("yt_videos")
+      .select("uploaded_at")
+      .eq("case_id", c.id)
+      .not("uploaded_at", "is", null)
+      .order("uploaded_at", { ascending: true })
+      .limit(1);
+    const { data: ytMax } = await supabase
+      .from("yt_videos")
+      .select("uploaded_at")
+      .eq("case_id", c.id)
+      .not("uploaded_at", "is", null)
+      .order("uploaded_at", { ascending: false })
+      .limit(1);
+    if (ytMin?.[0] || ytMax?.[0]) {
+      out.youtube = {
+        min: ytMin?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+        max: ytMax?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+      };
+    }
+    // case_product_sales (channel별) — products.channel join 으로 분리
+    const { data: cpsAll } = await supabase
+      .from("case_product_sales")
+      .select("period_start, period_end, product_id")
+      .eq("case_id", c.id)
+      .not("period_end", "is", null);
+    if (cpsAll && cpsAll.length > 0) {
+      const productIds = [...new Set(cpsAll.map((r) => r.product_id).filter(Boolean))] as string[];
+      const channelByProduct = new Map<string, string>();
+      for (let i = 0; i < productIds.length; i += 200) {
+        const slice = productIds.slice(i, i + 200);
+        const { data: prods } = await supabase
+          .from("products")
+          .select("id, channel")
+          .in("id", slice);
+        for (const p of prods ?? []) {
+          if (p.channel) channelByProduct.set(p.id, String(p.channel));
+        }
+      }
+      const salesByCh = new Map<string, { min: string | null; max: string | null }>();
+      for (const r of cpsAll) {
+        const ch = r.product_id ? channelByProduct.get(r.product_id) : null;
+        if (!ch) continue;
+        const cur = salesByCh.get(ch) ?? { min: null, max: null };
+        const ps = r.period_start;
+        const pe = r.period_end;
+        if (ps && (!cur.min || ps < cur.min)) cur.min = ps;
+        if (pe && (!cur.max || pe > cur.max)) cur.max = pe;
+        salesByCh.set(ch, cur);
+      }
+      for (const [ch, range] of salesByCh) {
+        const key = ch === "amazon" ? "amazon" : ch === "tiktok_shop" ? "tt_shop" : ch === "shopee" ? "shopee" : null;
+        if (key && (range.min || range.max)) out[key] = range;
+      }
+    }
+    return out;
+  })();
+
   // ★ 같은 brand 의 다른 case 중 kalodata 적재된 케이스 hint (사용자가 케이스 헷갈릴 때 안내)
   const kalodataInOtherCases = await (async () => {
     if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
@@ -1839,12 +1969,22 @@ export default async function CaseDetailPage({
                             n >= 1_000_000 ? `${Math.round(n / 1_000_000)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
                           const fmtUsd = (n: number) =>
                             n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${n}`;
+                          // 데이터 수집 기간 라벨 ("2025-08-01 ~ 2026-05-26")
+                          const rangeLabel = (key: string): string | null => {
+                            const r = dataRanges[key];
+                            if (!r || (!r.min && !r.max)) return null;
+                            return `📅 ${r.min ?? "?"} ~ ${r.max ?? "?"}`;
+                          };
+                          const subWith = (key: string, base: string): string => {
+                            const r = rangeLabel(key);
+                            return r ? `${r} · ${base}` : base;
+                          };
                           const details: Partial<Record<DataChannel, { stat: string; sub?: string }>> = {};
                           if (dataChannels.includes("tiktok_video")) {
                             const n = ks.phase2?.total_contents ?? 0;
                             details.tiktok_video = {
                               stat: `${n.toLocaleString()} 영상 · ${fmtViews(tkViews)} views`,
-                              sub: "Exolyt CSV",
+                              sub: subWith("tiktok_video", "Exolyt CSV"),
                             };
                           }
                           if (dataChannels.includes("tt_shop")) {
@@ -1852,7 +1992,7 @@ export default async function CaseDetailPage({
                             const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
                             details.tt_shop = {
                               stat: `${skun} 제품${rev > 0 ? ` · ${fmtUsd(rev)} GMV` : ""}`,
-                              sub: "store URL · Helium10",
+                              sub: subWith("tt_shop", "store URL · Helium10"),
                             };
                           }
                           if (dataChannels.includes("meta_ads")) {
@@ -1860,7 +2000,7 @@ export default async function CaseDetailPage({
                             const partner = ks.phase4a?.partnership_creators ?? 0;
                             details.meta_ads = {
                               stat: `${ads.toLocaleString()} 광고${partner > 0 ? ` · ${partner} partnership` : ""}`,
-                              sub: `하이브리드 $${(ks.phase4a?.cost_actual_usd ?? 0).toFixed(2)}`,
+                              sub: subWith("meta_ads", `하이브리드 $${(ks.phase4a?.cost_actual_usd ?? 0).toFixed(2)}`),
                             };
                           }
                           if (dataChannels.includes("instagram")) {
@@ -1869,7 +2009,7 @@ export default async function CaseDetailPage({
                             const authors = ph4c?.unique_authors ?? 0;
                             details.instagram = {
                               stat: `${posts.toLocaleString()} posts${authors > 0 ? ` · ${authors} authors` : ""}`,
-                              sub: "Phase 4c",
+                              sub: subWith("instagram", "Phase 4c"),
                             };
                           }
                           if (dataChannels.includes("youtube")) {
@@ -1878,21 +2018,21 @@ export default async function CaseDetailPage({
                             const chans = ph4d?.unique_channels ?? 0;
                             details.youtube = {
                               stat: `${vids.toLocaleString()} 영상${chans > 0 ? ` · ${chans} 채널` : ""}`,
-                              sub: "Phase 4d",
+                              sub: subWith("youtube", "Phase 4d"),
                             };
                           }
                           if (dataChannels.includes("amazon")) {
                             const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
                             details.amazon = {
                               stat: rev > 0 ? `${fmtUsd(rev)} 매출` : "—",
-                              sub: "Amazon",
+                              sub: subWith("amazon", "Amazon"),
                             };
                           }
                           if (dataChannels.includes("shopee")) {
                             const rev = ks.phase2?.sales_summary?.total_revenue ?? 0;
                             details.shopee = {
                               stat: rev > 0 ? `${fmtUsd(rev)} 매출` : "—",
-                              sub: "Shopee",
+                              sub: subWith("shopee", "Shopee"),
                             };
                           }
                           return details;
