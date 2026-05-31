@@ -40,6 +40,7 @@ export function SectionAMockup({
   phase2,
   phase3,
   phase5,
+  hasAmazon,
 }: {
   phase2: Phase2Stats;
   phase3?: {
@@ -47,6 +48,8 @@ export function SectionAMockup({
     tier_distribution?: TierDistribution; // 전체 (월별 없을 때 fallback)
   };
   phase5?: Phase5Stats;
+  /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
+  hasAmazon?: boolean;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [barMode, setBarMode] = useState<BarMode>("abs");
@@ -290,10 +293,11 @@ export function SectionAMockup({
           <button
             className={show.bsr ? "active-line bsr" : ""}
             onClick={() => setShow((s) => ({ ...s, bsr: !s.bsr }))}
-            disabled={bsrVals.length === 0}
-            style={{ opacity: bsrVals.length === 0 ? 0.4 : 1 }}
+            disabled={!hasAmazon || bsrVals.length === 0}
+            style={{ opacity: !hasAmazon || bsrVals.length === 0 ? 0.4 : 1 }}
+            title={!hasAmazon ? "Amazon case 만 BSR 의미" : ""}
           >
-            BSR line
+            BSR line (Amazon)
           </button>
           <button
             className={show.vc ? "active-line" : ""}
@@ -491,7 +495,7 @@ export function SectionAMockup({
               strokeDasharray="4 3"
             />
           )}
-          {show.bsr && bsrVals.length > 1 && (
+          {show.bsr && hasAmazon && bsrVals.length > 1 && (
             <polyline
               points={months
                 .filter((mo) => bsrByMonth.has(mo))
@@ -510,6 +514,29 @@ export function SectionAMockup({
               strokeDasharray="2 2"
             />
           )}
+          {/* ★ 변곡점 marker — phase5.bsr_inflections 의 date 별로 영구 표시 (Amazon 만) */}
+          {hasAmazon && phase5?.bsr_inflections?.map((inf, infI) => {
+            const mo = inf.date.slice(0, 7);
+            const idx = months.indexOf(mo);
+            if (idx === -1) return null;
+            const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
+            return (
+              <g key={`inf-${infI}`}>
+                <text
+                  x={x}
+                  y={14}
+                  fontSize="14"
+                  textAnchor="middle"
+                  fill="#ec4899"
+                  style={{ cursor: "pointer" }}
+                >
+                  ★
+                </text>
+                <line x1={x} y1={18} x2={x} y2={222} stroke="#ec4899" strokeWidth="1" strokeDasharray="3 2" opacity="0.4" />
+              </g>
+            );
+          })}
+
           {/* 호버 vertical line + 변곡점 marker (마지막 month 또는 hover) */}
           {(() => {
             const idx = hoverIdx ?? months.length - 1;
@@ -582,6 +609,73 @@ export function SectionAMockup({
       <div style={{ fontSize: 10, color: "#6b7280", marginTop: 6 }}>
         ★ long-tail {Math.round(((dist["1"] as number) / totalCreators) * 100)}% — portfolio 전략 시그널
       </div>
+
+      {/* ★ 변곡점 timeline 카드 — phase5.bsr_inflections (Amazon BSR 급등 시점, day 단위 정확) */}
+      {hasAmazon && phase5?.bsr_inflections && phase5.bsr_inflections.length > 0 && (
+        <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+            ✨ 변곡점 timeline ({phase5.bsr_inflections.length}개 자동 detect ·{" "}
+            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 7일 급등 + 동반 viral 영상 매칭</span>)
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[...phase5.bsr_inflections]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((inf, i) => (
+                <div
+                  key={`tl-${i}`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "100px 1fr",
+                    gap: 12,
+                    padding: 10,
+                    background: "#fff7ed",
+                    border: "1px solid #fed7aa",
+                    borderRadius: 6,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#ec4899" }}>
+                      ★ {inf.date}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#92400e", fontFamily: "monospace", marginTop: 2 }}>
+                      ASIN {inf.asin}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#1f2937", marginBottom: 4 }}>
+                      <b style={{ color: "#ec4899" }}>
+                        BSR #{inf.rank_before.toLocaleString()} → #{inf.rank_after.toLocaleString()}
+                      </b>{" "}
+                      ({inf.rank_improvement_pct > 0 ? "▲" : "▼"}{" "}
+                      {Math.abs(inf.rank_improvement_pct).toFixed(0)}%) ·{" "}
+                      <span style={{ color: inf.is_mega_volume ? "#ec4899" : "#6b7280", fontWeight: inf.is_mega_volume ? 700 : 400 }}>
+                        뷰 ×{inf.views_ratio.toFixed(1)}{inf.is_mega_volume ? " 🔥" : ""}
+                      </span>{" "}
+                      ({inf.views_window.toLocaleString()} vs {inf.views_compare.toLocaleString()})
+                    </div>
+                    {inf.top_videos.length > 0 && (
+                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                        <span style={{ color: "#9ca3af" }}>동반 viral:</span>
+                        {inf.top_videos.slice(0, 3).map((v, vi) => (
+                          <a
+                            key={vi}
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={v.caption ?? ""}
+                            style={{ color: "#1d4ed8", textDecoration: "none", fontFamily: "monospace" }}
+                          >
+                            #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`} ↗
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

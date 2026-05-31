@@ -2330,6 +2330,7 @@ export default async function CaseDetailPage({
                         phase2={ks.phase2}
                         phase3={ks.phase3}
                         phase5={ks.phase5}
+                        hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                       />
                       <SectionBMockup
                         phase2={ks.phase2}
