@@ -40,43 +40,41 @@ export function RegionScopeToggle({
     });
   }
 
+  // mockup line 523-527 `.region-toggle` — inline compact dark-active button group
+  const btnBase: React.CSSProperties = {
+    background: "white",
+    border: "none",
+    padding: "5px 9px",
+    fontSize: 10,
+    cursor: pending ? "not-allowed" : "pointer",
+    fontFamily: "inherit",
+    color: "#1f2937",
+  };
+  const btnActive: React.CSSProperties = { background: "#1f2937", color: "white" };
   return (
     <div
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: "6px 10px",
-        borderRadius: 6,
-        background: "var(--color-bg-soft, #f9fafb)",
-        border: "1px solid var(--color-border, #e5e7eb)",
-        fontSize: 12,
+        fontSize: 10,
       }}
+      title="IG/YT 풀 region scope"
     >
-      <span style={{ color: "var(--color-text-muted, #6b7280)" }}>
-        IG/YT 풀 스코프:
-      </span>
-      <div style={{ display: "inline-flex", gap: 4 }}>
+      <div
+        className="region-toggle"
+        style={{
+          display: "inline-flex",
+          border: "1px solid #d1d5db",
+          borderRadius: 6,
+          overflow: "hidden",
+        }}
+      >
         <button
           type="button"
           onClick={() => handleChange("global")}
           disabled={pending}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 4,
-            border:
-              currentScope === "global"
-                ? "1px solid var(--color-primary, #3b82f6)"
-                : "1px solid var(--color-border, #d1d5db)",
-            background:
-              currentScope === "global"
-                ? "var(--color-primary, #3b82f6)"
-                : "transparent",
-            color: currentScope === "global" ? "#fff" : "inherit",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: pending ? "not-allowed" : "pointer",
-          }}
+          style={{ ...btnBase, ...(currentScope === "global" ? btnActive : {}) }}
         >
           🌍 글로벌
         </button>
@@ -84,30 +82,13 @@ export function RegionScopeToggle({
           type="button"
           onClick={() => handleChange("us-only")}
           disabled={pending}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 4,
-            border:
-              currentScope === "us-only"
-                ? "1px solid var(--color-primary, #3b82f6)"
-                : "1px solid var(--color-border, #d1d5db)",
-            background:
-              currentScope === "us-only"
-                ? "var(--color-primary, #3b82f6)"
-                : "transparent",
-            color: currentScope === "us-only" ? "#fff" : "inherit",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: pending ? "not-allowed" : "pointer",
-          }}
+          style={{ ...btnBase, ...(currentScope === "us-only" ? btnActive : {}) }}
         >
           🇺🇸 US-only
         </button>
       </div>
       {msg && (
-        <span style={{ fontSize: 11, color: "var(--color-success, #059669)" }}>
-          {msg}
-        </span>
+        <span style={{ color: "#059669", fontSize: 10 }}>{msg}</span>
       )}
     </div>
   );

@@ -823,8 +823,20 @@ export default async function CaseDetailPage({
       topGmvCreators = await Promise.all(topPromises);
     }
 
-    // 2) Shop creator GMV 분포 — case scope의 모든 Shop creator
-    const buckets = { zero: 0, b1: 0, b2: 0, b3: 0, b4: 0 };
+    // 2) Shop creator GMV 분포 — mockup 10 bar (log scale 박힘)
+    const HG_DEFS: Array<{ label: string; min: number; max: number; color: string }> = [
+      { label: "$0", min: 0, max: 0, color: "#9ca3af" },
+      { label: "$1~$100", min: 1, max: 100, color: "#fde68a" },
+      { label: "$100~$500", min: 100, max: 500, color: "#fcd34d" },
+      { label: "$500~$1K", min: 500, max: 1_000, color: "#facc15" },
+      { label: "$1K~$5K", min: 1_000, max: 5_000, color: "#a3e635" },
+      { label: "$5K~$10K", min: 5_000, max: 10_000, color: "#84cc16" },
+      { label: "$10K~$50K", min: 10_000, max: 50_000, color: "#22c55e" },
+      { label: "$50K~$100K", min: 50_000, max: 100_000, color: "#10b981" },
+      { label: "$100K~$500K", min: 100_000, max: 500_000, color: "#06b6d4" },
+      { label: "$500K+", min: 500_000, max: Infinity, color: "#0ea5e9" },
+    ];
+    const hgCounts = new Array(HG_DEFS.length).fill(0);
     let totalShop = 0;
     let nullGmv = 0;
     for (let i = 0; i < caseInfluencerIds.length; i += 1000) {
@@ -841,24 +853,27 @@ export default async function CaseDetailPage({
           continue;
         }
         const g = Number(r.lifetime_gmv_usd);
-        if (g === 0) buckets.zero += 1;
-        else if (g < 1000) buckets.b1 += 1;
-        else if (g < 10000) buckets.b2 += 1;
-        else if (g < 100000) buckets.b3 += 1;
-        else buckets.b4 += 1;
+        for (let bi = 0; bi < HG_DEFS.length; bi++) {
+          const def = HG_DEFS[bi]!;
+          // $0 bucket — 정확히 0만
+          if (def.min === 0 && def.max === 0) {
+            if (g === 0) { hgCounts[bi] += 1; break; }
+          } else if (g >= def.min && g < def.max) {
+            hgCounts[bi] += 1;
+            break;
+          }
+        }
       }
     }
     if (totalShop > 0) {
       shopGmvDistribution = {
         total_shop_creators: totalShop,
         not_yet_backfilled: nullGmv,
-        buckets: [
-          { label: "$0 (역대 0건)", count: buckets.zero, color: "#9ca3af" },
-          { label: "$1~$1K", count: buckets.b1, color: "#facc15" },
-          { label: "$1K~$10K", count: buckets.b2, color: "#84cc16" },
-          { label: "$10K~$100K", count: buckets.b3, color: "#10b981" },
-          { label: "$100K+ (검증)", count: buckets.b4, color: "#0ea5e9" },
-        ],
+        buckets: HG_DEFS.map((def, i) => ({
+          label: def.label,
+          count: hgCounts[i],
+          color: def.color,
+        })),
       };
     }
   }
@@ -1733,7 +1748,7 @@ export default async function CaseDetailPage({
                         }}
                       />
                       {/* mockup line 561-581: Phase progress (펼치기) */}
-                      <PhaseProgressMockup ks={ks as KeyStats} />
+                      <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
                     </div>
                   );
                 })()}
@@ -2014,6 +2029,8 @@ export default async function CaseDetailPage({
         case_id={c.id}
         status={c.status}
         costEstimate={costEstimate}
+        keyStats={keyStats}
+        lastError={(keyStats as { last_error?: { message: string } } | null)?.last_error?.message ?? null}
       />
         </div>{/* /main minWidth */}
       </div>{/* /grid */}

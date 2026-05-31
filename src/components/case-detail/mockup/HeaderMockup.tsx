@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { DataChannel } from "@/lib/supabase/types";
 import { DATA_CHANNEL_LABELS, DATA_CHANNEL_ICONS } from "@/lib/supabase/types";
 import type { KeyStats } from "@/lib/inngest/types";
+import type { PhaseKey } from "@/lib/inngest/client";
+import { PHASES, isPhaseDone } from "../PhaseProgress";
+import { startAnalysis } from "@/app/cases/[id]/upload-actions";
 
 /**
  * Header 영역 mockup 1:1 — mockup line 491-624 + footer 1354-1364
@@ -94,7 +97,7 @@ export function CaseStatusStripMockup({
       </div>
       {analyzedAt && (
         <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4, paddingLeft: 0 }}>
-          {country} · {channel} · {status} · 분석 {new Date(analyzedAt).toLocaleString("ko-KR")}
+          {country} · {status} · 분석 {new Date(analyzedAt).toLocaleString("ko-KR")}
         </div>
       )}
     </div>
@@ -346,44 +349,142 @@ export function DataChannelsMockup({
 
 // ============================================================================
 // 5. Phase Progress (mockup line 561-581)
+//    각 phase row 에 .pp-rerun 인라인 버튼 (mockup 의도). case_id 필수.
 // ============================================================================
+function detailForPhase(key: PhaseKey, ks: KeyStats): string {
+  switch (key) {
+    case "phase1_5":
+      return ks.phase1_5 ? `${ks.phase1_5.total_products ?? 0} 제품` : "";
+    case "phase2":
+      return ks.phase2 ? "SQL 집계" : "";
+    case "phase3":
+      return ks.phase3 ? `${ks.phase3.total_creators}명` : "";
+    case "phase35":
+      return ks.phase35 ? `폴백 ${ks.phase35.total_filled ?? 0}명` : "";
+    case "phase37":
+      return ks.phase37 ? `Shop ${ks.phase37.total_shop_creators ?? 0}명` : "";
+    case "phase4a":
+      return ks.phase4a ? `${ks.phase4a.total_ads ?? 0} 광고` : "";
+    case "phase4a_assets":
+      return ks.phase4a?.ads_preview?.length
+        ? `Storage ${ks.phase4a.ads_preview.filter((a) => (a.thumbnail_url ?? "").includes("supabase") || (a.video_url ?? "").includes("supabase")).length}건`
+        : "";
+    case "phase4b_sample":
+      return ks.phase4b_sample ? `샘플 ${ks.phase4b_sample.sample_content_ids?.length ?? 0}` : "";
+    case "phase4b_asr":
+      return ks.phase4b_asr ? `ASR ${ks.phase4b_asr.total_with_asr ?? 0}` : "";
+    case "phase4b_vision":
+      return ks.phase4b_vision ? `Vision ${ks.phase4b_vision.total_with_tags ?? 0}` : "";
+    case "phase4b_clusters":
+      return ks.phase4b_clusters ? `Cluster ${ks.phase4b_clusters.pass3_meta ?? 0}` : "";
+    case "phase4b_sku":
+      return ks.phase4b_sku ? `SKU 매칭 ${ks.phase4b_sku.total_matched ?? 0}` : "";
+    case "phase5":
+      return ks.phase5 ? "포지셔닝 분석" : "WIP";
+    case "phase4c":
+      return ks.phase4c ? `IG ${ks.phase4c.total_unique ?? 0}` : "";
+    case "phase4d":
+      return ks.phase4d ? `YT ${ks.phase4d.total_unique ?? 0}` : "";
+  }
+}
+
 export function PhaseProgressMockup({
   ks,
+  case_id,
 }: {
   ks: KeyStats;
+  /** case_id 박힘 — .pp-rerun 클릭 시 단독 phase rerun. 옴이텀 button 숨김. */
+  case_id?: string;
 }) {
-  const items: Array<{ label: string; done: boolean; skip?: boolean; detail?: string }> = [
-    { label: "Phase 1.5", done: !!ks.phase1_5, detail: ks.phase1_5 ? `${ks.phase1_5.total_products ?? 0} 제품` : "" },
-    { label: "Phase 2", done: !!ks.phase2, detail: ks.phase2 ? "SQL 집계" : "" },
-    { label: "Phase 3", done: !!ks.phase3, detail: ks.phase3 ? `${ks.phase3.total_creators}명` : "" },
-    { label: "Phase 3.5", done: !!ks.phase35, detail: ks.phase35 ? `폴백 ${ks.phase35.total_filled ?? 0}명` : "" },
-    { label: "Phase 3.7", done: !!ks.phase37, detail: ks.phase37 ? `Shop ${ks.phase37.total_shop_creators ?? 0}명` : "" },
-    { label: "Phase 4a", done: !!ks.phase4a, detail: ks.phase4a ? `${ks.phase4a.total_ads ?? 0} 광고` : "" },
-    { label: "Phase 4b.1", done: !!ks.phase4b_sample, detail: ks.phase4b_sample ? `샘플 ${ks.phase4b_sample.sample_content_ids?.length ?? 0}` : "" },
-    { label: "Phase 4b.2", done: !!ks.phase4b_asr, detail: ks.phase4b_asr ? `ASR ${ks.phase4b_asr.total_with_asr ?? 0}` : "" },
-    { label: "Phase 4b.3", done: !!ks.phase4b_vision, detail: ks.phase4b_vision ? `Vision ${ks.phase4b_vision.total_with_tags ?? 0}` : "" },
-    { label: "Phase 4b.4", done: !!ks.phase4b_clusters && (ks.phase4b_clusters.pass3_meta ?? 0) > 0, detail: ks.phase4b_clusters ? `Cluster ${ks.phase4b_clusters.pass3_meta ?? 0}` : "" },
-    { label: "Phase 4b.5", done: !!ks.phase4b_sku, detail: ks.phase4b_sku ? `SKU 매칭 ${ks.phase4b_sku.total_matched ?? 0}` : "" },
-    { label: "Phase 4c", done: !!ks.phase4c, detail: ks.phase4c ? `IG ${ks.phase4c.total_unique ?? 0}` : "" },
-    { label: "Phase 4d", done: !!ks.phase4d, detail: ks.phase4d ? `YT ${ks.phase4d.total_unique ?? 0}` : "" },
-    { label: "Phase 5", done: !!ks.phase5, skip: !ks.phase5, detail: ks.phase5 ? "포지셔닝 분석" : "WIP (수동만)" },
-  ];
+  const [pending, start] = useTransition();
+  const [pendingPhase, setPendingPhase] = useState<PhaseKey | null>(null);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  function rerun(phase: PhaseKey) {
+    if (!case_id) return;
+    setPendingPhase(phase);
+    setMsg(null);
+    start(async () => {
+      const r = await startAnalysis(case_id, [phase], { skipAutoForce: true });
+      setPendingPhase(null);
+      setMsg(r.ok ? { type: "ok", text: r.message } : { type: "err", text: r.error });
+    });
+  }
+
+  const items = PHASES.map((p) => {
+    const status = isPhaseDone(p.key, ks);
+    return {
+      key: p.key,
+      label: p.label.split(" — ")[0] ?? p.label,
+      done: status.done,
+      detail: detailForPhase(p.key, ks),
+    };
+  });
   const doneCount = items.filter((i) => i.done).length;
+
   return (
     <details className="phase-progress" id="sec-phase">
       <summary>
         🔧 Phase 진행 상태 ({doneCount}/{items.length} · cache cascade · 펼치기)
       </summary>
       <div className="pp-grid">
-        {items.map((it) => (
-          <div
-            key={it.label}
-            className={`pp-item ${it.done ? "ok" : it.skip ? "skip" : ""}`}
-          >
-            {it.label} {it.done ? "✓" : it.skip ? "⏭" : "—"} {it.detail}
-          </div>
-        ))}
+        {items.map((it) => {
+          const isPending = pendingPhase === it.key && pending;
+          return (
+            <div
+              key={it.key}
+              className={`pp-item ${it.done ? "ok" : ""}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {it.label} {it.done ? "✓" : "—"} {it.detail}
+              </span>
+              {case_id && (
+                <button
+                  type="button"
+                  className="pp-rerun"
+                  onClick={() => rerun(it.key)}
+                  disabled={pending}
+                  title={it.done ? "재실행 (캐시 무시)" : "실행"}
+                  style={{
+                    fontSize: 9,
+                    padding: "2px 6px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 3,
+                    background: "white",
+                    cursor: pending ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    color: "#6b7280",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isPending ? "…" : it.done ? "↻" : "▶"}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
+      {msg && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 11,
+            padding: "6px 10px",
+            borderRadius: 4,
+            background: msg.type === "ok" ? "#d1fae5" : "#fee2e2",
+            color: msg.type === "ok" ? "#065f46" : "#991b1b",
+          }}
+        >
+          {msg.type === "ok" ? "✓ " : "✕ "}{msg.text}
+        </div>
+      )}
     </details>
   );
 }

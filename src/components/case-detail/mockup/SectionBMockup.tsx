@@ -60,15 +60,19 @@ export function SectionBMockup({
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
 
   // 티어 분포 (phase3 or phase35 or phase37 우선)
   const tierDist = phase3?.tier_distribution ?? null;
   const totalCreators = phase3?.total_creators ?? 0;
 
-  // Top 작성자 (20+ 영상)
-  const topCreators = (phase2.top_creators ?? [])
+  // Top 작성자 (20+ 영상) — tierFilter 적용 시 그 티어만
+  const topCreatorsRaw = (phase2.top_creators ?? [])
     .slice()
     .sort((a, b) => b.video_count - a.video_count);
+  const topCreators = tierFilter
+    ? topCreatorsRaw.filter((c) => tierOf(c.follower_count) === tierFilter)
+    : topCreatorsRaw;
 
   // cross-channel matrix
   const xcMap = new Map<string, MatrixRow>();
@@ -153,9 +157,22 @@ export function SectionBMockup({
             return rowsToShow.map((t) => {
               const n = tierDist?.[t.key] ?? 0;
               const pct = maxN > 0 ? (n / maxN) * 100 : 0;
+              const isSelected = tierFilter === t.key;
               return (
-                <div key={t.key} className="tier-row">
-                  <span>{t.label}</span>
+                <div
+                  key={t.key}
+                  className="tier-row"
+                  onClick={() => setTierFilter(isSelected ? null : t.key)}
+                  style={{
+                    cursor: "pointer",
+                    background: isSelected ? "#fef3c7" : undefined,
+                    borderRadius: 4,
+                    padding: isSelected ? "2px 4px" : undefined,
+                    margin: isSelected ? "-2px -4px" : undefined,
+                  }}
+                  title={`${t.label} 티어 인플만 우측 Top 작성자에 표시`}
+                >
+                  <span style={{ fontWeight: isSelected ? 700 : 400 }}>{t.label}</span>
                   <div className="tier-bar">
                     <div className="tier-fill" style={{ width: `${pct}%` }} />
                   </div>
@@ -164,6 +181,42 @@ export function SectionBMockup({
               );
             });
           })()}
+          {tierFilter && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 10,
+                color: "#92400e",
+                background: "#fef3c7",
+                padding: "4px 8px",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span>
+                ⭐ <b>{tierFilter}</b> 티어만 우측 Top 작성자에 표시
+              </span>
+              <button
+                type="button"
+                onClick={() => setTierFilter(null)}
+                style={{
+                  marginLeft: "auto",
+                  background: "white",
+                  border: "1px solid #d97706",
+                  borderRadius: 3,
+                  padding: "1px 6px",
+                  fontSize: 9,
+                  color: "#92400e",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                ✕ 해제
+              </button>
+            </div>
+          )}
 
           {xcTop.length > 0 && (
             <>
@@ -374,4 +427,14 @@ function formatUsd(n: number): string {
 
 function normalize(s: string): string {
   return (s ?? "").toLowerCase().replace(/^@/, "").trim();
+}
+
+function tierOf(n: number | null): TierBucket {
+  if (n == null) return "unknown";
+  if (n >= 1_000_000) return "mega";
+  if (n >= 500_000) return "macro";
+  if (n >= 100_000) return "mid";
+  if (n >= 10_000) return "micro";
+  if (n >= 1_000) return "nano";
+  return "sub-nano";
 }

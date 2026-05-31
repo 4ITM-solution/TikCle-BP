@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 
 type Search = Promise<{
   region?: string;
-  channel?: string;
   tier?: string;
   q?: string;
 }>;
@@ -22,7 +21,6 @@ export default async function CasesPage({
 }) {
   const sp = await searchParams;
   const selectedRegion = (sp.region ?? "").trim();
-  const selectedChannel = (sp.channel ?? "").trim();
   const selectedTier = (sp.tier ?? "").trim();
   const selectedQ = (sp.q ?? "").trim().toLowerCase();
 
@@ -48,10 +46,9 @@ export default async function CasesPage({
 
   const allCases = cases ?? [];
 
-  // 필터 — country/channel/tier 정확 매칭 + brand 명 부분 일치
+  // 필터 — country/tier 정확 매칭 + brand 명 부분 일치 (A 모델: channel 의미 없음)
   const filtered = allCases.filter((c) => {
     if (selectedRegion && c.country !== selectedRegion) return false;
-    if (selectedChannel && c.channel !== selectedChannel) return false;
     if (selectedTier && c.revenue_tier !== selectedTier) return false;
     if (selectedQ) {
       const brandName = (c.brand as unknown as { name: string } | null)?.name ?? "";
@@ -72,7 +69,7 @@ export default async function CasesPage({
     updated_at: c.updated_at,
   }));
 
-  const hasAnyFilter = !!(selectedRegion || selectedChannel || selectedTier || selectedQ);
+  const hasAnyFilter = !!(selectedRegion || selectedTier || selectedQ);
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
@@ -91,7 +88,7 @@ export default async function CasesPage({
               color: "var(--color-g500)",
             }}
           >
-            brand 명 검색 · 국가 · 플랫폼 · 티어 필터. 체크박스 최대 4개 비교.
+            brand 명 검색 · 국가 · 티어 필터. 체크박스 최대 4개 비교.
           </p>
         </div>
         <Link
@@ -105,7 +102,6 @@ export default async function CasesPage({
 
       <BrowseFilters
         selectedRegion={selectedRegion}
-        selectedChannel={selectedChannel}
         selectedTier={selectedTier}
         selectedQ={selectedQ}
       />

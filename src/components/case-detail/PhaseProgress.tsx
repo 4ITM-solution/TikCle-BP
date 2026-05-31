@@ -5,12 +5,14 @@ import { startAnalysis } from "@/app/cases/[id]/upload-actions";
 import type { PhaseKey } from "@/lib/inngest/client";
 import type { KeyStats } from "@/lib/inngest/types";
 
-const PHASES: Array<{
+export type PhaseDef = {
   key: PhaseKey;
   label: string;
   cost: string;
   costColor: "free" | "low" | "mid";
-}> = [
+};
+
+export const PHASES: PhaseDef[] = [
   {
     key: "phase1_5",
     label: "Phase 1.5 — TikTok Shop 수집",
@@ -98,6 +100,97 @@ const PHASES: Array<{
   },
 ];
 
+export function isPhaseDone(
+  key: PhaseKey,
+  keyStats: KeyStats,
+): { done: boolean; computed_at?: string } {
+  switch (key) {
+    case "phase1_5":
+      return {
+        done: !!keyStats.phase1_5,
+        computed_at: keyStats.phase1_5?.computed_at,
+      };
+    case "phase2":
+      return {
+        done: !!keyStats.phase2,
+        computed_at: keyStats.phase2?.computed_at,
+      };
+    case "phase3":
+      return {
+        done: !!keyStats.phase3,
+        computed_at: keyStats.phase3?.computed_at,
+      };
+    case "phase35":
+      return {
+        done: !!keyStats.phase35,
+        computed_at: keyStats.phase35?.computed_at,
+      };
+    case "phase37":
+      return {
+        done: !!keyStats.phase37,
+        computed_at: keyStats.phase37?.computed_at,
+      };
+    case "phase4a":
+      return {
+        done: !!keyStats.phase4a,
+        computed_at: keyStats.phase4a?.computed_at,
+      };
+    case "phase4a_assets":
+      // 광고 미리보기에 storage URL이 들어있으면 자산 다운로드된 것
+      return {
+        done:
+          !!keyStats.phase4a &&
+          keyStats.phase4a.ads_preview.length > 0 &&
+          keyStats.phase4a.ads_preview.some(
+            (a) =>
+              (a.thumbnail_url ?? "").includes("supabase") ||
+              (a.video_url ?? "").includes("supabase"),
+          ),
+        computed_at: keyStats.phase4a?.computed_at,
+      };
+    case "phase4b_sample":
+      return {
+        done: !!keyStats.phase4b_sample,
+        computed_at: keyStats.phase4b_sample?.computed_at,
+      };
+    case "phase4b_asr":
+      return {
+        done: !!keyStats.phase4b_asr,
+        computed_at: keyStats.phase4b_asr?.computed_at,
+      };
+    case "phase4b_vision":
+      return {
+        done: !!keyStats.phase4b_vision,
+        computed_at: keyStats.phase4b_vision?.computed_at,
+      };
+    case "phase4b_clusters":
+      return {
+        done: !!keyStats.phase4b_clusters,
+        computed_at: keyStats.phase4b_clusters?.computed_at,
+      };
+    case "phase4b_sku":
+      return {
+        done: !!keyStats.phase4b_sku,
+        computed_at: keyStats.phase4b_sku?.computed_at,
+      };
+    case "phase5":
+      return {
+        done: !!keyStats.phase5,
+        computed_at: keyStats.phase5?.computed_at,
+      };
+    case "phase4c":
+      return {
+        done: !!keyStats.phase4c,
+        computed_at: keyStats.phase4c?.computed_at,
+      };
+    case "phase4d":
+      return {
+        done: !!keyStats.phase4d,
+        computed_at: keyStats.phase4d?.computed_at,
+      };
+  }
+}
+
 export function PhaseProgress({
   case_id,
   keyStats,
@@ -110,94 +203,7 @@ export function PhaseProgress({
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
-
-  function isDone(key: PhaseKey): { done: boolean; computed_at?: string } {
-    switch (key) {
-      case "phase1_5":
-        return {
-          done: !!keyStats.phase1_5,
-          computed_at: keyStats.phase1_5?.computed_at,
-        };
-      case "phase2":
-        return {
-          done: !!keyStats.phase2,
-          computed_at: keyStats.phase2?.computed_at,
-        };
-      case "phase3":
-        return {
-          done: !!keyStats.phase3,
-          computed_at: keyStats.phase3?.computed_at,
-        };
-      case "phase35":
-        return {
-          done: !!keyStats.phase35,
-          computed_at: keyStats.phase35?.computed_at,
-        };
-      case "phase37":
-        return {
-          done: !!keyStats.phase37,
-          computed_at: keyStats.phase37?.computed_at,
-        };
-      case "phase4a":
-        return {
-          done: !!keyStats.phase4a,
-          computed_at: keyStats.phase4a?.computed_at,
-        };
-      case "phase4a_assets":
-        // 광고 미리보기에 storage URL이 들어있으면 자산 다운로드된 것
-        return {
-          done:
-            !!keyStats.phase4a &&
-            keyStats.phase4a.ads_preview.length > 0 &&
-            keyStats.phase4a.ads_preview.some(
-              (a) =>
-                (a.thumbnail_url ?? "").includes("supabase") ||
-                (a.video_url ?? "").includes("supabase"),
-            ),
-          computed_at: keyStats.phase4a?.computed_at,
-        };
-      case "phase4b_sample":
-        return {
-          done: !!keyStats.phase4b_sample,
-          computed_at: keyStats.phase4b_sample?.computed_at,
-        };
-      case "phase4b_asr":
-        return {
-          done: !!keyStats.phase4b_asr,
-          computed_at: keyStats.phase4b_asr?.computed_at,
-        };
-      case "phase4b_vision":
-        return {
-          done: !!keyStats.phase4b_vision,
-          computed_at: keyStats.phase4b_vision?.computed_at,
-        };
-      case "phase4b_clusters":
-        return {
-          done: !!keyStats.phase4b_clusters,
-          computed_at: keyStats.phase4b_clusters?.computed_at,
-        };
-      case "phase4b_sku":
-        return {
-          done: !!keyStats.phase4b_sku,
-          computed_at: keyStats.phase4b_sku?.computed_at,
-        };
-      case "phase5":
-        return {
-          done: !!keyStats.phase5,
-          computed_at: keyStats.phase5?.computed_at,
-        };
-      case "phase4c":
-        return {
-          done: !!keyStats.phase4c,
-          computed_at: keyStats.phase4c?.computed_at,
-        };
-      case "phase4d":
-        return {
-          done: !!keyStats.phase4d,
-          computed_at: keyStats.phase4d?.computed_at,
-        };
-    }
-  }
+  const isDone = (k: PhaseKey) => isPhaseDone(k, keyStats);
 
   function rerun(phase: PhaseKey) {
     setPendingPhase(phase);

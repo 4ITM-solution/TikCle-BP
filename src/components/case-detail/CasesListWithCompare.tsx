@@ -171,15 +171,11 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
                     textDecoration: "none",
                   }}
                 >
-                  {c.country}/{c.channel.toUpperCase()} ·{" "}
-                  {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스
+                  {c.country} · {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스
                   열기
                 </Link>
               </div>
               <span className="case-tag country">{c.country}</span>
-              <span className="case-tag platform">
-                {c.channel.toUpperCase()}
-              </span>
               {c.revenue_tier ? (
                 <span
                   style={{

@@ -20,19 +20,16 @@ const COUNTRY_GROUPS: { label: string | null; codes: string[] }[] = [
   },
 ];
 
-const CHANNEL_OPTIONS: { value: string; label: string }[] = [
-  { value: "amazon", label: "Amazon" },
-  { value: "tiktok_shop", label: "TikTok Shop" },
-];
+// A 모델: 한 case = 한 country × 한 brand × 다채널.
+// cases.channel 라벨은 옛 case 호환용. Browse filter 에선 제거.
 
 export function BrowseFilters({
   selectedRegion,
-  selectedChannel,
   selectedTier,
   selectedQ,
 }: {
   selectedRegion: string;
-  selectedChannel: string;
+  selectedChannel?: string;
   selectedTier: string;
   selectedQ?: string;
 }) {
@@ -41,7 +38,7 @@ export function BrowseFilters({
   const searchParams = useSearchParams();
 
   const setParam = useCallback(
-    (key: "region" | "channel" | "tier" | "q", value: string) => {
+    (key: "region" | "tier" | "q", value: string) => {
       const sp = new URLSearchParams(searchParams.toString());
       if (value) sp.set(key, value);
       else sp.delete(key);
@@ -61,7 +58,7 @@ export function BrowseFilters({
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [router, pathname, searchParams]);
 
-  const hasAny = !!(selectedRegion || selectedChannel || selectedTier || selectedQ);
+  const hasAny = !!(selectedRegion || selectedTier || selectedQ);
 
   return (
     <div
@@ -133,19 +130,6 @@ export function BrowseFilters({
             </optgroup>
           ),
         )}
-      </FilterSelect>
-
-      <FilterSelect
-        label="플랫폼"
-        value={selectedChannel}
-        onChange={(v) => setParam("channel", v)}
-      >
-        <option value="">전체</option>
-        {CHANNEL_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
       </FilterSelect>
 
       <FilterSelect

@@ -15,11 +15,11 @@ type TocItem = {
 };
 
 const ITEMS: readonly TocItem[] = [
-  { id: "sec-header", label: "📋 케이스 메타", group: "TOP" },
+  { id: "sec-header", label: "📋 케이스 메타", group: "목차" },
   { id: "sec-kpi", label: "📊 KPI 요약" },
   { id: "sec-channels", label: "📥 데이터 채널" },
   { id: "sec-g", label: "🎯 종합 인사이트" },
-  { id: "section-a", label: "A. 콘텐츠 활동", group: "분석" },
+  { id: "section-a", label: "A. 콘텐츠 활동" },
   { id: "section-b", label: "B. 인플루언서 풀" },
   { id: "section-c", label: "C. 콘텐츠 포맷" },
   { id: "section-d", label: "D. 매출 & BSR" },

@@ -295,9 +295,76 @@ export function SectionCMockup({
             </select>
           </div>
           {heatRows.length === 0 || monthOrder.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-              —
-            </div>
+            // mockup 빈 case placeholder — cluster 이름 + 12개월 grid 형태만 잡고
+            // 회색 그라데이션으로 "데이터 적재되면 이렇게 보일 것" 시각화
+            (() => {
+              const sampleClusters = metas.slice(0, 5).map((m) => m.name);
+              const fallbackClusters = sampleClusters.length > 0
+                ? sampleClusters
+                : ["클러스터 1", "클러스터 2", "클러스터 3"];
+              // 최근 12개월 (현재월 기준)
+              const today = new Date();
+              const months: string[] = [];
+              for (let i = 11; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                months.push(String(d.getMonth() + 1).padStart(2, "0"));
+              }
+              return (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#9ca3af",
+                      marginBottom: 10,
+                      padding: "8px 12px",
+                      background: "#fef3c7",
+                      borderRadius: 4,
+                      border: "1px dashed #fbbf24",
+                    }}
+                  >
+                    ⚠ heatmap 데이터 미수집 — Phase 5 (포지셔닝 분석) 돌아간 후 채워집니다. 아래는 형태 미리보기.
+                  </div>
+                  <div
+                    className="heatmap"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `140px repeat(12, 1fr)`,
+                      gap: 2,
+                      fontSize: 10,
+                      opacity: 0.55,
+                    }}
+                  >
+                    <div className="lbl" />
+                    {months.map((m, i) => (
+                      <div key={i} className="lbl">{m}</div>
+                    ))}
+                    {fallbackClusters.map((nm) => (
+                      <div style={{ display: "contents" }} key={nm}>
+                        <div
+                          className="lbl"
+                          style={{ color: "#9ca3af" }}
+                          title={nm}
+                        >
+                          {nm.length > 14 ? `${nm.slice(0, 14)}…` : nm}
+                        </div>
+                        {months.map((_, i) => (
+                          <div
+                            key={i}
+                            className="cell"
+                            style={{
+                              background: "#f3f4f6",
+                              color: "#d1d5db",
+                            }}
+                          >
+                            —
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
           ) : (
             // mockup line 999-1011: cluster × month grid
             <div
