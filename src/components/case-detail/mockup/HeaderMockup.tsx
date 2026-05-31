@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { DataChannel } from "@/lib/supabase/types";
 import { DATA_CHANNEL_LABELS, DATA_CHANNEL_ICONS } from "@/lib/supabase/types";
 import type { KeyStats } from "@/lib/inngest/types";
@@ -220,13 +221,19 @@ function KsItem({
 export function DataChannelsMockup({
   dataChannels,
   channelDetails,
+  channelEntries,
 }: {
   dataChannels: DataChannel[];
   /** 채널별 stats + 부가 정보. ex: { tiktok_video: { stat: "1,234 영상", sub: "Exolyt CSV · 5/27" } } */
   channelDetails: Partial<Record<DataChannel, { stat: string; sub?: string }>>;
+  /** 채널별 entry component (server-side rendered, page.tsx 에서 prop으로 전달).
+   * 카드 클릭 → 그 채널 entry 만 grid 아래 panel 에 inline expand (accordion 1개만). */
+  channelEntries?: Partial<Record<DataChannel, React.ReactNode>>;
 }) {
   const isActive = (c: DataChannel) => dataChannels.includes(c);
   const activeCount = ALL_CHANNELS.filter(isActive).length;
+  const [openCh, setOpenCh] = useState<DataChannel | null>(null);
+
   return (
     <div className="section" id="sec-channels">
       <div className="section-h">
@@ -238,43 +245,101 @@ export function DataChannelsMockup({
         {ALL_CHANNELS.map((c) => {
           const active = isActive(c);
           const d = channelDetails[c];
-          // 채널 카드 클릭 → 그 채널 업로드 section 으로 scroll + details 펼침
-          const onClick = (e: React.MouseEvent) => {
-            e.preventDefault();
-            const det = document.getElementById("sec-channels-upload") as HTMLDetailsElement | null;
-            if (det) det.open = true;
-            const target = document.getElementById(`ch-upload-${c}`);
-            (target ?? det)?.scrollIntoView({ behavior: "smooth", block: "start" });
-          };
+          const isOpen = openCh === c;
+          const hasEntry = !!channelEntries?.[c];
           return (
-            <a
+            <button
               key={c}
-              href={`#ch-upload-${c}`}
-              onClick={onClick}
+              type="button"
+              onClick={() => setOpenCh(isOpen ? null : c)}
               className={`ch-card ${active ? "active" : "off"}`}
-              style={{ textDecoration: "none", color: "inherit", cursor: "pointer", display: "block" }}
+              style={{
+                textAlign: "left",
+                border: "1px solid",
+                borderColor: isOpen ? "#1f2937" : active ? "#10b981" : "#e5e7eb",
+                background: isOpen ? "#1f2937" : active ? "#ecfdf5" : "white",
+                color: isOpen ? "white" : "inherit",
+                cursor: hasEntry ? "pointer" : "default",
+                opacity: !hasEntry && !active ? 0.6 : 1,
+                fontFamily: "inherit",
+                font: "inherit",
+              }}
             >
               <div className="ch-card-h">
                 <span className="ic">{DATA_CHANNEL_ICONS[c]}</span>
                 <span className="nm">{DATA_CHANNEL_LABELS[c]}</span>
-                <span className={`ch-badge ${active ? "ok" : "off"}`}>
-                  {active ? "적재" : "추가"}
+                <span
+                  className={`ch-badge ${active ? "ok" : "off"}`}
+                  style={isOpen ? { background: "white", color: "#1f2937" } : undefined}
+                >
+                  {isOpen ? "✕ 닫기" : active ? "적재" : "추가"}
                 </span>
               </div>
               {active && d ? (
                 <>
-                  <div className="ch-stat">{d.stat}</div>
-                  {d.sub && <div className="ch-sub">{d.sub}</div>}
+                  <div className="ch-stat" style={isOpen ? { color: "white" } : undefined}>
+                    {d.stat}
+                  </div>
+                  {d.sub && (
+                    <div className="ch-sub" style={isOpen ? { color: "#9ca3af" } : undefined}>
+                      {d.sub}
+                    </div>
+                  )}
                 </>
               ) : (
-                <div className="ch-sub" style={{ color: "#9ca3af" }}>
+                <div className="ch-sub" style={{ color: isOpen ? "#9ca3af" : "#9ca3af" }}>
                   클릭하여 데이터 추가
                 </div>
               )}
-            </a>
+            </button>
           );
         })}
       </div>
+
+      {/* accordion panel — grid 아래 full-width, 1번에 1 채널만 */}
+      {openCh && channelEntries?.[openCh] && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: 16,
+            background: "white",
+            border: "2px solid #1f2937",
+            borderRadius: 8,
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+              paddingBottom: 12,
+              borderBottom: "1px solid #f3f4f6",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700 }}>
+              {DATA_CHANNEL_ICONS[openCh]} {DATA_CHANNEL_LABELS[openCh]} 데이터 추가
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenCh(null)}
+              style={{
+                background: "transparent",
+                border: "1px solid #d1d5db",
+                borderRadius: 4,
+                padding: "4px 10px",
+                fontSize: 11,
+                cursor: "pointer",
+                color: "#6b7280",
+              }}
+            >
+              ✕ 닫기
+            </button>
+          </div>
+          {channelEntries[openCh]}
+        </div>
+      )}
     </div>
   );
 }

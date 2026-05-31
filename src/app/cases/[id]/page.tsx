@@ -1376,221 +1376,9 @@ export default async function CaseDetailPage({
       ) : c.status === "ready" ? (
         // key_stats null이어도 (분석 안 한 새 케이스) IG/YT BP 박스 노출 필요.
         // main flow 안의 ks?.phase2 분기로 "분석 안 함" 메시지 자동 처리.
+        // A 모델: 데이터 추가 details 통째 제거. 각 entry 는 DataChannelsMockup 카드 클릭 시
+        // 인라인 expand panel 안 render (channelEntries prop). channel 분기 제거 — 모든 entry 항상.
         <>
-          {/* ready 케이스에도 추가 업로드 가능 — DataChannels "+ 채널 추가" 클릭 → 여기로 scroll + 펼침 */}
-          <details
-            id="sec-channels-upload"
-            className="section-card"
-            style={{ marginBottom: 14, scrollMarginTop: 80 }}
-          >
-            <summary
-              style={{
-                cursor: "pointer",
-                fontWeight: 700,
-                fontSize: 13,
-                color: "var(--color-g600)",
-                listStyle: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>📥</span>
-              데이터 추가 업로드 (분석된 케이스에 신규 데이터 머지)
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontSize: 11,
-                  color: "var(--color-g400)",
-                  fontWeight: 500,
-                }}
-              >
-                ▼ 펼치기
-              </span>
-            </summary>
-            <div
-              style={{
-                marginTop: 14,
-                paddingTop: 14,
-                borderTop: "1px solid var(--color-g100)",
-              }}
-            >
-              <div
-                style={{
-                  marginBottom: 12,
-                  padding: "10px 12px",
-                  background: "var(--color-info-soft)",
-                  border: "1px solid #C7D6E8",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  lineHeight: 1.6,
-                  color: "var(--color-info)",
-                }}
-              >
-                기존 분석 결과는 그대로 유지됩니다. 데이터 추가 후
-                <b> 분석 재실행</b>을 별도로 트리거해야 새 데이터가 반영됩니다.
-                <br />⚠️ <b>새 브랜드/케이스를 만들지 마세요</b> — 같은 브랜드+국가는
-                이 케이스로 직접 업로드하면 자동 머지됩니다 (url 충돌은 GREATEST로
-                안전 머지).
-              </div>
-              <div id="ch-upload-tiktok_video" style={{ scrollMarginTop: 80 }}>
-                <ExolytSection
-                  case_id={c.id}
-                  hasContents={
-                    (contentCount ?? 0) > 0 && !reusedAlready && !reusable
-                  }
-                  reusable={reusable}
-                  reusedAlready={reusedAlready}
-                  contentCount={contentCount ?? 0}
-                />
-                <BrandViewTrendsSection
-                  case_id={c.id}
-                  existingWeeks={weeklyViews.length}
-                />
-              </div>
-              <div id="ch-upload-youtube" style={{ scrollMarginTop: 80 }}>
-                <YoutubeSeedingSection
-                  case_id={c.id}
-                  existingRuns={
-                    Array.isArray(
-                      (
-                        c.key_stats as {
-                          youtube_seeding_runs?: unknown[];
-                        }
-                      )?.youtube_seeding_runs,
-                    )
-                      ? (
-                          c.key_stats as {
-                            youtube_seeding_runs: unknown[];
-                          }
-                        ).youtube_seeding_runs.length
-                      : 0
-                  }
-                />
-              </div>
-              {c.channel === "amazon" && (
-                <div id="ch-upload-amazon" style={{ scrollMarginTop: 80 }}>
-                  <AmazonSalesSection
-                    case_id={c.id}
-                    skuRows={skuRows}
-                    caseCountry={c.country}
-                    exchangeRates={exchangeRates}
-                  />
-                  <BsrSection
-                    case_id={c.id}
-                    skuRows={skuRows}
-                    caseCountry={c.country}
-                  />
-                </div>
-              )}
-              {c.channel === "shopee" && (
-                <div id="ch-upload-shopee" style={{ scrollMarginTop: 80 }}>
-                  <ShopdoraSection
-                    case_id={c.id}
-                    productCount={skuRows.length}
-                  />
-                </div>
-              )}
-              {c.channel === "tiktok_shop" && c.country !== "US" && (
-                <div id="ch-upload-tt_shop" style={{ scrollMarginTop: 80 }}>
-                  <KalodataSection
-                    case_id={c.id}
-                    productCount={skuRows.length}
-                  />
-                </div>
-              )}
-              {c.channel === "tiktok_shop" && c.country === "US" && (
-                <div id="ch-upload-tt_shop" style={{ scrollMarginTop: 80 }}>
-                  <TiktokProductFinderSection
-                    case_id={c.id}
-                    products={skuRows.map((s) => ({
-                      id: s.id,
-                      name: s.name ?? "",
-                      asin: s.asin || null,
-                      external_product_id: s.external_product_id,
-                    }))}
-                    existingProducts={
-                      Object.keys(
-                        (c.key_stats as {
-                          tt_shop_us_helium10?: Record<string, unknown>;
-                        })?.tt_shop_us_helium10 ?? {},
-                      ).length
-                    }
-                    hasUndo={
-                      ((c.key_stats as { _last_undo?: { type?: string } })
-                        ?._last_undo?.type ?? "") ===
-                      "helium10_product_finder"
-                    }
-                  />
-                  <TiktokShopUsAffiliateSection
-                    case_id={c.id}
-                    products={skuRows.map((s) => ({
-                      id: s.id,
-                      name: s.name ?? "",
-                      asin: s.asin || null,
-                      external_product_id: s.external_product_id,
-                    }))}
-                    existingAffiliates={
-                      Array.isArray(
-                        (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
-                          ?.tt_shop_us_affiliates,
-                      )
-                        ? (
-                            c.key_stats as { tt_shop_us_affiliates: unknown[] }
-                          ).tt_shop_us_affiliates.length
-                        : 0
-                    }
-                  />
-                </div>
-              )}
-              {/* IG/YT config 박스 — Phase 4c/4d trigger entry */}
-              <div id="ch-upload-instagram" style={{ scrollMarginTop: 80, marginTop: 14 }}>
-                <IgPrepBox
-                  case_id={c.id}
-                  hasIgConfig={!!c.ig_config}
-                  suggestedConfig={igConfigSuggested}
-                  debug={igPrepDebug}
-                />
-                <IgPostlearnBox
-                  case_id={c.id}
-                  hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
-                  learnedConfig={igConfigLearned}
-                  diff={igPostlearnDiff}
-                />
-              </div>
-              <div id="ch-upload-youtube" style={{ scrollMarginTop: 80, marginTop: 14 }}>
-                <YtPrepBox
-                  case_id={c.id}
-                  hasYtConfig={!!c.yt_config}
-                  suggestedConfig={ytConfigSuggested}
-                  debug={ytPrepDebug}
-                />
-                <YtPostlearnBox
-                  case_id={c.id}
-                  hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
-                  learnedConfig={ytConfigLearned}
-                  diff={ytPostlearnDiff}
-                />
-              </div>
-              {/* Meta 광고 entry — brand_meta_pages 박혀야 분석. case 화면에서 직접 입력 안 됨 */}
-              <div
-                id="ch-upload-meta_ads"
-                style={{
-                  scrollMarginTop: 80,
-                  marginTop: 14,
-                  padding: 14,
-                  background: "var(--color-info-soft)",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  color: "var(--color-info)",
-                  lineHeight: 1.6,
-                }}
-              >
-                📢 <b>Meta 광고</b>는 brand 설정에서 <code>brand_meta_pages</code> 또는{" "}
-                <code>brand_keyword</code> 박아야 자동 수집됩니다. brand 페이지에서 입력 후 Phase 4a 재실행.
-              </div>
-            </div>
-          </details>
 
           {/* IG/YT prep/postlearn/brand monitor 박스 통째 제거 — mockup 에 없음.
               IG/YT 데이터는 이미 case_id 기반 phase4c/4d 로 분석되어 mockup A/B/C 안 통합됨. */}
@@ -1836,6 +1624,113 @@ export default async function CaseDetailPage({
                           }
                           return details;
                         })()}
+                        channelEntries={{
+                          tiktok_video: (
+                            <>
+                              <ExolytSection
+                                case_id={c.id}
+                                hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
+                                reusable={reusable}
+                                reusedAlready={reusedAlready}
+                                contentCount={contentCount ?? 0}
+                              />
+                              <BrandViewTrendsSection case_id={c.id} existingWeeks={weeklyViews.length} />
+                            </>
+                          ),
+                          youtube: (
+                            <>
+                              <YoutubeSeedingSection
+                                case_id={c.id}
+                                existingRuns={
+                                  Array.isArray((c.key_stats as { youtube_seeding_runs?: unknown[] })?.youtube_seeding_runs)
+                                    ? (c.key_stats as { youtube_seeding_runs: unknown[] }).youtube_seeding_runs.length
+                                    : 0
+                                }
+                              />
+                              <YtPrepBox
+                                case_id={c.id}
+                                hasYtConfig={!!c.yt_config}
+                                suggestedConfig={ytConfigSuggested}
+                                debug={ytPrepDebug}
+                              />
+                              <YtPostlearnBox
+                                case_id={c.id}
+                                hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
+                                learnedConfig={ytConfigLearned}
+                                diff={ytPostlearnDiff}
+                              />
+                            </>
+                          ),
+                          instagram: (
+                            <>
+                              <IgPrepBox
+                                case_id={c.id}
+                                hasIgConfig={!!c.ig_config}
+                                suggestedConfig={igConfigSuggested}
+                                debug={igPrepDebug}
+                              />
+                              <IgPostlearnBox
+                                case_id={c.id}
+                                hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
+                                learnedConfig={igConfigLearned}
+                                diff={igPostlearnDiff}
+                              />
+                            </>
+                          ),
+                          amazon: (
+                            <>
+                              <AmazonSalesSection
+                                case_id={c.id}
+                                skuRows={skuRows}
+                                caseCountry={c.country}
+                                exchangeRates={exchangeRates}
+                              />
+                              <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
+                            </>
+                          ),
+                          shopee: <ShopdoraSection case_id={c.id} productCount={skuRows.length} />,
+                          tt_shop:
+                            c.country === "US" ? (
+                              <>
+                                <TiktokProductFinderSection
+                                  case_id={c.id}
+                                  products={skuRows.map((s) => ({
+                                    id: s.id,
+                                    name: s.name ?? "",
+                                    asin: s.asin || null,
+                                    external_product_id: s.external_product_id,
+                                  }))}
+                                  existingProducts={
+                                    Object.keys((c.key_stats as { tt_shop_us_helium10?: Record<string, unknown> })?.tt_shop_us_helium10 ?? {}).length
+                                  }
+                                  hasUndo={
+                                    ((c.key_stats as { _last_undo?: { type?: string } })?._last_undo?.type ?? "") === "helium10_product_finder"
+                                  }
+                                />
+                                <TiktokShopUsAffiliateSection
+                                  case_id={c.id}
+                                  products={skuRows.map((s) => ({
+                                    id: s.id,
+                                    name: s.name ?? "",
+                                    asin: s.asin || null,
+                                    external_product_id: s.external_product_id,
+                                  }))}
+                                  existingAffiliates={
+                                    Array.isArray((c.key_stats as { tt_shop_us_affiliates?: unknown[] })?.tt_shop_us_affiliates)
+                                      ? (c.key_stats as { tt_shop_us_affiliates: unknown[] }).tt_shop_us_affiliates.length
+                                      : 0
+                                  }
+                                />
+                              </>
+                            ) : (
+                              <KalodataSection case_id={c.id} productCount={skuRows.length} />
+                            ),
+                          meta_ads: (
+                            <div style={{ padding: 12, fontSize: 11, color: "var(--color-info)", background: "var(--color-info-soft)", borderRadius: 6 }}>
+                              📢 Meta 광고는 brand 설정에서 <code>brand_meta_pages</code> 또는 <code>brand_keyword</code> 박아야 자동 수집됩니다. brand 페이지에서 입력 후 Phase 4a 재실행.
+                            </div>
+                          ),
+                        }}
                       />
                       {/* mockup line 561-581: Phase progress (펼치기) */}
                       <PhaseProgressMockup ks={ks as KeyStats} />
