@@ -28,6 +28,7 @@ export type SkuRow = {
   revenue_30d: number | null;
   currency: string;
   country: string | null;
+  channel?: string | null;
   hasBsr: boolean;
 };
 
@@ -36,12 +37,20 @@ export function AmazonSalesSection({
   skuRows,
   caseCountry,
   exchangeRates,
+  expectedChannel,
 }: {
   case_id: string;
   skuRows: SkuRow[];
   caseCountry: string;
   exchangeRates: ExchangeRates;
+  /** 이 entry 가 어떤 channel 의 SKU 만 다루는지 (amazon/tiktok_shop/shopee).
+   *  주어지면 그 채널 products 만 표시. 빈 case 안내. */
+  expectedChannel?: string;
 }) {
+  // expectedChannel 박혔으면 그 채널 product 만 표시 (다른 채널 entry 들과 분리)
+  skuRows = expectedChannel
+    ? skuRows.filter((r) => (r.channel ?? null) === expectedChannel)
+    : skuRows;
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
@@ -113,12 +122,35 @@ export function AmazonSalesSection({
   }
 
   const hasUpload = skuRows.length > 0;
+  const channelLabel =
+    expectedChannel === "amazon"
+      ? "Amazon"
+      : expectedChannel === "tiktok_shop"
+        ? "TikTok Shop"
+        : expectedChannel === "shopee"
+          ? "Shopee"
+          : "";
 
   return (
     <div className="field">
       <label className="field-label">
-        아마존 30일 매출 데이터 <span className="req">*</span>
+        {channelLabel || "아마존"} 30일 매출 데이터 <span className="req">*</span>
       </label>
+      {expectedChannel && skuRows.length === 0 && (
+        <div
+          style={{
+            padding: 12,
+            fontSize: 11,
+            color: "#6b7280",
+            background: "#f9fafb",
+            border: "1px dashed #e5e7eb",
+            borderRadius: 6,
+            marginBottom: 12,
+          }}
+        >
+          이 case 는 {channelLabel} 채널 SKU 가 없습니다. 아래 폼으로 첫 SKU 업로드.
+        </div>
+      )}
 
       {isRegion && (
         <div

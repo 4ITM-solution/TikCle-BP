@@ -238,7 +238,7 @@ export default async function CaseDetailPage({
   ) {
     const { data: prods } = await supabase
       .from("products")
-      .select("id, asin, external_product_id, name, product_url, country, subcategory, launch_date")
+      .select("id, asin, external_product_id, name, product_url, country, subcategory, launch_date, channel")
       .eq("case_id", c.id);
 
     for (const p of prods ?? []) {
@@ -311,6 +311,7 @@ export default async function CaseDetailPage({
           revenue_30d: sales?.revenue_30d ?? null,
           currency: sales?.currency ?? "USD",
           country: p.country ?? null,
+          channel: (p as { channel?: string }).channel ?? null,
           hasBsr: bsrSet.has(p.id),
         };
       })
@@ -934,18 +935,30 @@ export default async function CaseDetailPage({
   const caseCurrency = defaultCurrency(c.country);
   const exchangeRates = await fetchExchangeRates();
 
-  // ★ products channel 분포 → SectionDMockup 채널 toggle (실제 가능한 채널 enable + filter)
-  const skuChannelMap = await (async () => {
-    const map: Record<string, string> = {}; // asin → channel
+  // ★ products channel + category/launch_date/price 분포
+  // identifier = asin (Amazon) OR external_product_id (Kalodata: "kalodata_p_..." 등)
+  // — SectionDMockup 채널 toggle + SKU 표 컬럼 enrichment (옛 phase2 cache 에 새 field 없을 때 직접 박음)
+  const skuChannelMap: Record<string, string> = {};
+  const skuMetaMap: Record<
+    string,
+    { category: string | null; launch_date: string | null; price: number | null }
+  > = {};
+  {
     const { data } = await supabase
       .from("products")
-      .select("asin, channel")
+      .select("asin, external_product_id, channel, category, launch_date, price")
       .eq("case_id", c.id);
     for (const r of data ?? []) {
-      if (r.asin) map[r.asin] = String(r.channel ?? "");
+      const id = r.asin ?? r.external_product_id;
+      if (!id) continue;
+      skuChannelMap[id] = String(r.channel ?? "");
+      skuMetaMap[id] = {
+        category: r.category ?? null,
+        launch_date: r.launch_date ?? null,
+        price: r.price != null ? Number(r.price) : null,
+      };
     }
-    return map;
-  })();
+  }
   const availableSalesChannels = Array.from(new Set(Object.values(skuChannelMap).filter(Boolean))) as string[];
 
   // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — SectionCMockup USP detail panel 용
@@ -1787,8 +1800,13 @@ export default async function CaseDetailPage({
                                 skuRows={skuRows}
                                 caseCountry={c.country}
                                 exchangeRates={exchangeRates}
+                                expectedChannel="amazon"
                               />
-                              <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
+                              <BsrSection
+                                case_id={c.id}
+                                skuRows={skuRows.filter((s) => (s.channel ?? null) === "amazon")}
+                                caseCountry={c.country}
+                              />
                             </>
                           ),
                           shopee: <ShopdoraSection case_id={c.id} productCount={skuRows.length} />,
@@ -2051,6 +2069,7 @@ export default async function CaseDetailPage({
                               kalodata_category_ranking?: { points?: Array<{ date: string; rank: number }> };
                             })?.kalodata_category_ranking?.points
                           }
+                          skuMetaMap={skuMetaMap}
                         />
                       )}
                     </div>

@@ -265,12 +265,11 @@ export function SectionBMockup({
           <table>
             <thead>
               <tr>
-                <th></th>
                 <th>이름</th>
                 <th>팔로워</th>
-                <th>채널 활동</th>
-                <th style={{ textAlign: "right" }}>영상</th>
-                <th style={{ textAlign: "right" }}>총조회</th>
+                <th>채널 활동 (영상 수)</th>
+                <th style={{ textAlign: "right" }}>총 영상</th>
+                <th style={{ textAlign: "right" }}>최고 조회</th>
               </tr>
             </thead>
             <tbody>
@@ -279,9 +278,6 @@ export function SectionBMockup({
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
                 return (
                   <tr key={c.handle}>
-                    <td>
-                      <span className="thumb" />
-                    </td>
                     <td>
                       <b>{c.handle}</b>
                       {isCeleb && <span className="tag tag-warn">⭐셀럽</span>}
@@ -301,7 +297,7 @@ export function SectionBMockup({
               })}
               {topCreators.length > 5 && (
                 <tr style={{ color: "#9ca3af" }}>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
                     + {topCreators.length - 5}명 더보기
                   </td>
                 </tr>
@@ -398,9 +394,12 @@ export function SectionBMockup({
 function ChannelPills({ tk, ig, yt }: { tk: number; ig: number; yt: number }) {
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-      {tk > 0 && <span className="ch-pill pill-tk">TK{tk}</span>}
-      {ig > 0 && <span className="ch-pill pill-ig">IG{ig}</span>}
-      {yt > 0 && <span className="ch-pill pill-yt">YT{yt}</span>}
+      {tk > 0 && <span className="ch-pill pill-tk" title={`TikTok 에서 ${tk}개 영상`}>TK {tk}개</span>}
+      {ig > 0 && <span className="ch-pill pill-ig" title={`Instagram 에서 ${ig}개 영상`}>IG {ig}개</span>}
+      {yt > 0 && <span className="ch-pill pill-yt" title={`YouTube 에서 ${yt}개 영상`}>YT {yt}개</span>}
+      {tk === 0 && ig === 0 && yt === 0 && (
+        <span style={{ color: "#9ca3af", fontSize: 10 }}>—</span>
+      )}
     </div>
   );
 }

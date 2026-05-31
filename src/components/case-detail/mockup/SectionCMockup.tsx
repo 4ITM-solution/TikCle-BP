@@ -46,8 +46,18 @@ export function SectionCMockup({
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
 
-  // ── 통합 클러스터 panel ──
-  const metas = phase4bClusters?.meta_clusters ?? [];
+  // ── 통합 클러스터 panel ── (채널 filter 적용)
+  const metasAll = phase4bClusters?.meta_clusters ?? [];
+  const metas = channelFilter === "all"
+    ? metasAll
+    : metasAll.filter((m) => {
+        const ch = clusterChannelBreakdown?.[m.id];
+        if (!ch) return false;
+        if (channelFilter === "tk") return ch.tk > 0;
+        if (channelFilter === "ig") return ch.ig > 0;
+        if (channelFilter === "yt") return ch.yt > 0;
+        return true;
+      });
 
   // ── USP 키워드 panel ──
   const uspKws = (phase5?.usp_keywords ?? []).slice(0, 24);
@@ -107,17 +117,31 @@ export function SectionCMockup({
           <div style={{ marginBottom: 12 }}>
             <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널 필터:</span>
             <div className="ch-toggle">
-              {(["all", "tk", "ig", "yt"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={channelFilter === m ? "active" : ""}
-                  onClick={() => setChannelFilter(m)}
-                >
-                  {m === "all" ? `전 채널 (${(phase2.total_contents ?? 0) + (phase2.ig_total_videos ?? 0) + (phase2.yt_total_videos ?? 0)} 영상)` :
-                   m === "tk" ? "TikTok만" : m === "ig" ? "IG만" : "YT만"}
-                </button>
-              ))}
+              {(["all", "tk", "ig", "yt"] as const).map((m) => {
+                const countFor = (k: typeof m) => {
+                  if (k === "all") return metasAll.length;
+                  return metasAll.filter((mc) => {
+                    const ch = clusterChannelBreakdown?.[mc.id];
+                    if (!ch) return false;
+                    return ch[k] > 0;
+                  }).length;
+                };
+                const cnt = countFor(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    className={channelFilter === m ? "active" : ""}
+                    onClick={() => setChannelFilter(m)}
+                    disabled={m !== "all" && cnt === 0}
+                    style={m !== "all" && cnt === 0 ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                    title={cnt === 0 ? "이 채널 cluster 없음" : `${cnt}개 cluster`}
+                  >
+                    {m === "all" ? `전 채널 (${cnt} cluster)` :
+                     m === "tk" ? `TikTok (${cnt})` : m === "ig" ? `IG (${cnt})` : `YT (${cnt})`}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

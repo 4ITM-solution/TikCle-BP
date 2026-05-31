@@ -38,6 +38,7 @@ export function SectionDMockup({
   kalodataVideos,
   kalodataLives,
   categoryRanking,
+  skuMetaMap,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
@@ -52,6 +53,8 @@ export function SectionDMockup({
   kalodataLives?: KalodataLiveRow[];
   /** C1: cases.key_stats.kalodata_category_ranking.points */
   categoryRanking?: Array<{ date: string; rank: number }>;
+  /** 옛 phase2 cache 안 sku_sales 에 category/launch_date/price field 없을 때 DB 직접 fetch 한 enrichment */
+  skuMetaMap?: Record<string, { category: string | null; launch_date: string | null; price: number | null }>;
 }) {
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
@@ -314,15 +317,34 @@ export function SectionDMockup({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hero-vid"
-                      style={{
-                        textDecoration: "none",
-                        display: "block",
-                        position: "relative",
-                        background: v.thumbnail_url
-                          ? `url(${v.thumbnail_url}) center/cover`
-                          : "#f3f4f6",
-                      }}
+                      style={{ textDecoration: "none", display: "block", position: "relative" }}
                     >
+                      {v.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={v.thumbnail_url}
+                          alt=""
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 9,
+                            color: "#9ca3af",
+                          }}
+                        >
+                          📷 X
+                        </div>
+                      )}
                       <div className="hero-vid-meta">{formatViews(v.views)} · TK</div>
                     </a>
                   ))}
@@ -386,6 +408,11 @@ export function SectionDMockup({
                   const matched = allDisplayed.filter((v) =>
                     Array.isArray(v.matched_skus) && s.asin && v.matched_skus.includes(s.asin),
                   ).length;
+                  // server enrichment 우선 (옛 phase2 cache 에 새 field 없을 때)
+                  const meta = (s.asin && skuMetaMap?.[s.asin]) || null;
+                  const category = s.category ?? meta?.category ?? null;
+                  const launch = s.launch_date ?? meta?.launch_date ?? null;
+                  const price = s.price ?? meta?.price ?? null;
                   return (
                     <tr key={s.asin}>
                       <td>
@@ -404,13 +431,13 @@ export function SectionDMockup({
                         </a>
                       </td>
                       <td style={{ fontSize: 10, color: "#6b7280" }}>
-                        {s.category ?? "—"}
+                        {category ?? "—"}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#6b7280" }}>
-                        {s.launch_date ?? "—"}
+                        {launch ?? "—"}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>
-                        {s.price != null ? `$${s.price.toLocaleString()}` : "—"}
+                        {price != null ? `$${price.toLocaleString()}` : "—"}
                       </td>
                       <td
                         style={{
@@ -525,8 +552,8 @@ export function SectionDMockup({
       {tab === "matrix" && (
         <div className="panel active">
           {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-              —
+            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+              ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
             </div>
           ) : (
             (() => {
@@ -650,8 +677,9 @@ export function SectionDMockup({
       {/* Affiliate code conversion panel */}
       {tab === "affiliate" && (
         <div className="panel active">
-          <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-            —
+          <div style={{ padding: 16, background: "#f3f4f6", border: "1px dashed #d1d5db", borderRadius: 6, fontSize: 11, color: "#6b7280", textAlign: "center" }}>
+            데이터 source 없음 — 광고 promo code conversion 은 결제 attribution 필요.<br />
+            지금은 E 섹션 광고 카드에서 promo code 추출만 (regex)
           </div>
         </div>
       )}
@@ -660,8 +688,8 @@ export function SectionDMockup({
       {tab === "vid" && (
         <div className="panel active">
           {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-              —
+            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+              ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
             </div>
           ) : (
             (() => {
@@ -765,8 +793,8 @@ export function SectionDMockup({
       {tab === "live" && (
         <div className="panel active">
           {!kalodataLives || kalodataLives.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-              —
+            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+              ⚠ Kalodata Live 데이터 미적재 — 위 KalodataSection 에서 텍스트 paste 시 Live 섹션도 함께 적재됨
             </div>
           ) : (
             (() => {
