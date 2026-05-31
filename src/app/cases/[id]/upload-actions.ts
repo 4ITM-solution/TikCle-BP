@@ -2533,3 +2533,67 @@ export async function fetchYoutubeSeeding(
     message: `YouTube ${uniqueByUrl.length}개 영상 적재 (광고 ${classCounts.ad} · 시딩 ${classCounts.seeded} · organic ${classCounts.organic}) · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M`,
   };
 }
+
+/**
+ * C1 — Kalodata Category Ranking 적재.
+ *
+ * Kalodata Brand 페이지의 "Category Ranking" 시계열 데이터 (export 형식 미정 — 일단
+ * 단순 TSV: 한 줄당 "YYYY-MM-DD\trank" 형식). cases.key_stats.kalodata_category_ranking
+ * 에 박힘.
+ *
+ * 사용자가 Kalodata UI에서 캡처/복붙 후 적재. parser 는 단순 — 첫 컬럼이 date,
+ * 두 번째 컬럼이 정수 rank.
+ */
+export async function uploadKalodataCategoryRanking(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const text = formData.get("text");
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return { ok: false, error: "Category Ranking 텍스트가 비어있습니다" };
+  }
+  const { supabase, c } = await getCase(case_id);
+
+  // 파싱 — date \t rank (or date,rank / date rank) 가능. 첫 컬럼 ISO date, 두 번째 정수.
+  const rows: Array<{ date: string; rank: number }> = [];
+  for (const line of text.split(/\r?\n/)) {
+    const cleaned = line.trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(/[\t,;\s]+/);
+    if (parts.length < 2) continue;
+    const date = parts[0]!;
+    const rank = Number(parts[1]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(rank) || rank <= 0) continue;
+    rows.push({ date, rank: Math.round(rank) });
+  }
+  if (rows.length < 2) {
+    return { ok: false, error: "유효한 row 2개 이상 필요 (date<tab>rank 형식)" };
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+
+  // key_stats merge
+  const { data: caseRow } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", c.id)
+    .single();
+  const existing = (caseRow?.key_stats as Record<string, unknown>) ?? {};
+  await supabase
+    .from("cases")
+    .update({
+      key_stats: {
+        ...existing,
+        kalodata_category_ranking: {
+          points: rows,
+          last_uploaded: new Date().toISOString(),
+        },
+      } as never,
+    })
+    .eq("id", c.id);
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `Category Ranking ${rows.length}개 point 적재 (${rows[0]!.date} ~ ${rows[rows.length - 1]!.date})`,
+  };
+}

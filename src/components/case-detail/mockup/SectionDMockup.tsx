@@ -37,6 +37,7 @@ export function SectionDMockup({
   skuChannelMap,
   kalodataVideos,
   kalodataLives,
+  categoryRanking,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
@@ -49,6 +50,8 @@ export function SectionDMockup({
   skuChannelMap?: Record<string, string>;
   kalodataVideos?: KalodataVideoXlsxRow[];
   kalodataLives?: KalodataLiveRow[];
+  /** C1: cases.key_stats.kalodata_category_ranking.points */
+  categoryRanking?: Array<{ date: string; rank: number }>;
 }) {
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
@@ -436,12 +439,85 @@ export function SectionDMockup({
         </div>
       )}
 
-      {/* 카테고리 ranking 시계열 panel */}
+      {/* 카테고리 ranking 시계열 panel — C1 */}
       {tab === "rank" && (
         <div className="panel active">
-          <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-            —
-          </div>
+          {!categoryRanking || categoryRanking.length < 2 ? (
+            <div
+              style={{
+                padding: 16,
+                background: "#fef3c7",
+                border: "1px dashed #fbbf24",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "#92400e",
+                textAlign: "center",
+              }}
+            >
+              ⚠ Category Ranking 시계열 미적재 — 위 KalodataSection 에서 paste 후 채워짐
+            </div>
+          ) : (
+            (() => {
+              const pts = [...categoryRanking].sort((a, b) =>
+                a.date.localeCompare(b.date),
+              );
+              const ranks = pts.map((p) => p.rank);
+              const minR = Math.min(...ranks);
+              const maxR = Math.max(...ranks);
+              const curR = ranks[ranks.length - 1]!;
+              const avg7 = ranks.slice(-7).reduce((s, v) => s + v, 0) / Math.min(7, ranks.length);
+              const change = ranks.length >= 2 ? curR - ranks[0]! : 0;
+              const inTop10 = ranks.filter((r) => r <= 10).length;
+              // svg
+              const w = 700, h = 100, padX = 30, padY = 12;
+              const sx = (i: number) =>
+                padX + (i / (pts.length - 1)) * (w - padX * 2);
+              // 낮은 rank 가 위 (역방향)
+              const sy = (r: number) =>
+                padY + ((r - minR) / Math.max(1, maxR - minR)) * (h - padY * 2);
+              const path = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(p.rank)}`).join(" ");
+              return (
+                <>
+                  <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 12 }}>
+                    <div className="kpi">
+                      <div className="kpi-label">현재 순위</div>
+                      <div className="kpi-val">#{curR}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">최근 7일 평균</div>
+                      <div className="kpi-val">#{avg7.toFixed(1)}</div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">시작 대비</div>
+                      <div className="kpi-val" style={{ color: change < 0 ? "#10b981" : "#ec4899" }}>
+                        {change < 0 ? "▲" : change > 0 ? "▼" : "—"} {Math.abs(change)}계단
+                      </div>
+                    </div>
+                    <div className="kpi">
+                      <div className="kpi-label">Top 10 진입</div>
+                      <div className="kpi-val">{inTop10}일</div>
+                    </div>
+                  </div>
+                  <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 100 }}>
+                    <path d={path} fill="none" stroke="#1f2937" strokeWidth={2} />
+                    {pts.map((p, i) => (
+                      <circle key={i} cx={sx(i)} cy={sy(p.rank)} r={2.5} fill="#1f2937" />
+                    ))}
+                    {pts.map((p, i) =>
+                      i % Math.ceil(pts.length / 8) === 0 ? (
+                        <text key={`t-${i}`} x={sx(i)} y={h - 1} fontSize="8" textAnchor="middle" fill="#6b7280">
+                          {p.date.slice(5)}
+                        </text>
+                      ) : null,
+                    )}
+                  </svg>
+                  <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
+                    {pts.length}개 point · 낮을수록 좋음 ({pts[0]!.date} → {pts[pts.length - 1]!.date})
+                  </div>
+                </>
+              );
+            })()
+          )}
         </div>
       )}
 

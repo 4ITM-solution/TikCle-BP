@@ -107,6 +107,9 @@ export type Phase2Stats = {
   outlier_creators?: TopCreator[];
   total_contents: number; // TikTok 영상 수 (contents 테이블)
   total_unique_creators: number;
+  // ★ C3: 시딩 분류 — is_ad=false 이지만 caption regex 로 seeded 식별된 영상 수.
+  // 채널별 분리는 안 함 — 합산만.
+  total_seeded?: number;
   // ★ Phase 10: 채널별 영상 수 (mockup A 채널 toggle 활성용)
   ig_total_videos?: number;
   yt_total_videos?: number;

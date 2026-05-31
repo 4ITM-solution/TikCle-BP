@@ -95,6 +95,35 @@ export function SectionEMockup({
   const displayed = filteredAds.slice(0, showCount);
   const moreCount = Math.max(0, filteredAds.length - showCount);
 
+  // ── C2: 광고 promo code 추출 (regex) ──
+  // patterns: "use CODE", "with CODE", "promo CODE", "code: CODE" / "CODE10" 자체
+  const codeMap = new Map<string, number>(); // code → ad count
+  const PROMO_RE_1 = /(?:use|with|enter|apply|promo|code|coupon|discount|save)[:\s]+([A-Z][A-Z0-9]{3,14})\b/g;
+  const PROMO_RE_2 = /\b([A-Z]{3,12}\d{1,3})\b/g;
+  for (const a of ads) {
+    const text = (a.body_text ?? "").toUpperCase();
+    if (!text) continue;
+    const seen = new Set<string>();
+    let m;
+    PROMO_RE_1.lastIndex = 0;
+    while ((m = PROMO_RE_1.exec(text)) !== null) {
+      const code = m[1];
+      if (code) seen.add(code);
+    }
+    PROMO_RE_2.lastIndex = 0;
+    while ((m = PROMO_RE_2.exec(text)) !== null) {
+      const code = m[1];
+      // common 단어 제외 (예: ALL20, NEW10 등 일반 단어성 우회 — 단어 시작 + 숫자만 통과)
+      if (code && code.length >= 4 && /^[A-Z]+\d+$/.test(code)) {
+        seen.add(code);
+      }
+    }
+    for (const code of seen) {
+      codeMap.set(code, (codeMap.get(code) ?? 0) + 1);
+    }
+  }
+  const topCodes = [...codeMap.entries()].sort(([, a], [, b]) => b - a).slice(0, 6);
+
   // ── KPI ──
   const brandPct =
     phase4a.total_ads > 0
@@ -339,6 +368,45 @@ export function SectionEMockup({
           })}
         </div>
       </div>
+
+      {/* C2: 광고 promo code 추출 카드 */}
+      {topCodes.length > 0 && (
+        <div
+          style={{
+            marginTop: 18,
+            padding: 12,
+            border: "1px solid #fde68a",
+            borderRadius: 6,
+            background: "#fffbeb",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "#92400e" }}>
+            🎟 광고 promo code 추출 ({topCodes.length}개) — body_text regex
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {topCodes.map(([code, n]) => (
+              <span
+                key={code}
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  padding: "4px 8px",
+                  border: "1px solid #d97706",
+                  borderRadius: 3,
+                  background: "white",
+                  color: "#92400e",
+                  fontWeight: 700,
+                }}
+              >
+                {code} <span style={{ color: "#b45309", fontWeight: 400 }}>×{n}</span>
+              </span>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: "#92400e", marginTop: 6 }}>
+            ※ 전체 광고 body_text 에서 추출 (use code / promo / coupon 패턴 + 단어+숫자 형식)
+          </div>
+        </div>
+      )}
 
       {/* partnership 인플 테이블 */}
       {phase4a.partner_creators && phase4a.partner_creators.length > 0 && (

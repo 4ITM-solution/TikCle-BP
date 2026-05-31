@@ -58,9 +58,13 @@ export function SectionCMockup({
 
   // ── paid/seeded/organic panel ──
   const totalPaid = phase2.monthly_video_counts.reduce((s, m) => s + m.paid, 0);
-  const totalOrganic = phase2.monthly_video_counts.reduce((s, m) => s + m.organic, 0);
-  const totalAll = totalPaid + totalOrganic || 1;
+  const totalSeeded = phase2.total_seeded ?? 0;
+  // organic 에서 seeded 빼면 실 organic
+  const totalOrganicRaw = phase2.monthly_video_counts.reduce((s, m) => s + m.organic, 0);
+  const totalOrganic = Math.max(0, totalOrganicRaw - totalSeeded);
+  const totalAll = totalPaid + totalSeeded + totalOrganic || 1;
   const adPct = Math.round((totalPaid / totalAll) * 100);
+  const seededPct = Math.round((totalSeeded / totalAll) * 100);
   const organicPct = Math.round((totalOrganic / totalAll) * 100);
   // 채널별 ad 비중 (TK/IG/YT)
   const ch = phase2.monthly_by_channel;
@@ -462,12 +466,23 @@ export function SectionCMockup({
             <span style={{ color: "#9ca3af", textAlign: "right" }}>{adPct}%</span>
           </div>
           <div className="dist-row">
+            <span style={{ color: "#f59e0b" }}>●seeded</span>
+            <div className="dist-bar">
+              <div className="dist-fill" style={{ background: "#f59e0b", width: `${seededPct}%` }} />
+            </div>
+            <span style={{ textAlign: "right" }}>{totalSeeded.toLocaleString()}</span>
+            <span style={{ color: "#9ca3af", textAlign: "right" }}>{seededPct}%</span>
+          </div>
+          <div className="dist-row">
             <span style={{ color: "#10b981" }}>●organic</span>
             <div className="dist-bar">
               <div className="dist-fill" style={{ background: "#10b981", width: `${organicPct}%` }} />
             </div>
             <span style={{ textAlign: "right" }}>{totalOrganic.toLocaleString()}</span>
             <span style={{ color: "#9ca3af", textAlign: "right" }}>{organicPct}%</span>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 10, color: "#9ca3af" }}>
+            seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)
           </div>
           <div style={{ marginTop: 12, fontSize: 11, color: "#6b7280" }}>
             채널별 ad 비중:{" "}

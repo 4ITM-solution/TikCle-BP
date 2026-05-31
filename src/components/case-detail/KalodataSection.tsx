@@ -6,6 +6,7 @@ import {
   uploadKalodata,
   uploadKalodataCreatorsXlsx,
   uploadKalodataVideosXlsx,
+  uploadKalodataCategoryRanking,
 } from "@/app/cases/[id]/upload-actions";
 import { UploadDropzone } from "./UploadDropzone";
 
@@ -43,6 +44,26 @@ export function KalodataSection({
     type: "ok" | "err";
     text: string;
   } | null>(null);
+
+  // Category Ranking 적재 상태 (C1)
+  const [rankText, setRankText] = useState("");
+  const [rankPending, rankStart] = useTransition();
+  const [rankMsg, setRankMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  function submitRanking() {
+    rankStart(async () => {
+      const fd = new FormData();
+      fd.append("text", rankText);
+      const r = await uploadKalodataCategoryRanking(case_id, fd);
+      setRankMsg(
+        r.ok ? { type: "ok", text: r.message } : { type: "err", text: r.error },
+      );
+      if (r.ok) {
+        setRankText("");
+        router.refresh();
+      }
+    });
+  }
 
   function submit() {
     start(async () => {
@@ -321,6 +342,93 @@ export function KalodataSection({
             {videoXlsxMsg.text}
           </div>
         )}
+      </div>
+
+      {/* C1: Category Ranking 시계열 (텍스트 paste — TSV: date\trank) */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: "14px 16px",
+          background: "var(--color-g25)",
+          borderRadius: 8,
+          border: "1px solid var(--color-g100)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--color-ink)",
+            marginBottom: 4,
+          }}
+        >
+          ★ 카테고리 ranking 시계열 (선택) — D 섹션 차트 채움
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--color-g500)",
+            marginBottom: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          Kalodata Brand 페이지 → Category Ranking 데이터 캡처 후 줄당{" "}
+          <b>date{"<TAB>"}rank</b> 형식으로 paste (TSV / CSV / space 다 ok). 예:{" "}
+          <code>2025-05-01    23</code>. 크레딧 0 소비.
+        </div>
+        <textarea
+          value={rankText}
+          onChange={(e) => setRankText(e.target.value)}
+          placeholder="2025-05-01\t23&#10;2025-05-08\t18&#10;2025-05-15\t12&#10;..."
+          rows={5}
+          style={{
+            width: "100%",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            padding: "8px 10px",
+            border: "1px solid var(--color-g200)",
+            borderRadius: 4,
+            resize: "vertical",
+            background: "white",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            marginTop: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={submitRanking}
+            disabled={rankPending || rankText.trim().length === 0}
+            className="btn"
+            style={{
+              background: "var(--color-ink)",
+              color: "white",
+              padding: "6px 14px",
+              fontSize: 12,
+              borderRadius: 5,
+              opacity: rankPending || rankText.trim().length === 0 ? 0.5 : 1,
+            }}
+          >
+            {rankPending ? "처리 중…" : "Ranking 적재"}
+          </button>
+          {rankMsg && (
+            <span
+              style={{
+                fontSize: 11,
+                color: rankMsg.type === "ok" ? "var(--color-pos)" : "var(--color-accent)",
+                fontWeight: 600,
+              }}
+            >
+              {rankMsg.type === "ok" ? "✓ " : "✕ "}
+              {rankMsg.text}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

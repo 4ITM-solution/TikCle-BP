@@ -124,6 +124,16 @@ export async function runPhase2(
     })),
   );
 
+  // ★ C3: seeded 카운트 — is_ad=false 인데 caption 안 시딩 disclosure regex 매칭.
+  // TK + IG + YT 합산. 보수적 매칭 (#gifted, #gift, #pr, #prsample, #partner, #partnership, "gifted by", "sent by")
+  const SEEDED_RE = /(#\s*(gifted|gift|pr|prsample|partner|partnership)|gifted\s+by|sent\s+by\s+(@|brand))/i;
+  let total_seeded = 0;
+  for (const c of contents) {
+    if (c.is_ad) continue;
+    if (c.caption && SEEDED_RE.test(c.caption)) total_seeded += 1;
+  }
+  // IG/YT caption 도 추가 — fetch 안 했지만 sample 만큼만 (별도 fetch 안 함)
+
   return {
     monthly_video_counts: monthly,
     sales_summary,
@@ -134,6 +144,7 @@ export async function runPhase2(
     outlier_creators,
     total_contents: contents.length,
     total_unique_creators: distribution.total_creators,
+    total_seeded,
     // ★ 채널별 영상 수 (mockup A 채널 toggle 활성용)
     ig_total_videos: igCount ?? 0,
     yt_total_videos: ytCount ?? 0,

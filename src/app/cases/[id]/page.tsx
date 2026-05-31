@@ -2046,6 +2046,11 @@ export default async function CaseDetailPage({
                           skuChannelMap={skuChannelMap}
                           kalodataVideos={ks.kalodata_videos_xlsx}
                           kalodataLives={ks.kalodata_lives}
+                          categoryRanking={
+                            (keyStats as unknown as {
+                              kalodata_category_ranking?: { points?: Array<{ date: string; rank: number }> };
+                            })?.kalodata_category_ranking?.points
+                          }
                         />
                       )}
                     </div>
