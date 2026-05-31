@@ -64,14 +64,33 @@ export function SectionBMockup({
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
   const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
 
-  // 티어 분포 (phase3 or phase35 or phase37 우선)
-  const tierDist = phase3?.tier_distribution ?? null;
-  const totalCreators = phase3?.total_creators ?? 0;
+  // 티어 분포 — channelMode + monthFilter 따라 source 변경
+  const igCount = phase2.ig_total_videos ?? 0;
+  const ytCount = phase2.yt_total_videos ?? 0;
+  const tkUnique = phase2.total_unique_creators ?? 0;
 
-  // Top 작성자 (20+ 영상) — tierFilter 적용 시 그 티어만
-  const topCreatorsRaw = (phase2.top_creators ?? [])
-    .slice()
-    .sort((a, b) => b.video_count - a.video_count);
+  // 채널 데이터 존재 여부 (disable 판정)
+  const hasIg = igCount > 0;
+  const hasYt = ytCount > 0;
+
+  // monthFilter 박혔으면 phase3.tier_dist_by_month 의 해당 월 dist 사용 (전체 채널)
+  // channelMode='all' 외엔 channel별 tier 데이터 없으므로 그냥 전체 dist 표시 + 안내
+  const tierDist = monthFilter !== "all"
+    ? phase3?.tier_dist_by_month?.[monthFilter] ?? null
+    : phase3?.tier_distribution ?? null;
+  const totalCreators = channelMode === "tk"
+    ? tkUnique
+    : channelMode === "ig"
+      ? igCount
+      : channelMode === "yt"
+        ? ytCount
+        : phase3?.total_creators ?? 0;
+
+  // Top 작성자 (20+ 영상) — tierFilter + channelMode 적용
+  // 현재 phase2.top_creators 는 TikTok only. IG/YT 선택 시 빈 list
+  const topCreatorsRaw = channelMode === "ig" || channelMode === "yt"
+    ? []
+    : (phase2.top_creators ?? []).slice().sort((a, b) => b.video_count - a.video_count);
   const topCreators = tierFilter
     ? topCreatorsRaw.filter((c) => tierOf(c.follower_count) === tierFilter)
     : topCreatorsRaw;
@@ -107,18 +126,25 @@ export function SectionBMockup({
         <div>
           <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널:</span>
           <div className="ch-toggle">
-            {(["all", "tk", "ig", "yt"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={channelMode === m ? "active" : ""}
-                onClick={() => setChannelMode(m)}
-              >
-                {m === "all" ? `전체 (${totalCreators}명)` :
-                 m === "tk" ? `TikTok (${(phase2.total_unique_creators ?? 0).toLocaleString()})` :
-                 m === "ig" ? "IG" : "YT"}
-              </button>
-            ))}
+            {(["all", "tk", "ig", "yt"] as const).map((m) => {
+              const isDisabled = (m === "ig" && !hasIg) || (m === "yt" && !hasYt);
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  className={channelMode === m ? "active" : ""}
+                  onClick={() => !isDisabled && setChannelMode(m)}
+                  disabled={isDisabled}
+                  title={isDisabled ? "이 채널 데이터 없음" : ""}
+                  style={isDisabled ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                >
+                  {m === "all" ? `전체 (${phase3?.total_creators ?? 0}명)` :
+                   m === "tk" ? `TikTok (${tkUnique.toLocaleString()})` :
+                   m === "ig" ? `IG (${igCount.toLocaleString()})` :
+                   `YT (${ytCount.toLocaleString()})`}
+                </button>
+              );
+            })}
           </div>
         </div>
         <div>
@@ -183,6 +209,20 @@ export function SectionBMockup({
               );
             });
           })()}
+          {monthFilter !== "all" && (
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 10,
+                color: "#1d4ed8",
+                background: "#dbeafe",
+                padding: "4px 8px",
+                borderRadius: 4,
+              }}
+            >
+              📅 <b>{monthFilter}</b> 월 티어 분포만 — 우측 Top 작성자는 전체 기간 그대로
+            </div>
+          )}
           {tierFilter && (
             <div
               style={{
@@ -280,6 +320,13 @@ export function SectionBMockup({
               </tr>
             </thead>
             <tbody>
+              {topCreators.length === 0 && (channelMode === "ig" || channelMode === "yt") ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 16, color: "#9ca3af", fontSize: 11 }}>
+                    {channelMode === "ig" ? "IG" : "YT"} Top 작성자 데이터 미수집 (Phase 4c/4d 결과 필요)
+                  </td>
+                </tr>
+              ) : null}
               {topCreators.slice(0, 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
@@ -353,7 +400,7 @@ export function SectionBMockup({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             {topGmvCreators && topGmvCreators.length > 0 ? (
               <div>
-                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>Top GMV 5명</div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>Top GMV 5명 · lifetime cross-brand</div>
                 <table>
                   <thead>
                     <tr>
@@ -377,7 +424,21 @@ export function SectionBMockup({
                   </tbody>
                 </table>
               </div>
-            ) : <div />}
+            ) : (
+              <div
+                style={{
+                  padding: 16,
+                  fontSize: 11,
+                  color: "#9ca3af",
+                  background: "#f9fafb",
+                  border: "1px dashed #e5e7eb",
+                  borderRadius: 6,
+                  textAlign: "center",
+                }}
+              >
+                Top GMV Shop Creator 없음 — lemur Shop creator 룩업 결과 lifetime GMV 박힌 인플 0명
+              </div>
+            )}
 
             {shopGmvDistribution && shopGmvDistribution.buckets.length > 0 ? (
               <div>

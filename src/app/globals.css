@@ -409,8 +409,10 @@ a {
 .bp-mockup .sb-unknown { background: #d1d5db; }
 .bp-mockup .stack-bar:hover { box-shadow: 0 0 0 2px #1f2937; z-index: 4; }
 .bp-mockup .sb-label {
-    position: absolute; bottom: -22px; left: 0; right: 0;
+    position: absolute; bottom: -22px; left: -8px; right: -8px;
     text-align: center; font-size: 9px; color: #6b7280; font-family: monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
   }
 .bp-mockup .overlay-svg {
     position: absolute; inset: 30px 12px 28px;

@@ -1082,6 +1082,61 @@ export default async function CaseDetailPage({
     return map;
   })();
 
+  // ★ 각 cluster 별 top view 영상 3개 (옛 MD 기능 복원) — C 통합 클러스터 panel 안 cluster row 안에 임베드
+  const clusterTopVideos = await (async () => {
+    const out: Record<string, Array<{ url: string; views: number; caption: string | null }>> = {};
+    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } });
+    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
+    if (metaList.length === 0) return out;
+    const childToMeta = new Map<string, string>();
+    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
+    const childIds = [...childToMeta.keys()];
+    if (childIds.length === 0) return out;
+
+    // cluster_id → content_id list
+    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
+    for (let i = 0; i < childIds.length; i += 200) {
+      const slice = childIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("content_cluster_members")
+        .select("cluster_id, content_id")
+        .in("cluster_id", slice)
+        .eq("platform", "tiktok")
+        .not("content_id", "is", null);
+      for (const r of data ?? []) {
+        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
+      }
+    }
+    if (cluToContent.length === 0) return out;
+
+    // content meta fetch
+    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
+    const cMap = new Map<string, { url: string; views: number; caption: string | null }>();
+    for (let i = 0; i < cids.length; i += 200) {
+      const slice = cids.slice(i, i + 200);
+      const { data } = await supabase
+        .from("contents")
+        .select("id, url, views, caption")
+        .in("id", slice);
+      for (const r of data ?? []) cMap.set(r.id, { url: r.url, views: r.views ?? 0, caption: r.caption });
+    }
+
+    // meta_id → top 3 view 영상
+    const grouped = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+    for (const m of cluToContent) {
+      const metaId = childToMeta.get(m.cluster_id);
+      if (!metaId) continue;
+      const ct = cMap.get(m.content_id);
+      if (!ct) continue;
+      if (!grouped.has(metaId)) grouped.set(metaId, []);
+      grouped.get(metaId)!.push(ct);
+    }
+    for (const [metaId, list] of grouped) {
+      out[metaId] = list.sort((a, b) => b.views - a.views).slice(0, 3);
+    }
+    return out;
+  })();
+
   // ★ 같은 brand 의 다른 case 중 kalodata 적재된 케이스 hint (사용자가 케이스 헷갈릴 때 안내)
   const kalodataInOtherCases = await (async () => {
     if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
@@ -1773,6 +1828,8 @@ export default async function CaseDetailPage({
                         costEstimate={costEstimate.total_max_usd}
                         costBreakdown={"예상 최대"}
                       />
+                      {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
+                      <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
                       {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
                       <DataChannelsMockup
                         dataChannels={dataChannels}
@@ -1953,8 +2010,6 @@ export default async function CaseDetailPage({
                           ),
                         }}
                       />
-                      {/* mockup line 561-581: Phase progress (펼치기) */}
-                      <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
                     </div>
                   );
                 })()}
@@ -2154,6 +2209,7 @@ export default async function CaseDetailPage({
                         uspSampleVideos={uspSampleVideos}
                         clusterGmvByMonth={clusterGmvByMonth}
                         tierClusterHeatmap={tierClusterHeatmap}
+                        clusterTopVideos={clusterTopVideos}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup

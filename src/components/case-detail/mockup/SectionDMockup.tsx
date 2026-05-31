@@ -100,6 +100,7 @@ export function SectionDMockup({
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const onSelectSku = setSelectedSku;
+  const [skuShowAll, setSkuShowAll] = useState(false);
 
   // 채널 toggle state — 기본 case.channel 또는 첫 available
   const defaultCh =
@@ -130,11 +131,12 @@ export function SectionDMockup({
           .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
           .slice(0, 3);
 
-  // 매칭 영상 — phase4bSku.displayed_videos 에서 sku.asin 매칭
+  // 매칭 영상 — phase4bSku.displayed_videos 에서 sku.asin 매칭 + Kalodata fallback
   const allDisplayed = phase4bSku?.displayed_videos ?? [];
-  const matchedFor = (asin: string): DisplayedVideoEntry[] => {
+  const matchedFor = (asin: string, skuName?: string): DisplayedVideoEntry[] => {
     if (!asin) return [];
-    return allDisplayed
+    // 1차: Phase 4b.5 SKU 매칭 (high confidence)
+    const primary = allDisplayed
       .filter(
         (v) =>
           (v.views ?? 0) >= 500_000 &&
@@ -144,6 +146,24 @@ export function SectionDMockup({
       )
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 5);
+    if (primary.length > 0) return primary;
+
+    // 2차: Kalodata video xlsx 의 product_title fuzzy 매칭 (이름 일치)
+    if (!skuName || !kalodataVideos || kalodataVideos.length === 0) return [];
+    const skuKey = skuName.toLowerCase().slice(0, 16);
+    const fallback = kalodataVideos
+      .filter((v) => v.product_title && v.product_title.toLowerCase().includes(skuKey))
+      .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+      .slice(0, 5);
+    return fallback.map((v) => ({
+      content_id: v.video_url ?? "",
+      url: v.video_url ?? "#",
+      views: v.views ?? 0,
+      caption: v.description ?? null,
+      thumbnail_url: null,
+      confidence: "kalodata-fallback",
+      matched_skus: [asin],
+    })) as unknown as DisplayedVideoEntry[];
   };
 
   return (
@@ -332,7 +352,7 @@ export function SectionDMockup({
       <div className="hero-grid">
         {heroSkus.map((sku, i) => {
           const skuAsin = sku.asin ?? "";
-          const matched = matchedFor(skuAsin);
+          const matched = matchedFor(skuAsin, sku.name);
           const pct =
             totalRev > 0 && (sku.revenue ?? 0) > 0
               ? Math.round(((sku.revenue ?? 0) / totalRev) * 100)
@@ -462,13 +482,19 @@ export function SectionDMockup({
                 <th style={{ textAlign: "right" }}>30d GMV</th>
                 <th style={{ textAlign: "right" }}>판매</th>
                 <th style={{ textAlign: "right" }}>BSR</th>
-                <th style={{ textAlign: "right" }}>동반 영상</th>
+                <th style={{ textAlign: "right" }} title="이 SKU 가 Phase 4b.5 SKU 매칭 또는 Kalodata 영상에서 등장한 영상 수">
+                  동반 영상 ?
+                </th>
               </tr>
             </thead>
             <tbody>
-              {skus
-                .filter((s) => selectedSku === "all" || s.asin === selectedSku)
-                .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+              {(() => {
+                const sorted = skus
+                  .filter((s) => selectedSku === "all" || s.asin === selectedSku)
+                  .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
+                const limit = selectedSku !== "all" ? sorted.length : (skuShowAll ? sorted.length : 5);
+                return sorted.slice(0, limit);
+              })()
                 .map((s) => {
                   const matched = allDisplayed.filter((v) =>
                     Array.isArray(v.matched_skus) && s.asin && v.matched_skus.includes(s.asin),
@@ -528,6 +554,26 @@ export function SectionDMockup({
                 })}
             </tbody>
           </table>
+          {selectedSku === "all" && skus.length > 5 && (
+            <div style={{ textAlign: "center", marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSkuShowAll(!skuShowAll)}
+                style={{
+                  fontSize: 11,
+                  padding: "5px 14px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "white",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  color: "#6b7280",
+                }}
+              >
+                {skuShowAll ? `▲ 5개만 보기` : `▼ 전체 ${skus.length}개 SKU 보기 (현재 5개)`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

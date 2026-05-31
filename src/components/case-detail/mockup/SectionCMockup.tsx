@@ -29,6 +29,7 @@ export function SectionCMockup({
   uspSampleVideos,
   clusterGmvByMonth,
   tierClusterHeatmap,
+  clusterTopVideos,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
@@ -47,6 +48,8 @@ export function SectionCMockup({
     metas: Array<{ id: string; name: string }>;
     cells: Record<string, Record<string, number>>;
   };
+  /** 각 cluster 별 top view 영상 3개 (page.tsx server SQL) — cluster row 안 임베드/링크 */
+  clusterTopVideos?: Record<string, Array<{ url: string; views: number; caption: string | null }>>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -208,6 +211,42 @@ export function SectionCMockup({
                       m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")
                     )}
                   </div>
+                  {/* 옛 MD: cluster 별 top view 영상 3개 (link, view 수 표시) */}
+                  {(() => {
+                    const top3 = clusterTopVideos?.[m.id] ?? [];
+                    if (top3.length === 0) return null;
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          marginTop: 6,
+                          paddingTop: 6,
+                          borderTop: "1px dashed #f3f4f6",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span style={{ fontSize: 9, color: "#9ca3af" }}>Top 영상:</span>
+                        {top3.map((v, vi) => (
+                          <a
+                            key={vi}
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={v.caption ?? ""}
+                            style={{
+                              fontSize: 10,
+                              color: "#1d4ed8",
+                              textDecoration: "none",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            #{vi + 1} {fmtV(v.views)} ↗
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
@@ -522,15 +561,28 @@ export function SectionCMockup({
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: `140px repeat(${metas.length}, 1fr)`,
+                      gridTemplateColumns: `140px repeat(${metas.length}, minmax(110px, 1fr))`,
                       gap: 2,
                       fontSize: 10,
+                      overflowX: "auto",
                     }}
                   >
                     <div className="lbl" />
                     {metas.map((m) => (
-                      <div key={m.id} className="lbl" title={m.name}>
-                        {m.name.length > 8 ? `${m.name.slice(0, 8)}…` : m.name}
+                      <div
+                        key={m.id}
+                        className="lbl"
+                        title={m.name}
+                        style={{
+                          padding: "4px 6px",
+                          whiteSpace: "normal",
+                          wordBreak: "keep-all",
+                          textAlign: "center",
+                          fontWeight: 600,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {m.name}
                       </div>
                     ))}
                     {tiersToShow.map((t) => (
