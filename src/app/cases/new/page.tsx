@@ -55,16 +55,22 @@ const COUNTRY_GROUPS: DropdownGroup[] = [
 ];
 
 export default function NewCasePage() {
-  const [platform, setPlatform] = useState<PlatformValue>("amazon");
+  // A 모델: platform 의미 제거 — 모든 field 항상 active (한 case 다채널 데이터 자유)
+  const platform: PlatformValue = "amazon";
+  const setPlatform: (p: PlatformValue) => void = () => undefined;
+  // 변수 그대로 두되 분기 다 true (사용자 의도)
+  void setPlatform;
   const [country, setCountry] = useState("US");
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
     createCaseDraft,
     null,
   );
 
-  const isAmazon = platform === "amazon";
-  const isShop = platform === "tiktok_shop";
-  const isShopee = platform === "shopee";
+  // A 모델: 모든 field 항상 active. 분기 변수 = true (옛 코드 호환)
+  const isAmazon = true;
+  const isShop = true;
+  const isShopee = true;
+  void platform;
   // SEA TikTok Shop = Kalodata 경로 (스토어 URL 불필요)
   const SEA_COUNTRIES = ["SG", "MY", "TH", "ID", "VN", "PH"];
   const isShopUs = isShop && country === "US";
@@ -136,16 +142,10 @@ export default function NewCasePage() {
             </div>
           </div>
 
-          <div className="field">
-            <label className="field-label">
-              플랫폼 <span className="req">*</span>
-            </label>
-            <PlatformPicker
-              name="platform"
-              defaultValue="amazon"
-              onChange={setPlatform}
-            />
-          </div>
+          {/* A 모델: 플랫폼/채널 선택 제거 — 한 case = 한 country, 데이터 추가하면서 다채널 활성.
+              메인 채널 라벨 (cases.channel)은 hidden default "amazon" 로 박혀있음 (DB 호환).
+              실제 사용은 case-detail 의 데이터 채널 그리드 — 사용자가 카드 클릭해서 다채널 자유 박힘. */}
+          <input type="hidden" name="platform" value="amazon" />
         </section>
 
         {/* Section 2: 데이터 업로드 (placeholder) */}
@@ -165,17 +165,12 @@ export default function NewCasePage() {
               lineHeight: 1.6,
             }}
           >
-            🚧 케이스 생성 후 상세 페이지에서 진행됩니다.
+            🚧 케이스 생성 후 상세 페이지의 데이터 채널 그리드에서 각 채널 카드 클릭하여
+            데이터 추가:
             <br />
-            {isAmazon
-              ? "Amazon 케이스 → exolyt CSV · 30일 매출 CSV · BSR per-product CSV"
-              : isShopUs
-                ? "TikTok Shop US → exolyt CSV + pro100chok 자동 수집 (스토어 URL 필요)"
-                : isShopSea
-                  ? "TikTok Shop SEA → exolyt CSV + Kalodata 화면 텍스트/xlsx 업로드 (Pro 4,000 크레딧, Top 500 권장)"
-                  : isShop
-                    ? "TikTok Shop → exolyt CSV"
-                    : "Shopee 케이스 (SEA) → exolyt CSV · Shopdora 매출 텍스트 붙여넣기"}
+            <b>TikTok 영상</b> (Exolyt CSV) · <b>TT Shop</b> (Helium10 / Kalodata) ·
+            <b>Amazon</b> (매출 + BSR CSV) · <b>Shopee</b> (Shopdora) ·
+            <b>Meta 광고</b> (brand 설정) · <b>Instagram / YouTube</b> (자동 발굴)
           </p>
         </section>
 

@@ -29,17 +29,19 @@ export function BrowseFilters({
   selectedRegion,
   selectedChannel,
   selectedTier,
+  selectedQ,
 }: {
   selectedRegion: string;
   selectedChannel: string;
   selectedTier: string;
+  selectedQ?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const setParam = useCallback(
-    (key: "region" | "channel" | "tier", value: string) => {
+    (key: "region" | "channel" | "tier" | "q", value: string) => {
       const sp = new URLSearchParams(searchParams.toString());
       if (value) sp.set(key, value);
       else sp.delete(key);
@@ -54,11 +56,12 @@ export function BrowseFilters({
     sp.delete("region");
     sp.delete("channel");
     sp.delete("tier");
+    sp.delete("q");
     const qs = sp.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [router, pathname, searchParams]);
 
-  const hasAny = !!(selectedRegion || selectedChannel || selectedTier);
+  const hasAny = !!(selectedRegion || selectedChannel || selectedTier || selectedQ);
 
   return (
     <div
@@ -73,6 +76,32 @@ export function BrowseFilters({
         borderRadius: 8,
       }}
     >
+      {/* brand 명 검색 */}
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 12,
+          color: "var(--color-g600)",
+        }}
+      >
+        🔍
+        <input
+          type="search"
+          placeholder="brand 명 검색"
+          defaultValue={selectedQ ?? ""}
+          onChange={(e) => setParam("q", e.target.value.trim())}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid var(--color-g200)",
+            borderRadius: 6,
+            fontSize: 12,
+            minWidth: 180,
+          }}
+        />
+      </label>
+
       <FilterSelect
         label="국가"
         value={selectedRegion}
