@@ -12,6 +12,7 @@ type Search = Promise<{
   region?: string;
   tier?: string;
   q?: string;
+  channel?: string;
 }>;
 
 export default async function CasesPage({
@@ -22,6 +23,7 @@ export default async function CasesPage({
   const sp = await searchParams;
   const selectedRegion = (sp.region ?? "").trim();
   const selectedTier = (sp.tier ?? "").trim();
+  const selectedChannel = (sp.channel ?? "").trim();
   const selectedQ = (sp.q ?? "").trim().toLowerCase();
 
   const supabase = await createServer();
@@ -46,7 +48,24 @@ export default async function CasesPage({
 
   const allCases = cases ?? [];
 
-  // 필터 — country/tier 정확 매칭 + brand 명 부분 일치 (A 모델: channel 의미 없음)
+  // ★ 각 case 의 products.channel distinct list — 다채널 라벨 + 플랫폼 필터용
+  const channelsByCaseId: Record<string, string[]> = {};
+  if (allCases.length > 0) {
+    const caseIds = allCases.map((c) => c.id);
+    const { data: prods } = await supabase
+      .from("products")
+      .select("case_id, channel")
+      .in("case_id", caseIds);
+    const set = new Map<string, Set<string>>();
+    for (const p of prods ?? []) {
+      if (!p.case_id || !p.channel) continue;
+      if (!set.has(p.case_id)) set.set(p.case_id, new Set());
+      set.get(p.case_id)!.add(String(p.channel));
+    }
+    for (const [cid, ch] of set) channelsByCaseId[cid] = [...ch].sort();
+  }
+
+  // 필터 — country/tier 정확 매칭 + brand 명 부분 일치 + 플랫폼 (products.channel 또는 cases.channel)
   const filtered = allCases.filter((c) => {
     if (selectedRegion && c.country !== selectedRegion) return false;
     if (selectedTier && c.revenue_tier !== selectedTier) return false;
@@ -54,22 +73,38 @@ export default async function CasesPage({
       const brandName = (c.brand as unknown as { name: string } | null)?.name ?? "";
       if (!brandName.toLowerCase().includes(selectedQ)) return false;
     }
+    if (selectedChannel) {
+      // 새 case (channel=NULL, 다채널): products.channel list 안 매칭
+      // 옛 case (channel='amazon'): cases.channel 매칭
+      const productChannels = channelsByCaseId[c.id] ?? [];
+      const legacy = c.channel ?? null;
+      const matches = productChannels.includes(selectedChannel) || legacy === selectedChannel;
+      if (!matches) return false;
+    }
     return true;
   });
 
-  const list: CaseListItem[] = filtered.map((c) => ({
-    id: c.id,
-    brand:
-      (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)",
-    brand_id: c.brand_id ?? null,
-    country: c.country,
-    channel: c.channel,
-    status: c.status,
-    revenue_tier: c.revenue_tier,
-    updated_at: c.updated_at,
-  }));
+  const list: CaseListItem[] = filtered.map((c) => {
+    const productChannels = channelsByCaseId[c.id] ?? [];
+    // 다채널 라벨: products 박혔으면 그 list, 아니면 cases.channel (옛 case)
+    const channels = productChannels.length > 0
+      ? productChannels
+      : (c.channel ? [c.channel] : []);
+    return {
+      id: c.id,
+      brand:
+        (c.brand as unknown as { name: string } | null)?.name ?? "(no brand)",
+      brand_id: c.brand_id ?? null,
+      country: c.country,
+      channel: c.channel,
+      channels, // ★ A 모델 다채널 라벨
+      status: c.status,
+      revenue_tier: c.revenue_tier,
+      updated_at: c.updated_at,
+    };
+  });
 
-  const hasAnyFilter = !!(selectedRegion || selectedTier || selectedQ);
+  const hasAnyFilter = !!(selectedRegion || selectedTier || selectedQ || selectedChannel);
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1280 }}>
@@ -88,7 +123,7 @@ export default async function CasesPage({
               color: "var(--color-g500)",
             }}
           >
-            brand 명 검색 · 국가 · 티어 필터. 체크박스 최대 4개 비교.
+            brand 명 검색 · 국가 · 플랫폼 · 티어 필터. 체크박스 최대 4개 비교.
           </p>
         </div>
         <Link
@@ -104,6 +139,7 @@ export default async function CasesPage({
         selectedRegion={selectedRegion}
         selectedTier={selectedTier}
         selectedQ={selectedQ}
+        selectedChannel={selectedChannel}
       />
 
       <div

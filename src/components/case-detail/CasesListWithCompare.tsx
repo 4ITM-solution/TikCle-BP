@@ -11,9 +11,17 @@ export type CaseListItem = {
   brand_id: string | null;
   country: string;
   channel: string;
+  /** A 모델 다채널 라벨 — products.channel distinct list (옛 case 는 cases.channel 1개) */
+  channels?: string[];
   status: string;
   revenue_tier: string | null;
   updated_at: string;
+};
+
+const CHANNEL_LABEL: Record<string, string> = {
+  amazon: "Amazon",
+  tiktok_shop: "TT Shop",
+  shopee: "Shopee",
 };
 
 const MAX_COMPARE = 4;
@@ -171,11 +179,30 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
                     textDecoration: "none",
                   }}
                 >
-                  {c.country} · {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스
-                  열기
+                  {c.country}
+                  {c.channels && c.channels.length > 0 && (
+                    <> | {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(", ")}</>
+                  )}{" "}
+                  · {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스 열기
                 </Link>
               </div>
               <span className="case-tag country">{c.country}</span>
+              {c.channels && c.channels.length > 0 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    padding: "3px 8px",
+                    borderRadius: 9,
+                    background: "#fef3c7",
+                    color: "#92400e",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                  title={`이 case 의 plat: ${c.channels.join(", ")}`}
+                >
+                  {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(" · ")}
+                </span>
+              )}
               {c.revenue_tier ? (
                 <span
                   style={{
