@@ -238,59 +238,42 @@ export function DataChannelsMockup({
         {ALL_CHANNELS.map((c) => {
           const active = isActive(c);
           const d = channelDetails[c];
+          // 채널 카드 클릭 → 그 채널 업로드 section 으로 scroll + details 펼침
+          const onClick = (e: React.MouseEvent) => {
+            e.preventDefault();
+            const det = document.getElementById("sec-channels-upload") as HTMLDetailsElement | null;
+            if (det) det.open = true;
+            const target = document.getElementById(`ch-upload-${c}`);
+            (target ?? det)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          };
           return (
-            <div key={c} className={`ch-card ${active ? "active" : "off"}`}>
+            <a
+              key={c}
+              href={`#ch-upload-${c}`}
+              onClick={onClick}
+              className={`ch-card ${active ? "active" : "off"}`}
+              style={{ textDecoration: "none", color: "inherit", cursor: "pointer", display: "block" }}
+            >
               <div className="ch-card-h">
                 <span className="ic">{DATA_CHANNEL_ICONS[c]}</span>
                 <span className="nm">{DATA_CHANNEL_LABELS[c]}</span>
                 <span className={`ch-badge ${active ? "ok" : "off"}`}>
-                  {active ? "적재" : "사용안함"}
+                  {active ? "적재" : "추가"}
                 </span>
               </div>
-              {active && d && (
+              {active && d ? (
                 <>
                   <div className="ch-stat">{d.stat}</div>
                   {d.sub && <div className="ch-sub">{d.sub}</div>}
                 </>
+              ) : (
+                <div className="ch-sub" style={{ color: "#9ca3af" }}>
+                  클릭하여 데이터 추가
+                </div>
               )}
-            </div>
+            </a>
           );
         })}
-        {/* mockup line 557: + 채널 추가 카드 — 신규 데이터 업로드 UI 로 scroll */}
-        <a
-          href="#sec-channels-upload"
-          className="ch-card"
-          style={{
-            background: "#f9fafb",
-            textDecoration: "none",
-            color: "inherit",
-            cursor: "pointer",
-            display: "block",
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            const target = document.getElementById("sec-channels-upload");
-            if (target) {
-              target.scrollIntoView({ behavior: "smooth", block: "start" });
-              // details 펼치기
-              if (target.tagName === "DETAILS") {
-                (target as HTMLDetailsElement).open = true;
-              } else {
-                // details parent 찾아 펼침
-                const det = target.closest("details") as HTMLDetailsElement | null;
-                if (det) det.open = true;
-              }
-            }
-          }}
-        >
-          <div className="ch-card-h">
-            <span className="ic">＋</span>
-            <span className="nm" style={{ color: "#6b7280" }}>채널 추가</span>
-          </div>
-          <div className="ch-sub" style={{ color: "#9ca3af" }}>
-            CSV / Helium10 / Apify ...
-          </div>
-        </a>
       </div>
     </div>
   );

@@ -1433,39 +1433,43 @@ export default async function CaseDetailPage({
                 이 케이스로 직접 업로드하면 자동 머지됩니다 (url 충돌은 GREATEST로
                 안전 머지).
               </div>
-              <ExolytSection
-                case_id={c.id}
-                hasContents={
-                  (contentCount ?? 0) > 0 && !reusedAlready && !reusable
-                }
-                reusable={reusable}
-                reusedAlready={reusedAlready}
-                contentCount={contentCount ?? 0}
-              />
-              <BrandViewTrendsSection
-                case_id={c.id}
-                existingWeeks={weeklyViews.length}
-              />
-              <YoutubeSeedingSection
-                case_id={c.id}
-                existingRuns={
-                  Array.isArray(
-                    (
-                      c.key_stats as {
-                        youtube_seeding_runs?: unknown[];
-                      }
-                    )?.youtube_seeding_runs,
-                  )
-                    ? (
+              <div id="ch-upload-tiktok_video" style={{ scrollMarginTop: 80 }}>
+                <ExolytSection
+                  case_id={c.id}
+                  hasContents={
+                    (contentCount ?? 0) > 0 && !reusedAlready && !reusable
+                  }
+                  reusable={reusable}
+                  reusedAlready={reusedAlready}
+                  contentCount={contentCount ?? 0}
+                />
+                <BrandViewTrendsSection
+                  case_id={c.id}
+                  existingWeeks={weeklyViews.length}
+                />
+              </div>
+              <div id="ch-upload-youtube" style={{ scrollMarginTop: 80 }}>
+                <YoutubeSeedingSection
+                  case_id={c.id}
+                  existingRuns={
+                    Array.isArray(
+                      (
                         c.key_stats as {
-                          youtube_seeding_runs: unknown[];
+                          youtube_seeding_runs?: unknown[];
                         }
-                      ).youtube_seeding_runs.length
-                    : 0
-                }
-              />
+                      )?.youtube_seeding_runs,
+                    )
+                      ? (
+                          c.key_stats as {
+                            youtube_seeding_runs: unknown[];
+                          }
+                        ).youtube_seeding_runs.length
+                      : 0
+                  }
+                />
+              </div>
               {c.channel === "amazon" && (
-                <>
+                <div id="ch-upload-amazon" style={{ scrollMarginTop: 80 }}>
                   <AmazonSalesSection
                     case_id={c.id}
                     skuRows={skuRows}
@@ -1477,22 +1481,26 @@ export default async function CaseDetailPage({
                     skuRows={skuRows}
                     caseCountry={c.country}
                   />
-                </>
+                </div>
               )}
               {c.channel === "shopee" && (
-                <ShopdoraSection
-                  case_id={c.id}
-                  productCount={skuRows.length}
-                />
+                <div id="ch-upload-shopee" style={{ scrollMarginTop: 80 }}>
+                  <ShopdoraSection
+                    case_id={c.id}
+                    productCount={skuRows.length}
+                  />
+                </div>
               )}
               {c.channel === "tiktok_shop" && c.country !== "US" && (
-                <KalodataSection
-                  case_id={c.id}
-                  productCount={skuRows.length}
-                />
+                <div id="ch-upload-tt_shop" style={{ scrollMarginTop: 80 }}>
+                  <KalodataSection
+                    case_id={c.id}
+                    productCount={skuRows.length}
+                  />
+                </div>
               )}
               {c.channel === "tiktok_shop" && c.country === "US" && (
-                <>
+                <div id="ch-upload-tt_shop" style={{ scrollMarginTop: 80 }}>
                   <TiktokProductFinderSection
                     case_id={c.id}
                     products={skuRows.map((s) => ({
@@ -1533,8 +1541,54 @@ export default async function CaseDetailPage({
                         : 0
                     }
                   />
-                </>
+                </div>
               )}
+              {/* IG/YT config 박스 — Phase 4c/4d trigger entry */}
+              <div id="ch-upload-instagram" style={{ scrollMarginTop: 80, marginTop: 14 }}>
+                <IgPrepBox
+                  case_id={c.id}
+                  hasIgConfig={!!c.ig_config}
+                  suggestedConfig={igConfigSuggested}
+                  debug={igPrepDebug}
+                />
+                <IgPostlearnBox
+                  case_id={c.id}
+                  hasPhase4c={!!phase4cStats && !phase4cStats.skipped_reason}
+                  learnedConfig={igConfigLearned}
+                  diff={igPostlearnDiff}
+                />
+              </div>
+              <div id="ch-upload-youtube" style={{ scrollMarginTop: 80, marginTop: 14 }}>
+                <YtPrepBox
+                  case_id={c.id}
+                  hasYtConfig={!!c.yt_config}
+                  suggestedConfig={ytConfigSuggested}
+                  debug={ytPrepDebug}
+                />
+                <YtPostlearnBox
+                  case_id={c.id}
+                  hasPhase4d={!!phase4dStats && !phase4dStats.skipped_reason}
+                  learnedConfig={ytConfigLearned}
+                  diff={ytPostlearnDiff}
+                />
+              </div>
+              {/* Meta 광고 entry — brand_meta_pages 박혀야 분석. case 화면에서 직접 입력 안 됨 */}
+              <div
+                id="ch-upload-meta_ads"
+                style={{
+                  scrollMarginTop: 80,
+                  marginTop: 14,
+                  padding: 14,
+                  background: "var(--color-info-soft)",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  color: "var(--color-info)",
+                  lineHeight: 1.6,
+                }}
+              >
+                📢 <b>Meta 광고</b>는 brand 설정에서 <code>brand_meta_pages</code> 또는{" "}
+                <code>brand_keyword</code> 박아야 자동 수집됩니다. brand 페이지에서 입력 후 Phase 4a 재실행.
+              </div>
             </div>
           </details>
 
