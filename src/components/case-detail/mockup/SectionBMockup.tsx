@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type {
   Phase2Stats,
   Phase3Stats,
@@ -8,6 +8,7 @@ import type {
   Phase37Stats,
   TierBucket,
   TopCreator,
+  TopCreatorVideo,
 } from "@/lib/inngest/types";
 import type { MatrixRow } from "../CrossChannelMatrix";
 import type { TopGmvCreator } from "../TopGmvShopCreators";
@@ -61,6 +62,7 @@ export function SectionBMockup({
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
+  const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
 
   // 티어 분포 (phase3 or phase35 or phase37 우선)
   const tierDist = phase3?.tier_distribution ?? null;
@@ -261,7 +263,12 @@ export function SectionBMockup({
 
         {/* 우 column: Top 작성자 */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Top 작성자 (20+ 영상)</div>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+            Top 작성자 (20+ 영상){" "}
+            <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>
+              · 팔로워 = TK 본 채널 기준 (lemur lookup)
+            </span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -276,23 +283,46 @@ export function SectionBMockup({
               {topCreators.slice(0, 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
+                const isExpanded = expandedHandle === c.handle;
+                const hasVideos = (c.top_videos?.length ?? 0) > 0;
                 return (
-                  <tr key={c.handle}>
-                    <td>
-                      <b>{c.handle}</b>
-                      {isCeleb && <span className="tag tag-warn">⭐셀럽</span>}
-                    </td>
-                    <td>{formatFollowers(c.follower_count)}</td>
-                    <td>
-                      <ChannelPills tk={xc?.tk ?? c.video_count} ig={xc?.ig ?? 0} yt={xc?.yt ?? 0} />
-                    </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                      {c.video_count}
-                    </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                      {formatViews(c.max_views)}
-                    </td>
-                  </tr>
+                  <React.Fragment key={c.handle}>
+                    <tr
+                      onClick={() => hasVideos && setExpandedHandle(isExpanded ? null : c.handle)}
+                      style={{
+                        cursor: hasVideos ? "pointer" : "default",
+                        background: isExpanded ? "#fef3c7" : undefined,
+                      }}
+                      title={hasVideos ? "클릭하여 영상 Top 3 임베드 보기" : "영상 데이터 없음"}
+                    >
+                      <td>
+                        <b>{c.handle}</b>
+                        {isCeleb && <span className="tag tag-warn">⭐셀럽</span>}
+                        {hasVideos && (
+                          <span style={{ marginLeft: 6, fontSize: 9, color: "#92400e" }}>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                        )}
+                      </td>
+                      <td>{formatFollowers(c.follower_count)}</td>
+                      <td>
+                        <ChannelPills tk={xc?.tk ?? c.video_count} ig={xc?.ig ?? 0} yt={xc?.yt ?? 0} />
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                        {c.video_count}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                        {formatViews(c.max_views)}
+                      </td>
+                    </tr>
+                    {isExpanded && hasVideos && (
+                      <tr>
+                        <td colSpan={5} style={{ padding: 0 }}>
+                          <CreatorVideosEmbed videos={c.top_videos!.slice(0, 3)} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
               {topCreators.length > 5 && (
@@ -307,15 +337,6 @@ export function SectionBMockup({
         </div>
       </div>
 
-      {/* mockup line 839-842: 원본 raw details */}
-      <details style={{ marginTop: 16 }}>
-        <summary style={{ cursor: "pointer", fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
-          ▶ 원본 raw 보기 (영상 list · 전체 인플 list · IG/YT raw)
-        </summary>
-        <div style={{ marginTop: 8, padding: 10, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
-          {phase2.top_creators?.length ?? 0}명 TikTok 작성자 · IG/YT raw 는 source CSV
-        </div>
-      </details>
 
       {/* Shop creator section */}
       {showShopSection && (
@@ -426,6 +447,61 @@ function formatUsd(n: number): string {
 
 function normalize(s: string): string {
   return (s ?? "").toLowerCase().replace(/^@/, "").trim();
+}
+
+function extractTikTokVideoId(url: string): string | null {
+  const m = url.match(/\/(?:video|photo)\/(\d+)/);
+  return m?.[1] ?? null;
+}
+
+function CreatorVideosEmbed({ videos }: { videos: TopCreatorVideo[] }) {
+  return (
+    <div
+      style={{
+        padding: 12,
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: 10,
+        background: "#fffbeb",
+      }}
+    >
+      {videos.map((v, i) => {
+        const id = extractTikTokVideoId(v.url);
+        return (
+          <div key={v.url} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 10, color: "#92400e", display: "flex", justifyContent: "space-between" }}>
+              <span>#{i + 1}</span>
+              <span style={{ fontWeight: 700 }}>{formatViews(v.views)} views</span>
+            </div>
+            {id ? (
+              <iframe
+                src={`https://www.tiktok.com/embed/v2/${id}`}
+                loading="lazy"
+                allowFullScreen
+                allow="encrypted-media"
+                title={v.url}
+                style={{ width: "100%", height: 360, border: "none", borderRadius: 4, background: "#f3f4f6" }}
+              />
+            ) : (
+              <a
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: "block", padding: 12, textAlign: "center", fontSize: 11, color: "#1f2937", textDecoration: "underline" }}
+              >
+                TikTok 에서 열기 ↗
+              </a>
+            )}
+            {v.caption && (
+              <div style={{ fontSize: 10, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={v.caption}>
+                {v.caption.length > 40 ? `${v.caption.slice(0, 40)}…` : v.caption}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function tierOf(n: number | null): TierBucket {

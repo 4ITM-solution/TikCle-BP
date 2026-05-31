@@ -1082,6 +1082,25 @@ export default async function CaseDetailPage({
     return map;
   })();
 
+  // ★ 같은 brand 의 다른 case 중 kalodata 적재된 케이스 hint (사용자가 케이스 헷갈릴 때 안내)
+  const kalodataInOtherCases = await (async () => {
+    if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
+    const { data } = await supabase
+      .from("cases")
+      .select("id, country, channel, key_stats")
+      .eq("brand_id", brand_id)
+      .neq("id", c.id);
+    return (data ?? [])
+      .map((r) => {
+        const ks = (r.key_stats ?? {}) as Record<string, unknown>;
+        const n_videos = Array.isArray(ks.kalodata_videos) ? (ks.kalodata_videos as unknown[]).length : 0;
+        const n_xlsx = Array.isArray(ks.kalodata_videos_xlsx) ? (ks.kalodata_videos_xlsx as unknown[]).length : 0;
+        const n_lives = Array.isArray(ks.kalodata_lives) ? (ks.kalodata_lives as unknown[]).length : 0;
+        return { id: r.id, country: r.country, channel: r.channel, n_videos, n_xlsx, n_lives };
+      })
+      .filter((r) => r.n_videos + r.n_xlsx + r.n_lives > 0);
+  })();
+
   // ★ 같은 country 의 다른 brand 케이스 (G InsightCard related-cases 용 B6)
   const relatedCases = await (async () => {
     if (!c.country) return [] as Array<{ label: string; href: string }>;
@@ -1096,6 +1115,87 @@ export default async function CaseDetailPage({
       label: `${(r.brand as unknown as { name: string } | null)?.name ?? "(no brand)"} (${r.country})`,
       href: `/cases/${r.id}`,
     }));
+  })();
+
+  // ★ 티어 × meta cluster 앵글 히트맵 (옛 MiniDashboard 기능 복원)
+  // 각 cluster member 영상의 작성자 follower → tier 분류 후 tier × meta count cross-tab
+  const tierClusterHeatmap = await (async () => {
+    type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
+    const out: { tiers: TierKey[]; metas: Array<{ id: string; name: string }>; cells: Record<string, Record<string, number>> } = {
+      tiers: ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"],
+      metas: [],
+      cells: {},
+    };
+    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } });
+    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
+    if (metaList.length === 0) return out;
+    out.metas = metaList.map((m) => ({ id: m.id, name: m.name }));
+
+    const childToMeta = new Map<string, string>();
+    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
+    const childIds = [...childToMeta.keys()];
+    if (childIds.length === 0) return out;
+
+    // cluster → content_id
+    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
+    for (let i = 0; i < childIds.length; i += 200) {
+      const slice = childIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("content_cluster_members")
+        .select("cluster_id, content_id")
+        .in("cluster_id", slice)
+        .eq("platform", "tiktok")
+        .not("content_id", "is", null);
+      for (const r of data ?? []) {
+        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
+      }
+    }
+    if (cluToContent.length === 0) return out;
+
+    // content_id → influencer_id
+    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
+    const inflByContent = new Map<string, string>();
+    for (let i = 0; i < cids.length; i += 200) {
+      const slice = cids.slice(i, i + 200);
+      const { data } = await supabase
+        .from("contents")
+        .select("id, influencer_id")
+        .in("id", slice);
+      for (const r of data ?? []) if (r.influencer_id) inflByContent.set(r.id, r.influencer_id);
+    }
+
+    // influencer_id → follower → tier
+    const inflIds = [...new Set([...inflByContent.values()])];
+    const tierByInfl = new Map<string, TierKey>();
+    for (let i = 0; i < inflIds.length; i += 200) {
+      const slice = inflIds.slice(i, i + 200);
+      const { data } = await supabase
+        .from("influencers")
+        .select("id, follower_count")
+        .in("id", slice);
+      for (const r of data ?? []) {
+        const n = r.follower_count;
+        const tier: TierKey =
+          n == null ? "unknown" :
+          n >= 1_000_000 ? "mega" :
+          n >= 500_000 ? "macro" :
+          n >= 100_000 ? "mid" :
+          n >= 10_000 ? "micro" :
+          n >= 1_000 ? "nano" : "sub-nano";
+        tierByInfl.set(r.id, tier);
+      }
+    }
+
+    // tier × meta cross-tab
+    for (const t of out.tiers) out.cells[t] = {};
+    for (const m of cluToContent) {
+      const metaId = childToMeta.get(m.cluster_id);
+      if (!metaId) continue;
+      const inflId = inflByContent.get(m.content_id);
+      const tier = inflId ? tierByInfl.get(inflId) ?? "unknown" : "unknown";
+      out.cells[tier]![metaId] = (out.cells[tier]![metaId] ?? 0) + 1;
+    }
+    return out;
   })();
 
   // ★ cluster × month GMV (Kalodata 매칭) — heatmap "GMV 기여" measure 용 (B4)
@@ -2053,6 +2153,7 @@ export default async function CaseDetailPage({
                         clusterMetrics={clusterMetrics}
                         uspSampleVideos={uspSampleVideos}
                         clusterGmvByMonth={clusterGmvByMonth}
+                        tierClusterHeatmap={tierClusterHeatmap}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup
@@ -2070,6 +2171,8 @@ export default async function CaseDetailPage({
                             })?.kalodata_category_ranking?.points
                           }
                           skuMetaMap={skuMetaMap}
+                          kalodataInOtherCases={kalodataInOtherCases}
+                          bsrInflections={ks.phase5?.bsr_inflections}
                         />
                       )}
                     </div>

@@ -12,6 +12,7 @@ import type {
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 import { SkuHealthCards } from "./SkuHealthCards";
+import type { BsrInflection } from "@/lib/inngest/types";
 
 /**
  * SectionDMockup — mockup line 1025-1283 1:1.
@@ -27,7 +28,7 @@ import { SkuHealthCards } from "./SkuHealthCards";
  *     Affiliate code conversion / 영상별 매출 / Live 매출
  */
 
-type Tab = "sku" | "rank" | "matrix" | "affiliate" | "vid" | "live";
+type Tab = "sku" | "rank" | "matrix" | "affiliate" | "vid" | "live" | "bsr";
 
 export function SectionDMockup({
   phase2,
@@ -39,6 +40,8 @@ export function SectionDMockup({
   kalodataLives,
   categoryRanking,
   skuMetaMap,
+  kalodataInOtherCases,
+  bsrInflections,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
@@ -55,7 +58,45 @@ export function SectionDMockup({
   categoryRanking?: Array<{ date: string; rank: number }>;
   /** 옛 phase2 cache 안 sku_sales 에 category/launch_date/price field 없을 때 DB 직접 fetch 한 enrichment */
   skuMetaMap?: Record<string, { category: string | null; launch_date: string | null; price: number | null }>;
+  /** 이 brand 의 다른 case 중 kalodata 적재된 케이스 hint (case 헷갈림 방지) */
+  kalodataInOtherCases?: Array<{
+    id: string;
+    country: string;
+    channel: string | null;
+    n_videos: number;
+    n_xlsx: number;
+    n_lives: number;
+  }>;
+  /** 옛 BsrTrendChart 기능 복원 — phase5.bsr_inflections (Amazon 케이스만 의미) */
+  bsrInflections?: BsrInflection[];
 }) {
+  const renderKalodataFallbackHint = () => {
+    if (!kalodataInOtherCases || kalodataInOtherCases.length === 0) return null;
+    return (
+      <div
+        style={{
+          marginTop: 8,
+          padding: "6px 10px",
+          fontSize: 10,
+          color: "#1f2937",
+          background: "#dbeafe",
+          border: "1px dashed #3b82f6",
+          borderRadius: 4,
+        }}
+      >
+        💡 같은 brand 의 다른 case 에 kalodata 데이터 적재됨 — 다른 case 헷갈렸을 가능성:
+        {kalodataInOtherCases.slice(0, 3).map((r) => (
+          <a
+            key={r.id}
+            href={`/cases/${r.id}`}
+            style={{ marginLeft: 6, color: "#1d4ed8", textDecoration: "underline", fontWeight: 600 }}
+          >
+            {r.country}/{r.channel ?? "—"} (videos {r.n_videos + r.n_xlsx})
+          </a>
+        ))}
+      </div>
+    );
+  };
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const onSelectSku = setSelectedSku;
@@ -309,45 +350,66 @@ export function SectionDMockup({
                 매칭 영상 {matched.length}개{matched.length > 0 ? " (high confidence)" : ""}
               </div>
               {matched.length > 0 && (
-                <div className="hero-videos">
-                  {matched.map((v) => (
-                    <a
-                      key={v.content_id}
-                      href={v.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hero-vid"
-                      style={{ textDecoration: "none", display: "block", position: "relative" }}
-                    >
-                      {v.thumbnail_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={v.thumbnail_url}
-                          alt=""
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                          }}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 9,
-                            color: "#9ca3af",
-                          }}
-                        >
-                          📷 X
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${Math.min(matched.length, 3)}, 1fr)`,
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {matched.slice(0, 3).map((v) => {
+                    const id = extractTikTokVideoId(v.url);
+                    return (
+                      <div key={v.content_id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        <div style={{ fontSize: 9, color: "#92400e", display: "flex", justifyContent: "space-between" }}>
+                          <span>{formatViews(v.views)} · TK</span>
+                          <a
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#1d4ed8", textDecoration: "none" }}
+                            title="새 탭에서 열기"
+                          >
+                            ↗
+                          </a>
                         </div>
-                      )}
-                      <div className="hero-vid-meta">{formatViews(v.views)} · TK</div>
-                    </a>
-                  ))}
+                        {id ? (
+                          <iframe
+                            src={`https://www.tiktok.com/embed/v2/${id}`}
+                            loading="lazy"
+                            allowFullScreen
+                            allow="encrypted-media"
+                            title={v.url}
+                            style={{
+                              width: "100%",
+                              height: 320,
+                              border: "1px solid #fde68a",
+                              borderRadius: 4,
+                              background: "#f3f4f6",
+                            }}
+                          />
+                        ) : (
+                          <a
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "block",
+                              padding: 10,
+                              fontSize: 10,
+                              color: "#1f2937",
+                              background: "#f3f4f6",
+                              textAlign: "center",
+                              borderRadius: 4,
+                            }}
+                          >
+                            TikTok 에서 열기 ↗
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -380,6 +442,9 @@ export function SectionDMockup({
         </button>
         <button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>
           Live 매출 (Kalodata)
+        </button>
+        <button className={tab === "bsr" ? "active" : ""} onClick={() => setTab("bsr")}>
+          ★ BSR 상승 시점 (옛 MD)
         </button>
       </div>
 
@@ -552,9 +617,12 @@ export function SectionDMockup({
       {tab === "matrix" && (
         <div className="panel active">
           {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
-              ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
-            </div>
+            <>
+              <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+                ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
+              </div>
+              {renderKalodataFallbackHint()}
+            </>
           ) : (
             (() => {
               // creator × product matrix
@@ -688,9 +756,12 @@ export function SectionDMockup({
       {tab === "vid" && (
         <div className="panel active">
           {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
-              ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
-            </div>
+            <>
+              <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+                ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
+              </div>
+              {renderKalodataFallbackHint()}
+            </>
           ) : (
             (() => {
               const videos = kalodataVideos;
@@ -789,13 +860,99 @@ export function SectionDMockup({
         </div>
       )}
 
+      {/* ★ BSR 상승 시점 panel (옛 MiniDashboard 기능 복원) */}
+      {tab === "bsr" && (
+        <div className="panel active">
+          {!bsrInflections || bsrInflections.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              BSR inflection 데이터 없음 — Amazon 케이스에서 Phase 5 돌면 sales_snapshot BSR 시계열로 급등 시점 자동 detect
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                BSR 7일간 급등 시점 + 그 직전 7일 viral 영상 매칭 — 어떤 영상이 매출 견인했는지 추정
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ASIN</th>
+                    <th>날짜</th>
+                    <th style={{ textAlign: "right" }}>BSR 전</th>
+                    <th style={{ textAlign: "right" }}>BSR 후</th>
+                    <th style={{ textAlign: "right" }}>개선 %</th>
+                    <th style={{ textAlign: "right" }}>뷰 비율</th>
+                    <th>동반 viral 영상 (Top 3)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bsrInflections.slice(0, 10).map((inf, i) => (
+                    <tr key={`${inf.asin}-${inf.date}-${i}`}>
+                      <td style={{ fontFamily: "monospace", fontSize: 10 }}>{inf.asin}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 10 }}>{inf.date}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>#{inf.rank_before.toLocaleString()}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>#{inf.rank_after.toLocaleString()}</td>
+                      <td
+                        style={{
+                          textAlign: "right",
+                          fontFamily: "monospace",
+                          color: inf.rank_improvement_pct > 0 ? "#10b981" : "#ec4899",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {inf.rank_improvement_pct > 0 ? "▲" : "▼"} {Math.abs(inf.rank_improvement_pct).toFixed(0)}%
+                      </td>
+                      <td
+                        style={{
+                          textAlign: "right",
+                          fontFamily: "monospace",
+                          color: inf.is_mega_volume ? "#ec4899" : "#1f2937",
+                          fontWeight: inf.is_mega_volume ? 700 : 400,
+                        }}
+                      >
+                        × {inf.views_ratio.toFixed(1)}{inf.is_mega_volume ? " 🔥" : ""}
+                      </td>
+                      <td style={{ fontSize: 10 }}>
+                        {inf.top_videos.length === 0 ? (
+                          <span style={{ color: "#9ca3af" }}>—</span>
+                        ) : (
+                          inf.top_videos.slice(0, 3).map((v, j) => (
+                            <a
+                              key={j}
+                              href={v.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#1d4ed8", textDecoration: "none", marginRight: 8 }}
+                              title={v.caption ?? ""}
+                            >
+                              {formatViews(v.views)} ↗
+                            </a>
+                          ))
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {bsrInflections.length > 10 && (
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 8, textAlign: "center" }}>
+                  + {bsrInflections.length - 10}개 시점 더보기
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Live 매출 panel — mockup line 1266-1282 */}
       {tab === "live" && (
         <div className="panel active">
           {!kalodataLives || kalodataLives.length === 0 ? (
-            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
-              ⚠ Kalodata Live 데이터 미적재 — 위 KalodataSection 에서 텍스트 paste 시 Live 섹션도 함께 적재됨
-            </div>
+            <>
+              <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+                ⚠ Kalodata Live 데이터 미적재 — 위 KalodataSection 에서 텍스트 paste 시 Live 섹션도 함께 적재됨
+              </div>
+              {renderKalodataFallbackHint()}
+            </>
           ) : (
             (() => {
               const lives = kalodataLives;
@@ -878,6 +1035,11 @@ export function SectionDMockup({
       )}
     </div>
   );
+}
+
+function extractTikTokVideoId(url: string): string | null {
+  const m = url.match(/\/(?:video|photo)\/(\d+)/);
+  return m?.[1] ?? null;
 }
 
 function formatUsdShort(n: number): string {

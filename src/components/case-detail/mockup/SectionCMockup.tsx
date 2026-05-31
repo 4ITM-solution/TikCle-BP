@@ -28,6 +28,7 @@ export function SectionCMockup({
   clusterMetrics,
   uspSampleVideos,
   clusterGmvByMonth,
+  tierClusterHeatmap,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
@@ -40,8 +41,14 @@ export function SectionCMockup({
   uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
   /** meta_cluster_id → { "YYYY-MM": gmv_usd } — heatmap GMV measure 용 (Kalodata 매칭) */
   clusterGmvByMonth?: Record<string, Record<string, number>>;
+  /** 옛 MiniDashboard 의 tier × meta 앵글 히트맵 (page.tsx server SQL) */
+  tierClusterHeatmap?: {
+    tiers: string[];
+    metas: Array<{ id: string; name: string }>;
+    cells: Record<string, Record<string, number>>;
+  };
 }) {
-  const [tab, setTab] = useState<"clu" | "usp" | "heat" | "paid">("clu");
+  const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
@@ -105,6 +112,9 @@ export function SectionCMockup({
         </button>
         <button className={tab === "heat" ? "active" : ""} onClick={() => setTab("heat")}>
           시즈널리티 heatmap
+        </button>
+        <button className={tab === "tier" ? "active" : ""} onClick={() => setTab("tier")}>
+          ★ 티어 × 앵글 (옛 MD)
         </button>
         <button className={tab === "paid" ? "active" : ""} onClick={() => setTab("paid")}>
           paid/seeded/organic 분류
@@ -471,6 +481,89 @@ export function SectionCMockup({
                 );
               })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ★ 티어 × 앵글 (옛 MiniDashboard 기능 복원) panel */}
+      {tab === "tier" && (
+        <div className="panel active">
+          {!tierClusterHeatmap || tierClusterHeatmap.metas.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              cluster 데이터 미수집 — Phase 4b.4 돌면 채워짐
+            </div>
+          ) : (
+            (() => {
+              const { tiers, metas, cells } = tierClusterHeatmap;
+              // 표시할 tier 만 (cell 0 아닌 행)
+              const tiersToShow = tiers.filter((t) =>
+                metas.some((m) => (cells[t]?.[m.id] ?? 0) > 0),
+              );
+              if (tiersToShow.length === 0) {
+                return (
+                  <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+                    cluster member 와 인플 매칭 없음
+                  </div>
+                );
+              }
+              const TIER_LABEL: Record<string, string> = {
+                mega: "Mega (1M+)", macro: "Macro (500K+)", mid: "Mid (100K+)",
+                micro: "Micro (10K+)", nano: "Nano (1K+)", "sub-nano": "Sub-nano", unknown: "Unknown",
+              };
+              const maxV = Math.max(
+                ...tiersToShow.flatMap((t) => metas.map((m) => cells[t]?.[m.id] ?? 0)),
+                1,
+              );
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                    어떤 인플 티어가 어떤 콘텐츠 앵글(meta cluster)에 집중하는지 — 영상 수 cross-tab
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `140px repeat(${metas.length}, 1fr)`,
+                      gap: 2,
+                      fontSize: 10,
+                    }}
+                  >
+                    <div className="lbl" />
+                    {metas.map((m) => (
+                      <div key={m.id} className="lbl" title={m.name}>
+                        {m.name.length > 8 ? `${m.name.slice(0, 8)}…` : m.name}
+                      </div>
+                    ))}
+                    {tiersToShow.map((t) => (
+                      <div style={{ display: "contents" }} key={t}>
+                        <div className="lbl" style={{ fontWeight: 700, textAlign: "right", paddingRight: 6 }}>
+                          {TIER_LABEL[t] ?? t}
+                        </div>
+                        {metas.map((m) => {
+                          const v = cells[t]?.[m.id] ?? 0;
+                          const intensity = v / maxV;
+                          const bg = intensity > 0.8 ? "#7f1d1d" :
+                                     intensity > 0.6 ? "#dc2626" :
+                                     intensity > 0.4 ? "#ea580c" :
+                                     intensity > 0.25 ? "#d97706" :
+                                     intensity > 0.1 ? "#f59e0b" :
+                                     intensity > 0 ? "#fcd34d" : "#f3f4f6";
+                          return (
+                            <div
+                              key={m.id}
+                              className="cell"
+                              style={{ background: bg, color: intensity > 0.5 ? "white" : "#374151" }}
+                              title={`${TIER_LABEL[t]} × ${m.name}: ${v} 영상`}
+                            >
+                              {v > 0 ? v : ""}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()
           )}
         </div>
       )}
