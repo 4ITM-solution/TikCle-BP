@@ -12,7 +12,9 @@ import type {
   KalodataLiveRow,
 } from "@/lib/parsers/kalodata";
 import { SkuHealthCards } from "./SkuHealthCards";
-import type { BsrInflection } from "@/lib/inngest/types";
+import type { BsrInflection, BsrSeries } from "@/lib/inngest/types";
+import type { KalodataBrandKpi } from "@/lib/parsers/kalodata";
+import { BsrTrendChart, type WeeklyViewPoint } from "../BsrTrendChart";
 
 /**
  * SectionDMockup — mockup line 1025-1283 1:1.
@@ -42,6 +44,9 @@ export function SectionDMockup({
   skuMetaMap,
   kalodataInOtherCases,
   bsrInflections,
+  kalodataBrandKpi,
+  bsrSeries,
+  weeklyViews,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
@@ -69,6 +74,11 @@ export function SectionDMockup({
   }>;
   /** 옛 BsrTrendChart 기능 복원 — phase5.bsr_inflections (Amazon 케이스만 의미) */
   bsrInflections?: BsrInflection[];
+  /** Kalodata Brand KPI — Self/Affiliate/Mall % 분해 (SEA TT Shop case 의 BP 분석 핵심) */
+  kalodataBrandKpi?: KalodataBrandKpi | null;
+  /** BSR series (Amazon top 5 SKU) + weekly views — BSR sub-tab line chart (옛 BsrTrendChart) */
+  bsrSeries?: BsrSeries[];
+  weeklyViews?: WeeklyViewPoint[];
 }) {
   const renderKalodataFallbackHint = () => {
     if (!kalodataInOtherCases || kalodataInOtherCases.length === 0) return null;
@@ -284,6 +294,65 @@ export function SectionDMockup({
 
       {/* SKU 헬스 KPI 3 card */}
       <SkuHealthCards phase2={phase2} phase4bSku={phase4bSku} selectedSku={selectedSku} />
+
+      {/* ★ Kalodata Brand 매출 분해 — Self/Affiliate/Mall % (SEA TT Shop case BP 핵심) */}
+      {kalodataBrandKpi && (kalodataBrandKpi.self_operated_revenue_usd != null || kalodataBrandKpi.affiliate_revenue_usd != null || kalodataBrandKpi.shopping_mall_revenue_usd != null) && (
+        (() => {
+          const self = kalodataBrandKpi.self_operated_revenue_usd ?? 0;
+          const aff = kalodataBrandKpi.affiliate_revenue_usd ?? 0;
+          const mall = kalodataBrandKpi.shopping_mall_revenue_usd ?? 0;
+          const tot = self + aff + mall;
+          if (tot === 0) return null;
+          const pct = (n: number) => Math.round((n / tot) * 100);
+          // 핵심 narrative: affiliate 비중 ≥ 50% → 시딩 driven, self ≥ 50% → 자체운영
+          const driverNote =
+            pct(aff) >= 50 ? "🔥 affiliate (시딩) driven brand" :
+            pct(self) >= 50 ? "🏢 self-operated 비중 큼" :
+            pct(mall) >= 30 ? "🛍 Shopping Mall 비중 큼" :
+            "혼합형";
+          return (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 14,
+                border: "1.5px solid #ec4899",
+                borderRadius: 8,
+                background: "#fdf2f8",
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, color: "#831843" }}>
+                💰 Kalodata Brand 매출 분해 — {driverNote}
+                <span style={{ fontSize: 10, color: "#9d174d", fontWeight: 400, marginLeft: 6 }}>
+                  ({kalodataBrandKpi.period_start ?? "?"} ~ {kalodataBrandKpi.period_end ?? "?"})
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                {[
+                  { label: "Self-Operated", val: self, color: "#a855f7" },
+                  { label: "Affiliate (시딩)", val: aff, color: "#ec4899" },
+                  { label: "Shopping Mall", val: mall, color: "#06b6d4" },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <div style={{ fontSize: 10, color: "#6b7280" }}>{s.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>
+                      {formatUsdShort(s.val)} <span style={{ fontSize: 11, color: "#9ca3af" }}>· {pct(s.val)}%</span>
+                    </div>
+                    <div style={{ height: 6, background: "#fce7f3", borderRadius: 3, marginTop: 4 }}>
+                      <div style={{ height: "100%", width: `${pct(s.val)}%`, background: s.color, borderRadius: 3 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {kalodataBrandKpi.active_affiliates != null && (
+                <div style={{ marginTop: 10, fontSize: 10, color: "#831843" }}>
+                  ★ Active Affiliates {kalodataBrandKpi.active_affiliates.toLocaleString()}명{" "}
+                  {kalodataBrandKpi.new_videos_by_affiliate != null && `· 신규 영상 ${kalodataBrandKpi.new_videos_by_affiliate.toLocaleString()}개`}
+                </div>
+              )}
+            </div>
+          );
+        })()
+      )}
 
       {/* SKU 선택 시 GMV 시계열 (Kalodata 영상매출 publish_date 그룹) — mockup line 1163-1173 */}
       {selectedSku !== "all" && kalodataVideos && kalodataVideos.length > 0 && (() => {
@@ -909,6 +978,16 @@ export function SectionDMockup({
       {/* ★ BSR 상승 시점 panel (옛 MiniDashboard 기능 복원) */}
       {tab === "bsr" && (
         <div className="panel active">
+          {/* 옛 BsrTrendChart — sales_snapshot BSR 시계열 line + ★ marker + 동반 영상 (Amazon Top 5 SKU) */}
+          {bsrSeries && bsrSeries.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <BsrTrendChart
+                bsrSeries={bsrSeries}
+                inflections={bsrInflections}
+                weeklyViews={weeklyViews}
+              />
+            </div>
+          )}
           {!bsrInflections || bsrInflections.length === 0 ? (
             <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
               BSR inflection 데이터 없음 — Amazon 케이스에서 Phase 5 돌면 sales_snapshot BSR 시계열로 급등 시점 자동 detect

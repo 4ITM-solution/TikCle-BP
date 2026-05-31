@@ -541,7 +541,7 @@ export function InsightCardMockup({
           )}
           {crossPlatform && crossPlatform.length > 0 && (
             <div className="insight-block">
-              <div className="ib-h">⭐ cross-platform 인플 (Top {Math.min(crossPlatform.length, 4)})</div>
+              <div className="ib-h">⭐ TK+IG+YT 통합 인플 (Top {Math.min(crossPlatform.length, 4)})</div>
               <table>
                 <thead>
                   <tr><th>이름</th><th>채널</th><th>영상</th></tr>

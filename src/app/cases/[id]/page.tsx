@@ -2252,20 +2252,42 @@ export default async function CaseDetailPage({
                   const oneLineSummary = `${brand} — 자동 종합 분석`;
                   const tagline = axes.map((a) => a.value).join(" × ");
 
-                  // cross-platform 인플 — crossPlatformMatches (page 상단에서 이미 fetch)
-                  // IG·YT 둘 다 brand-matched 영상이 있는 인플만. 매칭 영상 합 내림차순 top 5.
-                  const crossPlatform: CrossPlatformAuthor[] = crossPlatformMatches
-                    .map((m) => ({
-                      name: m.name,
-                      channels: [
-                        m.ig_posts > 0 ? "IG" : null,
-                        m.yt_videos > 0 ? "YT" : null,
-                      ]
-                        .filter(Boolean)
-                        .join("·"),
-                      totalVideos: m.ig_posts + m.yt_videos,
-                    }))
-                    .sort((a, b) => b.totalVideos - a.totalVideos)
+                  // cross-platform 인플 — TK + IG + YT 통합 union
+                  // 핸들 정규화 (소문자 + 영숫자만) 로 같은 인플 merge.
+                  // 정렬: cross 채널 수 desc → 영상 합 desc. cross 인플 우선 노출.
+                  const normH = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                  type CrossEntry = { name: string; tk: number; ig: number; yt: number };
+                  const merged = new Map<string, CrossEntry>();
+                  for (const tc of ks.phase2?.top_creators ?? []) {
+                    const k = normH(tc.handle);
+                    if (k.length < 3) continue;
+                    const cur = merged.get(k) ?? { name: tc.handle, tk: 0, ig: 0, yt: 0 };
+                    cur.tk = Math.max(cur.tk, tc.video_count);
+                    merged.set(k, cur);
+                  }
+                  for (const m of crossPlatformMatches) {
+                    const k = normH(m.name);
+                    if (k.length < 3) continue;
+                    const cur = merged.get(k) ?? { name: m.name, tk: 0, ig: 0, yt: 0 };
+                    cur.ig = m.ig_posts;
+                    cur.yt = m.yt_videos;
+                    if (!cur.name || cur.name.length < m.name.length) cur.name = m.name;
+                    merged.set(k, cur);
+                  }
+                  const allEntries = [...merged.values()].map((e) => {
+                    const channels = [e.tk > 0 && "TK", e.ig > 0 && "IG", e.yt > 0 && "YT"].filter(Boolean) as string[];
+                    return {
+                      name: e.name,
+                      channels: channels.join("·"),
+                      channelCount: channels.length,
+                      totalVideos: e.tk + e.ig + e.yt,
+                    };
+                  });
+                  const crossPlatform = allEntries
+                    .sort(
+                      (a, b) =>
+                        b.channelCount - a.channelCount || b.totalVideos - a.totalVideos,
+                    )
                     .slice(0, 10);
 
                   return axes.length > 0 ? (
@@ -2341,6 +2363,45 @@ export default async function CaseDetailPage({
                         topGmvCreators={topGmvCreators}
                         shopGmvDistribution={shopGmvDistribution}
                       />
+                      {/* IG / YT detail — phase4c/4d 적재된 case 만 표시 (옛 기능 복원) */}
+                      {phase4cStats && !phase4cStats.skipped_reason && (
+                        <div className="bp-mockup" style={{ marginTop: 16 }}>
+                          <div className="section">
+                            <div className="section-h">
+                              <span className="letter">📷</span>
+                              <span className="title">IG 디테일 분석</span>
+                              <span className="sub">★ author / paid video / 해시태그</span>
+                            </div>
+                            <IgBrandMonitorSection
+                              phase4c={phase4cStats}
+                              ownedUsernames={igOwnedUsernames}
+                              topAuthors={igTopAuthors}
+                              topPaidVideos={igTopPaidVideos}
+                              sourceDist={igSourceDist}
+                              topHashtags={igTopHashtags}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {phase4dStats && !phase4dStats.skipped_reason && (
+                        <div className="bp-mockup" style={{ marginTop: 16 }}>
+                          <div className="section">
+                            <div className="section-h">
+                              <span className="letter">▶</span>
+                              <span className="title">YouTube 디테일 분석</span>
+                              <span className="sub">★ channel / paid video / shorts vs longform</span>
+                            </div>
+                            <YtBrandMonitorSection
+                              phase4d={phase4dStats}
+                              ownedChannels={ytOwnedChannels}
+                              topChannels={ytTopChannels}
+                              topPaidVideos={ytTopPaidVideos}
+                              sourceDist={ytSourceDist}
+                              typeDist={ytTypeDist}
+                            />
+                          </div>
+                        </div>
+                      )}
                       <SectionCMockup
                         phase2={ks.phase2}
                         phase4bClusters={ks.phase4b_clusters}
@@ -2370,6 +2431,13 @@ export default async function CaseDetailPage({
                           skuMetaMap={skuMetaMap}
                           kalodataInOtherCases={kalodataInOtherCases}
                           bsrInflections={ks.phase5?.bsr_inflections}
+                          kalodataBrandKpi={
+                            (keyStats as unknown as {
+                              kalodata_brand?: import("@/lib/parsers/kalodata").KalodataBrandKpi | null;
+                            })?.kalodata_brand ?? null
+                          }
+                          bsrSeries={ks.phase2?.bsr_series}
+                          weeklyViews={weeklyViews}
                         />
                       )}
                     </div>
