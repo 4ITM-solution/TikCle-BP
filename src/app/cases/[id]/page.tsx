@@ -24,7 +24,6 @@ import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
-  CaseHeaderMockup,
   KpiStripMockup,
   DataChannelsMockup,
   PhaseProgressMockup,
@@ -1109,12 +1108,29 @@ export default async function CaseDetailPage({
           country={c.country}
           channel={c.channel}
           status={c.status}
+          revenueTier={
+            c.revenue_tier ? `★${"★".repeat(Math.max(0, Number(c.revenue_tier) - 1))}` : null
+          }
           dataChannels={dataChannels}
           channelStats={channelStats}
           analyzedAt={c.analyzed_at}
+          actions={
+            <CaseHeader
+              case_id={c.id}
+              brand={brand}
+              country={c.country}
+              channel={c.channel}
+              status={c.status}
+              revenueTier={c.revenue_tier}
+              regionScope={regionScope}
+              createdAt={c.created_at}
+              updatedAt={c.updated_at}
+              actionsOnly
+            />
+          }
         />
       </div>
-    <div style={{ padding: "24px 32px", maxWidth: 1480 }}>
+    <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
         <Link href="/cases">Browse</Link>
         <span className="sep">/</span>
@@ -1139,30 +1155,7 @@ export default async function CaseDetailPage({
         <CaseSideTOC />
 
         <div style={{ minWidth: 0 }}>
-        {/* ★ mockup 1:1 case-header — rev_tier / region toggle / 삭제 actions 흡수 */}
-        <div className="bp-mockup">
-          <CaseHeaderMockup
-            brand={brand}
-            country={c.country}
-            channel={c.channel}
-            status={c.status}
-            revenueTier={c.revenue_tier ? `★${"★".repeat(Math.max(0, Number(c.revenue_tier) - 1))}` : null}
-            actions={
-              <CaseHeader
-                case_id={c.id}
-                brand={brand}
-                country={c.country}
-                channel={c.channel}
-                status={c.status}
-                revenueTier={c.revenue_tier}
-                regionScope={regionScope}
-                createdAt={c.created_at}
-                updatedAt={c.updated_at}
-                actionsOnly
-              />
-            }
-          />
-        </div>
+        {/* CaseHeaderMockup 제거 — status-strip 상단 dark bar 안 흡수됨 (brand / tier / actions). */}
 
       {/* Status branch */}
       {c.status === "draft" ? (
@@ -1384,10 +1377,11 @@ export default async function CaseDetailPage({
         // key_stats null이어도 (분석 안 한 새 케이스) IG/YT BP 박스 노출 필요.
         // main flow 안의 ks?.phase2 분기로 "분석 안 함" 메시지 자동 처리.
         <>
-          {/* ready 케이스에도 추가 업로드 가능 — 우회 brand 만드는 패턴 차단 */}
+          {/* ready 케이스에도 추가 업로드 가능 — DataChannels "+ 채널 추가" 클릭 → 여기로 scroll + 펼침 */}
           <details
+            id="sec-channels-upload"
             className="section-card"
-            style={{ marginBottom: 14 }}
+            style={{ marginBottom: 14, scrollMarginTop: 80 }}
           >
             <summary
               style={{

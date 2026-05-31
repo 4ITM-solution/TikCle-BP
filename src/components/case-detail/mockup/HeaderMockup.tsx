@@ -36,40 +36,66 @@ export function CaseStatusStripMockup({
   country,
   channel,
   status,
+  revenueTier,
   dataChannels,
   channelStats,
   analyzedAt,
+  actions,
 }: {
   brand: string;
   country: string;
   channel: string;
   status: string;
+  revenueTier?: string | null;
   dataChannels: DataChannel[];
   channelStats: Partial<Record<DataChannel, string>>;
   analyzedAt: string | null;
+  /** 우측 actions (CSV / tier 수정 / region toggle / phase 재실행 / 분석 시작 / 삭제) */
+  actions?: React.ReactNode;
 }) {
   const isActive = (c: DataChannel) => dataChannels.includes(c);
   return (
-    <div className="status-strip">
-      <div className="strip-inner">
-        <div className="strip-brand">
-          {brand}
-          <span className="ch-name">
-            {country} · {channel} · {status}
-            {analyzedAt ? ` · ${new Date(analyzedAt).toLocaleString("ko-KR")}` : ""}
-          </span>
+    <div
+      className="status-strip"
+      style={{
+        background: "#1f2937",
+        borderBottom: "none",
+        color: "white",
+        padding: "12px 24px",
+        top: 0,
+      }}
+    >
+      <div
+        className="strip-inner"
+        style={{ maxWidth: "100%", margin: 0, color: "white" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: "white" }}>{brand}</span>
+          {revenueTier && (
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>매출 tier: {revenueTier}</span>
+          )}
         </div>
-        <div className="strip-divider" />
+        <div className="strip-divider" style={{ background: "#374151" }} />
         {ALL_CHANNELS.map((c) => (
-          <div key={c} className="strip-channel">
+          <div key={c} className="strip-channel" style={{ color: isActive(c) ? "#e5e7eb" : "#6b7280" }}>
             <span className={`dot ${isActive(c) ? "dot-ok" : "dot-off"}`} />
             {DATA_CHANNEL_ICONS[c]} {DATA_CHANNEL_LABELS[c]}
             {channelStats[c] && (
-              <span className="ch-count"> {channelStats[c]}</span>
+              <span className="ch-count" style={{ color: "white" }}> {channelStats[c]}</span>
             )}
           </div>
         ))}
+        {actions && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+            {actions}
+          </div>
+        )}
       </div>
+      {analyzedAt && (
+        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4, paddingLeft: 0 }}>
+          {country} · {channel} · {status} · 분석 {new Date(analyzedAt).toLocaleString("ko-KR")}
+        </div>
+      )}
     </div>
   );
 }
@@ -230,13 +256,41 @@ export function DataChannelsMockup({
             </div>
           );
         })}
-        {/* mockup line 557: + 채널 추가 카드 */}
-        <div className="ch-card" style={{ background: "#f9fafb" }}>
+        {/* mockup line 557: + 채널 추가 카드 — 신규 데이터 업로드 UI 로 scroll */}
+        <a
+          href="#sec-channels-upload"
+          className="ch-card"
+          style={{
+            background: "#f9fafb",
+            textDecoration: "none",
+            color: "inherit",
+            cursor: "pointer",
+            display: "block",
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            const target = document.getElementById("sec-channels-upload");
+            if (target) {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+              // details 펼치기
+              if (target.tagName === "DETAILS") {
+                (target as HTMLDetailsElement).open = true;
+              } else {
+                // details parent 찾아 펼침
+                const det = target.closest("details") as HTMLDetailsElement | null;
+                if (det) det.open = true;
+              }
+            }
+          }}
+        >
           <div className="ch-card-h">
             <span className="ic">＋</span>
             <span className="nm" style={{ color: "#6b7280" }}>채널 추가</span>
           </div>
-        </div>
+          <div className="ch-sub" style={{ color: "#9ca3af" }}>
+            CSV / Helium10 / Apify ...
+          </div>
+        </a>
       </div>
     </div>
   );

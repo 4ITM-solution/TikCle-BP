@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Topbar } from "@/components/layout/topbar";
-import { Sidenav } from "@/components/layout/sidenav";
 
 export const metadata: Metadata = {
   title: "TikCle BP",
@@ -26,13 +25,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <div
-          className="grid h-screen overflow-hidden"
-          style={{ gridTemplateRows: "56px 1fr", gridTemplateColumns: "200px 1fr" }}
-        >
+        <div className="flex flex-col h-screen overflow-hidden">
           <Topbar />
-          <Sidenav />
-          <main className="overflow-y-auto" style={{ minHeight: 0 }}>
+          <main className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
             {children}
           </main>
         </div>
