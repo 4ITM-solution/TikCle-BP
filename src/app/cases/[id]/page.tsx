@@ -1829,15 +1829,24 @@ export default async function CaseDetailPage({
                     </div>
                     {isBpOnly ? (
                       <>
-                        이 케이스는 <b>IG / YouTube 카테고리 정의자 분석 전용</b>으로
-                        만들어진 케이스. 위 🎯 BP 박스에서 자동 발굴 → Phase 4c (IG) /
-                        Phase 4d (YT) 만 돌리면 됨. Phase 2~5 (Exolyt·Amazon 분석)는
-                        스킵해도 OK — 데이터 없으니까.
+                        이 케이스는 <b>IG / YouTube 분석 전용</b>으로 만들어진 케이스.
+                        위 🎯 BP 박스에서 자동 발굴 → Phase 4c (IG) / Phase 4d (YT) 만 돌리면 됨.
+                        Phase 2~5 (Exolyt·Amazon 분석)는 스킵해도 OK — 데이터 없으니까.
+                        <br />
+                        <span style={{ fontSize: 11, color: "#92400e" }}>
+                          💡 <b>TikTok / Amazon / Meta 광고 데이터 추가하려면</b>: 위 <b>📥 데이터 채널</b>{" "}
+                          섹션의 각 카드 클릭 → expand 안 업로드 박스에서 적재. 신규 case 폼에서는 데이터 안 받음 — case 만든 후 적재 구조.
+                        </span>
                       </>
                     ) : (
                       <>
                         다른 phase 결과(3 / 4a / 4b.* / 5)는 살아 있는데 phase2만 누락. 아래 PhaseProgress 펼쳐서{" "}
                         <b>Phase 2만 재실행</b>하면 다른 결과는 보존된 채 phase2가 채워져요.
+                        <br />
+                        <span style={{ fontSize: 11, color: "#92400e" }}>
+                          💡 <b>TikTok / Amazon 데이터 추가하려면</b>: 위 <b>📥 데이터 채널</b>{" "}
+                          섹션의 각 카드 클릭 → expand 안 업로드 박스에서 적재.
+                        </span>
                       </>
                     )}
                   </div>

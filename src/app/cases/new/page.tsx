@@ -158,20 +158,36 @@ export default function NewCasePage() {
             <span className="section-title">데이터 업로드</span>
             <span className="section-status todo">다음 단계</span>
           </div>
-          <p
+          <div
             style={{
               fontSize: 12,
-              color: "var(--color-g500)",
+              color: "var(--color-ink)",
               lineHeight: 1.6,
+              padding: 12,
+              background: "#fef3c7",
+              border: "1px dashed #fbbf24",
+              borderRadius: 6,
             }}
           >
-            🚧 케이스 생성 후 상세 페이지의 데이터 채널 그리드에서 각 채널 카드 클릭하여
-            데이터 추가:
-            <br />
-            <b>TikTok 영상</b> (Exolyt CSV) · <b>TT Shop</b> (Helium10 / Kalodata) ·
-            <b>Amazon</b> (매출 + BSR CSV) · <b>Shopee</b> (Shopdora) ·
-            <b>Meta 광고</b> (brand 설정) · <b>Instagram / YouTube</b> (자동 발굴)
-          </p>
+            <div style={{ fontWeight: 700, marginBottom: 6, color: "#92400e" }}>
+              ⚠ 데이터 업로드는 이 폼에서 안 받아요
+            </div>
+            <div style={{ fontSize: 11, color: "#92400e" }}>
+              케이스 생성 누르면 → 상세 페이지로 이동 → 상단 <b>📥 데이터 채널</b>{" "}
+              섹션의 각 카드 클릭 → expand panel 안 업로드 박스에서 적재.
+              <br />
+              <br />
+              <b>각 채널별 적재 방법</b>:
+              <ul style={{ marginTop: 4, marginBottom: 0, paddingLeft: 18 }}>
+                <li><b>📹 TikTok 영상</b> — Exolyt CSV 업로드 (Exolyt social listener export)</li>
+                <li><b>🛒 TT Shop</b> — store URL 입력 (US) / Kalodata 텍스트 paste (SEA)</li>
+                <li><b>📦 Amazon</b> — Helium10 매출 CSV + BSR CSV</li>
+                <li><b>🛍 Shopee</b> — Shopdora 텍스트 paste</li>
+                <li><b>📢 Meta 광고</b> — 아래 brand_meta_pages 또는 brand_keyword 박으면 자동 수집 (Phase 4a)</li>
+                <li><b>📷 Instagram / ▶ YouTube</b> — 자동 발굴 (BP 박스에서 트리거)</li>
+              </ul>
+            </div>
+          </div>
         </section>
 
         {/* Section 3: API 입력 */}
