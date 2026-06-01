@@ -417,7 +417,12 @@ a {
     line-height: 1.4;
   }
 .bp-mockup .overlay-svg {
-    position: absolute; inset: 30px 12px 40px;
+    /* stack-bars 의 bar 영역 박힘 정확히 일치 박힘:
+       - top: trend-chart padding 16 + stack-bars padding 30 = 46
+       - bottom: trend-chart padding 16 + stack-bars padding 40 = 56
+       - left/right: trend-chart padding 0 + stack-bars padding 12 = 12
+       이전 30/12/40 박힌 거 박혀서 16px 위/아래 misalign — line 박스 밖 박힘 그 원인 */
+    position: absolute; inset: 46px 12px 56px;
     pointer-events: none;
     overflow: hidden;
   }
