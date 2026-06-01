@@ -2383,45 +2383,7 @@ export default async function CaseDetailPage({
                           return out;
                         })()}
                       />
-                      {/* IG / YT detail — phase4c/4d 적재된 case 만 표시 (옛 기능 복원) */}
-                      {phase4cStats && !phase4cStats.skipped_reason && (
-                        <div className="bp-mockup" style={{ marginTop: 16 }}>
-                          <div className="section">
-                            <div className="section-h">
-                              <span className="letter">📷</span>
-                              <span className="title">IG 디테일 분석</span>
-                              <span className="sub">★ author / paid video / 해시태그</span>
-                            </div>
-                            <IgBrandMonitorSection
-                              phase4c={phase4cStats}
-                              ownedUsernames={igOwnedUsernames}
-                              topAuthors={igTopAuthors}
-                              topPaidVideos={igTopPaidVideos}
-                              sourceDist={igSourceDist}
-                              topHashtags={igTopHashtags}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {phase4dStats && !phase4dStats.skipped_reason && (
-                        <div className="bp-mockup" style={{ marginTop: 16 }}>
-                          <div className="section">
-                            <div className="section-h">
-                              <span className="letter">▶</span>
-                              <span className="title">YouTube 디테일 분석</span>
-                              <span className="sub">★ channel / paid video / shorts vs longform</span>
-                            </div>
-                            <YtBrandMonitorSection
-                              phase4d={phase4dStats}
-                              ownedChannels={ytOwnedChannels}
-                              topChannels={ytTopChannels}
-                              topPaidVideos={ytTopPaidVideos}
-                              sourceDist={ytSourceDist}
-                              typeDist={ytTypeDist}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionCMockup
                         phase2={ks.phase2}
                         phase4bClusters={ks.phase4b_clusters}

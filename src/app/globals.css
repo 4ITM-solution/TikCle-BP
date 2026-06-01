@@ -416,8 +416,9 @@ a {
     line-height: 1.4;
   }
 .bp-mockup .overlay-svg {
-    position: absolute; inset: 30px 12px 28px;
+    position: absolute; inset: 30px 12px 40px;
     pointer-events: none;
+    overflow: hidden;
   }
 .bp-mockup .trend-tooltip {
     position: absolute; top: 60px; right: 80px;

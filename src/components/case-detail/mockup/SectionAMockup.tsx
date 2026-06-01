@@ -470,7 +470,8 @@ export function SectionAMockup({
                 .map((mo, i) => {
                   const x = (i / (months.length - 1)) * 1000 + 50;
                   const total = totalByMonth.get(mo) ?? 0;
-                  const y = 222 - (total / maxVids) * 222;
+                  const yRaw = 222 - (total / maxVids) * 222;
+                  const y = Math.max(0, Math.min(222, yRaw));
                   return `${x},${y}`;
                 })
                 .join(" ")}
@@ -486,7 +487,8 @@ export function SectionAMockup({
                 .map((mo, _i) => {
                   const idx = months.indexOf(mo);
                   const x = (idx / (months.length - 1)) * 1000 + 50;
-                  const y = 222 - (adByMonth.get(mo) ?? 0) * 222;
+                  const ratio = Math.max(0, Math.min(1, adByMonth.get(mo) ?? 0));
+                  const y = 222 - ratio * 222;
                   return `${x},${y}`;
                 })
                 .join(" ")}
@@ -504,7 +506,7 @@ export function SectionAMockup({
                   const idx = months.indexOf(mo);
                   const x = (idx / (months.length - 1)) * 1000 + 50;
                   const v = bsrByMonth.get(mo)!;
-                  const inv = 1 - (v - bsrMin) / bsrRange;
+                  const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
                   const y = 222 - inv * 222;
                   return `${x},${y}`;
                 })

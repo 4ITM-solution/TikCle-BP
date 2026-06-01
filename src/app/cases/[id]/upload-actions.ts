@@ -1034,9 +1034,7 @@ export async function uploadKalodata(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop") {
-    return { ok: false, error: "TikTok Shop 케이스에서만 사용 가능" };
-  }
+  // A 모델: case.channel 의미 없음 — 한 case 다채널. Kalodata 데이터는 products.channel='tiktok_shop' 박아 적재.
 
   const parsed = parseKalodata(text);
   if (parsed.products.length === 0 && parsed.creators.length === 0) {
@@ -1224,9 +1222,7 @@ export async function uploadKalodataCreatorsXlsx(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop") {
-    return { ok: false, error: "TikTok Shop 케이스만" };
-  }
+  // A 모델: case.channel check 제거 — 한 case 다채널 자유
 
   // SheetJS로 xlsx 파싱
   const XLSX = await import("xlsx");
@@ -1341,9 +1337,7 @@ export async function uploadKalodataVideosXlsx(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop") {
-    return { ok: false, error: "TikTok Shop 케이스만" };
-  }
+  // A 모델: case.channel check 제거 — 한 case 다채널 자유
 
   const XLSX = await import("xlsx");
   const buf = await file.arrayBuffer();
@@ -1674,11 +1668,9 @@ export async function uploadTiktokShopUsAffiliate(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop") {
-    return { ok: false, error: "TikTok Shop 케이스만 지원" };
-  }
+  // A 모델: case.channel check 제거 — 다채널 자유
   if (c.country !== "US") {
-    return { ok: false, error: "US TikTok Shop 전용 (SEA는 Kalodata 사용)" };
+    return { ok: false, error: "US 전용 (SEA는 Kalodata 사용)" };
   }
   if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
 
