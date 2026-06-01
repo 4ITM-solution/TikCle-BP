@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -393,8 +393,11 @@ export function SectionAMockup({
             Math.abs(vsPrevPct) >= 40 || (bsrChangePct !== null && Math.abs(bsrChangePct) >= 50);
           // tooltip 위치 — hover 막대 위치 따라 left/right 자동 전환
           // 마지막 1/3 막대 hover 시 tooltip 을 왼쪽에 박음 (오른쪽 박스 밖 안 나가게)
+          // CSS 기본 right:80px 박혀있어서 inline 으로 명시적 unset 박아야.
           const isRightSide = hoverIdx >= Math.floor(months.length * 2 / 3);
-          const tooltipPos = isRightSide ? { left: 30 } : { right: 30 };
+          const tooltipPos: React.CSSProperties = isRightSide
+            ? { left: 30, right: "auto" }
+            : { right: 30, left: "auto" };
           return (
             <div className="trend-tooltip" style={tooltipPos}>
               <div className="tt-h">
