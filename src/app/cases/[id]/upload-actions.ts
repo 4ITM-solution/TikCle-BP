@@ -780,9 +780,17 @@ export async function startAnalysis(
     new Set([...(force_phases ?? []), ...autoForced]),
   );
 
+  // status=running + 동시에 옛 last_error clear (직전 실패 흔적이 ready 시점까지 남아있던 버그 fix)
+  const { data: caseRowForClear } = await supabase
+    .from("cases")
+    .select("key_stats")
+    .eq("id", case_id)
+    .single();
+  const ksClear = (caseRowForClear?.key_stats ?? {}) as Record<string, unknown>;
+  if ("last_error" in ksClear) delete ksClear.last_error;
   const { error } = await supabase
     .from("cases")
-    .update({ status: "running" })
+    .update({ status: "running", key_stats: ksClear as never })
     .eq("id", case_id);
   if (error) return { ok: false, error: error.message };
 

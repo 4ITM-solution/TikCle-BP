@@ -51,6 +51,7 @@ export function SectionBMockup({
   topGmvCreators,
   shopGmvDistribution,
   ownedHandles,
+  tierDistByChannel,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -61,6 +62,8 @@ export function SectionBMockup({
   shopGmvDistribution?: ShopGmvDistribution | null;
   /** 본사 직접 운영 인플 handle 정규화 set (ig_owned_usernames / yt_owned_channels / brand_meta_pages 등 매핑) */
   ownedHandles?: Set<string>;
+  /** 채널별 tier 분포 — TK: phase3, IG: ig_authors.followers, YT: yt_channels.subscriber_count (page.tsx server SQL) */
+  tierDistByChannel?: Record<"tk" | "ig" | "yt", Record<TierBucket, number>>;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
@@ -77,11 +80,29 @@ export function SectionBMockup({
   const hasIg = igCount > 0;
   const hasYt = ytCount > 0;
 
-  // monthFilter 박혔으면 phase3.tier_dist_by_month 의 해당 월 dist 사용 (전체 채널)
-  // channelMode='all' 외엔 channel별 tier 데이터 없으므로 그냥 전체 dist 표시 + 안내
-  const tierDist = monthFilter !== "all"
-    ? phase3?.tier_dist_by_month?.[monthFilter] ?? null
-    : phase3?.tier_distribution ?? null;
+  // tier 분포 — channelMode + monthFilter 따라 source 변경
+  // monthFilter 박혔으면 phase3.tier_dist_by_month (TK 만 — IG/YT 는 월별 데이터 없음)
+  // channelMode 별: all = 합산, tk = phase3, ig = ig_authors, yt = yt_channels
+  const tierDist = (() => {
+    if (monthFilter !== "all") return phase3?.tier_dist_by_month?.[monthFilter] ?? null;
+    if (channelMode === "tk") return tierDistByChannel?.tk ?? phase3?.tier_distribution ?? null;
+    if (channelMode === "ig") return tierDistByChannel?.ig ?? null;
+    if (channelMode === "yt") return tierDistByChannel?.yt ?? null;
+    // 전체 = TK + IG + YT 합산
+    if (tierDistByChannel) {
+      const sum: Record<TierBucket, number> = {
+        mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0,
+      };
+      for (const ch of ["tk", "ig", "yt"] as const) {
+        const td = tierDistByChannel[ch];
+        for (const t of ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"] as const) {
+          sum[t] += td[t] ?? 0;
+        }
+      }
+      return sum;
+    }
+    return phase3?.tier_distribution ?? null;
+  })();
   const totalCreators = channelMode === "tk"
     ? tkUnique
     : channelMode === "ig"
@@ -213,7 +234,12 @@ export function SectionBMockup({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 24 }}>
         {/* 좌 column: 티어 분포 + cross-channel matrix */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>티어 분포 (전 채널)</div>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+            티어 분포{" "}
+            <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>
+              ({channelMode === "all" ? "전 채널 합산" : channelMode === "tk" ? "TikTok" : channelMode === "ig" ? "Instagram" : "YouTube"})
+            </span>
+          </div>
           {(() => {
             // mockup line 777-781: 5 row 만. 추가 row (sub-nano/unknown) 는 데이터 있을 때만.
             const rowsToShow = [

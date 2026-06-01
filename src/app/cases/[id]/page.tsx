@@ -1267,6 +1267,50 @@ export default async function CaseDetailPage({
     return out;
   })();
 
+  // ★ B 섹션 채널별 tier 분포 — TK/IG/YT 각각 인플 follower 기준 tier 분류
+  const tierDistByChannel = await (async () => {
+    type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
+    const empty = (): Record<TierKey, number> => ({
+      mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0,
+    });
+    const tierOf = (n: number | null | undefined): TierKey => {
+      if (n == null) return "unknown";
+      if (n >= 1_000_000) return "mega";
+      if (n >= 500_000) return "macro";
+      if (n >= 100_000) return "mid";
+      if (n >= 10_000) return "micro";
+      if (n >= 1_000) return "nano";
+      return "sub-nano";
+    };
+    const out: Record<"tk" | "ig" | "yt", Record<TierKey, number>> = {
+      tk: empty(), ig: empty(), yt: empty(),
+    };
+
+    // IG: ig_authors.followers 분포
+    const { data: igAuth } = await supabase
+      .from("ig_authors")
+      .select("followers")
+      .eq("case_id", c.id)
+      .limit(10000);
+    for (const a of igAuth ?? []) {
+      out.ig[tierOf(a.followers)] += 1;
+    }
+    // YT: yt_channels.subscriber_count 분포
+    const { data: ytCh } = await supabase
+      .from("yt_channels")
+      .select("subscriber_count")
+      .eq("case_id", c.id)
+      .limit(10000);
+    for (const ch of ytCh ?? []) {
+      out.yt[tierOf(ch.subscriber_count)] += 1;
+    }
+    // TK: phase3.tier_distribution 그대로 사용 (이미 fans_count 기반 박힘)
+    const tkTd = (c.key_stats as { phase3?: { tier_distribution?: Record<TierKey, number> } })?.phase3?.tier_distribution;
+    if (tkTd) out.tk = { ...empty(), ...tkTd };
+
+    return out;
+  })();
+
   // ★ 같은 brand 의 다른 case 중 kalodata 적재된 케이스 hint (사용자가 케이스 헷갈릴 때 안내)
   const kalodataInOtherCases = await (async () => {
     if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
@@ -2382,6 +2426,7 @@ export default async function CaseDetailPage({
                           // brand_meta_pages 의 page_id 매칭은 partner_creators 단에서만 의미 — Top 작성자 (TK) 와 다른 채널
                           return out;
                         })()}
+                        tierDistByChannel={tierDistByChannel}
                       />
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionCMockup

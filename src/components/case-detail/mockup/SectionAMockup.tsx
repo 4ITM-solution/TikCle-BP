@@ -391,8 +391,12 @@ export function SectionAMockup({
           const isPeak = hoverIdx === months.length - 1 && total > 0;
           const isInflection =
             Math.abs(vsPrevPct) >= 40 || (bsrChangePct !== null && Math.abs(bsrChangePct) >= 50);
+          // tooltip 위치 — hover 막대 위치 따라 left/right 자동 전환
+          // 마지막 1/3 막대 hover 시 tooltip 을 왼쪽에 박음 (오른쪽 박스 밖 안 나가게)
+          const isRightSide = hoverIdx >= Math.floor(months.length * 2 / 3);
+          const tooltipPos = isRightSide ? { left: 30 } : { right: 30 };
           return (
-            <div className="trend-tooltip" style={{ right: 30 }}>
+            <div className="trend-tooltip" style={tooltipPos}>
               <div className="tt-h">
                 {mo}
                 {isPeak ? " ★ 최신" : ""}
@@ -475,20 +479,25 @@ export function SectionAMockup({
                   return `${x},${y}`;
                 })
                 .join(" ")}
-              stroke="#06b6d4"
+              stroke="#1f2937"
               strokeWidth="3"
               fill="none"
             />
           )}
-          {show.ad && months.length > 1 && (
+          {show.ad && months.length > 1 && (() => {
+            // 광고 비중 own range (max) 로 정규화 — 절대 비율 작으면 거의 안 보여서.
+            const adRatios = months.filter((mo) => adByMonth.has(mo)).map((mo) => adByMonth.get(mo) ?? 0);
+            const adMax = Math.max(...adRatios, 0.01); // 최소 1% scale
+            return (
             <polyline
               points={months
                 .filter((mo) => adByMonth.has(mo))
                 .map((mo, _i) => {
                   const idx = months.indexOf(mo);
                   const x = (idx / (months.length - 1)) * 1000 + 50;
-                  const ratio = Math.max(0, Math.min(1, adByMonth.get(mo) ?? 0));
-                  const y = 222 - ratio * 222;
+                  const ratio = (adByMonth.get(mo) ?? 0) / adMax;
+                  const normalized = Math.max(0, Math.min(1, ratio));
+                  const y = 222 - normalized * 222;
                   return `${x},${y}`;
                 })
                 .join(" ")}
@@ -497,7 +506,8 @@ export function SectionAMockup({
               fill="none"
               strokeDasharray="4 3"
             />
-          )}
+            );
+          })()}
           {show.bsr && hasAmazon && bsrVals.length > 1 && (
             <polyline
               points={months
