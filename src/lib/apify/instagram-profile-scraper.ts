@@ -49,7 +49,8 @@ export async function runIgProfileScraper(
     proxy: { useApifyProxy: true },
   };
 
-  const result = await runApifyActor("apify/instagram-scraper", input, token);
+  // Apify API actor id 형식은 'owner~name' (slash 박으면 URL path 깨짐)
+  const result = await runApifyActor("apify~instagram-scraper", input, token);
 
   // apify/instagram-scraper details mode 응답 field:
   // username, fullName, biography, externalUrl, externalUrlShimmed,
