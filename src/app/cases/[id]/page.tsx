@@ -1800,68 +1800,10 @@ export default async function CaseDetailPage({
                 period_end?: string | null;
                 account_type_filter?: string | null;
               } | null;
-            } | null;
-            const lastError = ks?.last_error;
-            if (!ks?.phase2) {
-              // BP-only 케이스 (ig_config 또는 yt_config 박혀있으면) — Dyson/Poppi 같은 IG/YT 전용
-              // TikTok Exolyt / Amazon 데이터 안 박는 케이스. phase2 없는 게 정상.
-              const isBpOnly = !!c.ig_config || !!c.yt_config;
-              return (
-                <>
-                  <div
-                    style={{
-                      padding: 18,
-                      marginBottom: 14,
-                      background: isBpOnly
-                        ? "var(--color-info-soft)"
-                        : "var(--color-warn-soft)",
-                      border: `1px solid ${isBpOnly ? "var(--color-info)" : "var(--color-warn)"}`,
-                      borderRadius: 8,
-                      fontSize: 12,
-                      color: isBpOnly ? "var(--color-info)" : "var(--color-warn)",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                      {isBpOnly
-                        ? "ℹ BP 분석 전용 케이스 (TikTok/Amazon 데이터 없음)"
-                        : "⚠ key_stats에 phase2 결과가 없어요"}
-                    </div>
-                    {isBpOnly ? (
-                      <>
-                        이 케이스는 <b>IG / YouTube 분석 전용</b>으로 만들어진 케이스.
-                        위 🎯 BP 박스에서 자동 발굴 → Phase 4c (IG) / Phase 4d (YT) 만 돌리면 됨.
-                        Phase 2~5 (Exolyt·Amazon 분석)는 스킵해도 OK — 데이터 없으니까.
-                        <br />
-                        <span style={{ fontSize: 11, color: "#92400e" }}>
-                          💡 <b>TikTok / Amazon / Meta 광고 데이터 추가하려면</b>: 위 <b>📥 데이터 채널</b>{" "}
-                          섹션의 각 카드 클릭 → expand 안 업로드 박스에서 적재. 신규 case 폼에서는 데이터 안 받음 — case 만든 후 적재 구조.
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        다른 phase 결과(3 / 4a / 4b.* / 5)는 살아 있는데 phase2만 누락. 아래 PhaseProgress 펼쳐서{" "}
-                        <b>Phase 2만 재실행</b>하면 다른 결과는 보존된 채 phase2가 채워져요.
-                        <br />
-                        <span style={{ fontSize: 11, color: "#92400e" }}>
-                          💡 <b>TikTok / Amazon 데이터 추가하려면</b>: 위 <b>📥 데이터 채널</b>{" "}
-                          섹션의 각 카드 클릭 → expand 안 업로드 박스에서 적재.
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <PhaseProgressToggle
-                    case_id={c.id}
-                    keyStats={(ks ?? {}) as KeyStats}
-                  />
-                  <DevTestActions
-                    case_id={c.id}
-                    status={c.status}
-                    costEstimate={costEstimate}
-                  />
-                </>
-              );
-            }
+            };
+            const lastError = ks.last_error;
+            // phase2 없으면 mockup main path 그대로 가되 SectionA~E + G 만 skip (이미 그 guard 박힘).
+            // KPI / 데이터 채널 / Phase Progress 는 phase2 없어도 표시 — 사용자가 데이터 채널 카드 클릭해서 적재 가능해야.
             return (
               <>
                 {lastError && (
@@ -2332,17 +2274,30 @@ export default async function CaseDetailPage({
                 {!ks.phase2 && (
                   <div
                     style={{
-                      padding: 24,
+                      padding: 20,
                       background: "#fef3c7",
                       border: "1px dashed #fbbf24",
                       borderRadius: 8,
                       fontSize: 12,
                       color: "#92400e",
-                      textAlign: "center",
                       marginTop: 16,
+                      lineHeight: 1.7,
                     }}
                   >
-                    ⚠ 분석 미완료 — Phase 2 (SQL 집계) 결과 없음. 위 ⚙️ Phase 진행 상태 펼쳐서 phase 별 ↻ 누르거나, 데이터 채널 expand 안 '🟢 무료 phase 만 재실행' 버튼 누르세요.
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+                      ⚠ 아직 분석 결과가 없는 케이스
+                    </div>
+                    <b>STEP 1.</b> 위 <b>📥 데이터 채널</b> 섹션에서 적재할 채널 카드 클릭 → expand panel
+                    안 업로드 박스에서 데이터 적재 (TikTok Exolyt CSV / Amazon Helium10 / Kalodata / Meta 광고 등){" "}
+                    <br />
+                    <b>STEP 2.</b> 카드 닫기 후 같은 expand panel 안 <b>🟢 무료 phase 만 재실행</b>{" "}
+                    버튼 클릭 → 적재한 데이터가 분석됨
+                    <br />
+                    <b>STEP 3.</b> 또는 위 <b>⚙️ Phase 진행 상태</b> 펼치기 → 개별 phase ↻ 누르기
+                    <br />
+                    <span style={{ fontSize: 11, color: "#b45309" }}>
+                      ※ A/B/C/D/E 섹션 + G 인사이트는 Phase 2 (SQL 집계) 끝나야 보입니다.
+                    </span>
                   </div>
                 )}
                 {ks.phase2 && (() => {
