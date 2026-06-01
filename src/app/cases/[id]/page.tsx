@@ -1775,7 +1775,7 @@ export default async function CaseDetailPage({
               IG/YT 데이터는 이미 case_id 기반 phase4c/4d 로 분석되어 mockup A/B/C 안 통합됨. */}
 
           {(() => {
-            const ks = c.key_stats as {
+            const ks = (c.key_stats ?? {}) as {
               phase2?: Phase2Stats;
               phase3?: Phase3Stats;
               phase35?: Phase35Stats;
@@ -2320,7 +2320,23 @@ export default async function CaseDetailPage({
                   ) : null;
                 })()}
 
-                {(() => {
+                {!ks.phase2 && (
+                  <div
+                    style={{
+                      padding: 24,
+                      background: "#fef3c7",
+                      border: "1px dashed #fbbf24",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "#92400e",
+                      textAlign: "center",
+                      marginTop: 16,
+                    }}
+                  >
+                    ⚠ 분석 미완료 — Phase 2 (SQL 집계) 결과 없음. 위 ⚙️ Phase 진행 상태 펼쳐서 phase 별 ↻ 누르거나, 데이터 채널 expand 안 '🟢 무료 phase 만 재실행' 버튼 누르세요.
+                  </div>
+                )}
+                {ks.phase2 && (() => {
                   // SectionBMockup + MiniDashboard 공용 crossChannelMatrix (TK 매칭 포함)
                   const normHandle = (s: string) =>
                     s.toLowerCase().replace(/[^a-z0-9]/g, "");
