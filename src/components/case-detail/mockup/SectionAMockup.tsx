@@ -53,7 +53,8 @@ export function SectionAMockup({
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [barMode, setBarMode] = useState<BarMode>("abs");
-  const [show, setShow] = useState({ tier: true, ad: true, bsr: true, vc: true });
+  // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
+  const [show, setShow] = useState({ tier: true, ad: false, bsr: false, vc: true });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const tkVids = phase2.total_contents ?? 0;

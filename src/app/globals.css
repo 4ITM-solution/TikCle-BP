@@ -393,7 +393,7 @@ a {
 .bp-mockup .trend-toggles button.active-line.bsr { background: #ef4444; border-color: #ef4444; color: white; }
 .bp-mockup .stack-bars {
     display: flex; align-items: flex-end; gap: 4px;
-    height: 100%; padding: 30px 12px 28px; position: relative;
+    height: 100%; padding: 30px 12px 40px; position: relative;
   }
 .bp-mockup .stack-bar {
     flex: 1; display: flex; flex-direction: column-reverse;
@@ -409,10 +409,11 @@ a {
 .bp-mockup .sb-unknown { background: #d1d5db; }
 .bp-mockup .stack-bar:hover { box-shadow: 0 0 0 2px #1f2937; z-index: 4; }
 .bp-mockup .sb-label {
-    position: absolute; bottom: -22px; left: -8px; right: -8px;
+    position: absolute; bottom: -32px; left: -4px; right: -4px;
     text-align: center; font-size: 9px; color: #6b7280; font-family: monospace;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; overflow: visible;
     pointer-events: none;
+    line-height: 1.4;
   }
 .bp-mockup .overlay-svg {
     position: absolute; inset: 30px 12px 28px;

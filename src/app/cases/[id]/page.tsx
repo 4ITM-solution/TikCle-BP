@@ -1456,7 +1456,28 @@ export default async function CaseDetailPage({
 
   // CaseStatusStrip 용 — data_channels별 row 수 매핑.
   // 각 phase의 stats에서 해당 채널 수치 뽑아서 strip에 한 줄로 노출.
-  const dataChannels = (c.data_channels ?? []) as DataChannel[];
+  // ★ case.data_channels 만 의존 X — phase 결과 또는 products 있으면 자동 active (upload action 이 컬럼 update 안 해도 detect)
+  const dataChannelsRaw = (c.data_channels ?? []) as DataChannel[];
+  const dataChannels: DataChannel[] = (() => {
+    const set = new Set<DataChannel>(dataChannelsRaw);
+    const ksAuto = (c.key_stats ?? {}) as {
+      phase2?: { total_contents?: number; sales_summary?: { total_revenue?: number } };
+      phase4a?: { total_ads?: number };
+      phase4c?: { total_unique?: number; total_posts?: number };
+      phase4d?: { total_unique?: number; total_videos?: number };
+    };
+    if ((ksAuto.phase2?.total_contents ?? 0) > 0) set.add("tiktok_video");
+    if ((ksAuto.phase4a?.total_ads ?? 0) > 0) set.add("meta_ads");
+    if ((ksAuto.phase4c?.total_unique ?? ksAuto.phase4c?.total_posts ?? 0) > 0) set.add("instagram");
+    if ((ksAuto.phase4d?.total_unique ?? ksAuto.phase4d?.total_videos ?? 0) > 0) set.add("youtube");
+    // 매출 채널 (products.channel 분포 기반)
+    for (const ch of availableSalesChannels ?? []) {
+      if (ch === "amazon") set.add("amazon");
+      else if (ch === "tiktok_shop") set.add("tt_shop");
+      else if (ch === "shopee") set.add("shopee");
+    }
+    return [...set];
+  })();
   const ksForStrip = (c.key_stats ?? {}) as {
     phase2?: { total_contents?: number; sales_summary?: { total_revenue?: number } };
     phase4a?: { total_ads?: number };
