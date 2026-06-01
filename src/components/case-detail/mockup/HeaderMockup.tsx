@@ -222,35 +222,39 @@ function KsItem({
 // 4. Data Channels Grid — 7 채널 카드 (mockup line 542-559)
 // ============================================================================
 
-// 각 channel 적재 후 영향받는 phase 매핑 — 사용자에게 "어떤 phase 재실행 필요" 안내
-const CHANNEL_AFFECTED_PHASES: Record<DataChannel, Array<{ key: PhaseKey; label: string }>> = {
+// 각 channel 적재 후 영향받는 phase 매핑 — 사용자에게 "어떤 phase 재실행 필요" 안내 + 비용
+// cost: 무료 = "$0", 저가 = "~$X", 유료 = "최대 ~$X"
+const CHANNEL_AFFECTED_PHASES: Record<DataChannel, Array<{ key: PhaseKey; label: string; cost: string; free: boolean }>> = {
   tiktok_video: [
-    { key: "phase2", label: "Phase 2 (SQL 집계)" },
-    { key: "phase3", label: "Phase 3 (인플 fans 룩업)" },
-    { key: "phase4b_sample", label: "Phase 4b (분석 샘플)" },
+    { key: "phase2", label: "Phase 2 (SQL 집계)", cost: "$0", free: true },
+    { key: "phase3", label: "Phase 3 (fans 룩업)", cost: "$0", free: true },
+    { key: "phase4b_sample", label: "Phase 4b.1 (분석 샘플)", cost: "$0", free: true },
+    { key: "phase4b_asr", label: "Phase 4b.2 (ASR)", cost: "~$0.51", free: false },
+    { key: "phase4b_vision", label: "Phase 4b.3 (Vision)", cost: "~$3.50", free: false },
+    { key: "phase4b_clusters", label: "Phase 4b.4 (cluster)", cost: "~$0.60", free: false },
   ],
   tt_shop: [
-    { key: "phase1_5", label: "Phase 1.5 (TT Shop 수집)" },
-    { key: "phase2", label: "Phase 2 (SQL 집계)" },
-    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)" },
+    { key: "phase1_5", label: "Phase 1.5 (TT Shop)", cost: "$20/월 정액", free: true },
+    { key: "phase2", label: "Phase 2 (SQL 집계)", cost: "$0", free: true },
+    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)", cost: "~$0.40", free: false },
   ],
   amazon: [
-    { key: "phase2", label: "Phase 2 (SQL 집계)" },
-    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)" },
-    { key: "phase5", label: "Phase 5 (BSR inflection)" },
+    { key: "phase2", label: "Phase 2 (SQL 집계)", cost: "$0", free: true },
+    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)", cost: "~$0.40", free: false },
+    { key: "phase5", label: "Phase 5 (BSR inflection)", cost: "$0", free: true },
   ],
   shopee: [
-    { key: "phase2", label: "Phase 2 (SQL 집계)" },
+    { key: "phase2", label: "Phase 2 (SQL 집계)", cost: "$0", free: true },
   ],
   meta_ads: [
-    { key: "phase4a", label: "Phase 4a (Meta 광고)" },
-    { key: "phase4a_assets", label: "Phase 4a.5 (광고 자산)" },
+    { key: "phase4a", label: "Phase 4a (Meta 광고)", cost: "$0.75 cap", free: false },
+    { key: "phase4a_assets", label: "Phase 4a.5 (자산)", cost: "$0", free: true },
   ],
   instagram: [
-    { key: "phase4c", label: "Phase 4c (IG)" },
+    { key: "phase4c", label: "Phase 4c (IG)", cost: "최대 ~$6.50", free: false },
   ],
   youtube: [
-    { key: "phase4d", label: "Phase 4d (YouTube)" },
+    { key: "phase4d", label: "Phase 4d (YT)", cost: "최대 ~$4.00", free: false },
   ],
 };
 
@@ -275,9 +279,11 @@ export function DataChannelsMockup({
   const [pending, start] = useTransition();
   const [actionMsg, setActionMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  function rerunAffected(ch: DataChannel) {
+  function rerunAffected(ch: DataChannel, mode: "free" | "all") {
     if (!case_id) return;
-    const phases = CHANNEL_AFFECTED_PHASES[ch].map((p) => p.key);
+    const phases = CHANNEL_AFFECTED_PHASES[ch]
+      .filter((p) => (mode === "free" ? p.free : true))
+      .map((p) => p.key);
     setActionMsg(null);
     start(async () => {
       const r = await startAnalysis(case_id, phases, { skipAutoForce: true });
@@ -407,50 +413,99 @@ export function DataChannelsMockup({
             </div>
             <div style={{ fontSize: 10, color: "#92400e", lineHeight: 1.6, marginBottom: 8 }}>
               데이터 적재만으로는 화면이 갱신되지 않습니다. 적재 후 영향받는 분석 phase 를
-              재실행해야 갱신돼요.
-              <br />
-              <b>영향 phase</b>:{" "}
-              {CHANNEL_AFFECTED_PHASES[openCh].map((p, i) => (
-                <span key={p.key}>
-                  {i > 0 && " · "}
-                  <code
+              재실행해야 갱신돼요. <b>cache cascade</b> 라 이미 완료된 phase 결과는 skip — force 한 phase 만 비용.
+            </div>
+            {/* 영향 phase 리스트 — 비용 표시 같이 */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+              {CHANNEL_AFFECTED_PHASES[openCh].map((p) => (
+                <span
+                  key={p.key}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "white",
+                    padding: "2px 6px",
+                    borderRadius: 3,
+                    fontSize: 10,
+                    border: `1px solid ${p.free ? "#10b981" : "#ec4899"}`,
+                  }}
+                >
+                  <code style={{ color: "#1f2937", fontSize: 10 }}>{p.label}</code>
+                  <span
                     style={{
-                      background: "white",
-                      padding: "1px 5px",
-                      borderRadius: 3,
-                      fontSize: 10,
-                      color: "#1f2937",
+                      color: p.free ? "#10b981" : "#be185d",
+                      fontWeight: 700,
+                      fontSize: 9,
                     }}
                   >
-                    {p.label}
-                  </code>
+                    {p.cost}
+                  </span>
                 </span>
               ))}
             </div>
+            {/* 액션 버튼 2개 — 무료만 / 다 */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              {case_id && (
-                <button
-                  type="button"
-                  onClick={() => rerunAffected(openCh)}
-                  disabled={pending}
-                  style={{
-                    fontSize: 11,
-                    padding: "5px 12px",
-                    border: "1px solid #92400e",
-                    borderRadius: 4,
-                    background: "#92400e",
-                    color: "white",
-                    cursor: pending ? "not-allowed" : "pointer",
-                    fontFamily: "inherit",
-                    fontWeight: 700,
-                    opacity: pending ? 0.5 : 1,
-                  }}
-                >
-                  {pending ? "..." : `↻ 영향 phase 재실행 (${CHANNEL_AFFECTED_PHASES[openCh].length}개)`}
-                </button>
-              )}
+              {case_id && (() => {
+                const freeCount = CHANNEL_AFFECTED_PHASES[openCh].filter((p) => p.free).length;
+                const allCount = CHANNEL_AFFECTED_PHASES[openCh].length;
+                const paidCount = allCount - freeCount;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => rerunAffected(openCh, "free")}
+                      disabled={pending || freeCount === 0}
+                      style={{
+                        fontSize: 11,
+                        padding: "5px 12px",
+                        border: "1px solid #10b981",
+                        borderRadius: 4,
+                        background: "#10b981",
+                        color: "white",
+                        cursor: pending ? "not-allowed" : "pointer",
+                        fontFamily: "inherit",
+                        fontWeight: 700,
+                        opacity: pending || freeCount === 0 ? 0.5 : 1,
+                      }}
+                      title="비용 $0 — 외부 API 호출 없는 phase 만"
+                    >
+                      {pending ? "..." : `🟢 무료 phase 만 재실행 (${freeCount}개 · $0)`}
+                    </button>
+                    {paidCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const totalCost = CHANNEL_AFFECTED_PHASES[openCh]
+                            .filter((p) => !p.free)
+                            .map((p) => p.cost)
+                            .join(" + ");
+                          if (!window.confirm(`유료 phase ${paidCount}개 force — 외부 API 비용 (${totalCost}) 다시 발생. 진행?`)) return;
+                          rerunAffected(openCh, "all");
+                        }}
+                        disabled={pending}
+                        style={{
+                          fontSize: 11,
+                          padding: "5px 12px",
+                          border: "1px solid #be185d",
+                          borderRadius: 4,
+                          background: "white",
+                          color: "#be185d",
+                          cursor: pending ? "not-allowed" : "pointer",
+                          fontFamily: "inherit",
+                          fontWeight: 700,
+                          opacity: pending ? 0.5 : 1,
+                        }}
+                        title="외부 API phase 까지 force — 비용 발생"
+                      >
+                        {pending ? "..." : `🔴 모든 phase 재실행 (${allCount}개 · 유료)`}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
               <span style={{ fontSize: 10, color: "#92400e" }}>
-                또는 위 ⚙️ Phase 진행 상태 펼쳐서 개별 ↻ 누르기
+                또는 위 ⚙️ Phase 진행 상태 펼쳐서 개별 ↻
               </span>
             </div>
             {actionMsg && (
