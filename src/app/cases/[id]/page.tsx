@@ -964,7 +964,7 @@ export default async function CaseDetailPage({
   // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — SectionCMockup USP detail panel 용
   const uspSampleVideos = await (async () => {
     const map: Record<string, Array<{ url: string; caption: string; views: number }>> = {};
-    const ks = (c.key_stats as { phase5?: { usp_keywords?: Array<{ keyword: string }> } });
+    const ks = (c.key_stats ?? {}) as { phase5?: { usp_keywords?: Array<{ keyword: string }> } };
     const kws = (ks.phase5?.usp_keywords ?? []).slice(0, 24).map((k) => k.keyword);
     if (kws.length === 0) return map;
     for (const kw of kws) {
