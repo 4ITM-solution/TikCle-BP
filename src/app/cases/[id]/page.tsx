@@ -67,6 +67,7 @@ import {
   IgPostlearnBox,
   type IgPostlearnDiff,
 } from "@/components/case-detail/IgPostlearnBox";
+import { IgProfileScrapeBox } from "@/components/case-detail/IgProfileScrapeBox";
 import {
   YtBrandMonitorSection,
   type YtChannelRow,
@@ -1267,6 +1268,20 @@ export default async function CaseDetailPage({
     return out;
   })();
 
+  // ★ IG author 통계 — IgProfileScrapeBox 용 (전체 / followers 박힌 수)
+  const { igAuthorsTotal, igAuthorsWithFollowers } = await (async () => {
+    const { count: total } = await supabase
+      .from("ig_authors")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", c.id);
+    const { count: withF } = await supabase
+      .from("ig_authors")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", c.id)
+      .not("followers", "is", null);
+    return { igAuthorsTotal: total ?? 0, igAuthorsWithFollowers: withF ?? 0 };
+  })();
+
   // ★ B 섹션 채널별 tier 분포 — TK/IG/YT 각각 인플 follower 기준 tier 분류
   const tierDistByChannel = await (async () => {
     type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
@@ -2115,6 +2130,13 @@ export default async function CaseDetailPage({
                                 learnedConfig={igConfigLearned}
                                 diff={igPostlearnDiff}
                               />
+                              {phase4cStats && !phase4cStats.skipped_reason && (
+                                <IgProfileScrapeBox
+                                  case_id={c.id}
+                                  authorsTotal={igAuthorsTotal}
+                                  authorsWithFollowers={igAuthorsWithFollowers}
+                                />
+                              )}
                             </>
                           ),
                           amazon: (

@@ -2597,3 +2597,88 @@ export async function uploadKalodataCategoryRanking(
     message: `Category Ranking ${rows.length}개 point 적재 (${rows[0]!.date} ~ ${rows[rows.length - 1]!.date})`,
   };
 }
+
+
+/**
+ * Phase 4c.5 — IG profile scraper 호출.
+ *
+ * ig_authors 중 followers IS NULL (또는 strategy='all' 이면 전체) 인 username 모아서
+ * Apify instagram-profile-scraper 호출 + DB update.
+ *
+ * 박는 컬럼: followers / following / bio / external_url / verified / is_business_account /
+ *            linked_handles (bio+url 안 TK/YT/X 핸들 추출) / profile_scraped_at.
+ *
+ * 비용: ~$0.005/username (700명 ~$3.50).
+ */
+export async function runIgProfileScrape(
+  case_id: string,
+  opts?: { rescrape_all?: boolean },
+): Promise<Result> {
+  const supabase = await createServer();
+  const { data: c } = await supabase
+    .from("cases")
+    .select("id, brand_id, country")
+    .eq("id", case_id)
+    .maybeSingle();
+  if (!c) return { ok: false, error: "case 없음" };
+
+  // 대상 username 추출
+  const baseQuery = supabase
+    .from("ig_authors")
+    .select("username")
+    .eq("case_id", case_id);
+  const { data: rows } = opts?.rescrape_all
+    ? await baseQuery
+    : await baseQuery.is("followers", null);
+  const usernames = [...new Set((rows ?? []).map((r) => r.username).filter((u): u is string => !!u))];
+  if (usernames.length === 0) {
+    return { ok: true, message: "대상 author 0명 (이미 follower 박힘)" };
+  }
+
+  const { runIgProfileScraper, extractCrossChannelHandles } = await import("@/lib/apify/instagram-profile-scraper");
+  let result: Awaited<ReturnType<typeof runIgProfileScraper>>;
+  try {
+    result = await runIgProfileScraper(usernames);
+  } catch (e) {
+    return { ok: false, error: `Apify 호출 실패: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (result.profiles.length === 0) {
+    return {
+      ok: false,
+      error: `Apify 결과 0건 (status: ${result.status}, ${result.skipped_reason ?? "scrape 실패"})`,
+    };
+  }
+
+  // DB update — batch 200
+  const now = new Date().toISOString();
+  let updated = 0;
+  for (const p of result.profiles) {
+    const linked = extractCrossChannelHandles(p.bio, p.external_url);
+    const { error: upErr } = await supabase
+      .from("ig_authors")
+      .update({
+        followers: p.followers,
+        following: p.following,
+        bio: p.bio,
+        external_url: p.external_url,
+        verified: p.verified,
+        is_business_account: p.is_business_account,
+        linked_handles: Object.keys(linked).length > 0 ? linked : null,
+        followers_source: "apify_profile_scraper",
+        profile_scraped_at: now,
+      } as never)
+      .eq("case_id", case_id)
+      .eq("username", p.username);
+    if (upErr) {
+      console.warn(`[ig profile] update ${p.username} fail:`, upErr.message);
+      continue;
+    }
+    updated += 1;
+  }
+
+  revalidatePath(`/cases/${case_id}`);
+  return {
+    ok: true,
+    message: `${updated}/${usernames.length}명 IG profile 박힘 · 비용 $${result.cost_estimate_usd.toFixed(2)} · run ${result.apify_run_id ?? "?"}`,
+  };
+}
