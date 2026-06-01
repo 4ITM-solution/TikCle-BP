@@ -1962,6 +1962,7 @@ export default async function CaseDetailPage({
                       <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
                       {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
                       <DataChannelsMockup
+                        case_id={c.id}
                         dataChannels={dataChannels}
                         channelDetails={(() => {
                           const tkViews = (ks.phase2?.top_creators ?? []).reduce((s, c) => s + (c.max_views ?? 0), 0);

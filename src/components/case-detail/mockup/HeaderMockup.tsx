@@ -221,10 +221,44 @@ function KsItem({
 // ============================================================================
 // 4. Data Channels Grid — 7 채널 카드 (mockup line 542-559)
 // ============================================================================
+
+// 각 channel 적재 후 영향받는 phase 매핑 — 사용자에게 "어떤 phase 재실행 필요" 안내
+const CHANNEL_AFFECTED_PHASES: Record<DataChannel, Array<{ key: PhaseKey; label: string }>> = {
+  tiktok_video: [
+    { key: "phase2", label: "Phase 2 (SQL 집계)" },
+    { key: "phase3", label: "Phase 3 (인플 fans 룩업)" },
+    { key: "phase4b_sample", label: "Phase 4b (분석 샘플)" },
+  ],
+  tt_shop: [
+    { key: "phase1_5", label: "Phase 1.5 (TT Shop 수집)" },
+    { key: "phase2", label: "Phase 2 (SQL 집계)" },
+    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)" },
+  ],
+  amazon: [
+    { key: "phase2", label: "Phase 2 (SQL 집계)" },
+    { key: "phase4b_sku", label: "Phase 4b.5 (SKU 매칭)" },
+    { key: "phase5", label: "Phase 5 (BSR inflection)" },
+  ],
+  shopee: [
+    { key: "phase2", label: "Phase 2 (SQL 집계)" },
+  ],
+  meta_ads: [
+    { key: "phase4a", label: "Phase 4a (Meta 광고)" },
+    { key: "phase4a_assets", label: "Phase 4a.5 (광고 자산)" },
+  ],
+  instagram: [
+    { key: "phase4c", label: "Phase 4c (IG)" },
+  ],
+  youtube: [
+    { key: "phase4d", label: "Phase 4d (YouTube)" },
+  ],
+};
+
 export function DataChannelsMockup({
   dataChannels,
   channelDetails,
   channelEntries,
+  case_id,
 }: {
   dataChannels: DataChannel[];
   /** 채널별 stats + 부가 정보. ex: { tiktok_video: { stat: "1,234 영상", sub: "Exolyt CSV · 5/27" } } */
@@ -232,10 +266,24 @@ export function DataChannelsMockup({
   /** 채널별 entry component (server-side rendered, page.tsx 에서 prop으로 전달).
    * 카드 클릭 → 그 채널 entry 만 grid 아래 panel 에 inline expand (accordion 1개만). */
   channelEntries?: Partial<Record<DataChannel, React.ReactNode>>;
+  /** 박혔으면 expand footer 에 "분석 재실행" 빠른 버튼 노출. 영향 phase 만 force */
+  case_id?: string;
 }) {
   const isActive = (c: DataChannel) => dataChannels.includes(c);
   const activeCount = ALL_CHANNELS.filter(isActive).length;
   const [openCh, setOpenCh] = useState<DataChannel | null>(null);
+  const [pending, start] = useTransition();
+  const [actionMsg, setActionMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  function rerunAffected(ch: DataChannel) {
+    if (!case_id) return;
+    const phases = CHANNEL_AFFECTED_PHASES[ch].map((p) => p.key);
+    setActionMsg(null);
+    start(async () => {
+      const r = await startAnalysis(case_id, phases, { skipAutoForce: true });
+      setActionMsg(r.ok ? { type: "ok", text: r.message } : { type: "err", text: r.error });
+    });
+  }
 
   return (
     <div className="section" id="sec-channels">
@@ -341,6 +389,87 @@ export function DataChannelsMockup({
             </button>
           </div>
           {channelEntries[openCh]}
+
+          {/* ★ footer 안내 — 적재 후 다음 단계 + 빠른 재실행 */}
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: "1px dashed #e5e7eb",
+              background: "#fef3c7",
+              padding: 12,
+              borderRadius: 6,
+              border: "1px dashed #fbbf24",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", marginBottom: 6 }}>
+              💡 적재 후 다음 단계
+            </div>
+            <div style={{ fontSize: 10, color: "#92400e", lineHeight: 1.6, marginBottom: 8 }}>
+              데이터 적재만으로는 화면이 갱신되지 않습니다. 적재 후 영향받는 분석 phase 를
+              재실행해야 갱신돼요.
+              <br />
+              <b>영향 phase</b>:{" "}
+              {CHANNEL_AFFECTED_PHASES[openCh].map((p, i) => (
+                <span key={p.key}>
+                  {i > 0 && " · "}
+                  <code
+                    style={{
+                      background: "white",
+                      padding: "1px 5px",
+                      borderRadius: 3,
+                      fontSize: 10,
+                      color: "#1f2937",
+                    }}
+                  >
+                    {p.label}
+                  </code>
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              {case_id && (
+                <button
+                  type="button"
+                  onClick={() => rerunAffected(openCh)}
+                  disabled={pending}
+                  style={{
+                    fontSize: 11,
+                    padding: "5px 12px",
+                    border: "1px solid #92400e",
+                    borderRadius: 4,
+                    background: "#92400e",
+                    color: "white",
+                    cursor: pending ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    fontWeight: 700,
+                    opacity: pending ? 0.5 : 1,
+                  }}
+                >
+                  {pending ? "..." : `↻ 영향 phase 재실행 (${CHANNEL_AFFECTED_PHASES[openCh].length}개)`}
+                </button>
+              )}
+              <span style={{ fontSize: 10, color: "#92400e" }}>
+                또는 위 ⚙️ Phase 진행 상태 펼쳐서 개별 ↻ 누르기
+              </span>
+            </div>
+            {actionMsg && (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: actionMsg.type === "ok" ? "#065f46" : "#991b1b",
+                  padding: "4px 8px",
+                  background: actionMsg.type === "ok" ? "#d1fae5" : "#fee2e2",
+                  borderRadius: 3,
+                }}
+              >
+                {actionMsg.type === "ok" ? "✓ " : "✕ "}
+                {actionMsg.text}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
