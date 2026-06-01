@@ -305,7 +305,26 @@ async function fetchClusteringInputs(
     }
   }
 
-  // ------------------- Instagram (caption 기반) -------------------
+  // ------------------- Instagram (Stage 2: vision_tags 박혔으면 사용, fallback caption) -------------------
+  // IG vision 박힌 row 가져옴 (case_video_analyses.platform='instagram')
+  const sbAny = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, v: string) => {
+          eq: (col: string, v: string) => Promise<{ data: Array<{ external_ref: string; vision_tags: VisionTags | null; cover_url: string | null }> | null }>;
+        };
+      };
+    };
+  };
+  const { data: igVisionRows } = await sbAny
+    .from("case_video_analyses")
+    .select("external_ref, vision_tags, cover_url")
+    .eq("case_id", case_id)
+    .eq("platform", "instagram");
+  const igVisionByRef = new Map(
+    (igVisionRows ?? []).map((r) => [r.external_ref, r.vision_tags]),
+  );
+
   const { data: igRows, error: igErr } = await supabase
     .from("ig_posts")
     .select("ig_id, caption, hashtags, video_view_count, video_play_count, likes_count")
@@ -316,7 +335,8 @@ async function fetchClusteringInputs(
   if (igErr) throw new Error(`ig_posts fetch: ${igErr.message}`);
   for (const r of igRows ?? []) {
     const cap = (r.caption ?? "").trim();
-    if (cap.length < 10) continue; // 너무 짧으면 패턴 추출 불가
+    const tags = igVisionByRef.get(r.ig_id) ?? null;
+    if (!tags && cap.length < 10) continue; // vision 없고 caption 도 짧으면 skip
     const hashStr =
       r.hashtags && r.hashtags.length > 0
         ? ` #${r.hashtags.slice(0, 10).join(" #")}`
@@ -326,14 +346,23 @@ async function fetchClusteringInputs(
       platform: "instagram",
       content_id: null,
       external_ref: r.ig_id,
-      vision_tags: null,
-      caption: cap + hashStr,
+      vision_tags: tags,
+      caption: tags ? null : cap + hashStr, // vision 박혔으면 caption 안 쓰임 (LLM 입력 토큰 절약)
       views: r.video_view_count ?? r.video_play_count ?? r.likes_count ?? null,
       collect_count: null,
     });
   }
 
-  // ------------------- YouTube (title + description 기반) -------------------
+  // ------------------- YouTube (Stage 2: vision_tags 박혔으면 사용, fallback title+desc) -------------------
+  const { data: ytVisionRows } = await sbAny
+    .from("case_video_analyses")
+    .select("external_ref, vision_tags, cover_url")
+    .eq("case_id", case_id)
+    .eq("platform", "youtube");
+  const ytVisionByRef = new Map(
+    (ytVisionRows ?? []).map((r) => [r.external_ref, r.vision_tags]),
+  );
+
   const { data: ytRows, error: ytErr } = await supabase
     .from("yt_videos")
     .select("yt_id, title, description, hashtags, view_count, like_count")
@@ -344,7 +373,8 @@ async function fetchClusteringInputs(
   for (const r of ytRows ?? []) {
     const title = (r.title ?? "").trim();
     const desc = (r.description ?? "").trim();
-    if (title.length < 5 && desc.length < 10) continue;
+    const tags = ytVisionByRef.get(r.yt_id) ?? null;
+    if (!tags && title.length < 5 && desc.length < 10) continue;
     const hashStr =
       r.hashtags && r.hashtags.length > 0
         ? ` #${r.hashtags.slice(0, 10).join(" #")}`
@@ -357,8 +387,8 @@ async function fetchClusteringInputs(
       platform: "youtube",
       content_id: null,
       external_ref: r.yt_id,
-      vision_tags: null,
-      caption: combined + hashStr,
+      vision_tags: tags,
+      caption: tags ? null : combined + hashStr, // vision 박혔으면 caption 안 씀
       views: r.view_count ?? r.like_count ?? null,
       collect_count: null,
     });

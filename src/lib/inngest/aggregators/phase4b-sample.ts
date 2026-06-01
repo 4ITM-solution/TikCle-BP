@@ -3,6 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import type {
   Phase4bSampleStats,
   SampleEntry,
+  SampleItemV2,
   SamplePickReason,
   TierBucket,
 } from "../types";
@@ -17,6 +18,8 @@ const WINDOW_DAYS = 90;
 const PER_TIER_COUNT = 50; // 6 tiers × 50 = 300
 const SAVE_RATE_VIEWS_MIN = 10_000;
 const SAVE_RATE_TOP_COUNT = 30;
+const IG_SAMPLE_MAX = 500; // IG video top view 기준 sample
+const YT_SAMPLE_MAX = 300; // YT top view 기준 sample
 
 /**
  * Phase 4b.1 — Analysis Sample Selection
@@ -156,6 +159,63 @@ export async function runPhase4bSample(
     .sort((a, b) => b.views - a.views)
     .slice(0, 12);
 
+  // ─── Stage 2: IG/YT 영상도 sample (vision 통합 cluster 용) ───
+  // IG: ig_posts 의 video_view_count desc top N
+  const igItems: SampleItemV2[] = [];
+  {
+    const { data: igRows } = await supabase
+      .from("ig_posts")
+      .select("ig_id, url, display_url, video_url, video_view_count, video_play_count, likes_count")
+      .eq("case_id", case_id)
+      .order("video_view_count", { ascending: false, nullsFirst: false })
+      .limit(IG_SAMPLE_MAX);
+    for (const r of igRows ?? []) {
+      if (!r.display_url) continue; // cover 없으면 vision X
+      igItems.push({
+        platform: "instagram",
+        content_id: null,
+        external_ref: r.ig_id,
+        cover_url: r.display_url,
+        video_url: r.video_url ?? null,
+        url: r.url ?? "",
+        views: r.video_view_count ?? r.video_play_count ?? r.likes_count ?? null,
+      });
+    }
+  }
+  // YT: yt_videos top view N
+  const ytItems: SampleItemV2[] = [];
+  {
+    const { data: ytRows } = await supabase
+      .from("yt_videos")
+      .select("yt_id, url, thumbnail_url, view_count")
+      .eq("case_id", case_id)
+      .order("view_count", { ascending: false, nullsFirst: false })
+      .limit(YT_SAMPLE_MAX);
+    for (const r of ytRows ?? []) {
+      if (!r.thumbnail_url) continue;
+      ytItems.push({
+        platform: "youtube",
+        content_id: null,
+        external_ref: r.yt_id,
+        cover_url: r.thumbnail_url,
+        video_url: null,
+        url: r.url ?? "",
+        views: r.view_count ?? null,
+      });
+    }
+  }
+  // TK item — sample_items 안에도 박음 (vision phase 통합 처리용)
+  const tkItems: SampleItemV2[] = all.map((e) => ({
+    platform: "tiktok" as const,
+    content_id: e.content_id,
+    external_ref: null,
+    cover_url: null, // ASR phase 끝나면 case_video_analyses 에 박힘
+    video_url: null,
+    url: e.url,
+    views: e.views,
+  }));
+  const sample_items: SampleItemV2[] = [...tkItems, ...igItems, ...ytItems];
+
   return {
     total_picked: all.length,
     by_tier,
@@ -163,6 +223,9 @@ export async function runPhase4bSample(
     window_days: WINDOW_DAYS,
     cutoff_date: cutoffDate,
     sample_content_ids: all.map((e) => e.content_id),
+    sample_items,
+    ig_sample_count: igItems.length,
+    yt_sample_count: ytItems.length,
     preview,
     computed_at: new Date().toISOString(),
   };

@@ -281,13 +281,26 @@ export type SampleEntry = {
   picked_by: SamplePickReason;
 };
 
+export type SampleItemV2 = {
+  platform: "tiktok" | "instagram" | "youtube";
+  content_id: string | null; // tiktok 만 박힘
+  external_ref: string | null; // ig_id / yt_id
+  cover_url: string | null;
+  video_url: string | null;
+  url: string;
+  views: number | null;
+};
+
 export type Phase4bSampleStats = {
   total_picked: number;
   by_tier: Record<TierBucket, number>;
   by_pick_reason: Record<SamplePickReason, number>;
   window_days: number;
   cutoff_date: string; // YYYY-MM-DD
-  sample_content_ids: string[]; // 다음 phase (4b.2 ASR / 4b.3 Vision)에서 사용
+  sample_content_ids: string[]; // 옛 — TK content_id 만 (backward compat)
+  sample_items?: SampleItemV2[]; // 새 — TK + IG + YT 통합 (Stage 2 vision 통합)
+  ig_sample_count?: number;
+  yt_sample_count?: number;
   preview: SampleEntry[]; // UI용 (top 12)
   computed_at: string;
 };

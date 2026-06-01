@@ -33,16 +33,21 @@ export async function runPhase4bVision(
   if (!process.env.ANTHROPIC_API_KEY) {
     return empty("ANTHROPIC_API_KEY 미설정");
   }
-  if (sample.sample_content_ids.length === 0) {
+  if (sample.sample_content_ids.length === 0 && (sample.sample_items?.length ?? 0) === 0) {
     return empty("샘플 0개");
   }
 
-  // 1. 샘플 영상의 caption + ASR + cover 가져옴
-  const inputs = await fetchVisionInputs(
+  // 1. TK 샘플 영상의 caption + ASR + cover 가져옴
+  const tkInputs = await fetchVisionInputs(
     supabase,
     case_id,
     sample.sample_content_ids,
   );
+  // Stage 2: IG/YT sample 영상의 cover + caption
+  const igYtInputs = sample.sample_items
+    ? await fetchVisionInputsIgYt(supabase, case_id, sample.sample_items)
+    : [];
+  const inputs = [...tkInputs, ...igYtInputs];
 
   if (inputs.length === 0) {
     return empty("vision 입력 0개 (cover_url 누락)");
@@ -104,18 +109,45 @@ export async function runPhase4bVision(
         continue;
       }
 
-      const { error } = await supabase
-        .from("case_video_analyses")
-        .upsert(
-          {
-            case_id,
-            content_id: item.content_id,
-            vision_tags: res.value.tags as never,
-          },
-          { onConflict: "case_id,content_id" },
-        );
+      // platform 별 upsert: TK 는 content_id 기반, IG/YT 는 platform+external_ref 기반
+      // generated types 안 multi-platform 미반영 (옛 schema)이라 cast 우회.
+      const isTk = item.platform === "tiktok";
+      const sb = supabase as unknown as {
+        from: (t: string) => {
+          upsert: (
+            v: Record<string, unknown>,
+            opts: { onConflict: string },
+          ) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+      const { error } = isTk
+        ? await sb.from("case_video_analyses").upsert(
+            {
+              case_id,
+              content_id: item.content_id,
+              platform: "tiktok",
+              cover_url: item.cover_url,
+              vision_tags: res.value.tags,
+            },
+            { onConflict: "case_id,content_id" },
+          )
+        : await sb.from("case_video_analyses").upsert(
+            {
+              case_id,
+              platform: item.platform,
+              external_ref: item.external_ref,
+              cover_url: item.cover_url,
+              vision_tags: res.value.tags,
+            },
+            { onConflict: "case_id,platform,external_ref" },
+          );
       if (error) {
         total_failed += 1;
+        console.error("[vision] upsert fail", {
+          platform: item.platform,
+          ref: item.external_ref ?? item.content_id,
+          err: error.message,
+        });
       } else {
         total_with_tags += 1;
       }
@@ -156,7 +188,9 @@ export async function runPhase4bVision(
 // =============================================================================
 
 type VisionInput = {
-  content_id: string;
+  platform: "tiktok" | "instagram" | "youtube";
+  content_id: string | null;
+  external_ref: string | null;
   cover_url: string;
   caption: string | null;
   asr_text: string | null;
@@ -192,12 +226,76 @@ async function fetchVisionInputs(
       (contents ?? []).map((c) => [c.id, c.caption]),
     );
     for (const a of analyses ?? []) {
-      if (!a.cover_url) continue;
+      if (!a.cover_url || !a.content_id) continue;
       inputs.push({
+        platform: "tiktok",
         content_id: a.content_id,
+        external_ref: null,
         cover_url: a.cover_url,
         caption: captionById.get(a.content_id) ?? null,
         asr_text: a.asr_text,
+      });
+    }
+  }
+  return inputs;
+}
+
+/**
+ * Stage 2 — IG/YT 영상의 vision input fetch.
+ * sample.sample_items 의 platform='instagram'/'youtube' 박힌 거 사용 (cover_url 박힘).
+ */
+async function fetchVisionInputsIgYt(
+  supabase: SupaClient,
+  case_id: string,
+  sampleItems: Array<{ platform: string; external_ref: string | null; cover_url: string | null }>,
+): Promise<VisionInput[]> {
+  const inputs: VisionInput[] = [];
+  const igRefs = sampleItems
+    .filter((it) => it.platform === "instagram" && it.cover_url && it.external_ref)
+    .map((it) => ({ ref: it.external_ref as string, cover: it.cover_url as string }));
+  const ytRefs = sampleItems
+    .filter((it) => it.platform === "youtube" && it.cover_url && it.external_ref)
+    .map((it) => ({ ref: it.external_ref as string, cover: it.cover_url as string }));
+
+  // IG caption fetch
+  if (igRefs.length > 0) {
+    const ids = igRefs.map((x) => x.ref);
+    const { data: igRows } = await supabase
+      .from("ig_posts")
+      .select("ig_id, caption")
+      .eq("case_id", case_id)
+      .in("ig_id", ids);
+    const capByIg = new Map((igRows ?? []).map((r) => [r.ig_id, r.caption]));
+    for (const x of igRefs) {
+      inputs.push({
+        platform: "instagram",
+        content_id: null,
+        external_ref: x.ref,
+        cover_url: x.cover,
+        caption: capByIg.get(x.ref) ?? null,
+        asr_text: null,
+      });
+    }
+  }
+  // YT title+description fetch
+  if (ytRefs.length > 0) {
+    const ids = ytRefs.map((x) => x.ref);
+    const { data: ytRows } = await supabase
+      .from("yt_videos")
+      .select("yt_id, title, description")
+      .eq("case_id", case_id)
+      .in("yt_id", ids);
+    const capByYt = new Map(
+      (ytRows ?? []).map((r) => [r.yt_id, `${r.title ?? ""}\n${(r.description ?? "").slice(0, 200)}`.trim() || null]),
+    );
+    for (const x of ytRefs) {
+      inputs.push({
+        platform: "youtube",
+        content_id: null,
+        external_ref: x.ref,
+        cover_url: x.cover,
+        caption: capByYt.get(x.ref) ?? null,
+        asr_text: null,
       });
     }
   }
