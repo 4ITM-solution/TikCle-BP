@@ -128,6 +128,9 @@ import { fetchExchangeRates } from "@/lib/case-detail/exchange-rates-server";
 import { defaultCurrency } from "@/lib/case-detail/countries";
 
 export const dynamic = "force-dynamic";
+// Server actions 박힌 이 page 박힘 통해 invoke 박힘 (uploadAmazonSales / runIgProfileScrape 등).
+// 기본 60초 박힘 — Apify scrape 박힘 172초+ 박혀서 504 timeout 박힘. Fluid 박힘 max 800.
+export const maxDuration = 800;
 
 type ReusableInfo = {
   other_case_label: string;
