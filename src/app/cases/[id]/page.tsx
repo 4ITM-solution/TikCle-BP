@@ -1854,10 +1854,20 @@ export default async function CaseDetailPage({
                 {(() => {
                   const totalVids = ks.phase2?.total_contents ?? 0;
                   const totalInf = ks.phase2?.total_unique_creators ?? 0;
-                  const igTotal = (ks as { phase4c?: { total_posts?: number } }).phase4c?.total_posts ?? 0;
-                  const ytTotal = (ks as { phase4d?: { total_videos?: number } }).phase4d?.total_videos ?? 0;
+                  // Phase 2 의 ig_total_videos 가 옛 cache 값일 수 있음 → phase4c.total_unique 직접 사용 (더 신선)
+                  const igTotal =
+                    (ks as { phase4c?: { total_unique?: number; total_posts?: number; unique_authors?: number } }).phase4c?.total_unique ??
+                    (ks as { phase4c?: { total_posts?: number } }).phase4c?.total_posts ??
+                    0;
+                  const igAuthors = (ks as { phase4c?: { unique_authors?: number } }).phase4c?.unique_authors ?? 0;
+                  const ytTotal =
+                    (ks as { phase4d?: { total_unique?: number; total_videos?: number; unique_channels?: number } }).phase4d?.total_unique ??
+                    (ks as { phase4d?: { total_videos?: number } }).phase4d?.total_videos ??
+                    0;
+                  const ytChannels = (ks as { phase4d?: { unique_channels?: number } }).phase4d?.unique_channels ?? 0;
                   const allVids = totalVids + igTotal + ytTotal;
-                  const allInf = totalInf;
+                  // 인플 풀 = TK creators + IG authors + YT channels (단순 합산, 중복은 cross-channel matrix 에서만 dedup)
+                  const allInf = totalInf + igAuthors + ytChannels;
                   // sum view (top_creators max_views top 100 합산 → 근사)
                   const tcViews = (ks.phase2?.top_creators ?? []).reduce(
                     (s, c) => s + (c.max_views ?? 0),
@@ -1885,7 +1895,7 @@ export default async function CaseDetailPage({
                         totalVideos={allVids}
                         videoBreakdown={`TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`}
                         totalCreators={allInf}
-                        creatorBreakdown={`top ${(ks.phase2?.top_creators ?? []).length}명 활동`}
+                        creatorBreakdown={`TK ${totalInf} · IG ${igAuthors} · YT ${ytChannels}`}
                         totalViews={tcViews}
                         viewBreakdown={"top creator 합산 추정"}
                         ttShopGmv30d={rev ?? null}
