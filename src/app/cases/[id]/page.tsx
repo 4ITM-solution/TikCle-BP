@@ -962,332 +962,37 @@ export default async function CaseDetailPage({
   }
   const availableSalesChannels = Array.from(new Set(Object.values(skuChannelMap).filter(Boolean))) as string[];
 
-  // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — SectionCMockup USP detail panel 용
+  // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — Promise.all 병렬 (옛 sequential await 24번)
   const uspSampleVideos = await (async () => {
     const map: Record<string, Array<{ url: string; caption: string; views: number }>> = {};
     const ks = (c.key_stats ?? {}) as { phase5?: { usp_keywords?: Array<{ keyword: string }> } };
     const kws = (ks.phase5?.usp_keywords ?? []).slice(0, 24).map((k) => k.keyword);
-    if (kws.length === 0) return map;
-    for (const kw of kws) {
-      if (!brand_id) continue;
-      const { data } = await supabase
-        .from("contents")
-        .select("url, caption, views")
-        .eq("brand_id", brand_id)
-        .eq("country", c.country)
-        .ilike("caption", `%${kw}%`)
-        .order("views", { ascending: false, nullsFirst: false })
-        .limit(3);
+    if (kws.length === 0 || !brand_id) return map;
+    const results = await Promise.all(
+      kws.map((kw) =>
+        supabase
+          .from("contents")
+          .select("url, caption, views")
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .ilike("caption", `%${kw}%`)
+          .order("views", { ascending: false, nullsFirst: false })
+          .limit(3)
+          .then((r) => ({ kw, data: r.data })),
+      ),
+    );
+    for (const { kw, data } of results) {
       if (data && data.length > 0) {
-        map[kw] = data.map((r) => ({
-          url: r.url,
-          caption: r.caption ?? "",
-          views: r.views ?? 0,
-        }));
+        map[kw] = data.map((r) => ({ url: r.url, caption: r.caption ?? "", views: r.views ?? 0 }));
       }
     }
     return map;
   })();
 
-  // ★ cluster member 디테일 — meta_cluster_id → { avg_views, paid_count, save_rate_pct, member_count }
-  const clusterMetrics = await (async () => {
-    const map: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }> = {};
-    const metaList = ((c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } })?.phase4b_clusters?.meta_clusters) ?? [];
-    if (metaList.length === 0) return map;
-    const childToMeta = new Map<string, string>();
-    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
-    const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return map;
-    // child cluster member content_id 다 가져옴
-    const allMembers: Array<{ cluster_id: string; content_id: string | null }> = [];
-    for (let i = 0; i < childIds.length; i += 200) {
-      const slice = childIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("content_cluster_members")
-        .select("cluster_id, content_id")
-        .in("cluster_id", slice)
-        .eq("platform", "tiktok")
-        .not("content_id", "is", null);
-      for (const r of data ?? []) {
-        if (r.content_id) allMembers.push({ cluster_id: r.cluster_id, content_id: r.content_id });
-      }
-    }
-    const cids = [...new Set(allMembers.map((m) => m.content_id!))];
-    const ctMap = new Map<string, { views: number; is_ad: boolean; collect_count: number }>();
-    for (let i = 0; i < cids.length; i += 200) {
-      const slice = cids.slice(i, i + 200);
-      const { data } = await supabase
-        .from("contents")
-        .select("id, views, is_ad, collect_count")
-        .in("id", slice);
-      for (const r of data ?? []) {
-        ctMap.set(r.id, { views: r.views ?? 0, is_ad: !!r.is_ad, collect_count: r.collect_count ?? 0 });
-      }
-    }
-    // meta 별 집계
-    const agg = new Map<string, { totalViews: number; n: number; paid: number; saveRates: number[] }>();
-    for (const m of allMembers) {
-      const metaId = childToMeta.get(m.cluster_id);
-      if (!metaId || !m.content_id) continue;
-      const ct = ctMap.get(m.content_id);
-      if (!ct) continue;
-      const cur = agg.get(metaId) ?? { totalViews: 0, n: 0, paid: 0, saveRates: [] };
-      cur.totalViews += ct.views;
-      cur.n += 1;
-      if (ct.is_ad) cur.paid += 1;
-      if (ct.views > 0 && ct.collect_count > 0) cur.saveRates.push((ct.collect_count / ct.views) * 100);
-      agg.set(metaId, cur);
-    }
-    for (const [metaId, v] of agg.entries()) {
-      const sortedRates = [...v.saveRates].sort((a, b) => a - b);
-      const median = sortedRates.length > 0 ? sortedRates[Math.floor(sortedRates.length / 2)]! : 0;
-      map[metaId] = {
-        avg_views: v.n > 0 ? Math.round(v.totalViews / v.n) : 0,
-        paid_count: v.paid,
-        save_rate_pct: median,
-        member_count: v.n,
-      };
-    }
-    return map;
-  })();
-
-  // ★ cluster member 채널 breakdown — meta_cluster_id → { tk, ig, yt }
-  const clusterChannelBreakdown = await (async () => {
-    const map: Record<string, { tk: number; ig: number; yt: number }> = {};
-    const metaList = ((c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } })?.phase4b_clusters?.meta_clusters) ?? [];
-    if (metaList.length === 0) return map;
-    const childToMeta = new Map<string, string>();
-    for (const m of metaList) {
-      for (const cc of m.child_clusters ?? []) {
-        childToMeta.set(cc.id, m.id);
-      }
-    }
-    const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return map;
-    // 200개씩 chunk
-    for (let i = 0; i < childIds.length; i += 200) {
-      const slice = childIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("content_cluster_members")
-        .select("cluster_id, platform")
-        .in("cluster_id", slice);
-      for (const r of data ?? []) {
-        const metaId = childToMeta.get(r.cluster_id);
-        if (!metaId) continue;
-        if (!map[metaId]) map[metaId] = { tk: 0, ig: 0, yt: 0 };
-        if (r.platform === "tiktok") map[metaId].tk += 1;
-        else if (r.platform === "instagram") map[metaId].ig += 1;
-        else if (r.platform === "youtube") map[metaId].yt += 1;
-      }
-    }
-    return map;
-  })();
-
-  // ★ 각 cluster 별 top view 영상 3개 (옛 MD 기능 복원) — C 통합 클러스터 panel 안 cluster row 안에 임베드
-  const clusterTopVideos = await (async () => {
-    const out: Record<string, Array<{ url: string; views: number; caption: string | null }>> = {};
-    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } });
-    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
-    if (metaList.length === 0) return out;
-    const childToMeta = new Map<string, string>();
-    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
-    const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return out;
-
-    // cluster_id → content_id list
-    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
-    for (let i = 0; i < childIds.length; i += 200) {
-      const slice = childIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("content_cluster_members")
-        .select("cluster_id, content_id")
-        .in("cluster_id", slice)
-        .eq("platform", "tiktok")
-        .not("content_id", "is", null);
-      for (const r of data ?? []) {
-        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
-      }
-    }
-    if (cluToContent.length === 0) return out;
-
-    // content meta fetch
-    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
-    const cMap = new Map<string, { url: string; views: number; caption: string | null }>();
-    for (let i = 0; i < cids.length; i += 200) {
-      const slice = cids.slice(i, i + 200);
-      const { data } = await supabase
-        .from("contents")
-        .select("id, url, views, caption")
-        .in("id", slice);
-      for (const r of data ?? []) cMap.set(r.id, { url: r.url, views: r.views ?? 0, caption: r.caption });
-    }
-
-    // meta_id → top 3 view 영상
-    const grouped = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
-    for (const m of cluToContent) {
-      const metaId = childToMeta.get(m.cluster_id);
-      if (!metaId) continue;
-      const ct = cMap.get(m.content_id);
-      if (!ct) continue;
-      if (!grouped.has(metaId)) grouped.set(metaId, []);
-      grouped.get(metaId)!.push(ct);
-    }
-    for (const [metaId, list] of grouped) {
-      out[metaId] = list.sort((a, b) => b.views - a.views).slice(0, 3);
-    }
-    return out;
-  })();
-
-  // ★ 각 채널별 데이터 수집 기간 (min/max date) — DataChannelsMockup sub 라벨용
-  // 사용자가 delta upload 할 때 "어디까지 적재됐는지" 즉답
-  const dataRanges = await (async () => {
-    const out: Record<string, { min: string | null; max: string | null }> = {};
-    if (brand_id) {
-      // TikTok contents (brand+country scope)
-      const { data: tkMin } = await supabase
-        .from("contents")
-        .select("uploaded_at")
-        .eq("brand_id", brand_id)
-        .eq("country", c.country)
-        .not("uploaded_at", "is", null)
-        .order("uploaded_at", { ascending: true })
-        .limit(1);
-      const { data: tkMax } = await supabase
-        .from("contents")
-        .select("uploaded_at")
-        .eq("brand_id", brand_id)
-        .eq("country", c.country)
-        .not("uploaded_at", "is", null)
-        .order("uploaded_at", { ascending: false })
-        .limit(1);
-      if (tkMin?.[0] || tkMax?.[0]) {
-        out.tiktok_video = {
-          min: tkMin?.[0]?.uploaded_at?.slice(0, 10) ?? null,
-          max: tkMax?.[0]?.uploaded_at?.slice(0, 10) ?? null,
-        };
-      }
-    }
-    // Meta ads (case scope)
-    const { data: maMin } = await supabase
-      .from("meta_ads")
-      .select("start_date")
-      .eq("case_id", c.id)
-      .not("start_date", "is", null)
-      .order("start_date", { ascending: true })
-      .limit(1);
-    const { data: maMax } = await supabase
-      .from("meta_ads")
-      .select("start_date")
-      .eq("case_id", c.id)
-      .not("start_date", "is", null)
-      .order("start_date", { ascending: false })
-      .limit(1);
-    if (maMin?.[0] || maMax?.[0]) {
-      out.meta_ads = {
-        min: maMin?.[0]?.start_date ?? null,
-        max: maMax?.[0]?.start_date ?? null,
-      };
-    }
-    // IG posts
-    const { data: igMin } = await supabase
-      .from("ig_posts")
-      .select("posted_at")
-      .eq("case_id", c.id)
-      .not("posted_at", "is", null)
-      .order("posted_at", { ascending: true })
-      .limit(1);
-    const { data: igMax } = await supabase
-      .from("ig_posts")
-      .select("posted_at")
-      .eq("case_id", c.id)
-      .not("posted_at", "is", null)
-      .order("posted_at", { ascending: false })
-      .limit(1);
-    if (igMin?.[0] || igMax?.[0]) {
-      out.instagram = {
-        min: igMin?.[0]?.posted_at?.slice(0, 10) ?? null,
-        max: igMax?.[0]?.posted_at?.slice(0, 10) ?? null,
-      };
-    }
-    // YT videos
-    const { data: ytMin } = await supabase
-      .from("yt_videos")
-      .select("uploaded_at")
-      .eq("case_id", c.id)
-      .not("uploaded_at", "is", null)
-      .order("uploaded_at", { ascending: true })
-      .limit(1);
-    const { data: ytMax } = await supabase
-      .from("yt_videos")
-      .select("uploaded_at")
-      .eq("case_id", c.id)
-      .not("uploaded_at", "is", null)
-      .order("uploaded_at", { ascending: false })
-      .limit(1);
-    if (ytMin?.[0] || ytMax?.[0]) {
-      out.youtube = {
-        min: ytMin?.[0]?.uploaded_at?.slice(0, 10) ?? null,
-        max: ytMax?.[0]?.uploaded_at?.slice(0, 10) ?? null,
-      };
-    }
-    // case_product_sales (channel별) — products.channel join 으로 분리
-    const { data: cpsAll } = await supabase
-      .from("case_product_sales")
-      .select("period_start, period_end, product_id")
-      .eq("case_id", c.id)
-      .not("period_end", "is", null);
-    if (cpsAll && cpsAll.length > 0) {
-      const productIds = [...new Set(cpsAll.map((r) => r.product_id).filter(Boolean))] as string[];
-      const channelByProduct = new Map<string, string>();
-      for (let i = 0; i < productIds.length; i += 200) {
-        const slice = productIds.slice(i, i + 200);
-        const { data: prods } = await supabase
-          .from("products")
-          .select("id, channel")
-          .in("id", slice);
-        for (const p of prods ?? []) {
-          if (p.channel) channelByProduct.set(p.id, String(p.channel));
-        }
-      }
-      const salesByCh = new Map<string, { min: string | null; max: string | null }>();
-      for (const r of cpsAll) {
-        const ch = r.product_id ? channelByProduct.get(r.product_id) : null;
-        if (!ch) continue;
-        const cur = salesByCh.get(ch) ?? { min: null, max: null };
-        const ps = r.period_start;
-        const pe = r.period_end;
-        if (ps && (!cur.min || ps < cur.min)) cur.min = ps;
-        if (pe && (!cur.max || pe > cur.max)) cur.max = pe;
-        salesByCh.set(ch, cur);
-      }
-      for (const [ch, range] of salesByCh) {
-        const key = ch === "amazon" ? "amazon" : ch === "tiktok_shop" ? "tt_shop" : ch === "shopee" ? "shopee" : null;
-        if (key && (range.min || range.max)) out[key] = range;
-      }
-    }
-    return out;
-  })();
-
-  // ★ IG author 통계 — IgProfileScrapeBox 용 (전체 / followers 박힌 수)
-  const { igAuthorsTotal, igAuthorsWithFollowers } = await (async () => {
-    const { count: total } = await supabase
-      .from("ig_authors")
-      .select("id", { count: "exact", head: true })
-      .eq("case_id", c.id);
-    const { count: withF } = await supabase
-      .from("ig_authors")
-      .select("id", { count: "exact", head: true })
-      .eq("case_id", c.id)
-      .not("followers", "is", null);
-    return { igAuthorsTotal: total ?? 0, igAuthorsWithFollowers: withF ?? 0 };
-  })();
-
-  // ★ B 섹션 채널별 tier 분포 — TK/IG/YT 각각 인플 follower 기준 tier 분류
-  const tierDistByChannel = await (async () => {
+  // ★ Cluster SQL 5개 통합 (옛 5번 따로 fetch → 1번 fetch + 메모리 안 group):
+  //    clusterMetrics + clusterChannelBreakdown + clusterTopVideos + tierClusterHeatmap + clusterGmvByMonth
+  const clusterBundle = await (async () => {
     type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
-    const empty = (): Record<TierKey, number> => ({
-      mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0,
-    });
     const tierOf = (n: number | null | undefined): TierKey => {
       if (n == null) return "unknown";
       if (n >= 1_000_000) return "mega";
@@ -1297,211 +1002,301 @@ export default async function CaseDetailPage({
       if (n >= 1_000) return "nano";
       return "sub-nano";
     };
-    const out: Record<"tk" | "ig" | "yt", Record<TierKey, number>> = {
-      tk: empty(), ig: empty(), yt: empty(),
+    const empty = {
+      clusterMetrics: {} as Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>,
+      clusterChannelBreakdown: {} as Record<string, { tk: number; ig: number; yt: number }>,
+      clusterTopVideos: {} as Record<string, Array<{ url: string; views: number; caption: string | null }>>,
+      tierClusterHeatmap: {
+        tiers: ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"] as TierKey[],
+        metas: [] as Array<{ id: string; name: string }>,
+        cells: {} as Record<string, Record<string, number>>,
+      },
+      clusterGmvByMonth: {} as Record<string, Record<string, number>>,
     };
-
-    // IG: ig_authors.followers 분포
-    const { data: igAuth } = await supabase
-      .from("ig_authors")
-      .select("followers")
-      .eq("case_id", c.id)
-      .limit(10000);
-    for (const a of igAuth ?? []) {
-      out.ig[tierOf(a.followers)] += 1;
-    }
-    // YT: yt_channels.subscriber_count 분포
-    const { data: ytCh } = await supabase
-      .from("yt_channels")
-      .select("subscriber_count")
-      .eq("case_id", c.id)
-      .limit(10000);
-    for (const ch of ytCh ?? []) {
-      out.yt[tierOf(ch.subscriber_count)] += 1;
-    }
-    // TK: phase3.tier_distribution 그대로 사용 (이미 fans_count 기반 박힘)
-    const tkTd = (c.key_stats as { phase3?: { tier_distribution?: Record<TierKey, number> } })?.phase3?.tier_distribution;
-    if (tkTd) out.tk = { ...empty(), ...tkTd };
-
-    return out;
-  })();
-
-  // ★ 같은 brand 의 다른 case 중 kalodata 적재된 케이스 hint (사용자가 케이스 헷갈릴 때 안내)
-  const kalodataInOtherCases = await (async () => {
-    if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
-    const { data } = await supabase
-      .from("cases")
-      .select("id, country, channel, key_stats")
-      .eq("brand_id", brand_id)
-      .neq("id", c.id);
-    return (data ?? [])
-      .map((r) => {
-        const ks = (r.key_stats ?? {}) as Record<string, unknown>;
-        const n_videos = Array.isArray(ks.kalodata_videos) ? (ks.kalodata_videos as unknown[]).length : 0;
-        const n_xlsx = Array.isArray(ks.kalodata_videos_xlsx) ? (ks.kalodata_videos_xlsx as unknown[]).length : 0;
-        const n_lives = Array.isArray(ks.kalodata_lives) ? (ks.kalodata_lives as unknown[]).length : 0;
-        return { id: r.id, country: r.country, channel: r.channel, n_videos, n_xlsx, n_lives };
-      })
-      .filter((r) => r.n_videos + r.n_xlsx + r.n_lives > 0);
-  })();
-
-  // ★ 같은 country 의 다른 brand 케이스 (G InsightCard related-cases 용 B6)
-  const relatedCases = await (async () => {
-    if (!c.country) return [] as Array<{ label: string; href: string }>;
-    const { data } = await supabase
-      .from("cases")
-      .select("id, country, brand:brands(name)")
-      .eq("country", c.country)
-      .neq("id", c.id)
-      .eq("status", "ready")
-      .limit(4);
-    return (data ?? []).map((r) => ({
-      label: `${(r.brand as unknown as { name: string } | null)?.name ?? "(no brand)"} (${r.country})`,
-      href: `/cases/${r.id}`,
-    }));
-  })();
-
-  // ★ 티어 × meta cluster 앵글 히트맵 (옛 MiniDashboard 기능 복원)
-  // 각 cluster member 영상의 작성자 follower → tier 분류 후 tier × meta count cross-tab
-  const tierClusterHeatmap = await (async () => {
-    type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
-    const out: { tiers: TierKey[]; metas: Array<{ id: string; name: string }>; cells: Record<string, Record<string, number>> } = {
-      tiers: ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"],
-      metas: [],
-      cells: {},
-    };
-    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } });
+    const ks0 = c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } };
     const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
-    if (metaList.length === 0) return out;
-    out.metas = metaList.map((m) => ({ id: m.id, name: m.name }));
-
+    if (metaList.length === 0) return empty;
     const childToMeta = new Map<string, string>();
     for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
     const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return out;
+    if (childIds.length === 0) return empty;
+    empty.tierClusterHeatmap.metas = metaList.map((m) => ({ id: m.id, name: m.name }));
 
-    // cluster → content_id
-    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
-    for (let i = 0; i < childIds.length; i += 200) {
-      const slice = childIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("content_cluster_members")
-        .select("cluster_id, content_id")
-        .in("cluster_id", slice)
-        .eq("platform", "tiktok")
-        .not("content_id", "is", null);
-      for (const r of data ?? []) {
-        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
-      }
-    }
-    if (cluToContent.length === 0) return out;
+    // ① cluster_members 1번 fetch (all platform — clusterChannelBreakdown 용 + TK content_id 추출)
+    const memberChunks: string[][] = [];
+    for (let i = 0; i < childIds.length; i += 200) memberChunks.push(childIds.slice(i, i + 200));
+    const memberResults = await Promise.all(
+      memberChunks.map((slice) =>
+        supabase
+          .from("content_cluster_members")
+          .select("cluster_id, platform, content_id")
+          .in("cluster_id", slice),
+      ),
+    );
+    const allMembers: Array<{ cluster_id: string; platform: string; content_id: string | null }> = [];
+    for (const r of memberResults) for (const row of r.data ?? []) allMembers.push(row);
 
-    // content_id → influencer_id
-    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
-    const inflByContent = new Map<string, string>();
-    for (let i = 0; i < cids.length; i += 200) {
-      const slice = cids.slice(i, i + 200);
-      const { data } = await supabase
-        .from("contents")
-        .select("id, influencer_id")
-        .in("id", slice);
-      for (const r of data ?? []) if (r.influencer_id) inflByContent.set(r.id, r.influencer_id);
-    }
-
-    // influencer_id → follower → tier
-    const inflIds = [...new Set([...inflByContent.values()])];
-    const tierByInfl = new Map<string, TierKey>();
-    for (let i = 0; i < inflIds.length; i += 200) {
-      const slice = inflIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("influencers")
-        .select("id, follower_count")
-        .in("id", slice);
-      for (const r of data ?? []) {
-        const n = r.follower_count;
-        const tier: TierKey =
-          n == null ? "unknown" :
-          n >= 1_000_000 ? "mega" :
-          n >= 500_000 ? "macro" :
-          n >= 100_000 ? "mid" :
-          n >= 10_000 ? "micro" :
-          n >= 1_000 ? "nano" : "sub-nano";
-        tierByInfl.set(r.id, tier);
-      }
-    }
-
-    // tier × meta cross-tab
-    for (const t of out.tiers) out.cells[t] = {};
-    for (const m of cluToContent) {
-      const metaId = childToMeta.get(m.cluster_id);
+    // clusterChannelBreakdown 계산
+    for (const r of allMembers) {
+      const metaId = childToMeta.get(r.cluster_id);
       if (!metaId) continue;
-      const inflId = inflByContent.get(m.content_id);
-      const tier = inflId ? tierByInfl.get(inflId) ?? "unknown" : "unknown";
-      out.cells[tier]![metaId] = (out.cells[tier]![metaId] ?? 0) + 1;
+      if (!empty.clusterChannelBreakdown[metaId]) empty.clusterChannelBreakdown[metaId] = { tk: 0, ig: 0, yt: 0 };
+      if (r.platform === "tiktok") empty.clusterChannelBreakdown[metaId].tk += 1;
+      else if (r.platform === "instagram") empty.clusterChannelBreakdown[metaId].ig += 1;
+      else if (r.platform === "youtube") empty.clusterChannelBreakdown[metaId].yt += 1;
     }
-    return out;
-  })();
 
-  // ★ cluster × month GMV (Kalodata 매칭) — heatmap "GMV 기여" measure 용 (B4)
-  // 각 cluster member content 의 URL을 kalodataVideos.video_url 과 매칭 후 publish_date 월별 합산.
-  const clusterGmvByMonth = await (async () => {
-    const out: Record<string, Record<string, number>> = {};
-    const ks0 = (c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; child_clusters?: Array<{ id: string }> }> } });
-    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
-    if (metaList.length === 0) return out;
-    const childToMeta = new Map<string, string>();
-    for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
-    const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return out;
+    // TK member content_id list (clusterMetrics / clusterTopVideos / tierClusterHeatmap / clusterGmvByMonth)
+    const tkMembers = allMembers.filter((r) => r.platform === "tiktok" && r.content_id);
+    const tkContentIds = [...new Set(tkMembers.map((m) => m.content_id!))];
+    if (tkContentIds.length === 0) return empty;
 
-    // cluster_id → content_ids
-    const cluToContent: Array<{ cluster_id: string; content_id: string }> = [];
-    for (let i = 0; i < childIds.length; i += 200) {
-      const slice = childIds.slice(i, i + 200);
-      const { data } = await supabase
-        .from("content_cluster_members")
-        .select("cluster_id, content_id")
-        .in("cluster_id", slice)
-        .eq("platform", "tiktok")
-        .not("content_id", "is", null);
-      for (const r of data ?? []) {
-        if (r.content_id) cluToContent.push({ cluster_id: r.cluster_id, content_id: r.content_id });
+    // ② contents 1번 fetch (url + views + caption + is_ad + collect_count + influencer_id 다 컬럼)
+    const contentChunks: string[][] = [];
+    for (let i = 0; i < tkContentIds.length; i += 200) contentChunks.push(tkContentIds.slice(i, i + 200));
+    const contentResults = await Promise.all(
+      contentChunks.map((slice) =>
+        supabase
+          .from("contents")
+          .select("id, url, views, caption, is_ad, collect_count, influencer_id")
+          .in("id", slice),
+      ),
+    );
+    const ctMap = new Map<string, { url: string; views: number; caption: string | null; is_ad: boolean; collect_count: number; influencer_id: string | null }>();
+    for (const r of contentResults) {
+      for (const row of r.data ?? []) {
+        ctMap.set(row.id, {
+          url: row.url,
+          views: row.views ?? 0,
+          caption: row.caption,
+          is_ad: !!row.is_ad,
+          collect_count: row.collect_count ?? 0,
+          influencer_id: row.influencer_id,
+        });
       }
     }
-    if (cluToContent.length === 0) return out;
 
-    // content_id → url
-    const cids = [...new Set(cluToContent.map((m) => m.content_id))];
-    const urlByContent = new Map<string, string>();
-    for (let i = 0; i < cids.length; i += 200) {
-      const slice = cids.slice(i, i + 200);
-      const { data } = await supabase.from("contents").select("id, url").in("id", slice);
-      for (const r of data ?? []) if (r.url) urlByContent.set(r.id, r.url as string);
+    // ③ influencers 1번 fetch (tier 계산용)
+    const inflIds = [...new Set([...ctMap.values()].map((c) => c.influencer_id).filter((x): x is string => !!x))];
+    const tierByInfl = new Map<string, TierKey>();
+    if (inflIds.length > 0) {
+      const inflChunks: string[][] = [];
+      for (let i = 0; i < inflIds.length; i += 200) inflChunks.push(inflIds.slice(i, i + 200));
+      const inflResults = await Promise.all(
+        inflChunks.map((slice) => supabase.from("influencers").select("id, follower_count").in("id", slice)),
+      );
+      for (const r of inflResults) {
+        for (const row of r.data ?? []) {
+          tierByInfl.set(row.id, tierOf(row.follower_count));
+        }
+      }
     }
 
-    // kalodata video_url + publish_date + revenue_usd map (key_stats 안 ks 에 박힘)
+    // ④ Kalodata video url+publish_date+revenue map
     const kdVids = (keyStats as unknown as { kalodata_videos_xlsx?: Array<{ video_url: string | null; publish_date: string | null; revenue_usd: number | null }> }).kalodata_videos_xlsx ?? [];
     const kdMap = new Map<string, { month: string; gmv: number }>();
     for (const v of kdVids) {
       if (!v.video_url || !v.publish_date || (v.revenue_usd ?? 0) <= 0) continue;
-      const month = v.publish_date.slice(0, 7);
-      kdMap.set(v.video_url, { month, gmv: v.revenue_usd ?? 0 });
+      kdMap.set(v.video_url, { month: v.publish_date.slice(0, 7), gmv: v.revenue_usd ?? 0 });
     }
-    if (kdMap.size === 0) return out;
 
-    // cluster → meta → month → gmv 합산
-    for (const m of cluToContent) {
+    // ⑤ 5가지 group 한 loop 안 계산
+    const metricsAgg = new Map<string, { totalViews: number; n: number; paid: number; saveRates: number[] }>();
+    const topVidsGrouped = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+    for (const t of empty.tierClusterHeatmap.tiers) empty.tierClusterHeatmap.cells[t] = {};
+
+    for (const m of tkMembers) {
       const metaId = childToMeta.get(m.cluster_id);
-      if (!metaId) continue;
-      const url = urlByContent.get(m.content_id);
-      if (!url) continue;
-      const hit = kdMap.get(url);
-      if (!hit) continue;
-      if (!out[metaId]) out[metaId] = {};
-      out[metaId][hit.month] = (out[metaId][hit.month] ?? 0) + hit.gmv;
+      if (!metaId || !m.content_id) continue;
+      const ct = ctMap.get(m.content_id);
+      if (!ct) continue;
+
+      // clusterMetrics
+      const cur = metricsAgg.get(metaId) ?? { totalViews: 0, n: 0, paid: 0, saveRates: [] };
+      cur.totalViews += ct.views;
+      cur.n += 1;
+      if (ct.is_ad) cur.paid += 1;
+      if (ct.views > 0 && ct.collect_count > 0) cur.saveRates.push((ct.collect_count / ct.views) * 100);
+      metricsAgg.set(metaId, cur);
+
+      // clusterTopVideos (top view 3개)
+      if (!topVidsGrouped.has(metaId)) topVidsGrouped.set(metaId, []);
+      topVidsGrouped.get(metaId)!.push({ url: ct.url, views: ct.views, caption: ct.caption });
+
+      // tierClusterHeatmap
+      const tier: TierKey = ct.influencer_id ? tierByInfl.get(ct.influencer_id) ?? "unknown" : "unknown";
+      empty.tierClusterHeatmap.cells[tier]![metaId] = (empty.tierClusterHeatmap.cells[tier]![metaId] ?? 0) + 1;
+
+      // clusterGmvByMonth (Kalodata url 매칭)
+      const hit = kdMap.get(ct.url);
+      if (hit) {
+        if (!empty.clusterGmvByMonth[metaId]) empty.clusterGmvByMonth[metaId] = {};
+        empty.clusterGmvByMonth[metaId][hit.month] = (empty.clusterGmvByMonth[metaId][hit.month] ?? 0) + hit.gmv;
+      }
     }
-    return out;
+
+    // clusterMetrics 결과 박음 (median save_rate)
+    for (const [metaId, v] of metricsAgg.entries()) {
+      const sortedRates = [...v.saveRates].sort((a, b) => a - b);
+      const median = sortedRates.length > 0 ? sortedRates[Math.floor(sortedRates.length / 2)]! : 0;
+      empty.clusterMetrics[metaId] = {
+        avg_views: v.n > 0 ? Math.round(v.totalViews / v.n) : 0,
+        paid_count: v.paid,
+        save_rate_pct: median,
+        member_count: v.n,
+      };
+    }
+    // clusterTopVideos top 3 sort
+    for (const [metaId, list] of topVidsGrouped) {
+      empty.clusterTopVideos[metaId] = list.sort((a, b) => b.views - a.views).slice(0, 3);
+    }
+
+    return empty;
   })();
+  const clusterMetrics = clusterBundle.clusterMetrics;
+  const clusterChannelBreakdown = clusterBundle.clusterChannelBreakdown;
+  const clusterTopVideos = clusterBundle.clusterTopVideos;
+  const tierClusterHeatmap = clusterBundle.tierClusterHeatmap;
+  const clusterGmvByMonth = clusterBundle.clusterGmvByMonth;
+
+  // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
+  const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
+    // 1) dataRanges — 각 채널 min/max date
+    (async () => {
+      const out: Record<string, { min: string | null; max: string | null }> = {};
+      const tkBase = brand_id
+        ? supabase.from("contents").select("uploaded_at").eq("brand_id", brand_id).eq("country", c.country).not("uploaded_at", "is", null)
+        : null;
+      const [
+        tkMinRes, tkMaxRes, maMinRes, maMaxRes, igMinRes, igMaxRes, ytMinRes, ytMaxRes, cpsAllRes,
+      ] = await Promise.all([
+        tkBase ? tkBase.order("uploaded_at", { ascending: true }).limit(1) : Promise.resolve({ data: null as Array<{ uploaded_at: string | null }> | null }),
+        tkBase ? tkBase.order("uploaded_at", { ascending: false }).limit(1) : Promise.resolve({ data: null as Array<{ uploaded_at: string | null }> | null }),
+        supabase.from("meta_ads").select("start_date").eq("case_id", c.id).not("start_date", "is", null).order("start_date", { ascending: true }).limit(1),
+        supabase.from("meta_ads").select("start_date").eq("case_id", c.id).not("start_date", "is", null).order("start_date", { ascending: false }).limit(1),
+        supabase.from("ig_posts").select("posted_at").eq("case_id", c.id).not("posted_at", "is", null).order("posted_at", { ascending: true }).limit(1),
+        supabase.from("ig_posts").select("posted_at").eq("case_id", c.id).not("posted_at", "is", null).order("posted_at", { ascending: false }).limit(1),
+        supabase.from("yt_videos").select("uploaded_at").eq("case_id", c.id).not("uploaded_at", "is", null).order("uploaded_at", { ascending: true }).limit(1),
+        supabase.from("yt_videos").select("uploaded_at").eq("case_id", c.id).not("uploaded_at", "is", null).order("uploaded_at", { ascending: false }).limit(1),
+        supabase.from("case_product_sales").select("period_start, period_end, product_id").eq("case_id", c.id).not("period_end", "is", null),
+      ]);
+      if (tkMinRes.data?.[0] || tkMaxRes.data?.[0]) {
+        out.tiktok_video = {
+          min: tkMinRes.data?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+          max: tkMaxRes.data?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+        };
+      }
+      if (maMinRes.data?.[0] || maMaxRes.data?.[0]) {
+        out.meta_ads = { min: maMinRes.data?.[0]?.start_date ?? null, max: maMaxRes.data?.[0]?.start_date ?? null };
+      }
+      if (igMinRes.data?.[0] || igMaxRes.data?.[0]) {
+        out.instagram = {
+          min: igMinRes.data?.[0]?.posted_at?.slice(0, 10) ?? null,
+          max: igMaxRes.data?.[0]?.posted_at?.slice(0, 10) ?? null,
+        };
+      }
+      if (ytMinRes.data?.[0] || ytMaxRes.data?.[0]) {
+        out.youtube = {
+          min: ytMinRes.data?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+          max: ytMaxRes.data?.[0]?.uploaded_at?.slice(0, 10) ?? null,
+        };
+      }
+      const cpsAll = cpsAllRes.data;
+      if (cpsAll && cpsAll.length > 0) {
+        const productIds = [...new Set(cpsAll.map((r) => r.product_id).filter(Boolean))] as string[];
+        const chunks: string[][] = [];
+        for (let i = 0; i < productIds.length; i += 200) chunks.push(productIds.slice(i, i + 200));
+        const prodResults = await Promise.all(
+          chunks.map((slice) => supabase.from("products").select("id, channel").in("id", slice)),
+        );
+        const channelByProduct = new Map<string, string>();
+        for (const pr of prodResults) {
+          for (const p of pr.data ?? []) if (p.channel) channelByProduct.set(p.id, String(p.channel));
+        }
+        const salesByCh = new Map<string, { min: string | null; max: string | null }>();
+        for (const r of cpsAll) {
+          const ch = r.product_id ? channelByProduct.get(r.product_id) : null;
+          if (!ch) continue;
+          const cur = salesByCh.get(ch) ?? { min: null, max: null };
+          if (r.period_start && (!cur.min || r.period_start < cur.min)) cur.min = r.period_start;
+          if (r.period_end && (!cur.max || r.period_end > cur.max)) cur.max = r.period_end;
+          salesByCh.set(ch, cur);
+        }
+        for (const [ch, range] of salesByCh) {
+          const key = ch === "amazon" ? "amazon" : ch === "tiktok_shop" ? "tt_shop" : ch === "shopee" ? "shopee" : null;
+          if (key && (range.min || range.max)) out[key] = range;
+        }
+      }
+      return out;
+    })(),
+    // 2) kalodataInOtherCases — 같은 brand 다른 case 의 kalodata 적재 hint
+    (async () => {
+      if (!brand_id) return [] as Array<{ id: string; country: string; channel: string | null; n_videos: number; n_xlsx: number; n_lives: number }>;
+      const { data } = await supabase
+        .from("cases")
+        .select("id, country, channel, key_stats")
+        .eq("brand_id", brand_id)
+        .neq("id", c.id);
+      return (data ?? [])
+        .map((r) => {
+          const ks = (r.key_stats ?? {}) as Record<string, unknown>;
+          const n_videos = Array.isArray(ks.kalodata_videos) ? (ks.kalodata_videos as unknown[]).length : 0;
+          const n_xlsx = Array.isArray(ks.kalodata_videos_xlsx) ? (ks.kalodata_videos_xlsx as unknown[]).length : 0;
+          const n_lives = Array.isArray(ks.kalodata_lives) ? (ks.kalodata_lives as unknown[]).length : 0;
+          return { id: r.id, country: r.country, channel: r.channel, n_videos, n_xlsx, n_lives };
+        })
+        .filter((r) => r.n_videos + r.n_xlsx + r.n_lives > 0);
+    })(),
+    // 3) relatedCases — 같은 country 다른 brand ready case 4개
+    (async () => {
+      if (!c.country) return [] as Array<{ label: string; href: string }>;
+      const { data } = await supabase
+        .from("cases")
+        .select("id, country, brand:brands(name)")
+        .eq("country", c.country)
+        .neq("id", c.id)
+        .eq("status", "ready")
+        .limit(4);
+      return (data ?? []).map((r) => ({
+        label: `${(r.brand as unknown as { name: string } | null)?.name ?? "(no brand)"} (${r.country})`,
+        href: `/cases/${r.id}`,
+      }));
+    })(),
+    // 4) tierDistByChannel — TK/IG/YT 각 follower 기준 tier (IG/YT 한 번 fetch 후 igAuthorsCounts 계산 같이)
+    (async () => {
+      type TK2 = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
+      const empty = (): Record<TK2, number> => ({ mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0 });
+      const tierOf = (n: number | null | undefined): TK2 => {
+        if (n == null) return "unknown";
+        if (n >= 1_000_000) return "mega";
+        if (n >= 500_000) return "macro";
+        if (n >= 100_000) return "mid";
+        if (n >= 10_000) return "micro";
+        if (n >= 1_000) return "nano";
+        return "sub-nano";
+      };
+      const out: Record<"tk" | "ig" | "yt", Record<TK2, number>> = { tk: empty(), ig: empty(), yt: empty() };
+      const [igAuth, ytCh] = await Promise.all([
+        supabase.from("ig_authors").select("followers").eq("case_id", c.id).limit(10000),
+        supabase.from("yt_channels").select("subscriber_count").eq("case_id", c.id).limit(10000),
+      ]);
+      for (const a of igAuth.data ?? []) out.ig[tierOf(a.followers)] += 1;
+      for (const ch of ytCh.data ?? []) out.yt[tierOf(ch.subscriber_count)] += 1;
+      const tkTd = (c.key_stats as { phase3?: { tier_distribution?: Record<TK2, number> } })?.phase3?.tier_distribution;
+      if (tkTd) out.tk = { ...empty(), ...tkTd };
+      return out;
+    })(),
+    // 5) igAuthors total + with_followers — IgProfileScrapeBox 용
+    (async () => {
+      const [totalRes, withRes] = await Promise.all([
+        supabase.from("ig_authors").select("id", { count: "exact", head: true }).eq("case_id", c.id),
+        supabase.from("ig_authors").select("id", { count: "exact", head: true }).eq("case_id", c.id).not("followers", "is", null),
+      ]);
+      return { total: totalRes.count ?? 0, withFollowers: withRes.count ?? 0 };
+    })(),
+  ]);
+  const igAuthorsTotal = igAuthorsCounts.total;
+  const igAuthorsWithFollowers = igAuthorsCounts.withFollowers;
 
   // 5b. 비용 추정
   const costEstimate = estimateCost({
