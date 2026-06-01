@@ -1850,16 +1850,16 @@ export default async function CaseDetailPage({
                 <div style={{ height: 14 }} />
 
                 <div id="sec-kpi" style={{ scrollMarginTop: 80 }} />
-                {/* ★ Phase 5-A: 상단 KpiStrip — 케이스 한눈 요약 6 KPI */}
-                {ks.phase2 && (() => {
-                  const totalVids = ks.phase2.total_contents ?? 0;
-                  const totalInf = ks.phase2.total_unique_creators ?? 0;
+                {/* ★ Phase 5-A: 상단 KpiStrip + 데이터 채널 + Phase Progress — phase2 없어도 데이터 채널 카드 노출 */}
+                {(() => {
+                  const totalVids = ks.phase2?.total_contents ?? 0;
+                  const totalInf = ks.phase2?.total_unique_creators ?? 0;
                   const igTotal = (ks as { phase4c?: { total_posts?: number } }).phase4c?.total_posts ?? 0;
                   const ytTotal = (ks as { phase4d?: { total_videos?: number } }).phase4d?.total_videos ?? 0;
                   const allVids = totalVids + igTotal + ytTotal;
                   const allInf = totalInf;
                   // sum view (top_creators max_views top 100 합산 → 근사)
-                  const tcViews = (ks.phase2.top_creators ?? []).reduce(
+                  const tcViews = (ks.phase2?.top_creators ?? []).reduce(
                     (s, c) => s + (c.max_views ?? 0),
                     0,
                   );
@@ -1869,7 +1869,7 @@ export default async function CaseDetailPage({
                       ? `${Math.round(tcViews / 1_000_000)}M`
                       : `${Math.round(tcViews / 1000)}K`;
 
-                  const rev = ks.phase2.sales_summary?.total_revenue;
+                  const rev = ks.phase2?.sales_summary?.total_revenue;
                   const salesLabel = rev
                     ? rev >= 1_000_000
                       ? `$${(rev / 1_000_000).toFixed(1)}M`
@@ -1885,12 +1885,12 @@ export default async function CaseDetailPage({
                         totalVideos={allVids}
                         videoBreakdown={`TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`}
                         totalCreators={allInf}
-                        creatorBreakdown={`top ${(ks.phase2.top_creators ?? []).length}명 활동`}
+                        creatorBreakdown={`top ${(ks.phase2?.top_creators ?? []).length}명 활동`}
                         totalViews={tcViews}
                         viewBreakdown={"top creator 합산 추정"}
                         ttShopGmv30d={rev ?? null}
                         gmvTrend={(() => {
-                          const summary = ks.phase2.sales_summary;
+                          const summary = ks.phase2?.sales_summary;
                           if (!summary) return undefined;
                           const prev = summary.prev_period_revenue;
                           const cur = summary.total_revenue ?? 0;
