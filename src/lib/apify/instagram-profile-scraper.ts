@@ -39,14 +39,23 @@ export async function runIgProfileScraper(
 
   const cleanUsernames = [...new Set(usernames.map((u) => u.replace(/^@/, "").trim()).filter((u) => u.length > 0))];
 
+  // Apify actor: apify/instagram-scraper + resultsType='details' + directUrls (profile URL)
+  // 'apify/instagram-profile-scraper' 는 존재 안 함 (404). 이게 정식 actor.
   const input = {
-    usernames: cleanUsernames,
+    directUrls: cleanUsernames.map((u) => `https://www.instagram.com/${u}/`),
+    resultsType: "details",
     resultsLimit: cleanUsernames.length,
+    addParentData: false,
     proxy: { useApifyProxy: true },
   };
 
-  const result = await runApifyActor("apify/instagram-profile-scraper", input, token);
+  const result = await runApifyActor("apify/instagram-scraper", input, token);
 
+  // apify/instagram-scraper details mode 응답 field:
+  // username, fullName, biography, externalUrl, externalUrlShimmed,
+  // followersCount, followsCount, hasChannel, highlightReelCount,
+  // isBusinessAccount, joinedRecently, businessCategoryName, private, verified,
+  // profilePicUrl, profilePicUrlHD, postsCount, ...
   const profiles: IgProfileRaw[] = (result.items ?? []).map((raw) => {
     const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
     return {
@@ -55,7 +64,12 @@ export async function runIgProfileScraper(
       followers: typeof r.followersCount === "number" ? r.followersCount : null,
       following: typeof r.followsCount === "number" ? r.followsCount : null,
       bio: typeof r.biography === "string" ? r.biography : null,
-      external_url: typeof r.externalUrl === "string" ? r.externalUrl : null,
+      external_url:
+        typeof r.externalUrl === "string"
+          ? r.externalUrl
+          : typeof r.externalUrlShimmed === "string"
+            ? r.externalUrlShimmed
+            : null,
       verified: typeof r.verified === "boolean" ? r.verified : null,
       is_business_account: typeof r.isBusinessAccount === "boolean" ? r.isBusinessAccount : null,
       posts_count: typeof r.postsCount === "number" ? r.postsCount : null,
