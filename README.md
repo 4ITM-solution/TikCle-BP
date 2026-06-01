@@ -1,6 +1,6 @@
 # TikCle BP — Brand Performance Tool
 
-TikTok 기반 브랜드 콘텐츠 성과를 자동으로 분석하는 내부 툴입니다. Amazon · TikTok Shop 두 채널을 지원하고, 콘텐츠 활동 / 인플루언서 / 매출 / 광고 / 콘텐츠 포맷 클러스터링 / USP 키워드까지 한 번의 분석으로 산출합니다.
+TikTok / IG / YouTube / Amazon / TikTok Shop / Shopee + Meta 광고를 통합 분석하는 내부 툴입니다. **A 모델 (한 case = 한 country × 한 brand × 다채널)** — 한 케이스 안에 여러 채널 데이터 자유 적재. 콘텐츠 활동 / 인플루언서 풀 / 매출 & BSR / Meta 광고 / 콘텐츠 포맷 클러스터링 / 변곡점 / cross-platform 인플 매칭까지 한 번의 분석으로 산출합니다.
 
 - **Production**: [https://tikcle-bp.vercel.app](https://tikcle-bp.vercel.app)
 - **GitHub**: [https://github.com/4ITM-solution/TikCle-BP](https://github.com/4ITM-solution/TikCle-BP)
@@ -13,17 +13,18 @@ TikTok 기반 브랜드 콘텐츠 성과를 자동으로 분석하는 내부 툴
 
 ## 무엇을 분석하나
 
-한 케이스 = 한 브랜드의 한 country × 한 채널 (예: NOONI · US · Amazon).
+**A 모델**: 한 케이스 = 한 브랜드 × 한 country × **다채널** (예: SKIN1004 · TH 안에 TikTok 영상 + TT Shop + Meta 광고 + IG + YT 모두 적재 가능). 신규 케이스 폼에서 platform 선택 안 받음 — case 만든 후 데이터 채널 카드 클릭으로 채널별 적재.
 
 분석 결과로 다음을 받습니다:
 
 | 섹션 | 내용 |
 |---|---|
-| **A. 콘텐츠 활동** | 월별 영상 수 (paid / organic 분리) |
-| **B. 인플루언서 활동** | 팔로워 기준 티어 분포 (Mega/Macro/Mid/Micro/Nano), top 작성자 |
-| **C. 콘텐츠 포맷 분석** | 4-8개 메타 클러스터 (LLM 자동 발견), 티어×포맷 히트맵, USP 키워드, 언어 분포 |
-| **D. 매출 & 랭킹** | SKU별 30일/누적 매출, BSR 추이 (Amazon만) |
-| **E. Meta 광고** | 광고 수, 랜딩 분포, 대표 광고 미리보기 (Amazon만) |
+| **A. 콘텐츠 활동** | 12개월 stack 차트 (티어 분포) + 영상수/광고비중/BSR overlay + 변곡점 timeline 카드 (Amazon BSR inflection) |
+| **B. 인플루언서 풀** | 채널별 (TK/IG/YT) tier 분포 + Top 작성자 정렬 3축 (영상수/조회수/매출) + cross-channel matrix + Shop creator GMV |
+| **C. 콘텐츠 포맷** | 통합 클러스터 (TK+IG+YT) + USP 키워드 + 시즈널리티 heatmap + 티어 × 앵글 히트맵 + paid/seeded/organic 분류 |
+| **D. 매출 & BSR** | 채널 toggle (TT Shop/Amazon/Shopee) + SKU 헬스 + Hero × Mega viral (iframe embed) + Kalodata Self/Affiliate/Mall % 분해 + BsrTrendChart 시계열 + 6 sub-tab |
+| **E. Meta 광고** | 3분류 (본사/유통 retailer/인플) + landing 분포 + partnership 인플 cross-channel + promo code regex 추출 |
+| **G. 종합 인사이트** | 5축 매핑 (제품/인플/콘텐츠/채널/시즈널리티) + 핵심 발견 + TK+IG+YT 통합 인플 list + related-cases |
 
 ---
 
@@ -31,39 +32,33 @@ TikTok 기반 브랜드 콘텐츠 성과를 자동으로 분석하는 내부 툴
 
 ### 1. 케이스 생성
 
-`/cases/new` 페이지 → 입력:
+`/cases/new` 페이지 → 입력 (**A 모델 — brand + country 만**):
 
-| 필드 | 설명 | 채널별 |
-|---|---|---|
-| 브랜드명 | 자동으로 브랜드 entity 생성/매칭 | 공통 |
-| Country | 국가 코드 (US, KR 등) | 공통 |
-| 플랫폼 | `amazon` 또는 `tiktok_shop` | 공통 |
-| 브랜드 키워드 | 콤마 구분 (Meta 광고 검색용) | Amazon 옵션 |
-| Meta 페이지 URL | 광고주 FB 페이지 (Meta 광고 검색용) | Amazon 옵션 |
-| TikTok Shop 스토어 URL | `https://www.tiktok.com/shop/store/<name>/<id>` 형식 | tiktok_shop 필수 |
+| 필드 | 설명 |
+|---|---|
+| 브랜드명 | 자동으로 브랜드 entity 생성/매칭 |
+| Country | 국가 코드 (US, KR, TH, ID 등) — SEA 국가 / 권역 코드 (MENA, LATAM_ES) 도 |
+| 브랜드 키워드 | 콤마 구분 (Meta 광고 자동 수집용) |
+| Meta 페이지 URL | 광고주 FB 페이지 |
+| TikTok Shop 스토어 URL | `https://www.tiktok.com/shop/store/<name>/<id>` (US 한정) |
 
-브랜드 + country + channel 조합이 같은 케이스가 이미 있으면 새로 못 만듭니다 (DB unique 제약). 같은 브랜드 다른 country는 OK.
+같은 brand+country 케이스 여러 개 가능 (옛 채널별 case 호환). **옛 분리된 case 2개 (TT Shop + Amazon 등) 합치려면** case detail → footer DEV → "🔀 같은 brand+country 옛 case 흡수" dropdown 사용.
 
-### 2. 데이터 업로드 (Section 02)
+### 2. 데이터 업로드 — case detail 의 **📥 데이터 채널** 카드 클릭 → expand panel 안 업로드
 
-#### exolyt CSV (필수, 모든 채널)
-- 1년치 콘텐츠 데이터
-- CSV 형식, 첫 컬럼이 `username`, `url` 필수
-- 같은 brand + country의 다른 케이스에 데이터 있으면 **재사용 버튼**으로 즉시 가져올 수 있음
-- 큰 CSV (15K 행, 5MB+)도 OK — 브라우저에서 Supabase Storage로 직접 업로드됨
+A 모델: **신규 case 폼에서 데이터 업로드 안 받음** (brand + country 만). case 만든 후 case detail 페이지 → 데이터 채널 grid 의 각 카드 클릭 → 인라인 expand panel 안 업로드 박스 + footer 가이드 (영향 phase + 비용 분리 버튼).
 
-#### Amazon 매출 CSV (Amazon만 필수)
-- SellerSprite 또는 같은 형식의 30일 매출 데이터
-- 첫 컬럼이 ASIN (또는 product URL에서 추출)
-- units / revenue / period_end 컬럼 필요
+| 채널 카드 | 업로드 방법 |
+|---|---|
+| **📹 TikTok 영상** | Exolyt 1년 콘텐츠 CSV + 주간 viral CSV (옵션) — 같은 brand+country 다른 case 에 있으면 재사용 |
+| **🛒 TT Shop** | US: 스토어 URL 입력 (Phase 1.5 pro100chok 자동) / SEA: Kalodata 텍스트 paste + LIST_VIDEO/LIST_CREATOR xlsx + Category Ranking TSV |
+| **📦 Amazon** | Helium10 매출 CSV (30일) + BSR CSV (ASIN 별) |
+| **🛍 Shopee** | Shopdora 텍스트 paste |
+| **📢 Meta 광고** | 별도 업로드 X — brand_keyword / brand_meta_pages 박혀있으면 Phase 4a 자동 수집 (Apify curious_coder $0.75 cap) |
+| **📷 Instagram** | brand IG 계정 1개만 박으면 자동 발굴 (ig_config) + Phase 4c 영상 수집 + **Phase 4c.5 — IG profile scraper** 박으면 follower / bio / cross-channel handle 자동 추출 (~$0.005/author) |
+| **▶ YouTube** | brand YT 채널 1개 박으면 자동 발굴 + Phase 4d (~$4 cap) |
 
-#### Amazon BSR CSV (Amazon만 필수)
-- 일별 BSR 시계열
-- 파일명에 ASIN 포함 (예: `B0XXXXXX-bsr.csv`)
-- 한 SKU당 하나씩 여러 파일 업로드 가능
-
-#### TikTok Shop (자동 수집)
-- 별도 업로드 불필요. 분석 시작 시 Phase 1.5에서 pro100chok actor가 스토어 URL → 제품/가격/누적 판매량 자동 수집.
+**적재 후 가이드**: 각 expand panel footer 안 노란 box "💡 적재 후 다음 단계" — 영향 phase 자동 매핑 + **🟢 무료 phase 만 재실행 ($0)** / **🔴 모든 phase 재실행 (유료)** 2 버튼 분리. 비용 confirm dialog 후 진행.
 
 ### 3. 분석 시작 (Section 03)
 

@@ -24,7 +24,85 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-05-29 (케이스 페이지 UI 마이그레이션 Phase 1~4 + Meta 광고 partnership + YouTube 시딩 + 5월 추가 작업)
+> **갱신 시점**: 2026-06-01 (mockup 100% parity + A 모델 + Phase 4c.5 IG profile scraper + 옛 MD 기능 전부 복원)
+
+### 2026-06-01 박힌 변화 요약 — A 모델 마이그 + mockup 풍부화 + 데이터 통합
+
+**배경**: 5/30 mockup migration 끝나고 6/1 사용자 review 16+ round 거치면서 (A) 한 case 다채널 모델 / (B) mockup parity 95→100% / (C) 옛 MiniDashboard 기능 전체 복원 / (D) IG profile scraper 신규 actor 박힘.
+
+#### A. A 모델 (한 case = 한 country × 한 brand × 다채널)
+
+- **신규 case 폼**: brand + country 만 받음 (platform 선택 제거, hidden input `platform="amazon"`). 데이터는 case 만든 후 case detail 의 데이터 채널 카드 클릭 → expand panel 안 업로드 박스에서 적재.
+- **migration 011**: `cases.channel` DROP NOT NULL — 신규 case 는 channel NULL OK. 옛 case 호환 라벨로만 유지.
+- **mergeCases server action** ([case-actions.ts](src/app/cases/[id]/case-actions.ts)) + RPC `merge_cases_clear_products`: 같은 brand+country 옛 case 2개 (TT Shop + Amazon 분리) 합치는 dev 도구. 17 테이블 (products / case_product_sales / case_rejections / case_video_analyses / case_video_assets / content_clusters / ig_authors / ig_posts / ig_runs / meta_ads / pipeline_runs / promotion_events / viral_bsr_impacts / viral_clusters / yt_channels / yt_runs / yt_videos) case_id update + source case 삭제.
+- **listMergeCandidates** — 같은 brand+country 다른 case list. CaseDevFooter 안 dropdown 으로 사용자가 선택해서 흡수.
+- **DataChannelsMockup** ([HeaderMockup.tsx](src/components/case-detail/mockup/HeaderMockup.tsx)):
+  - 카드 클릭 → 인라인 expand accordion (1개만 열림, 다른 카드 자동 닫힘)
+  - footer 안 적재 후 가이드: 영향 phase pill + cost 표시 + **`🟢 무료 phase 만 재실행 (N개 · $0)`** / **`🔴 모든 phase 재실행 (유료)`** 2 버튼 분리
+  - 사용자가 적재 후 "닫기만 누르면 되나" 헷갈림 fix
+- **데이터 채널 자동 detect** (page.tsx line 1459): case.data_channels 빈 array 여도 phase 결과 + products.channel 보고 자동 active 박힘.
+  - phase2.total_contents > 0 → tiktok_video
+  - phase4a.total_ads > 0 → meta_ads
+  - phase4c.total_unique > 0 → instagram
+  - phase4d.total_unique > 0 → youtube
+  - products.channel 분포 → amazon / tt_shop / shopee
+
+#### B. mockup parity 100% + 옛 MD 4 기능 복원
+
+- **옛 BsrTrendChart 시계열 line + ★ marker + 동반 영상** (D 섹션 BSR sub-tab) — sales_snapshot.bsr 시계열 chart + phase5.bsr_inflections day-level inflection marker + 동반 viral 영상 임베드.
+- **티어 × 메타 cluster 앵글 히트맵** (C 섹션 sub-tab) — page.tsx server SQL: cluster member 영상의 작성자 follower → tier 분류 후 tier × meta cross-tab grid.
+- **Kalodata Brand 매출 분해** (D 섹션 SkuHealth 다음, pink box) — `key_stats.kalodata_brand` 의 Self/Affiliate/Mall % 분해 + driver narrative ('🔥 affiliate (시딩) driven brand' / '🏢 self-operated' / '🛍 Shopping Mall') 자동 판정. SEA TT Shop case BP 핵심 시그널.
+- **TK + IG + YT 통합 인플 list** (G InsightCard) — 옛은 IG+YT 만, 이제 normH (소문자+영숫자만) 로 정규화 후 union → cross channel count desc 정렬. 라벨 'cross-platform 인플' → 'TK+IG+YT 통합 인플'.
+- **변곡점 timeline 카드** (A 섹션 아래, 영구 표시) — phase5.bsr_inflections day-level date 별로 ★ marker (chart 위) + 변곡점 카드 (date / ASIN / BSR before→after / 뷰 비율 🔥 / 동반 viral 영상 Top 3 link). Amazon case 만.
+- **A 차트 line 정규화** — 광고 비중 own range (max ratio) 로 normalize → 작은 % 도 차트 잘 보임. 영상수 line 색 cyan → dark #1f2937. tooltip 위치 dynamic (오른쪽 막대 hover 시 left:30 + right:auto).
+- **B 섹션 인플 평가 3축** — 정렬 토글 (영상수/조회수/매출) + 3축 분포 histogram + Top 작성자 표 활성 컬럼 highlight. tier row 클릭 → 그 티어 인플만 filter.
+- **B 채널별 tier 분포** — page.tsx server SQL `tierDistByChannel`: TK (phase3) / IG (ig_authors.followers) / YT (yt_channels.subscriber_count). channelMode 따라 tier 분포 source 변경.
+- **B IG/YT mode Top 작성자** — channelMode='ig'/'yt' 일 때 phase2.top_creators 대신 igTopAuthors / ytTopChannels (page.tsx 직접 fetch) 사용. Phase4cAuthorPreview / Phase4dChannelPreview shape 매핑.
+- **Meta 광고 3분류** (E 섹션) — 본사 / 유통 retailer / 인플. retailer 키워드 31개 (Walmart/Target/Sephora/Ulta/Amazon/Costco/CVS/Walgreens/Best Buy/Macy/Kohls/JCPenney/Nordstrom/TJ Maxx/Marshalls/Home Depot/Lowes/QVC/HSN/Publix/Whole Foods/Shopee/Lazada/Tokopedia 등) 자동 매칭. 광고 카드 뱃지 + KPI 카드 + 필터 체크박스.
+- **🏢 본사 시딩 라벨** (B Top 작성자 + E partnership) — ig_owned_usernames / yt_owned_channels 매칭 시 dark 뱃지.
+- **광고 promo code regex 추출** (E 섹션) — `use code XXX` / `promo XXX` / `CODE+숫자` 패턴 추출 + 등장 광고 수 카드.
+- **C 섹션 cluster row Top 영상** (옛 MD 기능) — page.tsx server SQL: cluster member content URL+views+caption fetch → cluster row 아래 top 3 view 영상 link.
+- **C 섹션 paid/seeded/organic** — phase2.total_seeded 추가 (contents.caption 안 `#gifted/#pr/#partner` regex). 3 row 분포.
+- **C 섹션 USP CTA 키워드 highlight** + USP 상세 영상 list.
+- **C 섹션 heatmap 'GMV 기여' measure** (B4) — cluster × month GMV 매칭 (Kalodata 영상매출).
+- **G 섹션 related-cases** — 같은 country 다른 brand ready case 4개 SQL.
+- **데이터 수집 기간 표시** (DataChannels 카드 sub) — `📅 2025-08-01 ~ 2026-05-26` 형식. 각 채널 source 의 min/max date 자동 fetch (contents.uploaded_at / meta_ads.start_date / ig_posts.posted_at / yt_videos.uploaded_at / case_product_sales.period). delta upload 가이드.
+- **PhaseProgressMockup `.pp-rerun` 인라인 버튼** — 각 phase row 옆 ↻ 버튼 (phase 별 force 재실행).
+
+#### C. Phase 4c.5 — Apify instagram-profile-scraper
+
+**배경**: 옛 Apify instagram-scraper 가 follower 데이터 안 박음 → ig_authors.followers 100% NULL → IG tier 분류 불가 + cross-platform 매칭 string normalize 만 (false negative 많음).
+
+**파이프**:
+1. **migration 012**: `ig_authors` 에 `following / bio / external_url / verified / is_business_account / linked_handles (jsonb) / profile_scraped_at` 컬럼 추가
+2. **`lib/apify/instagram-profile-scraper.ts`**:
+   - `runIgProfileScraper(usernames)` — `apify/instagram-profile-scraper` actor 호출 ($0.005/username)
+   - `extractCrossChannelHandles(bio, externalUrl)` — bio + URL 안 `tiktok.com/@x` / `youtube.com/@y` / `twitter.com/z` / `TT: @x` 식 regex 추출
+3. **`runIgProfileScrape` server action** (upload-actions.ts) — ig_authors 중 followers IS NULL 인 username 모아 actor 호출 + DB update
+4. **`IgProfileScrapeBox` 컴포넌트** — DataChannels Instagram entry expand panel 안 파란 box:
+   - 전체 N명 / 박힘 M명 / 미박힘 표시
+   - `↻ 미박힘 N명 박기 (~$X.XX)` 버튼 + confirm dialog 비용 안내
+   - `전체 N명 재scrape` 보조 버튼
+
+**효과**:
+- IG tier 분류 가능 (unknown 100% → 거의 0%)
+- linked_handles jsonb = `{tiktok: "@x", youtube: "@y"}` mapping table → G InsightCard 의 cross-platform 매칭 강화 가능
+
+#### D. 신뢰성 / UX fix
+
+- **신규 case (key_stats NULL) server-side 에러 fix** — `const ks = c.key_stats as { ... }` cast 만 박혀서 ks=null → ks.phase2 접근 시 TypeError. `(c.key_stats ?? {}) as { ... }` fallback.
+- **uspSampleVideos IIFE 안 ks null safety** (line 967) — 별도 IIFE 라서 위 fix 한 번 더 박음.
+- **phase2 없는 case 도 KPI/데이터 채널/Phase Progress 표시** — 옛 fallback path 통째 제거, mockup main path 가 phase2 없어도 돌게.
+- **startAnalysis 시 last_error 자동 clear** — status='running' 박을 때 동시에 key_stats.last_error 삭제. 직전 분석 실패 흔적이 다음 분석 성공해도 ready 시점까지 잔존 버그 fix.
+- **Kalodata channel='tiktok_shop' check 제거** — A 모델 에서 어떤 case 든 Kalodata 적재 가능 (uploadKalodata / uploadKalodataCreatorsXlsx / uploadKalodataVideosXlsx / uploadHelium10 4곳).
+- **Browse 페이지**: 다채널 라벨 (`ID | TT Shop, Amazon` 식) + 플랫폼 필터 재추가 (products.channel 또는 cases.channel 매칭) + brand 명 검색.
+- **하나의 IG profile actor 호출 시간**: 5-10분 (700 authors 기준). Apify rate limit 자동 retry.
+
+#### 다음 작업 가능 후보
+
+- **cross-platform 매칭 강화** — linked_handles JSONB 박힌 case 에서 G InsightCard 의 TK+IG+YT 통합 인플 list 가 bio 기반 매핑 사용 (현재 string normalize 만).
+- **YT 채널 profile scraper** — yt_channels 의 일부 row 도 subscriber_count NULL 일 가능 (currently 데이터 풍부).
+- **Phase 5 synthesis 자동 narrative** — bp-synthesizer subagent 호출 (사용자: 일단 보류).
 
 ### 2026-05-29 박힌 변화 요약 — 케이스 페이지 UI 마이그레이션 4-Phase
 
