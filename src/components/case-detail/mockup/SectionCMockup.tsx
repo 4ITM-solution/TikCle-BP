@@ -55,6 +55,7 @@ export function SectionCMockup({
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
+  const [expandedCluster, setExpandedCluster] = useState<string | null>(null);
 
   // ── 통합 클러스터 panel ── (채널 filter 적용)
   const metasAll = phase4bClusters?.meta_clusters ?? [];
@@ -179,11 +180,29 @@ export function SectionCMockup({
                 cm && cm.member_count > 0 ? Math.round((cm.paid_count / cm.member_count) * 100) : 0;
               const fmtV = (n: number) =>
                 n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
+              const isExpanded = expandedCluster === m.id;
+              const top3 = clusterTopVideos?.[m.id] ?? [];
               return (
-                <div key={m.id} className="unified-cluster">
+                <div
+                  key={m.id}
+                  className="unified-cluster"
+                  onClick={() => top3.length > 0 && setExpandedCluster(isExpanded ? null : m.id)}
+                  style={{
+                    cursor: top3.length > 0 ? "pointer" : "default",
+                    background: isExpanded ? "#fef3c7" : undefined,
+                  }}
+                  title={top3.length > 0 ? "클릭하여 Top 3 영상 임베드 보기" : "영상 데이터 없음"}
+                >
                   <div className="uc-h">
                     <span className="uc-rank">{i + 1}</span>
-                    <span className="uc-name">{m.name}</span>
+                    <span className="uc-name">
+                      {m.name}
+                      {top3.length > 0 && (
+                        <span style={{ marginLeft: 6, fontSize: 9, color: "#92400e" }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                      )}
+                    </span>
                     <div className="uc-channels">
                       {ch && (
                         <>
@@ -211,42 +230,87 @@ export function SectionCMockup({
                       m.child_clusters.map((c) => `${c.name} (${c.member_count})`).join(" · ")
                     )}
                   </div>
-                  {/* 옛 MD: cluster 별 top view 영상 3개 (link, view 수 표시) */}
-                  {(() => {
-                    const top3 = clusterTopVideos?.[m.id] ?? [];
-                    if (top3.length === 0) return null;
-                    return (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          marginTop: 6,
-                          paddingTop: 6,
-                          borderTop: "1px dashed #f3f4f6",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ fontSize: 9, color: "#9ca3af" }}>Top 영상:</span>
-                        {top3.map((v, vi) => (
-                          <a
-                            key={vi}
-                            href={v.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={v.caption ?? ""}
-                            style={{
-                              fontSize: 10,
-                              color: "#1d4ed8",
-                              textDecoration: "none",
-                              fontFamily: "monospace",
-                            }}
-                          >
-                            #{vi + 1} {fmtV(v.views)} ↗
-                          </a>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                  {/* 클러스터 카드 클릭 → Top 3 영상 iframe 임베드 */}
+                  {isExpanded && top3.length > 0 && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${Math.min(top3.length, 3)}, 1fr)`,
+                        gap: 8,
+                        marginTop: 10,
+                        paddingTop: 10,
+                        borderTop: "1px dashed #f3f4f6",
+                      }}
+                    >
+                      {top3.map((v, vi) => {
+                        const m = v.url.match(/\/(?:video|photo)\/(\d+)/);
+                        const tkId = m?.[1] ?? null;
+                        return (
+                          <div key={vi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ fontSize: 9, color: "#92400e", display: "flex", justifyContent: "space-between" }}>
+                              <span>#{vi + 1} · {fmtV(v.views)} views</span>
+                              <a
+                                href={v.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#1d4ed8", textDecoration: "none" }}
+                              >
+                                ↗
+                              </a>
+                            </div>
+                            {tkId ? (
+                              <iframe
+                                src={`https://www.tiktok.com/embed/v2/${tkId}`}
+                                loading="lazy"
+                                allowFullScreen
+                                allow="encrypted-media"
+                                title={v.url}
+                                style={{
+                                  width: "100%",
+                                  height: 320,
+                                  border: "1px solid #fde68a",
+                                  borderRadius: 4,
+                                  background: "#f3f4f6",
+                                }}
+                              />
+                            ) : (
+                              <a
+                                href={v.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "block",
+                                  padding: 10,
+                                  textAlign: "center",
+                                  fontSize: 10,
+                                  background: "#f3f4f6",
+                                  borderRadius: 4,
+                                  color: "#1f2937",
+                                }}
+                              >
+                                ↗ 외부 열기
+                              </a>
+                            )}
+                            {v.caption && (
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  color: "#6b7280",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                                title={v.caption}
+                              >
+                                {v.caption.length > 32 ? `${v.caption.slice(0, 32)}…` : v.caption}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })

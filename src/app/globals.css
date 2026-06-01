@@ -378,6 +378,7 @@ a {
 .bp-mockup .trend-chart {
     position: relative; height: 280px;
     padding: 16px 0; background: #fafafa; border-radius: 8px;
+    overflow: hidden;
   }
 .bp-mockup .trend-toggles {
     position: absolute; top: 12px; right: 12px;
