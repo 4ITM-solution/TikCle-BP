@@ -2427,6 +2427,8 @@ export default async function CaseDetailPage({
                           return out;
                         })()}
                         tierDistByChannel={tierDistByChannel}
+                        igTopAuthors={(ks as { phase4c?: { top_authors_preview?: import("@/lib/inngest/types").Phase4cAuthorPreview[] } }).phase4c?.top_authors_preview}
+                        ytTopChannels={(ks as { phase4d?: { top_channels_preview?: import("@/lib/inngest/types").Phase4dChannelPreview[] } }).phase4d?.top_channels_preview}
                       />
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionCMockup

@@ -9,6 +9,8 @@ import type {
   TierBucket,
   TopCreator,
   TopCreatorVideo,
+  Phase4cAuthorPreview,
+  Phase4dChannelPreview,
 } from "@/lib/inngest/types";
 import type { MatrixRow } from "../CrossChannelMatrix";
 import type { TopGmvCreator } from "../TopGmvShopCreators";
@@ -52,6 +54,8 @@ export function SectionBMockup({
   shopGmvDistribution,
   ownedHandles,
   tierDistByChannel,
+  igTopAuthors,
+  ytTopChannels,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -64,6 +68,10 @@ export function SectionBMockup({
   ownedHandles?: Set<string>;
   /** 채널별 tier 분포 — TK: phase3, IG: ig_authors.followers, YT: yt_channels.subscriber_count (page.tsx server SQL) */
   tierDistByChannel?: Record<"tk" | "ig" | "yt", Record<TierBucket, number>>;
+  /** IG Top 작성자 list (phase4c.top_authors_preview) — channelMode='ig' 일 때 표시 */
+  igTopAuthors?: Phase4cAuthorPreview[];
+  /** YT Top 채널 list (phase4d.top_channels_preview) — channelMode='yt' 일 때 표시 */
+  ytTopChannels?: Phase4dChannelPreview[];
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
@@ -111,11 +119,35 @@ export function SectionBMockup({
         ? ytCount
         : phase3?.total_creators ?? 0;
 
-  // Top 작성자 (20+ 영상) — tierFilter + channelMode + sortBy 적용
-  // 현재 phase2.top_creators 는 TikTok only. IG/YT 선택 시 빈 list
-  const topCreatorsBase = channelMode === "ig" || channelMode === "yt"
-    ? []
-    : (phase2.top_creators ?? []);
+  // Top 작성자 — channelMode 따라 source 변경
+  // TK: phase2.top_creators / IG: phase4c.top_authors_preview / YT: phase4d.top_channels_preview
+  const topCreatorsBase: TopCreator[] = (() => {
+    if (channelMode === "ig") {
+      return (igTopAuthors ?? []).map((a) => ({
+        handle: a.username,
+        video_count: a.total_posts,
+        promoted_count: a.paid_posts,
+        max_views: a.max_likes ?? 0, // IG = max_likes 로 proxy
+        follower_count: null, // Apify scraper 안 박는 경우 다수
+        is_shop_creator: null,
+        lifetime_gmv_usd: null,
+        top_videos: [],
+      }));
+    }
+    if (channelMode === "yt") {
+      return (ytTopChannels ?? []).map((ch) => ({
+        handle: ch.channel_name,
+        video_count: ch.total_videos,
+        promoted_count: ch.paid_videos,
+        max_views: ch.max_views ?? 0,
+        follower_count: ch.subscriber_count ?? null,
+        is_shop_creator: null,
+        lifetime_gmv_usd: null,
+        top_videos: [],
+      }));
+    }
+    return phase2.top_creators ?? [];
+  })();
   const sortFn = (a: TopCreator, b: TopCreator) => {
     if (sortBy === "views") return (b.max_views ?? 0) - (a.max_views ?? 0);
     if (sortBy === "gmv") return (b.lifetime_gmv_usd ?? 0) - (a.lifetime_gmv_usd ?? 0);
@@ -188,6 +220,16 @@ export function SectionBMockup({
           <div className="ch-toggle">
             {(["all", "tk", "ig", "yt"] as const).map((m) => {
               const isDisabled = (m === "ig" && !hasIg) || (m === "yt" && !hasYt);
+              // 라벨 = "TK 작성자N (영상M)" 식으로 인플수 vs 영상수 명확화
+              const igAuthorCount = (igTopAuthors?.length ?? 0) > 0
+                ? Math.max(igTopAuthors!.length, tierDistByChannel?.ig
+                    ? Object.values(tierDistByChannel.ig).reduce((s, n) => s + n, 0)
+                    : 0)
+                : (tierDistByChannel?.ig ? Object.values(tierDistByChannel.ig).reduce((s, n) => s + n, 0) : 0);
+              const ytChannelCount = tierDistByChannel?.yt
+                ? Object.values(tierDistByChannel.yt).reduce((s, n) => s + n, 0)
+                : (ytTopChannels?.length ?? 0);
+              const totalAll = (phase3?.total_creators ?? 0) + igAuthorCount + ytChannelCount;
               return (
                 <button
                   key={m}
@@ -198,10 +240,10 @@ export function SectionBMockup({
                   title={isDisabled ? "이 채널 데이터 없음" : ""}
                   style={isDisabled ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
                 >
-                  {m === "all" ? `전체 (${phase3?.total_creators ?? 0}명)` :
-                   m === "tk" ? `TikTok (${tkUnique.toLocaleString()})` :
-                   m === "ig" ? `IG (${igCount.toLocaleString()})` :
-                   `YT (${ytCount.toLocaleString()})`}
+                  {m === "all" ? `전체 (${totalAll}명)` :
+                   m === "tk" ? `TikTok (${tkUnique.toLocaleString()}명)` :
+                   m === "ig" ? `IG (${igAuthorCount.toLocaleString()}명)` :
+                   `YT (${ytChannelCount.toLocaleString()}명)`}
                 </button>
               );
             })}
@@ -240,6 +282,18 @@ export function SectionBMockup({
               ({channelMode === "all" ? "전 채널 합산" : channelMode === "tk" ? "TikTok" : channelMode === "ig" ? "Instagram" : "YouTube"})
             </span>
           </div>
+          {(channelMode === "ig" || channelMode === "yt") && (() => {
+            const td = channelMode === "ig" ? tierDistByChannel?.ig : tierDistByChannel?.yt;
+            if (!td) return null;
+            const total = Object.values(td).reduce((s, n) => s + n, 0);
+            const unknownPct = total > 0 ? Math.round(((td.unknown ?? 0) / total) * 100) : 0;
+            if (unknownPct < 50) return null;
+            return (
+              <div style={{ fontSize: 10, color: "#92400e", background: "#fef3c7", padding: "4px 8px", borderRadius: 4, marginBottom: 8 }}>
+                ⚠ {channelMode === "ig" ? "Instagram" : "YouTube"} follower 데이터 미수집 ({unknownPct}% unknown) — Apify scraper 가 follower 박지 않음. tier 분류 불가.
+              </div>
+            );
+          })()}
           {(() => {
             // mockup line 777-781: 5 row 만. 추가 row (sub-nano/unknown) 는 데이터 있을 때만.
             const rowsToShow = [
@@ -413,8 +467,8 @@ export function SectionBMockup({
             <tbody>
               {topCreators.length === 0 && (channelMode === "ig" || channelMode === "yt") ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 16, color: "#9ca3af", fontSize: 11 }}>
-                    {channelMode === "ig" ? "IG" : "YT"} Top 작성자 데이터 미수집 (Phase 4c/4d 결과 필요)
+                  <td colSpan={6} style={{ textAlign: "center", padding: 16, color: "#9ca3af", fontSize: 11 }}>
+                    {channelMode === "ig" ? "IG" : "YT"} Top 작성자 데이터 없음 — Phase 4c/4d 결과 필요
                   </td>
                 </tr>
               ) : null}
