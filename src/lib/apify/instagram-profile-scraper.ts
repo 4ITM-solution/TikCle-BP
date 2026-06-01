@@ -39,21 +39,18 @@ export async function runIgProfileScraper(
 
   const cleanUsernames = [...new Set(usernames.map((u) => u.replace(/^@/, "").trim()).filter((u) => u.length > 0))];
 
-  // Apify actor: apify~instagram-scraper + resultsType='details' + directUrls (profile URL)
-  // 응답 빈 case 디버그용 — input 단순화 + 로깅
+  // Apify actor: apify~instagram-api-scraper — profile detail 박는 정식 actor
+  // (옛 apify~instagram-scraper 는 post fetch 위주 → profile 빈 결과)
   const input = {
-    directUrls: cleanUsernames.map((u) => `https://www.instagram.com/${u}/`),
-    resultsType: "details",
-    resultsLimit: 1, // 각 URL 당 1 결과 (profile 자체)
-    addParentData: false,
+    usernames: cleanUsernames,
   };
   console.log("[ig-profile-scraper] input", {
     usernames_count: cleanUsernames.length,
-    first_3_urls: input.directUrls.slice(0, 3),
+    first_3: cleanUsernames.slice(0, 3),
   });
 
   // Apify API actor id 형식은 'owner~name' (slash 박으면 URL path 깨짐)
-  const result = await runApifyActor("apify~instagram-scraper", input, token);
+  const result = await runApifyActor("apify~instagram-api-scraper", input, token);
   console.log("[ig-profile-scraper] result", {
     status: result.status,
     items_count: result.items.length,
