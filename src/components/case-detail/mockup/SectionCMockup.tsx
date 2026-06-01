@@ -452,13 +452,9 @@ export function SectionCMockup({
               const fallbackClusters = sampleClusters.length > 0
                 ? sampleClusters
                 : ["클러스터 1", "클러스터 2", "클러스터 3"];
-              // 최근 12개월 (현재월 기준)
-              const today = new Date();
-              const months: string[] = [];
-              for (let i = 11; i >= 0; i--) {
-                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                months.push(String(d.getMonth() + 1).padStart(2, "0"));
-              }
+              // 12개월 grid placeholder — 빈 case 미리보기용이라 정확한 월 매칭 불필요.
+              // new Date() 박으면 SSR vs CSR hydration mismatch (React #418) 라 fixed 박음.
+              const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
               return (
                 <div>
                   <div
