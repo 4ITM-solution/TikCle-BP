@@ -78,6 +78,7 @@ export function SectionBMockup({
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
   const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"videos" | "views" | "gmv">("videos");
+  const [showAllCreators, setShowAllCreators] = useState(false);
 
   // 티어 분포 — channelMode + monthFilter 따라 source 변경
   const igCount = phase2.ig_total_videos ?? 0;
@@ -472,7 +473,7 @@ export function SectionBMockup({
                   </td>
                 </tr>
               ) : null}
-              {topCreators.slice(0, 5).map((c) => {
+              {topCreators.slice(0, showAllCreators ? topCreators.length : 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
                 const isOwned = ownedHandles?.has(normalize(c.handle)) ?? false;
@@ -538,9 +539,26 @@ export function SectionBMockup({
                 );
               })}
               {topCreators.length > 5 && (
-                <tr style={{ color: "#9ca3af" }}>
+                <tr>
                   <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
-                    + {topCreators.length - 5}명 더보기
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCreators((v) => !v)}
+                      style={{
+                        fontSize: 11,
+                        padding: "5px 14px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 4,
+                        background: "white",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        color: "#6b7280",
+                      }}
+                    >
+                      {showAllCreators
+                        ? `▲ 5명만 보기`
+                        : `▼ + ${topCreators.length - 5}명 더보기 (전체 ${topCreators.length}명)`}
+                    </button>
                   </td>
                 </tr>
               )}

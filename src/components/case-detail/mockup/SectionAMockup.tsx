@@ -488,9 +488,14 @@ export function SectionAMockup({
             />
           )}
           {show.ad && months.length > 1 && (() => {
-            // 광고 비중 own range (max) 로 정규화 — 절대 비율 작으면 거의 안 보여서.
+            // 광고 비중 line — 단 한 시점만 paid 인 케이스 (뾰족 모양) 방지:
+            // - non-zero 월 < 2 면 line 자체 숨김 (의미 없음, 뾰족하게 보임)
+            // - min scale 0.10 보장 (작은 % 도 chart 평탄)
             const adRatios = months.filter((mo) => adByMonth.has(mo)).map((mo) => adByMonth.get(mo) ?? 0);
-            const adMax = Math.max(...adRatios, 0.01); // 최소 1% scale
+            const adMax = Math.max(...adRatios, 0);
+            const nonZeroCount = adRatios.filter((r) => r > 0.01).length;
+            if (nonZeroCount < 2 || adMax < 0.02) return null;
+            const scaleMax = Math.max(adMax, 0.10);
             return (
             <polyline
               points={months
@@ -498,7 +503,7 @@ export function SectionAMockup({
                 .map((mo, _i) => {
                   const idx = months.indexOf(mo);
                   const x = (idx / (months.length - 1)) * 1000 + 50;
-                  const ratio = (adByMonth.get(mo) ?? 0) / adMax;
+                  const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
                   const normalized = Math.max(0, Math.min(1, ratio));
                   const y = 222 - normalized * 222;
                   return `${x},${y}`;
