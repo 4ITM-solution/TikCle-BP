@@ -244,8 +244,8 @@ export function SectionCMockup({
                       }}
                     >
                       {top3.map((v, vi) => {
-                        const m = v.url.match(/\/(?:video|photo)\/(\d+)/);
-                        const tkId = m?.[1] ?? null;
+                        const tkMatch = (v.url ?? "").match(/\/(?:video|photo)\/(\d+)/);
+                        const tkId = tkMatch?.[1] ?? null;
                         return (
                           <div key={vi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <div style={{ fontSize: 9, color: "#92400e", display: "flex", justifyContent: "space-between" }}>
