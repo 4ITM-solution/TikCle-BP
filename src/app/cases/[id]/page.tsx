@@ -2427,8 +2427,20 @@ export default async function CaseDetailPage({
                           return out;
                         })()}
                         tierDistByChannel={tierDistByChannel}
-                        igTopAuthors={(ks as { phase4c?: { top_authors_preview?: import("@/lib/inngest/types").Phase4cAuthorPreview[] } }).phase4c?.top_authors_preview}
-                        ytTopChannels={(ks as { phase4d?: { top_channels_preview?: import("@/lib/inngest/types").Phase4dChannelPreview[] } }).phase4d?.top_channels_preview}
+                        igTopAuthors={igTopAuthors.map((a) => ({
+                          username: a.username,
+                          total_posts: a.total_posts,
+                          brand_matched_posts: a.brand_matched_posts,
+                          paid_posts: a.paid_posts,
+                          max_likes: a.max_likes ?? null,
+                        }))}
+                        ytTopChannels={ytTopChannels.map((c) => ({
+                          channel_name: c.channel_name,
+                          total_videos: c.total_videos,
+                          paid_videos: c.paid_videos,
+                          max_views: c.max_views ?? null,
+                          subscriber_count: c.subscriber_count ?? null,
+                        }))}
                       />
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionCMockup
