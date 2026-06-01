@@ -129,7 +129,7 @@ export function SectionBMockup({
         video_count: a.total_posts,
         promoted_count: a.paid_posts,
         max_views: a.max_likes ?? 0, // IG = max_likes 로 proxy
-        follower_count: null, // Apify scraper 안 박는 경우 다수
+        follower_count: a.followers ?? null, // Phase 4c.5 IG profile scraper 박힘
         is_shop_creator: null,
         lifetime_gmv_usd: null,
         top_videos: [],
@@ -516,7 +516,11 @@ export function SectionBMockup({
                       </td>
                       <td>{formatFollowers(c.follower_count)}</td>
                       <td>
-                        <ChannelPills tk={xc?.tk ?? c.video_count} ig={xc?.ig ?? 0} yt={xc?.yt ?? 0} />
+                        <ChannelPills
+                          tk={xc?.tk ?? (channelMode === "ig" || channelMode === "yt" ? 0 : c.video_count)}
+                          ig={xc?.ig ?? (channelMode === "ig" ? c.video_count : 0)}
+                          yt={xc?.yt ?? (channelMode === "yt" ? c.video_count : 0)}
+                        />
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "monospace", background: sortBy === "videos" ? "#fef3c7" : undefined }}>
                         {c.video_count}

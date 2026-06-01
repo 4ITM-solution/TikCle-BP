@@ -463,6 +463,7 @@ export type Phase4cAuthorPreview = {
   brand_matched_posts: number;
   paid_posts: number;
   max_likes: number | null;
+  followers: number | null;
 };
 
 export type Phase4cRunSummary = {

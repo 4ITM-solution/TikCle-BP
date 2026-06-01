@@ -659,12 +659,30 @@ export function SectionCMockup({
                                      intensity > 0.25 ? "#d97706" :
                                      intensity > 0.1 ? "#f59e0b" :
                                      intensity > 0 ? "#fcd34d" : "#f3f4f6";
+                          // 가독성: 노란빛 (#fcd34d) 만 dark text, 나머지 진한 색 다 white
+                          const isDarkBg = intensity > 0.1;
+                          const top3 = clusterTopVideos?.[m.id] ?? [];
+                          const canExpand = v > 0 && top3.length > 0;
                           return (
                             <div
                               key={m.id}
                               className="cell"
-                              style={{ background: bg, color: intensity > 0.5 ? "white" : "#374151" }}
-                              title={`${TIER_LABEL[t]} × ${m.name}: ${v} 영상`}
+                              style={{
+                                background: bg,
+                                color: isDarkBg ? "white" : "#374151",
+                                fontWeight: v > 0 ? 700 : 400,
+                                cursor: canExpand ? "pointer" : "default",
+                              }}
+                              title={
+                                canExpand
+                                  ? `${TIER_LABEL[t]} × ${m.name}: ${v} 영상 — 클릭하여 영상 보기`
+                                  : `${TIER_LABEL[t]} × ${m.name}: ${v} 영상`
+                              }
+                              onClick={() => {
+                                if (!canExpand) return;
+                                setTab("clu");
+                                setExpandedCluster(m.id);
+                              }}
                             >
                               {v > 0 ? v : ""}
                             </div>

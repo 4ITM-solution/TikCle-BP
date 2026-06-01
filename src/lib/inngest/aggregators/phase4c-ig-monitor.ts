@@ -530,6 +530,7 @@ async function fetchAuthorStats(
     brand_matched_posts: number;
     paid_posts: number;
     max_likes: number | null;
+    followers: number | null;
   }>;
 }> {
   const { count } = await supabase
@@ -539,7 +540,7 @@ async function fetchAuthorStats(
 
   const { data: top } = await supabase
     .from("ig_authors")
-    .select("username, total_posts, brand_matched_posts, paid_posts, max_likes")
+    .select("username, total_posts, brand_matched_posts, paid_posts, max_likes, followers")
     .eq("case_id", case_id)
     .order("max_likes", { ascending: false, nullsFirst: false })
     .limit(20);
@@ -552,6 +553,7 @@ async function fetchAuthorStats(
       brand_matched_posts: t.brand_matched_posts ?? 0,
       paid_posts: t.paid_posts ?? 0,
       max_likes: t.max_likes,
+      followers: (t as { followers?: number | null }).followers ?? null,
     })),
   };
 }

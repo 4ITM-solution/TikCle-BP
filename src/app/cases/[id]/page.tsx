@@ -602,7 +602,7 @@ export default async function CaseDetailPage({
       const { data: authorsRaw } = await supabase
         .from("ig_authors")
         .select(
-          "username, full_name, total_posts, brand_matched_posts, paid_posts, max_likes, max_views, total_likes, tier",
+          "username, full_name, total_posts, brand_matched_posts, paid_posts, max_likes, max_views, total_likes, tier, followers",
         )
         .eq("case_id", c.id)
         .order("max_likes", { ascending: false, nullsFirst: false })
@@ -2250,6 +2250,7 @@ export default async function CaseDetailPage({
                           brand_matched_posts: a.brand_matched_posts,
                           paid_posts: a.paid_posts,
                           max_likes: a.max_likes ?? null,
+                          followers: (a as { followers?: number | null }).followers ?? null,
                         }))}
                         ytTopChannels={ytTopChannels.map((c) => ({
                           channel_name: c.channel_name,
