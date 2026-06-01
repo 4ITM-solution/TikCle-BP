@@ -367,6 +367,105 @@ export function SectionAMockup({
               </div>
             );
           })}
+
+          {/* SVG overlay — stack-bars 박힘 안 박힘 child 박힘 박힘 박힘 박힘 line 박힘 박힘 박힘 박힘 alignment 박힘 박힘 guaranteed.
+              padding 박힘 박힘 박힘 박힘 박힘 박힘 box 박힘 박힘 박힘 박힘 박힘 박힘 박힘. */}
+          <svg className="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">
+            {show.vc && months.length > 1 && (
+              <polyline
+                points={months
+                  .map((mo, i) => {
+                    const x = (i / (months.length - 1)) * 1000 + 50;
+                    const total = totalByMonth.get(mo) ?? 0;
+                    const yRaw = 222 - (total / maxVids) * 222;
+                    const y = Math.max(0, Math.min(222, yRaw));
+                    return `${x},${y}`;
+                  })
+                  .join(" ")}
+                stroke="#1f2937"
+                strokeWidth="3"
+                fill="none"
+              />
+            )}
+            {show.ad && months.length > 1 && (() => {
+              const adRatios = months.filter((mo) => adByMonth.has(mo)).map((mo) => adByMonth.get(mo) ?? 0);
+              const adMax = Math.max(...adRatios, 0);
+              const nonZeroCount = adRatios.filter((r) => r > 0.01).length;
+              if (nonZeroCount < 2 || adMax < 0.02) return null;
+              const scaleMax = Math.max(adMax, 0.10);
+              return (
+                <polyline
+                  points={months
+                    .filter((mo) => adByMonth.has(mo))
+                    .map((mo) => {
+                      const idx = months.indexOf(mo);
+                      const x = (idx / (months.length - 1)) * 1000 + 50;
+                      const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
+                      const normalized = Math.max(0, Math.min(1, ratio));
+                      const y = 222 - normalized * 222;
+                      return `${x},${y}`;
+                    })
+                    .join(" ")}
+                  stroke="#f59e0b"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeDasharray="4 3"
+                />
+              );
+            })()}
+            {show.bsr && hasAmazon && bsrVals.length > 1 && (
+              <polyline
+                points={months
+                  .filter((mo) => bsrByMonth.has(mo))
+                  .map((mo) => {
+                    const idx = months.indexOf(mo);
+                    const x = (idx / (months.length - 1)) * 1000 + 50;
+                    const v = bsrByMonth.get(mo)!;
+                    const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
+                    const y = 222 - inv * 222;
+                    return `${x},${y}`;
+                  })
+                  .join(" ")}
+                stroke="#ef4444"
+                strokeWidth="2"
+                fill="none"
+                strokeDasharray="2 2"
+              />
+            )}
+            {hasAmazon && phase5?.bsr_inflections?.map((inf, infI) => {
+              const mo = inf.date.slice(0, 7);
+              const idx = months.indexOf(mo);
+              if (idx === -1) return null;
+              const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
+              return (
+                <g key={`inf-${infI}`}>
+                  <text x={x} y={14} fontSize="14" textAnchor="middle" fill="#ec4899" style={{ cursor: "pointer" }}>★</text>
+                  <line x1={x} y1={18} x2={x} y2={222} stroke="#ec4899" strokeWidth="1" strokeDasharray="3 2" opacity="0.4" />
+                </g>
+              );
+            })}
+            {(() => {
+              const idx = hoverIdx ?? months.length - 1;
+              if (idx < 0 || months.length === 0) return null;
+              const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
+              const mo = months[idx]!;
+              const total = totalByMonth.get(mo) ?? 0;
+              const vcY = total > 0 ? 222 - (total / maxVids) * 222 : 222;
+              const bsr = bsrByMonth.get(mo);
+              const bsrY = bsr !== undefined && bsrVals.length > 0 ? 222 - (1 - (bsr - bsrMin) / bsrRange) * 222 : null;
+              return (
+                <>
+                  <line x1={x} y1="0" x2={x} y2="222" stroke="#1f2937" strokeWidth="1" strokeDasharray="2" />
+                  {show.vc && total > 0 && (
+                    <circle cx={x} cy={vcY} r="5" fill="#06b6d4" stroke="white" strokeWidth="2" />
+                  )}
+                  {show.bsr && bsrY !== null && (
+                    <circle cx={x} cy={bsrY} r="5" fill="#ef4444" stroke="white" strokeWidth="2" />
+                  )}
+                </>
+              );
+            })()}
+          </svg>
         </div>
 
         {/* ★ 호버 시 디테일 tooltip (mockup line 705-722) */}
@@ -469,120 +568,6 @@ export function SectionAMockup({
           );
         })()}
 
-        {/* SVG overlay — 3 line */}
-        <svg className="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">
-          {show.vc && months.length > 1 && (
-            <polyline
-              points={months
-                .map((mo, i) => {
-                  const x = (i / (months.length - 1)) * 1000 + 50;
-                  const total = totalByMonth.get(mo) ?? 0;
-                  const yRaw = 222 - (total / maxVids) * 222;
-                  const y = Math.max(0, Math.min(222, yRaw));
-                  return `${x},${y}`;
-                })
-                .join(" ")}
-              stroke="#1f2937"
-              strokeWidth="3"
-              fill="none"
-            />
-          )}
-          {show.ad && months.length > 1 && (() => {
-            // 광고 비중 line — 단 한 시점만 paid 인 케이스 (뾰족 모양) 방지:
-            // - non-zero 월 < 2 면 line 자체 숨김 (의미 없음, 뾰족하게 보임)
-            // - min scale 0.10 보장 (작은 % 도 chart 평탄)
-            const adRatios = months.filter((mo) => adByMonth.has(mo)).map((mo) => adByMonth.get(mo) ?? 0);
-            const adMax = Math.max(...adRatios, 0);
-            const nonZeroCount = adRatios.filter((r) => r > 0.01).length;
-            if (nonZeroCount < 2 || adMax < 0.02) return null;
-            const scaleMax = Math.max(adMax, 0.10);
-            return (
-            <polyline
-              points={months
-                .filter((mo) => adByMonth.has(mo))
-                .map((mo, _i) => {
-                  const idx = months.indexOf(mo);
-                  const x = (idx / (months.length - 1)) * 1000 + 50;
-                  const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
-                  const normalized = Math.max(0, Math.min(1, ratio));
-                  const y = 222 - normalized * 222;
-                  return `${x},${y}`;
-                })
-                .join(" ")}
-              stroke="#f59e0b"
-              strokeWidth="2"
-              fill="none"
-              strokeDasharray="4 3"
-            />
-            );
-          })()}
-          {show.bsr && hasAmazon && bsrVals.length > 1 && (
-            <polyline
-              points={months
-                .filter((mo) => bsrByMonth.has(mo))
-                .map((mo) => {
-                  const idx = months.indexOf(mo);
-                  const x = (idx / (months.length - 1)) * 1000 + 50;
-                  const v = bsrByMonth.get(mo)!;
-                  const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
-                  const y = 222 - inv * 222;
-                  return `${x},${y}`;
-                })
-                .join(" ")}
-              stroke="#ef4444"
-              strokeWidth="2"
-              fill="none"
-              strokeDasharray="2 2"
-            />
-          )}
-          {/* ★ 변곡점 marker — phase5.bsr_inflections 의 date 별로 영구 표시 (Amazon 만) */}
-          {hasAmazon && phase5?.bsr_inflections?.map((inf, infI) => {
-            const mo = inf.date.slice(0, 7);
-            const idx = months.indexOf(mo);
-            if (idx === -1) return null;
-            const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
-            return (
-              <g key={`inf-${infI}`}>
-                <text
-                  x={x}
-                  y={14}
-                  fontSize="14"
-                  textAnchor="middle"
-                  fill="#ec4899"
-                  style={{ cursor: "pointer" }}
-                >
-                  ★
-                </text>
-                <line x1={x} y1={18} x2={x} y2={222} stroke="#ec4899" strokeWidth="1" strokeDasharray="3 2" opacity="0.4" />
-              </g>
-            );
-          })}
-
-          {/* 호버 vertical line + 변곡점 marker (마지막 month 또는 hover) */}
-          {(() => {
-            const idx = hoverIdx ?? months.length - 1;
-            if (idx < 0 || months.length === 0) return null;
-            const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
-            const mo = months[idx]!;
-            const total = totalByMonth.get(mo) ?? 0;
-            const vcY = total > 0 ? 222 - (total / maxVids) * 222 : 222;
-            const bsr = bsrByMonth.get(mo);
-            const bsrY = bsr !== undefined && bsrVals.length > 0
-              ? 222 - (1 - (bsr - bsrMin) / bsrRange) * 222
-              : null;
-            return (
-              <>
-                <line x1={x} y1="0" x2={x} y2="222" stroke="#1f2937" strokeWidth="1" strokeDasharray="2" />
-                {show.vc && total > 0 && (
-                  <circle cx={x} cy={vcY} r="5" fill="#06b6d4" stroke="white" strokeWidth="2" />
-                )}
-                {show.bsr && bsrY !== null && (
-                  <circle cx={x} cy={bsrY} r="5" fill="#ef4444" stroke="white" strokeWidth="2" />
-                )}
-              </>
-            );
-          })()}
-        </svg>
       </div>
 
       <div className="trend-legend">
