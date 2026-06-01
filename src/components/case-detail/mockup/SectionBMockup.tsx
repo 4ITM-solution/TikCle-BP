@@ -50,6 +50,7 @@ export function SectionBMockup({
   crossChannelMatrix,
   topGmvCreators,
   shopGmvDistribution,
+  ownedHandles,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -58,11 +59,14 @@ export function SectionBMockup({
   crossChannelMatrix?: MatrixRow[];
   topGmvCreators?: TopGmvCreator[];
   shopGmvDistribution?: ShopGmvDistribution | null;
+  /** 본사 직접 운영 인플 handle 정규화 set (ig_owned_usernames / yt_owned_channels / brand_meta_pages 등 매핑) */
+  ownedHandles?: Set<string>;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
   const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"videos" | "views" | "gmv">("videos");
 
   // 티어 분포 — channelMode + monthFilter 따라 source 변경
   const igCount = phase2.ig_total_videos ?? 0;
@@ -86,14 +90,49 @@ export function SectionBMockup({
         ? ytCount
         : phase3?.total_creators ?? 0;
 
-  // Top 작성자 (20+ 영상) — tierFilter + channelMode 적용
+  // Top 작성자 (20+ 영상) — tierFilter + channelMode + sortBy 적용
   // 현재 phase2.top_creators 는 TikTok only. IG/YT 선택 시 빈 list
-  const topCreatorsRaw = channelMode === "ig" || channelMode === "yt"
+  const topCreatorsBase = channelMode === "ig" || channelMode === "yt"
     ? []
-    : (phase2.top_creators ?? []).slice().sort((a, b) => b.video_count - a.video_count);
+    : (phase2.top_creators ?? []);
+  const sortFn = (a: TopCreator, b: TopCreator) => {
+    if (sortBy === "views") return (b.max_views ?? 0) - (a.max_views ?? 0);
+    if (sortBy === "gmv") return (b.lifetime_gmv_usd ?? 0) - (a.lifetime_gmv_usd ?? 0);
+    return b.video_count - a.video_count;
+  };
+  const topCreatorsRaw = topCreatorsBase.slice().sort(sortFn);
   const topCreators = tierFilter
     ? topCreatorsRaw.filter((c) => tierOf(c.follower_count) === tierFilter)
     : topCreatorsRaw;
+
+  // ── 3축 분포 (영상 수 / 조회수 / 매출) — bucket 분포 ──
+  const distAll = topCreatorsBase;
+  const bucket = <T,>(items: T[], val: (x: T) => number, buckets: Array<{ label: string; min: number; max: number }>) =>
+    buckets.map((b) => ({
+      label: b.label,
+      count: items.filter((x) => val(x) >= b.min && val(x) < b.max).length,
+    }));
+  const videoBuckets = bucket(distAll, (c) => c.video_count, [
+    { label: "1회성", min: 1, max: 2 },
+    { label: "2-5회", min: 2, max: 6 },
+    { label: "5-10회", min: 6, max: 11 },
+    { label: "10-20회", min: 11, max: 21 },
+    { label: "20+ heavy", min: 21, max: Infinity },
+  ]);
+  const viewsBuckets = bucket(distAll, (c) => c.max_views ?? 0, [
+    { label: "<10K", min: 0, max: 10_000 },
+    { label: "10K~100K", min: 10_000, max: 100_000 },
+    { label: "100K~1M", min: 100_000, max: 1_000_000 },
+    { label: "1M~10M", min: 1_000_000, max: 10_000_000 },
+    { label: "10M+", min: 10_000_000, max: Infinity },
+  ]);
+  const gmvBuckets = bucket(distAll, (c) => c.lifetime_gmv_usd ?? 0, [
+    { label: "$0", min: 0, max: 1 },
+    { label: "$1~$1K", min: 1, max: 1_000 },
+    { label: "$1K~$10K", min: 1_000, max: 10_000 },
+    { label: "$10K~$100K", min: 10_000, max: 100_000 },
+    { label: "$100K+", min: 100_000, max: Infinity },
+  ]);
 
   // cross-channel matrix
   const xcMap = new Map<string, MatrixRow>();
@@ -303,20 +342,46 @@ export function SectionBMockup({
 
         {/* 우 column: Top 작성자 */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            Top 작성자 (20+ 영상){" "}
-            <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>
-              · 팔로워 = TK 본 채널 기준 (lemur lookup)
-            </span>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>
+              Top 작성자{" "}
+              <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>
+                · 팔로워 = TK 본 채널 기준
+              </span>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 4, fontSize: 10 }}>
+              <span style={{ color: "#6b7280", marginRight: 4 }}>정렬:</span>
+              {(["videos", "views", "gmv"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSortBy(s)}
+                  style={{
+                    padding: "2px 8px",
+                    fontSize: 10,
+                    border: "1px solid",
+                    borderColor: sortBy === s ? "#1f2937" : "#d1d5db",
+                    background: sortBy === s ? "#1f2937" : "white",
+                    color: sortBy === s ? "white" : "#6b7280",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {s === "videos" ? "영상 수" : s === "views" ? "조회수" : "매출"}
+                </button>
+              ))}
+            </div>
           </div>
           <table>
             <thead>
               <tr>
                 <th>이름</th>
                 <th>팔로워</th>
-                <th>채널 활동 (영상 수)</th>
-                <th style={{ textAlign: "right" }}>총 영상</th>
-                <th style={{ textAlign: "right" }}>최고 조회</th>
+                <th>채널 활동</th>
+                <th style={{ textAlign: "right", background: sortBy === "videos" ? "#fef3c7" : undefined }}>영상</th>
+                <th style={{ textAlign: "right", background: sortBy === "views" ? "#fef3c7" : undefined }}>최고 조회</th>
+                <th style={{ textAlign: "right", background: sortBy === "gmv" ? "#fef3c7" : undefined }}>Lifetime GMV</th>
               </tr>
             </thead>
             <tbody>
@@ -330,6 +395,7 @@ export function SectionBMockup({
               {topCreators.slice(0, 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
+                const isOwned = ownedHandles?.has(normalize(c.handle)) ?? false;
                 const isExpanded = expandedHandle === c.handle;
                 const hasVideos = (c.top_videos?.length ?? 0) > 0;
                 return (
@@ -344,6 +410,22 @@ export function SectionBMockup({
                     >
                       <td>
                         <b>{c.handle}</b>
+                        {isOwned && (
+                          <span
+                            style={{
+                              marginLeft: 4,
+                              fontSize: 9,
+                              padding: "1px 5px",
+                              borderRadius: 3,
+                              background: "#1f2937",
+                              color: "white",
+                              fontWeight: 700,
+                            }}
+                            title="본사 직접 운영 채널 (owned account)"
+                          >
+                            🏢 본사
+                          </span>
+                        )}
                         {isCeleb && <span className="tag tag-warn">⭐셀럽</span>}
                         {hasVideos && (
                           <span style={{ marginLeft: 6, fontSize: 9, color: "#92400e" }}>
@@ -355,16 +437,19 @@ export function SectionBMockup({
                       <td>
                         <ChannelPills tk={xc?.tk ?? c.video_count} ig={xc?.ig ?? 0} yt={xc?.yt ?? 0} />
                       </td>
-                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", background: sortBy === "videos" ? "#fef3c7" : undefined }}>
                         {c.video_count}
                       </td>
-                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", background: sortBy === "views" ? "#fef3c7" : undefined }}>
                         {formatViews(c.max_views)}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", background: sortBy === "gmv" ? "#fef3c7" : undefined, color: c.lifetime_gmv_usd ? "#10b981" : "#9ca3af" }}>
+                        {c.lifetime_gmv_usd != null && c.lifetime_gmv_usd > 0 ? formatUsd(c.lifetime_gmv_usd) : "—"}
                       </td>
                     </tr>
                     {isExpanded && hasVideos && (
                       <tr>
-                        <td colSpan={5} style={{ padding: 0 }}>
+                        <td colSpan={6} style={{ padding: 0 }}>
                           <CreatorVideosEmbed videos={c.top_videos!.slice(0, 3)} />
                         </td>
                       </tr>
@@ -374,7 +459,7 @@ export function SectionBMockup({
               })}
               {topCreators.length > 5 && (
                 <tr style={{ color: "#9ca3af" }}>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
                     + {topCreators.length - 5}명 더보기
                   </td>
                 </tr>
@@ -384,6 +469,79 @@ export function SectionBMockup({
         </div>
       </div>
 
+      {/* ★ 인플 활동 3축 분포 — 영상 수 / 최고 조회수 / Lifetime GMV bucket 분포 */}
+      {distAll.length > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            paddingTop: 16,
+            borderTop: "1px dashed #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+            🎯 인플 활동 3축 분포{" "}
+            <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>
+              · {distAll.length}명 기준 — 많이 올렸냐 / 조회수 잘 나왔냐 / 매출 잘 나왔냐
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            {[
+              { title: "영상 수 (반복)", buckets: videoBuckets, color: "#1f2937", active: sortBy === "videos" },
+              { title: "최고 조회수", buckets: viewsBuckets, color: "#06b6d4", active: sortBy === "views" },
+              { title: "Lifetime GMV", buckets: gmvBuckets, color: "#10b981", active: sortBy === "gmv" },
+            ].map((axis) => {
+              const max = Math.max(...axis.buckets.map((b) => b.count), 1);
+              return (
+                <div
+                  key={axis.title}
+                  style={{
+                    padding: 10,
+                    border: "1px solid",
+                    borderColor: axis.active ? axis.color : "#e5e7eb",
+                    borderRadius: 6,
+                    background: axis.active ? "#fafafa" : "white",
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8, color: axis.color }}>
+                    {axis.title}
+                  </div>
+                  {axis.buckets.map((b) => {
+                    const pct = max > 0 ? (b.count / max) * 100 : 0;
+                    return (
+                      <div
+                        key={b.label}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "80px 1fr 40px",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 10,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span style={{ color: "#6b7280" }}>{b.label}</span>
+                        <div style={{ height: 6, background: "#f3f4f6", borderRadius: 3 }}>
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${pct}%`,
+                              background: axis.color,
+                              borderRadius: 3,
+                            }}
+                          />
+                        </div>
+                        <span style={{ textAlign: "right", fontFamily: "monospace", color: "#1f2937" }}>
+                          {b.count.toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Shop creator section */}
       {showShopSection && (

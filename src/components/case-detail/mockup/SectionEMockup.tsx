@@ -49,6 +49,7 @@ export function SectionEMockup({
   const [brandOnly, setBrandOnly] = useState(false);
   const [activeOnly, setActiveOnly] = useState(false);
   const [partnerOnly, setPartnerOnly] = useState(false);
+  const [retailerOnly, setRetailerOnly] = useState(false);
   const [showCount, setShowCount] = useState(8);
 
   const ads = metaAdsList ?? phase4a.ads_preview ?? [];
@@ -69,6 +70,28 @@ export function SectionEMockup({
     );
   }
 
+  // ── 광고 3분류: 본사 / 유통 retailer / 인플 partnership ──
+  // is_brand_official=true → 본사
+  // is_brand_official=false + page_name 안 retailer keyword 매칭 → 유통
+  // 그 외 → 인플
+  const RETAILER_KEYWORDS = [
+    "walmart", "target", "sephora", "ulta", "amazon", "costco", "sams club",
+    "kroger", "cvs", "walgreens", "rite aid", "best buy", "macy", "kohls",
+    "jcpenney", "nordstrom", "tj maxx", "marshalls", "ross", "ikea",
+    "home depot", "lowes", "qvc", "hsn", "publix", "wegmans", "whole foods",
+    "shoppe", "shopee", "lazada", "tokopedia",
+  ];
+  const isRetailer = (pageName: string | null): boolean => {
+    if (!pageName) return false;
+    const lower = pageName.toLowerCase();
+    return RETAILER_KEYWORDS.some((kw) => lower.includes(kw));
+  };
+  const classifyAd = (ad: AdLike): "brand" | "retailer" | "partner" => {
+    if (ad.is_brand_official) return "brand";
+    if (isRetailer(ad.page_name)) return "retailer";
+    return "partner";
+  };
+
   // ── 필터 적용 ──
   const filteredAds = useMemo(() => {
     let r = ads;
@@ -86,11 +109,12 @@ export function SectionEMockup({
     if (formatFilter !== "all") {
       r = r.filter((a) => (a.format ?? "").toLowerCase() === formatFilter.toLowerCase());
     }
-    if (brandOnly) r = r.filter((a) => a.is_brand_official);
+    if (brandOnly) r = r.filter((a) => classifyAd(a) === "brand");
+    if (retailerOnly) r = r.filter((a) => classifyAd(a) === "retailer");
+    if (partnerOnly) r = r.filter((a) => classifyAd(a) === "partner");
     if (activeOnly) r = r.filter((a) => a.is_active);
-    if (partnerOnly) r = r.filter((a) => !a.is_brand_official);
     return r;
-  }, [ads, search, landingFilter, formatFilter, brandOnly, activeOnly, partnerOnly]);
+  }, [ads, search, landingFilter, formatFilter, brandOnly, activeOnly, partnerOnly, retailerOnly]);
 
   const displayed = filteredAds.slice(0, showCount);
   const moreCount = Math.max(0, filteredAds.length - showCount);
@@ -129,6 +153,13 @@ export function SectionEMockup({
     phase4a.total_ads > 0
       ? Math.round((phase4a.brand_official_ads / phase4a.total_ads) * 100)
       : 0;
+
+  // ★ 광고 3분류 카운트 (fetched ads sample 안 — ads_preview 또는 metaAdsList)
+  const adCls = { brand: 0, retailer: 0, partner: 0 };
+  for (const ad of ads) {
+    adCls[classifyAd(ad)] += 1;
+  }
+  const adClsTotal = adCls.brand + adCls.retailer + adCls.partner || 1;
   const amazonCount = phase4a.landings.amazon ?? 0;
   const dtcCount = phase4a.landings.dtc ?? 0;
   const amazonPct =
@@ -177,12 +208,17 @@ export function SectionEMockup({
           <div className="kpi-sub">active {phase4a.active_ads}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">brand 직접</div>
+          <div className="kpi-label">🏢 본사 직접</div>
           <div className="kpi-val">{phase4a.brand_official_ads.toLocaleString()}</div>
           <div className="kpi-sub">{brandPct}%</div>
         </div>
+        <div className="kpi" title="유통 retailer (Walmart/Target/Sephora 등) — 본사 비용 X">
+          <div className="kpi-label">🛒 유통 retailer</div>
+          <div className="kpi-val">{adCls.retailer.toLocaleString()}</div>
+          <div className="kpi-sub">샘플 안 {Math.round((adCls.retailer / adClsTotal) * 100)}%</div>
+        </div>
         <div className="kpi">
-          <div className="kpi-label">partnership ★</div>
+          <div className="kpi-label">👤 인플 partnership ★</div>
           <div className="kpi-val">{phase4a.partnership_ads.toLocaleString()}</div>
           <div className="kpi-sub">{phase4a.partnership_creators}명 인플</div>
         </div>
@@ -247,10 +283,18 @@ export function SectionEMockup({
         <label className="ad-check">
           <input
             type="checkbox"
+            checked={retailerOnly}
+            onChange={(e) => setRetailerOnly(e.target.checked)}
+          />{" "}
+          🛒 유통만
+        </label>
+        <label className="ad-check">
+          <input
+            type="checkbox"
             checked={partnerOnly}
             onChange={(e) => setPartnerOnly(e.target.checked)}
           />{" "}
-          partnership만
+          👤 인플만
         </label>
         <span style={{ marginLeft: "auto", fontSize: 10, color: "#6b7280" }}>
           {filteredAds.length} / {ads.length} 표시
@@ -283,11 +327,24 @@ export function SectionEMockup({
               ) : null}
               <div className="ad-badges">
                 {ad.is_active && <span className="ad-badge active">active</span>}
-                {ad.is_brand_official ? (
-                  <span className="ad-badge brand">본사</span>
-                ) : (
-                  <span className="ad-badge partner">partnership</span>
-                )}
+                {(() => {
+                  const cls = classifyAd(ad);
+                  if (cls === "brand") {
+                    return <span className="ad-badge brand" title="본사 직접 광고">🏢 본사</span>;
+                  }
+                  if (cls === "retailer") {
+                    return (
+                      <span
+                        className="ad-badge"
+                        title="유통 retailer 광고 (본사 비용 X)"
+                        style={{ background: "#06b6d4", color: "white" }}
+                      >
+                        🛒 유통
+                      </span>
+                    );
+                  }
+                  return <span className="ad-badge partner" title="인플 partnership 광고">👤 인플</span>;
+                })()}
               </div>
             </div>
             <div className="ad-info">

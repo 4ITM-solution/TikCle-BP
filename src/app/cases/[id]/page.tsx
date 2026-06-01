@@ -2362,6 +2362,14 @@ export default async function CaseDetailPage({
                         crossChannelMatrix={sharedMatrix}
                         topGmvCreators={topGmvCreators}
                         shopGmvDistribution={shopGmvDistribution}
+                        ownedHandles={(() => {
+                          const normH = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                          const out = new Set<string>();
+                          for (const u of igOwnedUsernames) out.add(normH(u));
+                          for (const u of ytOwnedChannels) out.add(normH(u));
+                          // brand_meta_pages 의 page_id 매칭은 partner_creators 단에서만 의미 — Top 작성자 (TK) 와 다른 채널
+                          return out;
+                        })()}
                       />
                       {/* IG / YT detail — phase4c/4d 적재된 case 만 표시 (옛 기능 복원) */}
                       {phase4cStats && !phase4cStats.skipped_reason && (
