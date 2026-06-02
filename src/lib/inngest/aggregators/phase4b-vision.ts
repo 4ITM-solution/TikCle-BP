@@ -4,11 +4,13 @@ import {
   calcVisionCost,
   visionTagOne,
 } from "@/lib/anthropic/vision-tagger";
+import { downloadAndStore } from "@/lib/storage/asset-downloader";
 import type { Phase4bVisionStats, Phase4bSampleStats } from "../types";
 
 type SupaClient = SupabaseClient<Database>;
 
 const VISION_CONCURRENCY = 5; // Anthropic API 동시 호출 수
+const REHOST_CONCURRENCY = 8; // IG cover re-host 동시 fetch 수
 
 /**
  * Phase 4b.3 — Vision Tagging
@@ -266,12 +268,36 @@ async function fetchVisionInputsIgYt(
       .eq("case_id", case_id)
       .in("ig_id", ids);
     const capByIg = new Map((igRows ?? []).map((r) => [r.ig_id, r.caption]));
+
+    // IG cover는 cdninstagram.com 호스트 → Anthropic Vision의 URL fetch가
+    // 인스타 robots.txt에 막혀 400 ("disallowed by robots.txt"). TikTok처럼
+    // URL source 직행 불가. → 우리 서버가 다운로드해서 Supabase storage(case-assets)에
+    // re-host 후 그 public URL을 Anthropic에 넘긴다 (supabase.co는 robots 차단 없음).
+    // re-host 실패 시 원본 URL 폴백 (어차피 400 나지만 다른 IG는 계속 진행).
+    const coverByRef = new Map<string, string>();
+    for (let i = 0; i < igRefs.length; i += REHOST_CONCURRENCY) {
+      const slice = igRefs.slice(i, i + REHOST_CONCURRENCY);
+      const rehosted = await Promise.all(
+        slice.map(async (x) => {
+          const safeRef = x.ref.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
+          const storageUrl = await downloadAndStore(
+            supabase,
+            x.cover,
+            `vision-covers/${case_id}/ig_${safeRef}.jpg`,
+            "image/jpeg",
+          );
+          return { ref: x.ref, url: storageUrl ?? x.cover };
+        }),
+      );
+      for (const r of rehosted) coverByRef.set(r.ref, r.url);
+    }
+
     for (const x of igRefs) {
       inputs.push({
         platform: "instagram",
         content_id: null,
         external_ref: x.ref,
-        cover_url: x.cover,
+        cover_url: coverByRef.get(x.ref) ?? x.cover,
         caption: capByIg.get(x.ref) ?? null,
         asr_text: null,
       });
