@@ -464,6 +464,8 @@ export type Phase4cAuthorPreview = {
   paid_posts: number;
   max_likes: number | null;
   followers: number | null;
+  /** Top 3 영상 (URL + views + caption) — page.tsx 박힘 박힘 ig_posts 박힘 박힘 박힘 박힘. SectionBMockup 박힘 클릭 → iframe 임베드. */
+  top_videos?: Array<{ url: string; views: number; caption: string | null }>;
 };
 
 export type Phase4cRunSummary = {
@@ -499,6 +501,8 @@ export type Phase4dChannelPreview = {
   paid_videos: number;
   max_views: number | null;
   subscriber_count: number | null;
+  /** Top 3 영상 (URL + views + title) — page.tsx 박힘 박힘 yt_videos 박힘 박힘 박힘 박힘. SectionBMockup 박힘 클릭 → iframe 임베드. */
+  top_videos?: Array<{ url: string; views: number; caption: string | null }>;
 };
 
 export type Phase4dRunSummary = {

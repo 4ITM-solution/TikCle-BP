@@ -1301,6 +1301,60 @@ export default async function CaseDetailPage({
   const igAuthorsTotal = igAuthorsCounts.total;
   const igAuthorsWithFollowers = igAuthorsCounts.withFollowers;
 
+  // ★ IG / YT Top 작성자 박힘 박힘 Top 3 영상 fetch — SectionBMockup 클릭 → iframe embed 박힘 박힘.
+  const [igTopAuthorVideos, ytTopChannelVideos] = await Promise.all([
+    (async () => {
+      const usernames = igTopAuthors.slice(0, 25).map((a) => a.username).filter(Boolean);
+      const map = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+      if (usernames.length === 0) return map;
+      const { data } = await supabase
+        .from("ig_posts")
+        .select("owner_username, url, video_play_count, likes_count, caption")
+        .eq("case_id", c.id)
+        .in("owner_username", usernames)
+        .order("likes_count", { ascending: false, nullsFirst: false })
+        .limit(usernames.length * 20);
+      for (const p of data ?? []) {
+        const owner = (p as { owner_username?: string | null }).owner_username;
+        const url = (p as { url?: string | null }).url;
+        if (!owner || !url) continue;
+        const cur = map.get(owner) ?? [];
+        if (cur.length >= 3) continue; // 박힘 박힘 박힘 박힘 박힘 박힘 박힘 likes desc 박힘 박힘 박힘 박힘 3 박힘 박힘
+        const views = (p as { video_play_count?: number | null }).video_play_count
+          ?? (p as { likes_count?: number | null }).likes_count
+          ?? 0;
+        const caption = (p as { caption?: string | null }).caption;
+        cur.push({ url, views, caption: caption ? caption.slice(0, 100) : null });
+        map.set(owner, cur);
+      }
+      return map;
+    })(),
+    (async () => {
+      const names = ytTopChannels.slice(0, 25).map((c2) => c2.channel_name).filter(Boolean);
+      const map = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+      if (names.length === 0) return map;
+      const { data } = await supabase
+        .from("yt_videos")
+        .select("channel_name, url, views, title")
+        .eq("case_id", c.id)
+        .in("channel_name", names)
+        .order("views", { ascending: false, nullsFirst: false })
+        .limit(names.length * 20);
+      for (const v of data ?? []) {
+        const ch = (v as { channel_name?: string | null }).channel_name;
+        const url = (v as { url?: string | null }).url;
+        if (!ch || !url) continue;
+        const cur = map.get(ch) ?? [];
+        if (cur.length >= 3) continue;
+        const views = (v as { views?: number | null }).views ?? 0;
+        const title = (v as { title?: string | null }).title;
+        cur.push({ url, views, caption: title ? title.slice(0, 100) : null });
+        map.set(ch, cur);
+      }
+      return map;
+    })(),
+  ]);
+
   // 5b. 비용 추정
   const costEstimate = estimateCost({
     channel: c.channel,
@@ -2254,13 +2308,15 @@ export default async function CaseDetailPage({
                           paid_posts: a.paid_posts,
                           max_likes: a.max_likes ?? null,
                           followers: (a as { followers?: number | null }).followers ?? null,
+                          top_videos: igTopAuthorVideos.get(a.username) ?? [],
                         }))}
-                        ytTopChannels={ytTopChannels.map((c) => ({
-                          channel_name: c.channel_name,
-                          total_videos: c.total_videos,
-                          paid_videos: c.paid_videos,
-                          max_views: c.max_views ?? null,
-                          subscriber_count: c.subscriber_count ?? null,
+                        ytTopChannels={ytTopChannels.map((c2) => ({
+                          channel_name: c2.channel_name,
+                          total_videos: c2.total_videos,
+                          paid_videos: c2.paid_videos,
+                          max_views: c2.max_views ?? null,
+                          subscriber_count: c2.subscriber_count ?? null,
+                          top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
                       />
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}

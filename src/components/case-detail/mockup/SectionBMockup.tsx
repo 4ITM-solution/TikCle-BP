@@ -132,7 +132,7 @@ export function SectionBMockup({
         follower_count: a.followers ?? null, // Phase 4c.5 IG profile scraper 박힘
         is_shop_creator: null,
         lifetime_gmv_usd: null,
-        top_videos: [],
+        top_videos: a.top_videos ?? [], // page.tsx 박힘 ig_posts 박힘 박힘 Top 3 박힘
       }));
     }
     if (channelMode === "yt") {
@@ -144,7 +144,7 @@ export function SectionBMockup({
         follower_count: ch.subscriber_count ?? null,
         is_shop_creator: null,
         lifetime_gmv_usd: null,
-        top_videos: [],
+        top_videos: ch.top_videos ?? [], // page.tsx 박힘 yt_videos 박힘 박힘 Top 3 박힘
       }));
     }
     return phase2.top_creators ?? [];
@@ -770,9 +770,25 @@ function normalize(s: string): string {
   return (s ?? "").toLowerCase().replace(/^@/, "").trim();
 }
 
-function extractTikTokVideoId(url: string): string | null {
-  const m = url.match(/\/(?:video|photo)\/(\d+)/);
-  return m?.[1] ?? null;
+function detectEmbed(url: string): { kind: "tiktok" | "instagram" | "youtube"; src: string; label: string } | null {
+  // TikTok: /@user/video/<id> or /@user/photo/<id>
+  const tk = url.match(/\/(?:video|photo)\/(\d+)/);
+  if (tk?.[1] && /tiktok\.com/i.test(url)) {
+    return { kind: "tiktok", src: `https://www.tiktok.com/embed/v2/${tk[1]}`, label: "TikTok" };
+  }
+  // Instagram: /p/<shortcode>/ or /reel/<shortcode>/ or /reels/<shortcode>/
+  const ig = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+  if (ig?.[1]) {
+    return { kind: "instagram", src: `https://www.instagram.com/p/${ig[1]}/embed`, label: "Instagram" };
+  }
+  // YouTube: watch?v=<id> | youtu.be/<id> | shorts/<id> | embed/<id>
+  const yt =
+    url.match(/youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/) ||
+    url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+  if (yt?.[1]) {
+    return { kind: "youtube", src: `https://www.youtube.com/embed/${yt[1]}`, label: "YouTube" };
+  }
+  return null;
 }
 
 function CreatorVideosEmbed({ videos }: { videos: TopCreatorVideo[] }) {
@@ -787,16 +803,16 @@ function CreatorVideosEmbed({ videos }: { videos: TopCreatorVideo[] }) {
       }}
     >
       {videos.map((v, i) => {
-        const id = extractTikTokVideoId(v.url);
+        const embed = detectEmbed(v.url ?? "");
         return (
-          <div key={v.url} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div key={`${v.url}-${i}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 10, color: "#92400e", display: "flex", justifyContent: "space-between" }}>
               <span>#{i + 1}</span>
               <span style={{ fontWeight: 700 }}>{formatViews(v.views)} views</span>
             </div>
-            {id ? (
+            {embed ? (
               <iframe
-                src={`https://www.tiktok.com/embed/v2/${id}`}
+                src={embed.src}
                 loading="lazy"
                 allowFullScreen
                 allow="encrypted-media"
@@ -810,7 +826,7 @@ function CreatorVideosEmbed({ videos }: { videos: TopCreatorVideo[] }) {
                 rel="noopener noreferrer"
                 style={{ display: "block", padding: 12, textAlign: "center", fontSize: 11, color: "#1f2937", textDecoration: "underline" }}
               >
-                TikTok 에서 열기 ↗
+                영상 열기 ↗
               </a>
             )}
             {v.caption && (
