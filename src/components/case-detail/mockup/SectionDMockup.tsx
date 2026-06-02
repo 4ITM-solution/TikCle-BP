@@ -165,15 +165,17 @@ export function SectionDMockup({
       .filter((v) => v.product_title && v.product_title.toLowerCase().includes(skuKey))
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 5);
+    // DisplayedVideoEntry 키 정확히 맞춤 — caption_preview / matched_sku_names / confidence.
     return fallback.map((v) => ({
       content_id: v.video_url ?? "",
       url: v.video_url ?? "#",
       views: v.views ?? 0,
-      caption: v.description ?? null,
       thumbnail_url: null,
-      confidence: "kalodata-fallback",
+      caption_preview: v.description ? v.description.slice(0, 140) : null,
       matched_skus: [asin],
-    })) as unknown as DisplayedVideoEntry[];
+      matched_sku_names: skuName ? [skuName] : [],
+      confidence: "kalodata-fallback" as unknown as DisplayedVideoEntry["confidence"],
+    }));
   };
 
   return (
