@@ -2356,6 +2356,9 @@ export default async function CaseDetailPage({
                           }
                           bsrSeries={ks.phase2?.bsr_series}
                           weeklyViews={weeklyViews}
+                          /* Hydration 안전: server 시점 Date.now() 박아 SkuHealthCards 까지 전달.
+                             SkuHealthCards 가 Date.now() 직접 호출하면 SSR/CSR 시점 차이로 React #418. */
+                          nowMs={Date.now()}
                         />
                       )}
                     </div>

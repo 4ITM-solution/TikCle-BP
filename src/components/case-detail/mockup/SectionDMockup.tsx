@@ -47,6 +47,7 @@ export function SectionDMockup({
   kalodataBrandKpi,
   bsrSeries,
   weeklyViews,
+  nowMs,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
@@ -79,6 +80,8 @@ export function SectionDMockup({
   /** BSR series (Amazon top 5 SKU) + weekly views — BSR sub-tab line chart (옛 BsrTrendChart) */
   bsrSeries?: BsrSeries[];
   weeklyViews?: WeeklyViewPoint[];
+  /** Hydration 안전 — page.tsx 가 server 시점 Date.now() 박아 SkuHealthCards 까지 전달. */
+  nowMs?: number;
 }) {
   const renderKalodataFallbackHint = () => {
     if (!kalodataInOtherCases || kalodataInOtherCases.length === 0) return null;
@@ -305,6 +308,7 @@ export function SectionDMockup({
             ? matchedFor(selectedSku, skus.find((s) => s.asin === selectedSku)?.name ?? undefined)
             : undefined
         }
+        nowMs={nowMs}
       />
 
       {/* ★ Kalodata Brand 매출 분해 — Self/Affiliate/Mall % (SEA TT Shop case BP 핵심) */}

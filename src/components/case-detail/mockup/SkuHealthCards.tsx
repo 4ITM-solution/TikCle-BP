@@ -24,12 +24,16 @@ export function SkuHealthCards({
   phase4bSku,
   selectedSku = "all",
   matchedVideosOverride,
+  nowMs,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   selectedSku?: string; // "all" 또는 asin
   /** SectionDMockup 의 matchedFor() 결과 (Kalodata fuzzy fallback 포함). undefined 면 phase4bSku 정확 매칭만. */
   matchedVideosOverride?: DisplayedVideoEntry[];
+  /** Hydration 안전 — page.tsx 가 server 시점에 Date.now() 박아 prop 으로 내려보냄.
+   *  Date.now() 직접 호출하면 SSR/CSR 시점 차이로 React #418 발생. */
+  nowMs?: number;
 }) {
   if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
     return null;
@@ -88,7 +92,8 @@ export function SkuHealthCards({
   const isCatDiverse = catCount >= 3;
 
   // ─── 3. 신상 매출 비중 (launch_date 기준 1년 이내) ───
-  const now = Date.now();
+  // Hydration 안전 위해 prop 으로 받은 nowMs 사용 (server 시점). prop 없으면 fallback.
+  const now = nowMs ?? 0;
   let newRev = 0;
   let midRev = 0;
   let oldRev = 0;
