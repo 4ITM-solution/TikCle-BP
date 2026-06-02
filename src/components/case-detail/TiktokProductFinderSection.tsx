@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   dryRunTiktokProductFinder,
@@ -39,8 +39,15 @@ export function TiktokProductFinderSection({
   const [text, setText] = useState("");
   const [productId, setProductId] = useState<string>("");
   const [search, setSearch] = useState<string>("");
-  const today = new Date().toISOString().slice(0, 10);
-  const [periodEnd, setPeriodEnd] = useState<string>(today);
+  // Hydration 안전 — useState 초기값에 new Date() 박으면 SSR/CSR 시점 차이로 React #418.
+  // 빈 string 으로 시작 → useEffect 박힌 mount 후 today 박음.
+  const [today, setToday] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  useEffect(() => {
+    const t = new Date().toISOString().slice(0, 10);
+    setToday(t);
+    setPeriodEnd(t);
+  }, []);
   const [periodDays, setPeriodDays] = useState<"7" | "14" | "30">("30");
   const [preview, setPreview] = useState<TtProductFinderDryRun | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(

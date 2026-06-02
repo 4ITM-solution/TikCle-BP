@@ -211,10 +211,13 @@ export function AmazonSalesSection({
             alignItems: "center",
           }}
         >
+          {/* defaultValue 박힌 박힌 new Date() 박으면 SSR/CSR 시점 차이로 React #418 hydration mismatch.
+              suppressHydrationWarning 박힌 박힌 default value 박힌 박힌 박힌 박힌 박힌 input 박힌 박힌 박힌. */}
           <input
             id="period_start"
             className="field-input mono"
             type="date"
+            suppressHydrationWarning
             defaultValue={new Date(Date.now() - 30 * 86400_000)
               .toISOString()
               .slice(0, 10)}
@@ -226,6 +229,7 @@ export function AmazonSalesSection({
             id="period_end"
             className="field-input mono"
             type="date"
+            suppressHydrationWarning
             defaultValue={new Date().toISOString().slice(0, 10)}
           />
         </div>

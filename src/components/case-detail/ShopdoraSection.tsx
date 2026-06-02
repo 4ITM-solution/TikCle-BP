@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   uploadShopdoraSnapshot,
@@ -25,12 +25,13 @@ export function ShopdoraSection({
 
   // 스냅샷
   const [snapText, setSnapText] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000)
-    .toISOString()
-    .slice(0, 10);
-  const [periodStart, setPeriodStart] = useState(thirtyDaysAgo);
-  const [periodEnd, setPeriodEnd] = useState(today);
+  // Hydration 안전 — SSR/CSR 시점 차이 방지. mount 후 setState.
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  useEffect(() => {
+    setPeriodEnd(new Date().toISOString().slice(0, 10));
+    setPeriodStart(new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10));
+  }, []);
   const [snapPending, snapStart] = useTransition();
   const [snapMsg, setSnapMsg] = useState<{
     type: "ok" | "err";

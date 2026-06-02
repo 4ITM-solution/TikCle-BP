@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadTiktokShopUsAffiliate } from "@/app/cases/[id]/upload-actions";
 import { UploadDropzone } from "./UploadDropzone";
@@ -37,8 +37,14 @@ export function TiktokShopUsAffiliateSection({
   const [search, setSearch] = useState<string>("");
   // period_end = "GMV/Items Sold 30d" 기준 종료일. 파일명에 박혀 있으면 자동 추출,
   // 없으면 오늘 default. 사용자가 date picker로 override 가능.
-  const today = new Date().toISOString().slice(0, 10);
-  const [periodEnd, setPeriodEnd] = useState<string>(today);
+  // Hydration 안전 — SSR/CSR 시점 차이 방지. mount 후 setState.
+  const [today, setToday] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  useEffect(() => {
+    const t = new Date().toISOString().slice(0, 10);
+    setToday(t);
+    setPeriodEnd(t);
+  }, []);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
