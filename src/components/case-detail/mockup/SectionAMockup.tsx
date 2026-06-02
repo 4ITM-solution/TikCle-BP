@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -51,6 +51,14 @@ export function SectionAMockup({
   /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
   hasAmazon?: boolean;
 }) {
+  // Hydration 안전 — SSR HTML 박힌 placeholder, mount 후 chart 렌더.
+  // SVG chart 박힌 SSR/CSR 다른 결과 가능성 (어떤 컴포넌트가 #418 일으키는지 진단 어려움).
+  // mounted state 박힌 박힌 chart 박힌 client-only 박힌 → hydration mismatch 자체 회피.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   const [barMode, setBarMode] = useState<BarMode>("abs");
   // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
@@ -205,6 +213,22 @@ export function SectionAMockup({
     n >= 1_000_000 ? `${Math.round(n / 1_000_000)}M` :
     n >= 1_000 ? `${Math.round(n / 1000)}K` :
     n.toLocaleString();
+
+  // SSR / 첫 CSR 렌더 — placeholder 만 (hydration mismatch 방지).
+  if (!mounted) {
+    return (
+      <div className="section" id="sec-a">
+        <div className="section-h">
+          <span className="letter">A</span>
+          <span className="title">콘텐츠 활동</span>
+          <span className="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span>
+        </div>
+        <div style={{ height: 600, background: "#fafafa", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 12 }}>
+          차트 로딩 중…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="section" id="sec-a">
