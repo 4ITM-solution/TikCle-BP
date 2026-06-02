@@ -450,9 +450,12 @@ export function SectionAMockup({
               const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
               const mo = months[idx]!;
               const total = totalByMonth.get(mo) ?? 0;
-              const vcY = total > 0 ? 222 - (total / maxVids) * 222 : 222;
+              // circle r=5 + stroke=2 → 반지름 7. cy 박힌 0~222 박힌 박힌 박힌 circle 박힌 절반 박힌 SVG 박스 밖.
+              // [7, 215] 박힌 clamp 박힘 circle 박힌 박스 안 박힘.
+              const clampDot = (y: number) => Math.max(7, Math.min(215, y));
+              const vcY = total > 0 ? clampDot(222 - (total / maxVids) * 222) : 215;
               const bsr = bsrByMonth.get(mo);
-              const bsrY = bsr !== undefined && bsrVals.length > 0 ? 222 - (1 - (bsr - bsrMin) / bsrRange) * 222 : null;
+              const bsrY = bsr !== undefined && bsrVals.length > 0 ? clampDot(222 - (1 - (bsr - bsrMin) / bsrRange) * 222) : null;
               return (
                 <>
                   <line x1={x} y1="0" x2={x} y2="222" stroke="#1f2937" strokeWidth="1" strokeDasharray="2" />
