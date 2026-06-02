@@ -50,7 +50,7 @@ export function CaseHeader({
             textDecoration: "none",
             fontFamily: "var(--font-mono)",
           }}
-          title="이 케이스 협업 인플 전체 CSV 다운로드"
+          title="이 케이스 협업 인플 전체 CSV — TikTok + Instagram + YouTube 통합"
         >
           ⬇ 인플 CSV
         </a>
@@ -119,7 +119,7 @@ export function CaseHeader({
             textDecoration: "none",
             fontFamily: "var(--font-mono)",
           }}
-          title="이 케이스 협업 인플 전체 CSV 다운로드"
+          title="이 케이스 협업 인플 전체 CSV — TikTok + Instagram + YouTube 통합"
         >
           ⬇ 인플 CSV
         </a>
