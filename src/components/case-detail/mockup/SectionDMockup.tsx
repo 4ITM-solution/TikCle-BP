@@ -292,8 +292,18 @@ export function SectionDMockup({
         </div>
       </div>
 
-      {/* SKU 헬스 KPI 3 card */}
-      <SkuHealthCards phase2={phase2} phase4bSku={phase4bSku} selectedSku={selectedSku} />
+      {/* SKU 헬스 KPI 3 card — matchedFor(Kalodata fuzzy fallback 포함) 박힘 박힘
+          Hero 패널 박힘 박힘 매칭 카운트 일치 시킴. 정확 매칭 0개여도 fuzzy 5개 박힘 박힘 표시. */}
+      <SkuHealthCards
+        phase2={phase2}
+        phase4bSku={phase4bSku}
+        selectedSku={selectedSku}
+        matchedVideosOverride={
+          selectedSku !== "all"
+            ? matchedFor(selectedSku, skus.find((s) => s.asin === selectedSku)?.name ?? undefined)
+            : undefined
+        }
+      />
 
       {/* ★ Kalodata Brand 매출 분해 — Self/Affiliate/Mall % (SEA TT Shop case BP 핵심) */}
       {kalodataBrandKpi && (kalodataBrandKpi.self_operated_revenue_usd != null || kalodataBrandKpi.affiliate_revenue_usd != null || kalodataBrandKpi.shopping_mall_revenue_usd != null) && (

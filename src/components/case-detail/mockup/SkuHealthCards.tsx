@@ -23,10 +23,13 @@ export function SkuHealthCards({
   phase2,
   phase4bSku,
   selectedSku = "all",
+  matchedVideosOverride,
 }: {
   phase2: Phase2Stats;
   phase4bSku?: Phase4bSkuStats;
   selectedSku?: string; // "all" 또는 asin
+  /** SectionDMockup 의 matchedFor() 결과 (Kalodata fuzzy fallback 포함). undefined 면 phase4bSku 정확 매칭만. */
+  matchedVideosOverride?: DisplayedVideoEntry[];
 }) {
   if (!phase2.sales_summary || !phase2.sku_sales || phase2.sku_sales.length === 0) {
     return null;
@@ -113,12 +116,15 @@ export function SkuHealthCards({
     ? phase2.sku_sales.find((s) => s.asin === selectedSku)?.name ?? selectedSku
     : null;
 
-  // SKU 선택 시: 그 SKU 매칭 영상들 (phase4b_sku.displayed_videos 에서 filter)
-  const matchedVideos: DisplayedVideoEntry[] = isSingleSelected && phase4bSku
-    ? (phase4bSku.displayed_videos ?? []).filter(
-        (v) => Array.isArray(v.matched_skus) && v.matched_skus.includes(selectedSku),
-      )
-    : [];
+  // SKU 선택 시: 그 SKU 매칭 영상들.
+  // SectionDMockup 의 matchedFor() 가 박혔으면 그거 (Kalodata fuzzy fallback 포함) — Hero 패널과 동일 매칭.
+  // 안 박혔으면 phase4b_sku.displayed_videos 정확 매칭만.
+  const matchedVideos: DisplayedVideoEntry[] = matchedVideosOverride
+    ?? (isSingleSelected && phase4bSku
+      ? (phase4bSku.displayed_videos ?? []).filter(
+          (v) => Array.isArray(v.matched_skus) && v.matched_skus.includes(selectedSku),
+        )
+      : []);
 
   return (
     <div>
