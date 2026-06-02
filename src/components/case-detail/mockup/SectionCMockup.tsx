@@ -20,42 +20,47 @@ import type {
 
 type ChannelFilter = "all" | "tk" | "ig" | "yt";
 
+type ClusterChannelSlice = {
+  clusterMetrics: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>;
+  clusterTopVideos: Record<string, Array<{ url: string; views: number; caption: string | null }>>;
+  tierClusterHeatmap: { tiers: string[]; metas: Array<{ id: string; name: string }>; cells: Record<string, Record<string, number>> };
+  clusterGmvByMonth: Record<string, Record<string, number>>;
+  heatmap: Array<{ meta_id: string; meta_name: string; total_videos: number; total_views: number; cells: Array<{ month: string; video_count: number; views_sum: number; paid_count: number }> }>;
+  month_order: string[];
+};
+
 export function SectionCMockup({
   phase2,
   phase4bClusters,
   phase5,
   clusterChannelBreakdown,
-  clusterMetrics,
+  channelData,
   uspSampleVideos,
-  clusterGmvByMonth,
-  tierClusterHeatmap,
-  clusterTopVideos,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
   phase5?: Phase5Stats;
-  /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (page.tsx 에서 server-side SQL) */
+  /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (채널 토글 카운트용) */
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
-  /** meta_cluster_id → { avg_views, paid_count, save_rate_pct, member_count } — uc-metrics 용 */
-  clusterMetrics?: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>;
+  /** 채널별(all/tk/ig/yt) 재집계 데이터 — page.tsx server-side */
+  channelData?: Record<ChannelFilter, ClusterChannelSlice>;
   /** USP 키워드 → top 3 매칭 영상 (caption ilike) — page.tsx SQL */
   uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
-  /** meta_cluster_id → { "YYYY-MM": gmv_usd } — heatmap GMV measure 용 (Kalodata 매칭) */
-  clusterGmvByMonth?: Record<string, Record<string, number>>;
-  /** 옛 MiniDashboard 의 tier × meta 앵글 히트맵 (page.tsx server SQL) */
-  tierClusterHeatmap?: {
-    tiers: string[];
-    metas: Array<{ id: string; name: string }>;
-    cells: Record<string, Record<string, number>>;
-  };
-  /** 각 cluster 별 top view 영상 3개 (page.tsx server SQL) — cluster row 안 임베드/링크 */
-  clusterTopVideos?: Record<string, Array<{ url: string; views: number; caption: string | null }>>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
   const [expandedCluster, setExpandedCluster] = useState<string | null>(null);
+
+  // ── 선택 채널 slice — 모든 탭 공통 적용 ──
+  const cd = channelData?.[channelFilter] ?? channelData?.all;
+  const clusterMetrics = cd?.clusterMetrics;
+  const clusterTopVideos = cd?.clusterTopVideos;
+  const tierClusterHeatmap = cd?.tierClusterHeatmap;
+  const clusterGmvByMonth = cd?.clusterGmvByMonth;
+  const heatRows = cd?.heatmap ?? [];
+  const monthOrder = cd?.month_order ?? [];
 
   // ── 통합 클러스터 panel ── (채널 filter 적용)
   const metasAll = phase4bClusters?.meta_clusters ?? [];
@@ -70,25 +75,30 @@ export function SectionCMockup({
         return true;
       });
 
-  // ── USP 키워드 panel ──
+  // ── USP 키워드 panel ── (Stage 2 에서 채널 분리 예정 — 현재 전 채널 합산)
   const uspKws = (phase5?.usp_keywords ?? []).slice(0, 24);
 
-  // ── heatmap panel — phase5.heatmap = cluster × month (mockup 1:1) ──
-  const heatRows = phase5?.heatmap ?? [];
-  const monthOrder = phase5?.month_order ?? [];
-
-  // ── paid/seeded/organic panel ──
-  const totalPaid = phase2.monthly_video_counts.reduce((s, m) => s + m.paid, 0);
-  const totalSeeded = phase2.total_seeded ?? 0;
-  // organic 에서 seeded 빼면 실 organic
-  const totalOrganicRaw = phase2.monthly_video_counts.reduce((s, m) => s + m.organic, 0);
+  // ── paid/seeded/organic panel ── (채널 토글 적용)
+  // seeded 는 전 채널 합산(phase2.total_seeded)만 있어 'all' 에서만 분리 표시 →
+  // 채널뷰(tk/ig/yt)는 organic 에 흡수.
+  const ch = phase2.monthly_by_channel;
+  const paidRows =
+    channelFilter === "tk" ? (ch?.tk ?? phase2.monthly_video_counts)
+    : channelFilter === "ig" ? (ch?.ig ?? [])
+    : channelFilter === "yt" ? (ch?.yt ?? [])
+    : phase2.monthly_video_counts;
+  const totalPaid = paidRows.reduce((s, m) => s + m.paid, 0);
+  const totalSeeded = channelFilter === "all" ? (phase2.total_seeded ?? 0) : 0;
+  const totalOrganicRaw =
+    channelFilter === "all"
+      ? phase2.monthly_video_counts.reduce((s, m) => s + m.organic, 0)
+      : paidRows.reduce((s, m) => s + Math.max(0, m.total - m.paid), 0);
   const totalOrganic = Math.max(0, totalOrganicRaw - totalSeeded);
   const totalAll = totalPaid + totalSeeded + totalOrganic || 1;
   const adPct = Math.round((totalPaid / totalAll) * 100);
   const seededPct = Math.round((totalSeeded / totalAll) * 100);
   const organicPct = Math.round((totalOrganic / totalAll) * 100);
-  // 채널별 ad 비중 (TK/IG/YT)
-  const ch = phase2.monthly_by_channel;
+  // 채널별 ad 비중 (TK/IG/YT) — 하단 요약줄용 (항상 전체)
   const chPct = (rows?: typeof phase2.monthly_video_counts) => {
     if (!rows) return null;
     const p = rows.reduce((s, m) => s + m.paid, 0);
@@ -125,40 +135,40 @@ export function SectionCMockup({
         </button>
       </div>
 
+      {/* ★ 채널 필터 — 전 탭 공통 적용 (전 채널 / TK / IG / YT) */}
+      <div style={{ margin: "10px 0", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, color: "#6b7280" }}>채널:</span>
+        <div className="ch-toggle">
+          {(["all", "tk", "ig", "yt"] as const).map((m) => {
+            const countFor = (k: typeof m) => {
+              if (k === "all") return metasAll.length;
+              return metasAll.filter((mc) => {
+                const ch = clusterChannelBreakdown?.[mc.id];
+                return ch ? ch[k] > 0 : false;
+              }).length;
+            };
+            const cnt = countFor(m);
+            return (
+              <button
+                key={m}
+                type="button"
+                className={channelFilter === m ? "active" : ""}
+                onClick={() => setChannelFilter(m)}
+                disabled={m !== "all" && cnt === 0}
+                style={m !== "all" && cnt === 0 ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                title={cnt === 0 ? "이 채널 cluster 없음" : `${cnt}개 cluster`}
+              >
+                {m === "all" ? "전 채널" : m === "tk" ? "TikTok" : m === "ig" ? "IG" : "YT"}
+                {m !== "all" && ` (${cnt})`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 통합 클러스터 panel */}
       {tab === "clu" && (
         <div className="panel active">
-          <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널 필터:</span>
-            <div className="ch-toggle">
-              {(["all", "tk", "ig", "yt"] as const).map((m) => {
-                const countFor = (k: typeof m) => {
-                  if (k === "all") return metasAll.length;
-                  return metasAll.filter((mc) => {
-                    const ch = clusterChannelBreakdown?.[mc.id];
-                    if (!ch) return false;
-                    return ch[k] > 0;
-                  }).length;
-                };
-                const cnt = countFor(m);
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    className={channelFilter === m ? "active" : ""}
-                    onClick={() => setChannelFilter(m)}
-                    disabled={m !== "all" && cnt === 0}
-                    style={m !== "all" && cnt === 0 ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-                    title={cnt === 0 ? "이 채널 cluster 없음" : `${cnt}개 cluster`}
-                  >
-                    {m === "all" ? `전 채널 (${cnt} cluster)` :
-                     m === "tk" ? `TikTok (${cnt})` : m === "ig" ? `IG (${cnt})` : `YT (${cnt})`}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {metas.length === 0 ? (
             <div
               style={{
@@ -321,6 +331,11 @@ export function SectionCMockup({
       {/* USP 키워드 panel */}
       {tab === "usp" && (
         <div className="panel active">
+          {channelFilter !== "all" && (
+            <div style={{ marginBottom: 8, fontSize: 10, color: "#9ca3af", padding: "6px 10px", background: "#f9fafb", borderRadius: 4 }}>
+              ※ USP 키워드는 현재 전 채널 합산 기준입니다 (채널별 분리 준비 중).
+            </div>
+          )}
           {uspKws.length === 0 ? (
             <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
               —
@@ -702,7 +717,9 @@ export function SectionCMockup({
       {tab === "paid" && (
         <div className="panel active">
           <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
-            전 채널 콘텐츠 FTC 자동 분류 (paid_signal · is_ad / promoted 기반)
+            {channelFilter === "all" ? "전 채널" : channelFilter === "tk" ? "TikTok" : channelFilter === "ig" ? "Instagram" : "YouTube"}{" "}
+            콘텐츠 FTC 자동 분류 (paid_signal · is_ad / promoted 기반)
+            {channelFilter !== "all" && " · seeded 는 전 채널 합산만 집계되어 organic 에 포함"}
           </div>
           <div className="dist-row">
             <span style={{ color: "#ec4899" }}>●ad</span>
@@ -712,14 +729,16 @@ export function SectionCMockup({
             <span style={{ textAlign: "right" }}>{totalPaid.toLocaleString()}</span>
             <span style={{ color: "#9ca3af", textAlign: "right" }}>{adPct}%</span>
           </div>
-          <div className="dist-row">
-            <span style={{ color: "#f59e0b" }}>●seeded</span>
-            <div className="dist-bar">
-              <div className="dist-fill" style={{ background: "#f59e0b", width: `${seededPct}%` }} />
+          {channelFilter === "all" && (
+            <div className="dist-row">
+              <span style={{ color: "#f59e0b" }}>●seeded</span>
+              <div className="dist-bar">
+                <div className="dist-fill" style={{ background: "#f59e0b", width: `${seededPct}%` }} />
+              </div>
+              <span style={{ textAlign: "right" }}>{totalSeeded.toLocaleString()}</span>
+              <span style={{ color: "#9ca3af", textAlign: "right" }}>{seededPct}%</span>
             </div>
-            <span style={{ textAlign: "right" }}>{totalSeeded.toLocaleString()}</span>
-            <span style={{ color: "#9ca3af", textAlign: "right" }}>{seededPct}%</span>
-          </div>
+          )}
           <div className="dist-row">
             <span style={{ color: "#10b981" }}>●organic</span>
             <div className="dist-bar">
@@ -728,9 +747,11 @@ export function SectionCMockup({
             <span style={{ textAlign: "right" }}>{totalOrganic.toLocaleString()}</span>
             <span style={{ color: "#9ca3af", textAlign: "right" }}>{organicPct}%</span>
           </div>
-          <div style={{ marginTop: 8, fontSize: 10, color: "#9ca3af" }}>
-            seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)
-          </div>
+          {channelFilter === "all" && (
+            <div style={{ marginTop: 8, fontSize: 10, color: "#9ca3af" }}>
+              seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)
+            </div>
+          )}
           <div style={{ marginTop: 12, fontSize: 11, color: "#6b7280" }}>
             채널별 ad 비중:{" "}
             {[

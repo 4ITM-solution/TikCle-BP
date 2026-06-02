@@ -992,10 +992,14 @@ export default async function CaseDetailPage({
     return map;
   })();
 
-  // ★ Cluster SQL 5개 통합 (옛 5번 따로 fetch → 1번 fetch + 메모리 안 group):
-  //    clusterMetrics + clusterChannelBreakdown + clusterTopVideos + tierClusterHeatmap + clusterGmvByMonth
+  // ★ Cluster 통합 집계 — 채널별(all/tk/ig/yt) 재집계.
+  //    멤버에 platform+external_ref 가 있어 TK(contents)/IG(ig_posts)/YT(yt_videos)
+  //    를 통합 멤버 리스트로 정규화 → 채널 subset 별로 metrics/topVideos/tier/heatmap/gmv 산출.
+  //    clusterChannelBreakdown(채널 필터 토글용 카운트)은 별도 유지.
   const clusterBundle = await (async () => {
     type TierKey = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
+    type ChKey = "tk" | "ig" | "yt";
+    const TIERS: TierKey[] = ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"];
     const tierOf = (n: number | null | undefined): TierKey => {
       if (n == null) return "unknown";
       if (n >= 1_000_000) return "mega";
@@ -1005,97 +1009,106 @@ export default async function CaseDetailPage({
       if (n >= 1_000) return "nano";
       return "sub-nano";
     };
-    const empty = {
-      clusterMetrics: {} as Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>,
-      clusterChannelBreakdown: {} as Record<string, { tk: number; ig: number; yt: number }>,
-      clusterTopVideos: {} as Record<string, Array<{ url: string; views: number; caption: string | null }>>,
-      tierClusterHeatmap: {
-        tiers: ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"] as TierKey[],
-        metas: [] as Array<{ id: string; name: string }>,
-        cells: {} as Record<string, Record<string, number>>,
-      },
-      clusterGmvByMonth: {} as Record<string, Record<string, number>>,
+
+    type CSlice = {
+      clusterMetrics: Record<string, { avg_views: number; paid_count: number; save_rate_pct: number; member_count: number }>;
+      clusterTopVideos: Record<string, Array<{ url: string; views: number; caption: string | null }>>;
+      tierClusterHeatmap: { tiers: TierKey[]; metas: Array<{ id: string; name: string }>; cells: Record<string, Record<string, number>> };
+      clusterGmvByMonth: Record<string, Record<string, number>>;
+      heatmap: Array<{ meta_id: string; meta_name: string; total_videos: number; total_views: number; cells: Array<{ month: string; video_count: number; views_sum: number; paid_count: number }> }>;
+      month_order: string[];
     };
+    const emptySlice = (metas: Array<{ id: string; name: string }>): CSlice => ({
+      clusterMetrics: {},
+      clusterTopVideos: {},
+      tierClusterHeatmap: { tiers: TIERS, metas, cells: {} },
+      clusterGmvByMonth: {},
+      heatmap: [],
+      month_order: [],
+    });
+    const emptyBundle = {
+      clusterChannelBreakdown: {} as Record<string, { tk: number; ig: number; yt: number }>,
+      channelData: { all: emptySlice([]), tk: emptySlice([]), ig: emptySlice([]), yt: emptySlice([]) } as Record<"all" | ChKey, CSlice>,
+    };
+
     const ks0 = c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } };
     const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
-    if (metaList.length === 0) return empty;
+    if (metaList.length === 0) return emptyBundle;
+    const metasMeta = metaList.map((m) => ({ id: m.id, name: m.name }));
+    const metaNameById = new Map(metasMeta.map((m) => [m.id, m.name]));
     const childToMeta = new Map<string, string>();
     for (const m of metaList) for (const cc of m.child_clusters ?? []) childToMeta.set(cc.id, m.id);
     const childIds = [...childToMeta.keys()];
-    if (childIds.length === 0) return empty;
-    empty.tierClusterHeatmap.metas = metaList.map((m) => ({ id: m.id, name: m.name }));
+    if (childIds.length === 0) return emptyBundle;
 
-    // ① cluster_members 1번 fetch (all platform — clusterChannelBreakdown 용 + TK content_id 추출)
+    // ① cluster_members fetch (platform + content_id + external_ref)
     const memberChunks: string[][] = [];
     for (let i = 0; i < childIds.length; i += 200) memberChunks.push(childIds.slice(i, i + 200));
     const memberResults = await Promise.all(
       memberChunks.map((slice) =>
         supabase
           .from("content_cluster_members")
-          .select("cluster_id, platform, content_id")
+          .select("cluster_id, platform, content_id, external_ref")
           .in("cluster_id", slice),
       ),
     );
-    const allMembers: Array<{ cluster_id: string; platform: string; content_id: string | null }> = [];
+    const allMembers: Array<{ cluster_id: string; platform: string; content_id: string | null; external_ref: string | null }> = [];
     for (const r of memberResults) for (const row of r.data ?? []) allMembers.push(row);
 
-    // clusterChannelBreakdown 계산
+    // clusterChannelBreakdown
+    const breakdown = emptyBundle.clusterChannelBreakdown;
     for (const r of allMembers) {
       const metaId = childToMeta.get(r.cluster_id);
       if (!metaId) continue;
-      if (!empty.clusterChannelBreakdown[metaId]) empty.clusterChannelBreakdown[metaId] = { tk: 0, ig: 0, yt: 0 };
-      if (r.platform === "tiktok") empty.clusterChannelBreakdown[metaId].tk += 1;
-      else if (r.platform === "instagram") empty.clusterChannelBreakdown[metaId].ig += 1;
-      else if (r.platform === "youtube") empty.clusterChannelBreakdown[metaId].yt += 1;
+      if (!breakdown[metaId]) breakdown[metaId] = { tk: 0, ig: 0, yt: 0 };
+      if (r.platform === "tiktok") breakdown[metaId].tk += 1;
+      else if (r.platform === "instagram") breakdown[metaId].ig += 1;
+      else if (r.platform === "youtube") breakdown[metaId].yt += 1;
     }
 
-    // TK member content_id list (clusterMetrics / clusterTopVideos / tierClusterHeatmap / clusterGmvByMonth)
+    // ② 채널별 source fetch (TK contents / IG ig_posts / YT yt_videos)
     const tkMembers = allMembers.filter((r) => r.platform === "tiktok" && r.content_id);
-    const tkContentIds = [...new Set(tkMembers.map((m) => m.content_id!))];
-    if (tkContentIds.length === 0) return empty;
+    const igMembers = allMembers.filter((r) => r.platform === "instagram" && r.external_ref);
+    const ytMembers = allMembers.filter((r) => r.platform === "youtube" && r.external_ref);
+    const tkIds = [...new Set(tkMembers.map((m) => m.content_id!))];
+    const igRefs = [...new Set(igMembers.map((m) => m.external_ref!))];
+    const ytRefs = [...new Set(ytMembers.map((m) => m.external_ref!))];
 
-    // ② contents 1번 fetch (url + views + caption + is_ad + collect_count + influencer_id 다 컬럼)
-    const contentChunks: string[][] = [];
-    for (let i = 0; i < tkContentIds.length; i += 200) contentChunks.push(tkContentIds.slice(i, i + 200));
-    const contentResults = await Promise.all(
-      contentChunks.map((slice) =>
-        supabase
-          .from("contents")
-          .select("id, url, views, caption, is_ad, collect_count, influencer_id")
-          .in("id", slice),
-      ),
-    );
-    const ctMap = new Map<string, { url: string; views: number; caption: string | null; is_ad: boolean; collect_count: number; influencer_id: string | null }>();
-    for (const r of contentResults) {
-      for (const row of r.data ?? []) {
-        ctMap.set(row.id, {
-          url: row.url,
-          views: row.views ?? 0,
-          caption: row.caption,
-          is_ad: !!row.is_ad,
-          collect_count: row.collect_count ?? 0,
-          influencer_id: row.influencer_id,
-        });
-      }
-    }
+    const chunk = (arr: string[], n = 200) => {
+      const out: string[][] = [];
+      for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+      return out;
+    };
 
-    // ③ influencers 1번 fetch (tier 계산용)
-    const inflIds = [...new Set([...ctMap.values()].map((c) => c.influencer_id).filter((x): x is string => !!x))];
+    const [tkRows, igRows, ytRows] = await Promise.all([
+      tkIds.length === 0 ? Promise.resolve([] as Array<Record<string, unknown>>) : Promise.all(
+        chunk(tkIds).map((slice) =>
+          supabase.from("contents").select("id, url, views, caption, is_ad, collect_count, influencer_id, uploaded_at").in("id", slice),
+        ),
+      ).then((res) => res.flatMap((r) => r.data ?? [])),
+      igRefs.length === 0 ? Promise.resolve([] as Array<Record<string, unknown>>) : Promise.all(
+        chunk(igRefs).map((slice) =>
+          supabase.from("ig_posts").select("ig_id, url, caption, video_view_count, video_play_count, likes_count, posted_at, paid_signal").eq("case_id", c.id).in("ig_id", slice),
+        ),
+      ).then((res) => res.flatMap((r) => r.data ?? [])),
+      ytRefs.length === 0 ? Promise.resolve([] as Array<Record<string, unknown>>) : Promise.all(
+        chunk(ytRefs).map((slice) =>
+          supabase.from("yt_videos").select("yt_id, url, title, description, view_count, uploaded_at, paid_signal, subscriber_count").eq("case_id", c.id).in("yt_id", slice),
+        ),
+      ).then((res) => res.flatMap((r) => r.data ?? [])),
+    ]);
+
+    // ③ influencers (TK tier)
+    const inflIds = [...new Set(tkRows.map((r) => r.influencer_id as string | null).filter((x): x is string => !!x))];
     const tierByInfl = new Map<string, TierKey>();
     if (inflIds.length > 0) {
-      const inflChunks: string[][] = [];
-      for (let i = 0; i < inflIds.length; i += 200) inflChunks.push(inflIds.slice(i, i + 200));
       const inflResults = await Promise.all(
-        inflChunks.map((slice) => supabase.from("influencers").select("id, follower_count").in("id", slice)),
+        chunk(inflIds).map((slice) => supabase.from("influencers").select("id, follower_count").in("id", slice)),
       );
-      for (const r of inflResults) {
-        for (const row of r.data ?? []) {
-          tierByInfl.set(row.id, tierOf(row.follower_count));
-        }
-      }
+      for (const r of inflResults) for (const row of r.data ?? []) tierByInfl.set(row.id, tierOf(row.follower_count));
     }
 
-    // ④ Kalodata video url+publish_date+revenue map
+    // ④ Kalodata gmv map (TK only)
     const kdVids = (keyStats as unknown as { kalodata_videos_xlsx?: Array<{ video_url: string | null; publish_date: string | null; revenue_usd: number | null }> }).kalodata_videos_xlsx ?? [];
     const kdMap = new Map<string, { month: string; gmv: number }>();
     for (const v of kdVids) {
@@ -1103,64 +1116,138 @@ export default async function CaseDetailPage({
       kdMap.set(v.video_url, { month: v.publish_date.slice(0, 7), gmv: v.revenue_usd ?? 0 });
     }
 
-    // ⑤ 5가지 group 한 loop 안 계산
-    const metricsAgg = new Map<string, { totalViews: number; n: number; paid: number; saveRates: number[] }>();
-    const topVidsGrouped = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
-    for (const t of empty.tierClusterHeatmap.tiers) empty.tierClusterHeatmap.cells[t] = {};
+    // ⑤ 통합 멤버 정규화
+    type UM = {
+      metaId: string; ch: ChKey; url: string; views: number; caption: string | null;
+      is_ad: boolean; tier: TierKey; month: string | null; saveRate: number | null;
+      gmv: { month: string; gmv: number } | null;
+    };
+    const tkSrc = new Map(tkRows.map((r) => [r.id as string, r]));
+    const igSrc = new Map(igRows.map((r) => [r.ig_id as string, r]));
+    const ytSrc = new Map(ytRows.map((r) => [r.yt_id as string, r]));
+    const unified: UM[] = [];
 
     for (const m of tkMembers) {
       const metaId = childToMeta.get(m.cluster_id);
-      if (!metaId || !m.content_id) continue;
-      const ct = ctMap.get(m.content_id);
-      if (!ct) continue;
+      const s = tkSrc.get(m.content_id!);
+      if (!metaId || !s) continue;
+      const views = (s.views as number) ?? 0;
+      const collect = (s.collect_count as number) ?? 0;
+      const url = (s.url as string) ?? "";
+      unified.push({
+        metaId, ch: "tk", url, views, caption: (s.caption as string | null) ?? null,
+        is_ad: !!s.is_ad,
+        tier: s.influencer_id ? tierByInfl.get(s.influencer_id as string) ?? "unknown" : "unknown",
+        month: s.uploaded_at ? String(s.uploaded_at).slice(0, 7) : null,
+        saveRate: views > 0 && collect > 0 ? (collect / views) * 100 : null,
+        gmv: kdMap.get(url) ?? null,
+      });
+    }
+    for (const m of igMembers) {
+      const metaId = childToMeta.get(m.cluster_id);
+      const s = igSrc.get(m.external_ref!);
+      if (!metaId || !s) continue;
+      unified.push({
+        metaId, ch: "ig", url: (s.url as string) ?? "",
+        views: ((s.video_view_count as number) ?? (s.video_play_count as number) ?? (s.likes_count as number) ?? 0),
+        caption: (s.caption as string | null) ?? null,
+        is_ad: !!s.paid_signal, tier: "unknown",
+        month: s.posted_at ? String(s.posted_at).slice(0, 7) : null,
+        saveRate: null, gmv: null,
+      });
+    }
+    for (const m of ytMembers) {
+      const metaId = childToMeta.get(m.cluster_id);
+      const s = ytSrc.get(m.external_ref!);
+      if (!metaId || !s) continue;
+      unified.push({
+        metaId, ch: "yt", url: (s.url as string) ?? "",
+        views: (s.view_count as number) ?? 0,
+        caption: `${(s.title as string) ?? ""}\n${((s.description as string) ?? "").slice(0, 200)}`.trim() || null,
+        is_ad: !!s.paid_signal, tier: tierOf(s.subscriber_count as number | null),
+        month: s.uploaded_at ? String(s.uploaded_at).slice(0, 7) : null,
+        saveRate: null, gmv: null,
+      });
+    }
 
-      // clusterMetrics
-      const cur = metricsAgg.get(metaId) ?? { totalViews: 0, n: 0, paid: 0, saveRates: [] };
-      cur.totalViews += ct.views;
-      cur.n += 1;
-      if (ct.is_ad) cur.paid += 1;
-      if (ct.views > 0 && ct.collect_count > 0) cur.saveRates.push((ct.collect_count / ct.views) * 100);
-      metricsAgg.set(metaId, cur);
+    // ⑥ 채널 subset 별 집계
+    const aggregate = (members: UM[]): CSlice => {
+      const slice = emptySlice(metasMeta);
+      for (const t of TIERS) slice.tierClusterHeatmap.cells[t] = {};
+      const metricsAgg = new Map<string, { totalViews: number; n: number; paid: number; saveRates: number[] }>();
+      const topVids = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+      const grid = new Map<string, { views_sum: number; video_count: number; paid_count: number }>(); // metaId|month
+      const metaTotals = new Map<string, { views: number; videos: number }>();
+      const monthSet = new Set<string>();
 
-      // clusterTopVideos (top view 3개)
-      if (!topVidsGrouped.has(metaId)) topVidsGrouped.set(metaId, []);
-      topVidsGrouped.get(metaId)!.push({ url: ct.url, views: ct.views, caption: ct.caption });
-
-      // tierClusterHeatmap
-      const tier: TierKey = ct.influencer_id ? tierByInfl.get(ct.influencer_id) ?? "unknown" : "unknown";
-      empty.tierClusterHeatmap.cells[tier]![metaId] = (empty.tierClusterHeatmap.cells[tier]![metaId] ?? 0) + 1;
-
-      // clusterGmvByMonth (Kalodata url 매칭)
-      const hit = kdMap.get(ct.url);
-      if (hit) {
-        if (!empty.clusterGmvByMonth[metaId]) empty.clusterGmvByMonth[metaId] = {};
-        empty.clusterGmvByMonth[metaId][hit.month] = (empty.clusterGmvByMonth[metaId][hit.month] ?? 0) + hit.gmv;
+      for (const u of members) {
+        // metrics
+        const cur = metricsAgg.get(u.metaId) ?? { totalViews: 0, n: 0, paid: 0, saveRates: [] };
+        cur.totalViews += u.views; cur.n += 1; if (u.is_ad) cur.paid += 1;
+        if (u.saveRate != null) cur.saveRates.push(u.saveRate);
+        metricsAgg.set(u.metaId, cur);
+        // top videos
+        if (!topVids.has(u.metaId)) topVids.set(u.metaId, []);
+        topVids.get(u.metaId)!.push({ url: u.url, views: u.views, caption: u.caption });
+        // tier
+        slice.tierClusterHeatmap.cells[u.tier]![u.metaId] = (slice.tierClusterHeatmap.cells[u.tier]![u.metaId] ?? 0) + 1;
+        // gmv
+        if (u.gmv) {
+          const gm = (slice.clusterGmvByMonth[u.metaId] ??= {});
+          gm[u.gmv.month] = (gm[u.gmv.month] ?? 0) + u.gmv.gmv;
+        }
+        // heatmap grid
+        if (u.month) {
+          monthSet.add(u.month);
+          const key = `${u.metaId}|${u.month}`;
+          const g = grid.get(key) ?? { views_sum: 0, video_count: 0, paid_count: 0 };
+          g.views_sum += u.views; g.video_count += 1; if (u.is_ad) g.paid_count += 1;
+          grid.set(key, g);
+          const tt = metaTotals.get(u.metaId) ?? { views: 0, videos: 0 };
+          tt.views += u.views; tt.videos += 1; metaTotals.set(u.metaId, tt);
+        }
       }
-    }
+      for (const [metaId, v] of metricsAgg) {
+        const sorted = [...v.saveRates].sort((a, b) => a - b);
+        slice.clusterMetrics[metaId] = {
+          avg_views: v.n > 0 ? Math.round(v.totalViews / v.n) : 0,
+          paid_count: v.paid,
+          save_rate_pct: sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)]! : 0,
+          member_count: v.n,
+        };
+      }
+      for (const [metaId, list] of topVids) slice.clusterTopVideos[metaId] = list.sort((a, b) => b.views - a.views).slice(0, 3);
+      // heatmap rows — meta member_count desc, 데이터 있는 month 최근 12개
+      slice.month_order = [...monthSet].sort().slice(-12);
+      const metaOrder = [...metaTotals.entries()].sort((a, b) => b[1].videos - a[1].videos).map(([id]) => id);
+      for (const metaId of metaOrder) {
+        const tt = metaTotals.get(metaId)!;
+        slice.heatmap.push({
+          meta_id: metaId,
+          meta_name: metaNameById.get(metaId) ?? metaId,
+          total_videos: tt.videos,
+          total_views: tt.views,
+          cells: slice.month_order.map((mo) => {
+            const g = grid.get(`${metaId}|${mo}`);
+            return { month: mo, video_count: g?.video_count ?? 0, views_sum: g?.views_sum ?? 0, paid_count: g?.paid_count ?? 0 };
+          }),
+        });
+      }
+      return slice;
+    };
 
-    // clusterMetrics 결과 박음 (median save_rate)
-    for (const [metaId, v] of metricsAgg.entries()) {
-      const sortedRates = [...v.saveRates].sort((a, b) => a - b);
-      const median = sortedRates.length > 0 ? sortedRates[Math.floor(sortedRates.length / 2)]! : 0;
-      empty.clusterMetrics[metaId] = {
-        avg_views: v.n > 0 ? Math.round(v.totalViews / v.n) : 0,
-        paid_count: v.paid,
-        save_rate_pct: median,
-        member_count: v.n,
-      };
-    }
-    // clusterTopVideos top 3 sort
-    for (const [metaId, list] of topVidsGrouped) {
-      empty.clusterTopVideos[metaId] = list.sort((a, b) => b.views - a.views).slice(0, 3);
-    }
-
-    return empty;
+    return {
+      clusterChannelBreakdown: breakdown,
+      channelData: {
+        all: aggregate(unified),
+        tk: aggregate(unified.filter((u) => u.ch === "tk")),
+        ig: aggregate(unified.filter((u) => u.ch === "ig")),
+        yt: aggregate(unified.filter((u) => u.ch === "yt")),
+      } as Record<"all" | ChKey, CSlice>,
+    };
   })();
-  const clusterMetrics = clusterBundle.clusterMetrics;
   const clusterChannelBreakdown = clusterBundle.clusterChannelBreakdown;
-  const clusterTopVideos = clusterBundle.clusterTopVideos;
-  const tierClusterHeatmap = clusterBundle.tierClusterHeatmap;
-  const clusterGmvByMonth = clusterBundle.clusterGmvByMonth;
+  const clusterChannelData = clusterBundle.channelData;
 
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
   const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
@@ -2325,11 +2412,8 @@ export default async function CaseDetailPage({
                         phase4bClusters={ks.phase4b_clusters}
                         phase5={ks.phase5}
                         clusterChannelBreakdown={clusterChannelBreakdown}
-                        clusterMetrics={clusterMetrics}
+                        channelData={clusterChannelData}
                         uspSampleVideos={uspSampleVideos}
-                        clusterGmvByMonth={clusterGmvByMonth}
-                        tierClusterHeatmap={tierClusterHeatmap}
-                        clusterTopVideos={clusterTopVideos}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup

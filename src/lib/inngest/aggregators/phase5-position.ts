@@ -428,8 +428,8 @@ function extractGrams(words: string[]): Set<string> {
   return grams;
 }
 
-function computeUspKeywords(
-  rows: ContentRow[],
+export function computeUspKeywords(
+  rows: Array<{ caption: string | null }>,
   brandName: string,
 ): { usp_keywords: UspKeywordEntry[]; total_captions: number } {
   const brandLower = brandName.toLowerCase();
