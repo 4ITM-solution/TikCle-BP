@@ -402,9 +402,9 @@ export function SectionAMockup({
                     const x = (i / (months.length - 1)) * 1000 + 50;
                     const total = totalByMonth.get(mo) ?? 0;
                     const yRaw = 222 - (total / maxVids) * 222;
-                    // stroke-width 3 박힌 박힌 1.5 박힌 위/아래 박힌 박힌 — y=222 박힌 박힌 stroke 박힌 SVG box 밖.
-                    // [2, 220] 박힌 clamp 박힌 박힌 stroke 박힌 box 안 박힌.
-                    const y = Math.max(2, Math.min(220, yRaw));
+                    // stroke 3px + 여유 → 위/아래 8 viewBox-unit clamp. 라인이 plot
+                    // 가장자리(=날짜축)에 닿거나 넘지 않게 안쪽에 머물게.
+                    const y = Math.max(8, Math.min(214, yRaw));
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -430,8 +430,7 @@ export function SectionAMockup({
                       const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
                       const normalized = Math.max(0, Math.min(1, ratio));
                       const yRaw = 222 - normalized * 222;
-                      // stroke-width 2 박힌 박힌 1 박힌 위/아래 박힌 박힌 buffer.
-                      const y = Math.max(1, Math.min(221, yRaw));
+                      const y = Math.max(8, Math.min(214, yRaw));
                       return `${x},${y}`;
                     })
                     .join(" ")}
@@ -453,7 +452,7 @@ export function SectionAMockup({
                     const v = bsrByMonth.get(mo)!;
                     const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
                     const yRaw = 222 - inv * 222;
-                    const y = Math.max(1, Math.min(221, yRaw));
+                    const y = Math.max(8, Math.min(214, yRaw));
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -485,10 +484,9 @@ export function SectionAMockup({
               const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
               const mo = months[idx]!;
               const total = totalByMonth.get(mo) ?? 0;
-              // circle r=5 + stroke=2 → 반지름 7. cy 박힌 0~222 박힌 박힌 박힌 circle 박힌 절반 박힌 SVG 박스 밖.
-              // [7, 215] 박힌 clamp 박힘 circle 박힌 박스 안 박힘.
-              const clampDot = (y: number) => Math.max(7, Math.min(215, y));
-              const vcY = total > 0 ? clampDot(222 - (total / maxVids) * 222) : 215;
+              // circle r=5 + stroke=2 → 반지름 7. cy clamp 으로 dot 이 box 안에 머물게.
+              const clampDot = (y: number) => Math.max(8, Math.min(214, y));
+              const vcY = total > 0 ? clampDot(222 - (total / maxVids) * 222) : 214;
               const bsr = bsrByMonth.get(mo);
               const bsrY = bsr !== undefined && bsrVals.length > 0 ? clampDot(222 - (1 - (bsr - bsrMin) / bsrRange) * 222) : null;
               return (

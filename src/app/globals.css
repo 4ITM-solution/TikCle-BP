@@ -378,7 +378,9 @@ a {
 .bp-mockup .trend-chart {
     position: relative; height: 280px;
     padding: 16px 0; background: #fafafa; border-radius: 8px;
-    overflow: hidden;
+    /* overflow visible — 호버 툴팁이 차트 높이(280px)보다 길 때 아래가 잘리지 않게.
+       라인은 .overlay-svg 자체 overflow:hidden 으로 plot 영역에 clip 되므로 안전. */
+    overflow: visible;
   }
 .bp-mockup .trend-toggles {
     position: absolute; top: 12px; right: 12px;
@@ -424,10 +426,12 @@ a {
     overflow: hidden;
   }
 .bp-mockup .trend-tooltip {
-    position: absolute; top: 60px; right: 80px;
+    position: absolute; top: 40px; right: 80px;
     background: white; border: 1px solid #e5e7eb; border-radius: 8px;
     padding: 10px 14px; font-size: 11px; min-width: 200px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 10;
+    /* 티어 7개 다 있을 때 길어져도 잘리지 않게 — 최대 높이 + 내부 스크롤 */
+    max-height: 320px; overflow-y: auto;
   }
 .bp-mockup .trend-tooltip .tt-h { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
 .bp-mockup .trend-tooltip table { font-size: 11px; width: 100%; }
