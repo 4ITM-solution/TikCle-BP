@@ -21,6 +21,7 @@ import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
 import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
+import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -965,32 +966,117 @@ export default async function CaseDetailPage({
   }
   const availableSalesChannels = Array.from(new Set(Object.values(skuChannelMap).filter(Boolean))) as string[];
 
-  // ★ USP 키워드별 매칭 영상 top 3 (caption ilike) — Promise.all 병렬 (옛 sequential await 24번)
-  const uspSampleVideos = await (async () => {
-    const map: Record<string, Array<{ url: string; caption: string; views: number }>> = {};
-    const ks = (c.key_stats ?? {}) as { phase5?: { usp_keywords?: Array<{ keyword: string }> } };
-    const kws = (ks.phase5?.usp_keywords ?? []).slice(0, 24).map((k) => k.keyword);
-    if (kws.length === 0 || !brand_id) return map;
-    const results = await Promise.all(
-      kws.map((kw) =>
-        supabase
-          .from("contents")
-          .select("url, caption, views")
-          .eq("brand_id", brand_id)
-          .eq("country", c.country)
-          .ilike("caption", `%${kw}%`)
-          .order("views", { ascending: false, nullsFirst: false })
-          .limit(3)
-          .then((r) => ({ kw, data: r.data })),
-      ),
-    );
-    for (const { kw, data } of results) {
-      if (data && data.length > 0) {
-        map[kw] = data.map((r) => ({ url: r.url, caption: r.caption ?? "", views: r.views ?? 0 }));
+  // ★ USP 키워드 — 채널별(all/tk/ig/yt) 키워드 + 키워드별 매칭 영상 top3.
+  //   TK: phase5 키워드 + contents ilike (기존). IG/YT: 해당 테이블 캡션 코퍼스에서
+  //   computeUspKeywords 재계산 + in-memory 매칭. all: 세 채널 키워드 병합.
+  const uspBundle = await (async () => {
+    type Kw = { keyword: string; count: number; pct: number };
+    type Vid = { url: string; caption: string; views: number };
+    type ChK = "all" | "tk" | "ig" | "yt";
+    const keywords: Record<ChK, Kw[]> = { all: [], tk: [], ig: [], yt: [] };
+    const videos: Record<ChK, Record<string, Vid[]>> = { all: {}, tk: {}, ig: {}, yt: {} };
+
+    // TK 키워드 (phase5 재사용)
+    const ksU = (c.key_stats ?? {}) as { phase5?: { usp_keywords?: Kw[] } };
+    keywords.tk = (ksU.phase5?.usp_keywords ?? []).slice(0, 24);
+
+    // IG / YT 코퍼스 fetch (case-scoped)
+    const igCorpus: Vid[] = [];
+    {
+      let from = 0;
+      for (;;) {
+        const { data } = await supabase
+          .from("ig_posts")
+          .select("caption, url, video_view_count, video_play_count, likes_count")
+          .eq("case_id", c.id)
+          .range(from, from + 999);
+        if (!data || data.length === 0) break;
+        for (const r of data) {
+          igCorpus.push({
+            url: r.url ?? "",
+            caption: r.caption ?? "",
+            views: r.video_view_count ?? r.video_play_count ?? r.likes_count ?? 0,
+          });
+        }
+        if (data.length < 1000) break;
+        from += 1000;
       }
     }
-    return map;
+    const ytCorpus: Vid[] = [];
+    {
+      const { data } = await supabase
+        .from("yt_videos")
+        .select("title, description, url, view_count")
+        .eq("case_id", c.id);
+      for (const r of data ?? []) {
+        ytCorpus.push({
+          url: r.url ?? "",
+          caption: `${r.title ?? ""}\n${(r.description ?? "").slice(0, 200)}`.trim(),
+          views: r.view_count ?? 0,
+        });
+      }
+    }
+    keywords.ig = computeUspKeywords(igCorpus.map((v) => ({ caption: v.caption })), brand).usp_keywords.slice(0, 24);
+    keywords.yt = computeUspKeywords(ytCorpus.map((v) => ({ caption: v.caption })), brand).usp_keywords.slice(0, 24);
+
+    // all = 세 채널 키워드 count 병합
+    const mergeMap = new Map<string, Kw>();
+    for (const list of [keywords.tk, keywords.ig, keywords.yt]) {
+      for (const k of list) {
+        const cur = mergeMap.get(k.keyword) ?? { keyword: k.keyword, count: 0, pct: 0 };
+        cur.count += k.count;
+        cur.pct = Math.max(cur.pct, k.pct);
+        mergeMap.set(k.keyword, cur);
+      }
+    }
+    keywords.all = [...mergeMap.values()].sort((a, b) => b.count - a.count).slice(0, 24);
+
+    // 샘플영상
+    const matchIn = (corpus: Vid[], kw: string) =>
+      corpus
+        .filter((v) => v.caption.toLowerCase().includes(kw.toLowerCase()))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 3);
+    for (const k of keywords.ig) videos.ig[k.keyword] = matchIn(igCorpus, k.keyword);
+    for (const k of keywords.yt) videos.yt[k.keyword] = matchIn(ytCorpus, k.keyword);
+
+    // TK 샘플영상 — contents ilike (기존 로직, 병렬)
+    if (brand_id && keywords.tk.length > 0) {
+      const results = await Promise.all(
+        keywords.tk.map((k) =>
+          supabase
+            .from("contents")
+            .select("url, caption, views")
+            .eq("brand_id", brand_id)
+            .eq("country", c.country)
+            .ilike("caption", `%${k.keyword}%`)
+            .order("views", { ascending: false, nullsFirst: false })
+            .limit(3)
+            .then((r) => ({ kw: k.keyword, data: r.data })),
+        ),
+      );
+      for (const { kw, data } of results) {
+        if (data && data.length > 0) {
+          videos.tk[kw] = data.map((r) => ({ url: r.url, caption: r.caption ?? "", views: r.views ?? 0 }));
+        }
+      }
+    }
+    // all 샘플영상 = kw 별 tk+ig+yt 매칭 합쳐 views top3
+    for (const k of keywords.all) {
+      const combined = [
+        ...(videos.tk[k.keyword] ?? []),
+        ...matchIn(igCorpus, k.keyword),
+        ...matchIn(ytCorpus, k.keyword),
+      ]
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 3);
+      if (combined.length > 0) videos.all[k.keyword] = combined;
+    }
+
+    return { keywords, videos };
   })();
+  const uspByChannel = uspBundle.keywords;
+  const uspVideosByChannel = uspBundle.videos;
 
   // ★ Cluster 통합 집계 — 채널별(all/tk/ig/yt) 재집계.
   //    멤버에 platform+external_ref 가 있어 TK(contents)/IG(ig_posts)/YT(yt_videos)
@@ -2413,7 +2499,8 @@ export default async function CaseDetailPage({
                         phase5={ks.phase5}
                         clusterChannelBreakdown={clusterChannelBreakdown}
                         channelData={clusterChannelData}
-                        uspSampleVideos={uspSampleVideos}
+                        uspByChannel={uspByChannel}
+                        uspVideosByChannel={uspVideosByChannel}
                       />
                       {ks.phase2.sales_summary && (
                         <SectionDMockup

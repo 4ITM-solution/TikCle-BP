@@ -35,7 +35,8 @@ export function SectionCMockup({
   phase5,
   clusterChannelBreakdown,
   channelData,
-  uspSampleVideos,
+  uspByChannel,
+  uspVideosByChannel,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
@@ -44,8 +45,10 @@ export function SectionCMockup({
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
   /** 채널별(all/tk/ig/yt) 재집계 데이터 — page.tsx server-side */
   channelData?: Record<ChannelFilter, ClusterChannelSlice>;
-  /** USP 키워드 → top 3 매칭 영상 (caption ilike) — page.tsx SQL */
-  uspSampleVideos?: Record<string, Array<{ url: string; caption: string; views: number }>>;
+  /** 채널별 USP 키워드 — page.tsx server-side (TK=phase5, IG/YT=코퍼스 재계산, all=병합) */
+  uspByChannel?: Record<ChannelFilter, Array<{ keyword: string; count: number; pct: number }>>;
+  /** 채널별 USP 키워드 → 매칭 영상 top3 */
+  uspVideosByChannel?: Record<ChannelFilter, Record<string, Array<{ url: string; caption: string; views: number }>>>;
 }) {
   const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -75,8 +78,9 @@ export function SectionCMockup({
         return true;
       });
 
-  // ── USP 키워드 panel ── (Stage 2 에서 채널 분리 예정 — 현재 전 채널 합산)
-  const uspKws = (phase5?.usp_keywords ?? []).slice(0, 24);
+  // ── USP 키워드 panel ── (채널별)
+  const uspKws = (uspByChannel?.[channelFilter] ?? phase5?.usp_keywords ?? []).slice(0, 24);
+  const uspSampleVideos = uspVideosByChannel?.[channelFilter];
 
   // ── paid/seeded/organic panel ── (채널 토글 적용)
   // seeded 는 전 채널 합산(phase2.total_seeded)만 있어 'all' 에서만 분리 표시 →
@@ -331,11 +335,6 @@ export function SectionCMockup({
       {/* USP 키워드 panel */}
       {tab === "usp" && (
         <div className="panel active">
-          {channelFilter !== "all" && (
-            <div style={{ marginBottom: 8, fontSize: 10, color: "#9ca3af", padding: "6px 10px", background: "#f9fafb", borderRadius: 4 }}>
-              ※ USP 키워드는 현재 전 채널 합산 기준입니다 (채널별 분리 준비 중).
-            </div>
-          )}
           {uspKws.length === 0 ? (
             <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
               —
