@@ -445,8 +445,11 @@ export function SectionAMockup({
               );
             })}
             {(() => {
-              const idx = hoverIdx ?? months.length - 1;
-              if (idx < 0 || months.length === 0) return null;
+              // 사용자가 hover 한 시점에만 dot + vertical line 표시.
+              // 이전에는 hoverIdx ?? months.length-1 로 마지막 month 에 default dot 그렸는데,
+              // value 가 작으면 dot 이 chart ground 근처 또는 아래로 박혀 시각적으로 박스 밖처럼 보임.
+              const idx = hoverIdx;
+              if (idx === null || idx < 0 || months.length === 0) return null;
               const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
               const mo = months[idx]!;
               const total = totalByMonth.get(mo) ?? 0;
