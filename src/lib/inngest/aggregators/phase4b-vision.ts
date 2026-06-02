@@ -20,46 +20,109 @@ const REHOST_CONCURRENCY = 8; // IG cover re-host 동시 fetch 수
  *
  * 결과: case_video_analyses.vision_tags (jsonb)
  *
- * 의존성:
- *   - sample_content_ids (Phase 4b.1)
- *   - case_video_analyses의 cover_url, asr_text (Phase 4b.2)
- *   - contents.caption
- *
- * 비용: 300 영상 × ~$0.012 = ~$3.5 (캐싱 포함)
+ * Step-level batch 처리. Orchestrator가 N개씩 batch로 step.run 호출
+ * (IG 500 + TK 가 한 step에 몰리면 함수 timeout → Internal Server Error 였음).
+ *   - fetchPhase4bVisionInputs: 입력 리스트 빌드 (setup, 1 step)
+ *   - processPhase4bVisionBatch: IG cover re-host + vision 태깅 + upsert (batch step)
+ *   - finalizePhase4bVision: 집계
  */
-export async function runPhase4bVision(
+
+type VisionInput = {
+  platform: "tiktok" | "instagram" | "youtube";
+  content_id: string | null;
+  external_ref: string | null;
+  cover_url: string;
+  caption: string | null;
+  asr_text: string | null;
+};
+
+export type Phase4bVisionSetup = {
+  inputs: VisionInput[];
+  total_sample_content_ids: number;
+  skipped_reason?: string;
+};
+
+export type Phase4bVisionBatchResult = {
+  attempted: number;
+  with_tags: number;
+  failed: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cache_read: number;
+  tokens_cache_write: number;
+  failure_reasons: Array<{ reason: string; cover_url?: string }>;
+};
+
+/**
+ * Phase 4b.3 setup — vision 입력 리스트(TK + IG/YT) 빌드.
+ * IG cover re-host는 batch 단계에서 (setup을 가볍게 유지).
+ */
+export async function fetchPhase4bVisionInputs(
   supabase: SupaClient,
   case_id: string,
   sample: Phase4bSampleStats,
-): Promise<Phase4bVisionStats> {
+): Promise<Phase4bVisionSetup> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return empty("ANTHROPIC_API_KEY 미설정");
+    return { inputs: [], total_sample_content_ids: 0, skipped_reason: "ANTHROPIC_API_KEY 미설정" };
   }
-  if (sample.sample_content_ids.length === 0 && (sample.sample_items?.length ?? 0) === 0) {
-    return empty("샘플 0개");
+  if (
+    sample.sample_content_ids.length === 0 &&
+    (sample.sample_items?.length ?? 0) === 0
+  ) {
+    return { inputs: [], total_sample_content_ids: 0, skipped_reason: "샘플 0개" };
   }
 
-  // 1. TK 샘플 영상의 caption + ASR + cover 가져옴
   const tkInputs = await fetchVisionInputs(
     supabase,
     case_id,
     sample.sample_content_ids,
   );
-  // Stage 2: IG/YT sample 영상의 cover + caption
   const igYtInputs = sample.sample_items
     ? await fetchVisionInputsIgYt(supabase, case_id, sample.sample_items)
     : [];
   const inputs = [...tkInputs, ...igYtInputs];
 
-  if (inputs.length === 0) {
-    return empty("vision 입력 0개 (cover_url 누락)");
+  return {
+    inputs,
+    total_sample_content_ids: sample.sample_content_ids.length,
+    skipped_reason:
+      inputs.length === 0 ? "vision 입력 0개 (cover_url 누락)" : undefined,
+  };
+}
+
+/**
+ * Phase 4b.3 batch — inputs 일부를 IG cover re-host + Sonnet vision 태깅 + upsert.
+ */
+export async function processPhase4bVisionBatch(
+  supabase: SupaClient,
+  case_id: string,
+  inputs: VisionInput[],
+): Promise<Phase4bVisionBatchResult> {
+  // IG cover는 cdninstagram.com 호스트 → Anthropic Vision의 URL fetch가
+  // 인스타 robots.txt에 막혀 400 ("disallowed by robots.txt"). TikTok처럼
+  // URL source 직행 불가. → 우리 서버가 다운로드해서 Supabase storage(case-assets,
+  // public)에 re-host 후 그 URL을 Anthropic에 넘긴다. re-host 실패 시 원본 폴백.
+  const igItems = inputs.filter((it) => it.platform === "instagram");
+  for (let i = 0; i < igItems.length; i += REHOST_CONCURRENCY) {
+    const slice = igItems.slice(i, i + REHOST_CONCURRENCY);
+    await Promise.all(
+      slice.map(async (it) => {
+        const ref = it.external_ref ?? "";
+        const safeRef = ref.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
+        const storageUrl = await downloadAndStore(
+          supabase,
+          it.cover_url,
+          `vision-covers/${case_id}/ig_${safeRef}.jpg`,
+          "image/jpeg",
+        );
+        if (storageUrl) it.cover_url = storageUrl;
+      }),
+    );
   }
 
-  // 2. Vision 태깅 (병렬, 동시 N개)
-  let total_attempted = 0;
-  let total_with_tags = 0;
-  let total_failed = 0;
-  let total_no_cover = sample.sample_content_ids.length - inputs.length;
+  let attempted = 0;
+  let with_tags = 0;
+  let failed = 0;
   let tokens_in = 0;
   let tokens_out = 0;
   let tokens_cache_r = 0;
@@ -79,11 +142,11 @@ export async function runPhase4bVision(
     );
 
     for (let j = 0; j < results.length; j += 1) {
-      total_attempted += 1;
+      attempted += 1;
       const item = slice[j]!;
       const res = results[j];
       if (res?.status !== "fulfilled") {
-        total_failed += 1;
+        failed += 1;
         const err = res?.reason as unknown;
         const reason =
           err instanceof Error
@@ -107,11 +170,11 @@ export async function runPhase4bVision(
       tokens_cache_w += res.value.tokens_cache_write;
 
       if (!res.value.tags) {
-        total_failed += 1;
+        failed += 1;
         continue;
       }
 
-      // platform 별 upsert: TK 는 content_id 기반, IG/YT 는 platform+external_ref 기반
+      // platform 별 upsert: TK 는 content_id 기반, IG/YT 는 platform+external_ref 기반.
       // generated types 안 multi-platform 미반영 (옛 schema)이라 cast 우회.
       const isTk = item.platform === "tiktok";
       const sb = supabase as unknown as {
@@ -144,15 +207,56 @@ export async function runPhase4bVision(
             { onConflict: "case_id,platform,external_ref" },
           );
       if (error) {
-        total_failed += 1;
+        failed += 1;
         console.error("[vision] upsert fail", {
           platform: item.platform,
           ref: item.external_ref ?? item.content_id,
           err: error.message,
         });
       } else {
-        total_with_tags += 1;
+        with_tags += 1;
       }
+    }
+  }
+
+  return {
+    attempted,
+    with_tags,
+    failed,
+    tokens_input: tokens_in,
+    tokens_output: tokens_out,
+    tokens_cache_read: tokens_cache_r,
+    tokens_cache_write: tokens_cache_w,
+    failure_reasons,
+  };
+}
+
+export function finalizePhase4bVision(
+  batchResults: Phase4bVisionBatchResult[],
+  totalSampleContentIds: number,
+  skippedReason?: string,
+): Phase4bVisionStats {
+  if (skippedReason && batchResults.length === 0) return empty(skippedReason);
+
+  let total_attempted = 0;
+  let total_with_tags = 0;
+  let total_failed = 0;
+  let tokens_in = 0;
+  let tokens_out = 0;
+  let tokens_cache_r = 0;
+  let tokens_cache_w = 0;
+  const failure_reasons: Array<{ reason: string; cover_url?: string }> = [];
+
+  for (const r of batchResults) {
+    total_attempted += r.attempted;
+    total_with_tags += r.with_tags;
+    total_failed += r.failed;
+    tokens_in += r.tokens_input;
+    tokens_out += r.tokens_output;
+    tokens_cache_r += r.tokens_cache_read;
+    tokens_cache_w += r.tokens_cache_write;
+    for (const fr of r.failure_reasons) {
+      if (failure_reasons.length < 5) failure_reasons.push(fr);
     }
   }
 
@@ -163,7 +267,7 @@ export async function runPhase4bVision(
     tokens_cache_write: tokens_cache_w,
   });
 
-  // 디버그용: 사용 중인 키의 prefix(앞 16자) + suffix(뒤 6자) — 사용자가 console에서 매칭 검증
+  // 디버그용: 사용 중인 키의 prefix/suffix
   const rawKey = process.env.ANTHROPIC_API_KEY ?? "";
   const keyPreview =
     rawKey.length > 0
@@ -174,7 +278,7 @@ export async function runPhase4bVision(
     total_attempted,
     total_with_tags,
     total_failed,
-    total_no_cover,
+    total_no_cover: Math.max(0, totalSampleContentIds - total_attempted),
     cost_actual_usd: cost,
     tokens_input: tokens_in,
     tokens_output: tokens_out,
@@ -185,18 +289,26 @@ export async function runPhase4bVision(
   };
 }
 
+/**
+ * Legacy single-call entrypoint — small case 그대로 사용 가능
+ * (setup → 단일 batch → finalize).
+ */
+export async function runPhase4bVision(
+  supabase: SupaClient,
+  case_id: string,
+  sample: Phase4bSampleStats,
+): Promise<Phase4bVisionStats> {
+  const setup = await fetchPhase4bVisionInputs(supabase, case_id, sample);
+  if (setup.skipped_reason && setup.inputs.length === 0) {
+    return empty(setup.skipped_reason);
+  }
+  const batch = await processPhase4bVisionBatch(supabase, case_id, setup.inputs);
+  return finalizePhase4bVision([batch], setup.total_sample_content_ids);
+}
+
 // =============================================================================
 // helpers
 // =============================================================================
-
-type VisionInput = {
-  platform: "tiktok" | "instagram" | "youtube";
-  content_id: string | null;
-  external_ref: string | null;
-  cover_url: string;
-  caption: string | null;
-  asr_text: string | null;
-};
 
 async function fetchVisionInputs(
   supabase: SupaClient,
@@ -244,7 +356,8 @@ async function fetchVisionInputs(
 
 /**
  * Stage 2 — IG/YT 영상의 vision input fetch.
- * sample.sample_items 의 platform='instagram'/'youtube' 박힌 거 사용 (cover_url 박힘).
+ * sample.sample_items 의 platform='instagram'/'youtube' 항목 사용 (cover_url 보유).
+ * IG cover re-host는 여기서 하지 않고 batch(processPhase4bVisionBatch)에서 처리.
  */
 async function fetchVisionInputsIgYt(
   supabase: SupaClient,
@@ -268,36 +381,12 @@ async function fetchVisionInputsIgYt(
       .eq("case_id", case_id)
       .in("ig_id", ids);
     const capByIg = new Map((igRows ?? []).map((r) => [r.ig_id, r.caption]));
-
-    // IG cover는 cdninstagram.com 호스트 → Anthropic Vision의 URL fetch가
-    // 인스타 robots.txt에 막혀 400 ("disallowed by robots.txt"). TikTok처럼
-    // URL source 직행 불가. → 우리 서버가 다운로드해서 Supabase storage(case-assets)에
-    // re-host 후 그 public URL을 Anthropic에 넘긴다 (supabase.co는 robots 차단 없음).
-    // re-host 실패 시 원본 URL 폴백 (어차피 400 나지만 다른 IG는 계속 진행).
-    const coverByRef = new Map<string, string>();
-    for (let i = 0; i < igRefs.length; i += REHOST_CONCURRENCY) {
-      const slice = igRefs.slice(i, i + REHOST_CONCURRENCY);
-      const rehosted = await Promise.all(
-        slice.map(async (x) => {
-          const safeRef = x.ref.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
-          const storageUrl = await downloadAndStore(
-            supabase,
-            x.cover,
-            `vision-covers/${case_id}/ig_${safeRef}.jpg`,
-            "image/jpeg",
-          );
-          return { ref: x.ref, url: storageUrl ?? x.cover };
-        }),
-      );
-      for (const r of rehosted) coverByRef.set(r.ref, r.url);
-    }
-
     for (const x of igRefs) {
       inputs.push({
         platform: "instagram",
         content_id: null,
         external_ref: x.ref,
-        cover_url: coverByRef.get(x.ref) ?? x.cover,
+        cover_url: x.cover,
         caption: capByIg.get(x.ref) ?? null,
         asr_text: null,
       });

@@ -35,7 +35,12 @@ import {
   processPhase4bAsrBatch,
   type Phase4bAsrBatchResult,
 } from "@/lib/inngest/aggregators/phase4b-asr";
-import { runPhase4bVision } from "@/lib/inngest/aggregators/phase4b-vision";
+import {
+  fetchPhase4bVisionInputs,
+  processPhase4bVisionBatch,
+  finalizePhase4bVision,
+  type Phase4bVisionBatchResult,
+} from "@/lib/inngest/aggregators/phase4b-vision";
 import { runPhase4bClusters } from "@/lib/inngest/aggregators/phase4b-clusters";
 import { runPhase4bSku } from "@/lib/inngest/aggregators/phase4b-sku";
 import { runPhase5 } from "@/lib/inngest/aggregators/phase5-position";
@@ -794,38 +799,73 @@ export const runAnalysis = inngest.createFunction(
     }
 
     // ─── Phase 4b.3: Vision 태깅 (Sonnet, ~$3.5) ───
-    const phase4bVision = await step.run("phase-4b-vision", async () => {
-      // 캐시 무효화 조건:
-      //   - 명시적 force
-      //   - 샘플이 새로 선정됨 (대상 영상이 바뀜)
-      //   - ASR이 새로 수집됨 (cover_url이 새로 채워졌을 수 있음 → vision 입력 변경)
-      if (
-        existing.phase4b_vision &&
-        !force("phase4b_vision") &&
-        !phase4bSampleNew &&
-        !phase4bAsrNew
-      ) {
-        logger.info("[Phase 4b.3] cached", {
-          with_tags: existing.phase4b_vision.total_with_tags,
-        });
-        return sanitizeDeep(existing.phase4b_vision);
-      }
-      logger.info("[Phase 4b.3] vision tagging via Sonnet", {
+    // Step-level batch — N개씩 step.run. IG 500 + TK 를 한 step에 몰면 함수
+    // timeout(Internal Server Error) 나서 ASR 처럼 batch 로 쪼갬. 중간 실패 시
+    // 완료된 batch 는 Inngest 캐시로 skip 되어 retry 가 안전.
+    // 캐시 무효화 조건: force / 샘플 새로 선정 / ASR 새로 수집(cover_url 변경 가능).
+    const PHASE4B_VISION_BATCH_SIZE = 40;
+    const phase4bVisionCacheHit =
+      existing.phase4b_vision &&
+      !force("phase4b_vision") &&
+      !phase4bSampleNew &&
+      !phase4bAsrNew;
+    let phase4bVision;
+    if (phase4bVisionCacheHit) {
+      logger.info("[Phase 4b.3] cached", {
+        with_tags: existing.phase4b_vision!.total_with_tags,
+      });
+      phase4bVision = existing.phase4b_vision!;
+    } else {
+      logger.info("[Phase 4b.3] vision tagging via Sonnet (batch)", {
         case_id,
         sample_size: phase4bSample.sample_content_ids.length,
       });
-      const stats = await runPhase4bVision(supabase, case_id, phase4bSample);
+      const setup = await step.run("phase-4b-vision-setup", async () =>
+        fetchPhase4bVisionInputs(supabase, case_id, phase4bSample),
+      );
+      if (setup.skipped_reason && setup.inputs.length === 0) {
+        phase4bVision = await step.run("phase-4b-vision-finalize", async () =>
+          sanitizeDeep(
+            finalizePhase4bVision(
+              [],
+              setup.total_sample_content_ids,
+              setup.skipped_reason,
+            ),
+          ),
+        );
+      } else {
+        const totalBatches = Math.ceil(
+          setup.inputs.length / PHASE4B_VISION_BATCH_SIZE,
+        );
+        const batchResults: Phase4bVisionBatchResult[] = [];
+        for (let i = 0; i < totalBatches; i += 1) {
+          const slice = setup.inputs.slice(
+            i * PHASE4B_VISION_BATCH_SIZE,
+            (i + 1) * PHASE4B_VISION_BATCH_SIZE,
+          );
+          const r = await step.run(`phase-4b-vision-batch-${i}`, async () =>
+            sanitizeDeep(
+              await processPhase4bVisionBatch(supabase, case_id, slice),
+            ),
+          );
+          batchResults.push(r);
+        }
+        phase4bVision = await step.run("phase-4b-vision-finalize", async () =>
+          sanitizeDeep(
+            finalizePhase4bVision(batchResults, setup.total_sample_content_ids),
+          ),
+        );
+      }
       logger.info("[Phase 4b.3] done", {
-        attempted: stats.total_attempted,
-        with_tags: stats.total_with_tags,
-        failed: stats.total_failed,
-        no_cover: stats.total_no_cover,
-        cost: stats.cost_actual_usd,
-        cache_hits: stats.tokens_cache_read,
-        skipped: stats.skipped_reason,
+        attempted: phase4bVision.total_attempted,
+        with_tags: phase4bVision.total_with_tags,
+        failed: phase4bVision.total_failed,
+        no_cover: phase4bVision.total_no_cover,
+        cost: phase4bVision.cost_actual_usd,
+        cache_hits: phase4bVision.tokens_cache_read,
+        skipped: phase4bVision.skipped_reason,
       });
-      return sanitizeDeep(stats);
-    });
+    }
 
     const phase4bVisionNew =
       !existing.phase4b_vision ||
