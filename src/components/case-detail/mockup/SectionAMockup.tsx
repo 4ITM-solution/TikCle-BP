@@ -378,13 +378,16 @@ export function SectionAMockup({
                     const x = (i / (months.length - 1)) * 1000 + 50;
                     const total = totalByMonth.get(mo) ?? 0;
                     const yRaw = 222 - (total / maxVids) * 222;
-                    const y = Math.max(0, Math.min(222, yRaw));
+                    // stroke-width 3 박힌 박힌 1.5 박힌 위/아래 박힌 박힌 — y=222 박힌 박힌 stroke 박힌 SVG box 밖.
+                    // [2, 220] 박힌 clamp 박힌 박힌 stroke 박힌 box 안 박힌.
+                    const y = Math.max(2, Math.min(220, yRaw));
                     return `${x},${y}`;
                   })
                   .join(" ")}
                 stroke="#1f2937"
                 strokeWidth="3"
                 fill="none"
+                vectorEffect="non-scaling-stroke"
               />
             )}
             {show.ad && months.length > 1 && (() => {
@@ -402,7 +405,9 @@ export function SectionAMockup({
                       const x = (idx / (months.length - 1)) * 1000 + 50;
                       const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
                       const normalized = Math.max(0, Math.min(1, ratio));
-                      const y = 222 - normalized * 222;
+                      const yRaw = 222 - normalized * 222;
+                      // stroke-width 2 박힌 박힌 1 박힌 위/아래 박힌 박힌 buffer.
+                      const y = Math.max(1, Math.min(221, yRaw));
                       return `${x},${y}`;
                     })
                     .join(" ")}
@@ -410,6 +415,7 @@ export function SectionAMockup({
                   strokeWidth="2"
                   fill="none"
                   strokeDasharray="4 3"
+                  vectorEffect="non-scaling-stroke"
                 />
               );
             })()}
@@ -422,7 +428,8 @@ export function SectionAMockup({
                     const x = (idx / (months.length - 1)) * 1000 + 50;
                     const v = bsrByMonth.get(mo)!;
                     const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
-                    const y = 222 - inv * 222;
+                    const yRaw = 222 - inv * 222;
+                    const y = Math.max(1, Math.min(221, yRaw));
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -430,6 +437,7 @@ export function SectionAMockup({
                 strokeWidth="2"
                 fill="none"
                 strokeDasharray="2 2"
+                vectorEffect="non-scaling-stroke"
               />
             )}
             {hasAmazon && phase5?.bsr_inflections?.map((inf, infI) => {
