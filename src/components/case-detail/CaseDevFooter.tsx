@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { resetToDraft, startAnalysis } from "@/app/cases/[id]/upload-actions";
 import { mergeCases } from "@/app/cases/[id]/case-actions";
 import type { CostEstimate } from "@/lib/cost-estimate";
@@ -45,6 +45,11 @@ export function CaseDevFooter({
     null,
   );
   const [mergeSrc, setMergeSrc] = useState<string>("");
+  // Hydration 안전 — dev 푸터는 mount 후에만 렌더 (SSR HTML 과 클라 첫 렌더를
+  // 항상 일치시켜 React #418 원천 차단). option 안 toLocaleDateString 등 TZ 의존
+  // 텍스트가 SSR(UTC)/CSR(local) 불일치를 일으키던 문제 회피.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   function doMerge() {
     if (!mergeSrc) {
@@ -124,6 +129,8 @@ export function CaseDevFooter({
     window.alert(`Phase 결과 ${phases.length}개 — console.log dump됨:\n${phases.join(", ")}`);
   }
 
+  if (!mounted) return null;
+
   return (
     <div className="bp-mockup">
       <details className="footer-dev" id="sec-dev">
@@ -201,7 +208,7 @@ export function CaseDevFooter({
                 {mergeCandidates.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.id.slice(0, 8)}… · {c.channel ?? "—"} · {c.status} ·{" "}
-                    {new Date(c.updated_at).toLocaleDateString("ko-KR")}
+                    {new Date(c.updated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
                   </option>
                 ))}
               </select>
