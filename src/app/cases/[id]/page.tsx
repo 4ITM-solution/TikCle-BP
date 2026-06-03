@@ -1078,6 +1078,51 @@ export default async function CaseDetailPage({
   const uspByChannel = uspBundle.keywords;
   const uspVideosByChannel = uspBundle.videos;
 
+  // ★ meta_clusters 보정 — 클러스터 step 이 타임아웃으로 key_stats 저장 전 죽어도
+  //   content_clusters DB(is_meta + parent_cluster_id)에서 복원해 C 섹션이 안 비게.
+  //   key_stats 에 meta_clusters 있으면 그걸 우선, 없으면 DB 복원.
+  type MetaClusterUi = {
+    id: string; name: string; description: string; hook_pattern: string;
+    body_pattern: string; member_count: number;
+    child_clusters: Array<{ id: string; name: string; member_count: number }>;
+  };
+  const metaClustersEffective: MetaClusterUi[] = await (async () => {
+    const fromKs = (c.key_stats as { phase4b_clusters?: { meta_clusters?: MetaClusterUi[] } })?.phase4b_clusters?.meta_clusters;
+    if (fromKs && fromKs.length > 0) return fromKs;
+    const { data: ccRows } = await supabase
+      .from("content_clusters")
+      .select("id, name, description, hook_pattern, body_pattern, is_meta, parent_cluster_id, member_count, display_order")
+      .eq("case_id", c.id);
+    if (!ccRows || ccRows.length === 0) return fromKs ?? [];
+    const metas = ccRows.filter((r) => r.is_meta).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const kidsByParent = new Map<string, typeof ccRows>();
+    for (const r of ccRows) {
+      if (!r.is_meta && r.parent_cluster_id) {
+        const arr = kidsByParent.get(r.parent_cluster_id) ?? [];
+        arr.push(r);
+        kidsByParent.set(r.parent_cluster_id, arr);
+      }
+    }
+    return metas.map((m) => {
+      const kids = (kidsByParent.get(m.id) ?? []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      return {
+        id: m.id,
+        name: m.name ?? "",
+        description: m.description ?? "",
+        hook_pattern: m.hook_pattern ?? "",
+        body_pattern: m.body_pattern ?? "",
+        member_count: m.member_count || kids.reduce((s, k) => s + (k.member_count ?? 0), 0),
+        child_clusters: kids.map((k) => ({ id: k.id, name: k.name ?? "", member_count: k.member_count ?? 0 })),
+      };
+    });
+  })();
+
+  // SectionC 에 넘길 phase4b_clusters — key_stats 가 비어도 DB 복원본으로 meta_clusters 채움.
+  const phase4bClustersForUi =
+    metaClustersEffective.length > 0
+      ? ({ ...(keyStats.phase4b_clusters ?? ({} as NonNullable<typeof keyStats.phase4b_clusters>)), meta_clusters: metaClustersEffective })
+      : keyStats.phase4b_clusters;
+
   // ★ Cluster 통합 집계 — 채널별(all/tk/ig/yt) 재집계.
   //    멤버에 platform+external_ref 가 있어 TK(contents)/IG(ig_posts)/YT(yt_videos)
   //    를 통합 멤버 리스트로 정규화 → 채널 subset 별로 metrics/topVideos/tier/heatmap/gmv 산출.
@@ -1117,8 +1162,7 @@ export default async function CaseDetailPage({
       channelData: { all: emptySlice([]), tk: emptySlice([]), ig: emptySlice([]), yt: emptySlice([]) } as Record<"all" | ChKey, CSlice>,
     };
 
-    const ks0 = c.key_stats as { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } };
-    const metaList = ks0?.phase4b_clusters?.meta_clusters ?? [];
+    const metaList = metaClustersEffective;
     if (metaList.length === 0) return emptyBundle;
     const metasMeta = metaList.map((m) => ({ id: m.id, name: m.name }));
     const metaNameById = new Map(metasMeta.map((m) => [m.id, m.name]));
@@ -2495,7 +2539,7 @@ export default async function CaseDetailPage({
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionCMockup
                         phase2={ks.phase2}
-                        phase4bClusters={ks.phase4b_clusters}
+                        phase4bClusters={phase4bClustersForUi}
                         phase5={ks.phase5}
                         clusterChannelBreakdown={clusterChannelBreakdown}
                         channelData={clusterChannelData}
