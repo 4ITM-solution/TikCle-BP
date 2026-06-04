@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/cases", label: "Browse" },
+  { href: "/diagnose", label: "진단서" },
   { href: "/cases/new", label: "+ New Case", primary: true },
   { href: "/settings/exchange-rates", label: "환율 설정" },
 ];
