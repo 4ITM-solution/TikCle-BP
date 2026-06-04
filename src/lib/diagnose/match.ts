@@ -28,27 +28,27 @@ import type { TierDistribution } from "@/lib/inngest/types";
 export const BUDGET_TIERS = [
   {
     id: "10m" as const,
-    label: "월 1,000만원",
+    label: "시딩예산 월 1,000만원",
+    seedingKrw: 10_000_000, // 이 티어가 대표하는 월 시딩예산
     packageName: "USP 테스트 — 위닝 앵글 찾기",
     targetMonthly: [15, 35] as [number, number],
     estInfluencers: "무가·나노 중심 + 유가 0~3명으로 USP 재현성 검증",
-    answerValues: ["10m"],
   },
   {
     id: "30m" as const,
-    label: "월 3,000만원",
+    label: "시딩예산 월 3,000만원",
+    seedingKrw: 30_000_000,
     packageName: "나노 패키지 확장 + 소액유가",
     targetMonthly: [40, 90] as [number, number],
     estInfluencers: "나노 볼륨 확대 + 소액유가 마이크로 5~10명",
-    answerValues: ["30m"],
   },
   {
     id: "50m" as const,
-    label: "월 5,000만원",
+    label: "시딩예산 월 5,000만원",
+    seedingKrw: 50_000_000,
     packageName: "풀 시딩 — 나노+유가+미드 병행",
     targetMonthly: [90, 180] as [number, number],
     estInfluencers: "나노 풀가동 + 마이크로/미드 유가 + 광고소재 확보",
-    answerValues: ["50m", "gt_50m"],
   },
 ];
 
@@ -63,13 +63,35 @@ const WEIGHTS = {
   hasGoodData: 10, // 시딩 규모 충분(데이터 풍부) 보너스
 };
 
+/** Q14 급한 문제 순위별 부스트 (1순위/2순위/3순위) */
+const URGENT_RANK_WEIGHT = [18, 11, 6];
+
 /** 매출 규모 밴드 → 대표 KRW 월매출 (proximity 계산용) */
 const REVENUE_BAND_KRW: Record<string, number> = {
-  lt_50m: 30_000_000,
-  "50m_300m": 150_000_000,
-  "300m_1b": 600_000_000,
-  "1b_3b": 2_000_000_000,
-  gt_3b: 4_000_000_000,
+  lt_30m: 15_000_000,
+  "30m_100m": 60_000_000,
+  "100m_300m": 180_000_000,
+  "300m_700m": 480_000_000,
+  "700m_2b": 1_200_000_000,
+  gt_2b: 3_000_000_000,
+};
+
+/** 마케팅 예산 밴드 → 대표 KRW */
+const BUDGET_BAND_KRW: Record<string, number> = {
+  lt_10m: 7_000_000,
+  "10m_30m": 20_000_000,
+  "30m_50m": 40_000_000,
+  "50m_100m": 75_000_000,
+  gt_100m: 150_000_000,
+};
+
+/** 시딩 비중 밴드 → 대표 비율 */
+const SEEDING_RATIO_PCT: Record<string, number> = {
+  lt_20: 0.12,
+  "20_40": 0.3,
+  "40_60": 0.5,
+  "60_80": 0.7,
+  gt_80: 0.9,
 };
 
 /** USD→KRW (케이스 rev_30d는 USD, 매출 proximity 비교 시 환산) */
@@ -113,8 +135,10 @@ export type DiagnoseCaseInput = {
   rev30dUsd: number | null;
   totalContents: number | null;
   totalCreators: number | null;
-  monthlyVideoCounts: { month: string; total: number }[];
+  monthlyVideoCounts: { month: string; paid: number; total: number }[];
   tierDistribution: TierDistribution | null;
+  /** Top 1 SKU 매출 집중도 0~1 (Q14 히어로SKU 시그널) */
+  top1Share: number | null;
   summaryLine: string | null;
 };
 
@@ -148,6 +172,8 @@ export type DiagnoseMatchResult = {
   budgetScenarios: BudgetScenario[];
   /** 매칭된 #1 BP의 월 시딩 규모 (예산 사다리 대조용) */
   topBpMonthly: number | null;
+  /** 환산된 월 실 시딩예산 (KRW) — 예산 × 시딩비중 */
+  seedingBudgetKrw: number | null;
   profileLine: string;
 };
 
@@ -177,6 +203,70 @@ function tierMixLabel(d: TierDistribution | null): string | null {
   if (d.nano) parts.push(`Nano ${d.nano}`);
   if (d["sub-nano"]) parts.push(`Sub-nano ${d["sub-nano"]}`);
   return parts.length ? parts.join(" · ") : null;
+}
+
+/** 유가 추정 티어(mega+macro+mid) 비중 0~1 */
+function paidTierShare(d: TierDistribution | null): number {
+  if (!d) return 0;
+  const total =
+    d.mega + d.macro + d.mid + d.micro + d.nano + d["sub-nano"] + d.unknown;
+  if (total <= 0) return 0;
+  return (d.mega + d.macro + d.mid) / total;
+}
+
+/** 무가 추정 티어(nano+sub-nano) 비중 0~1 */
+function organicTierShare(d: TierDistribution | null): number {
+  if (!d) return 0;
+  const total =
+    d.mega + d.macro + d.mid + d.micro + d.nano + d["sub-nano"] + d.unknown;
+  if (total <= 0) return 0;
+  return (d.nano + d["sub-nano"]) / total;
+}
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+/**
+ * Q14 급한 문제(순위) → 그 문제를 잘 푼 케이스 부스트.
+ * urgent[0]=1순위. 시그널 매핑 가능한 항목만 점수 반영(나머지는 수집만).
+ */
+function urgentBoost(
+  urgent: string[],
+  c: DiagnoseCaseInput,
+): { boost: number; reasons: string[] } {
+  let boost = 0;
+  const reasons: string[] = [];
+  urgent.slice(0, URGENT_RANK_WEIGHT.length).forEach((u, rank) => {
+    const w = URGENT_RANK_WEIGHT[rank]!;
+    let signal = 0; // 0~1
+    let reason = "";
+    switch (u) {
+      case "paid_ops": // 유가 시딩 운영
+        signal = paidTierShare(c.tierDistribution);
+        reason = "유가(매크로·미드) 운영 사례";
+        break;
+      case "organic_volume": // 무가 볼륨 확대
+        signal = clamp01(monthlyContents(c) / 300) * 0.5 +
+          organicTierShare(c.tierDistribution) * 0.5;
+        reason = "무가·대량 시딩 사례";
+        break;
+      case "discovery": // 인플 디스커버리
+        signal = clamp01((c.totalCreators ?? 0) / 3000);
+        reason = "대규모 인플 발굴 사례";
+        break;
+      case "hero_sku": // 히어로 SKU
+        signal = c.top1Share ?? 0;
+        reason = "히어로 SKU 집중 사례";
+        break;
+      default:
+        // new_country / logistics / usp_guide / etc → 케이스 데이터 시그널 없음
+        signal = 0;
+    }
+    if (signal > 0.15) {
+      boost += w * signal;
+      if (rank === 0 && reason) reasons.push(reason); // 1순위만 라벨 표시
+    }
+  });
+  return { boost: Math.round(boost * 10) / 10, reasons };
 }
 
 // =============================================================================
@@ -225,6 +315,11 @@ function scoreCase(input: MatchInput, c: DiagnoseCaseInput): ScoredCase {
     score += WEIGHTS.hasGoodData;
   }
 
+  // Q14 급한 문제(순위) 부스트
+  const urg = urgentBoost(input.urgent, c);
+  score += urg.boost;
+  reasons.push(...urg.reasons);
+
   return {
     id: c.id,
     brand: c.brand,
@@ -256,9 +351,22 @@ export function computeDiagnoseMatch(
   const topBpMonthly = topMatches[0]?.monthlyContents ?? null;
 
   // 2) 예산 시나리오 — 케이스 고르는 게 아니라 실행 규모
-  const selectedTierId = BUDGET_TIERS.find((t) =>
-    input.budget ? t.answerValues.includes(input.budget) : false,
-  )?.id;
+  //    실 시딩예산 = 월 마케팅 예산 × 시딩 비중 → 가장 가까운 시나리오 선택
+  const budgetKrw = input.budget ? BUDGET_BAND_KRW[input.budget] : null;
+  const ratio =
+    (input.seedingRatio ? SEEDING_RATIO_PCT[input.seedingRatio] : undefined) ??
+    0.5; // 비중 미입력 시 50% 가정
+  const seedingBudgetKrw =
+    budgetKrw != null ? budgetKrw * ratio : null;
+  const selectedTierId =
+    seedingBudgetKrw != null
+      ? BUDGET_TIERS.reduce((best, t) =>
+          Math.abs(t.seedingKrw - seedingBudgetKrw) <
+          Math.abs(best.seedingKrw - seedingBudgetKrw)
+            ? t
+            : best,
+        ).id
+      : undefined;
 
   const budgetScenarios: BudgetScenario[] = BUDGET_TIERS.map((tier) => {
     const inRange =
@@ -298,6 +406,7 @@ export function computeDiagnoseMatch(
     benchmarkHits,
     budgetScenarios,
     topBpMonthly,
+    seedingBudgetKrw,
     profileLine,
   };
 }

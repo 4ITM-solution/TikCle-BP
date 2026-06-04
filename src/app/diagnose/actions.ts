@@ -47,9 +47,11 @@ export async function runDiagnose(
       totalCreators: p2?.total_unique_creators ?? null,
       monthlyVideoCounts: (p2?.monthly_video_counts ?? []).map((m) => ({
         month: m.month,
+        paid: m.paid,
         total: m.total,
       })),
       tierDistribution: p3?.tier_distribution ?? null,
+      top1Share: p2?.sales_summary?.top1_revenue_share ?? null,
       summaryLine: null,
     };
   });

@@ -45,6 +45,16 @@ export default function DiagnosePage() {
   function setText(id: string, value: string) {
     setAnswers((a) => ({ ...a, [id]: value }));
   }
+  function toggleRank(id: string, value: string, maxRank: number) {
+    setAnswers((a) => {
+      const cur = (a[id] as string[]) ?? [];
+      if (cur.includes(value)) {
+        return { ...a, [id]: cur.filter((v) => v !== value) };
+      }
+      if (cur.length >= maxRank) return a; // 최대치면 무시
+      return { ...a, [id]: [...cur, value] };
+    });
+  }
 
   function submit() {
     setError(null);
@@ -128,6 +138,7 @@ export default function DiagnosePage() {
           answers={answers}
           setSingle={setSingle}
           toggleMulti={toggleMulti}
+          toggleRank={toggleRank}
           setText={setText}
           missing={missing}
           pending={pending}
@@ -147,6 +158,7 @@ function FormView({
   answers,
   setSingle,
   toggleMulti,
+  toggleRank,
   setText,
   missing,
   pending,
@@ -156,6 +168,7 @@ function FormView({
   answers: DiagnoseAnswers;
   setSingle: (id: string, v: string) => void;
   toggleMulti: (id: string, v: string) => void;
+  toggleRank: (id: string, v: string, maxRank: number) => void;
   setText: (id: string, v: string) => void;
   missing: string[];
   pending: boolean;
@@ -193,6 +206,7 @@ function FormView({
               answers={answers}
               setSingle={setSingle}
               toggleMulti={toggleMulti}
+              toggleRank={toggleRank}
               setText={setText}
             />
           ))}
@@ -242,16 +256,19 @@ function QuestionRow({
   answers,
   setSingle,
   toggleMulti,
+  toggleRank,
   setText,
 }: {
   q: Question;
   answers: DiagnoseAnswers;
   setSingle: (id: string, v: string) => void;
   toggleMulti: (id: string, v: string) => void;
+  toggleRank: (id: string, v: string, maxRank: number) => void;
   setText: (id: string, v: string) => void;
 }) {
   const cur = answers[q.id];
   const isRequired = REQUIRED.includes(q.id);
+  const rankList = (cur as string[]) ?? [];
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>
@@ -282,6 +299,52 @@ function QuestionRow({
             fontSize: 13,
           }}
         />
+      ) : q.type === "rank" ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {q.options?.map((opt) => {
+            const rank = rankList.indexOf(opt.value); // -1 = 미선택
+            const selected = rank >= 0;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleRank(q.id, opt.value, q.maxRank ?? 3)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  fontSize: 12.5,
+                  fontWeight: selected ? 700 : 500,
+                  border: selected
+                    ? "1.5px solid #ec4899"
+                    : "1px solid var(--color-g200)",
+                  background: selected ? "var(--color-accent-soft)" : "white",
+                  color: selected ? "#be185d" : "var(--color-g600)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 16,
+                    height: 16,
+                    borderRadius: 999,
+                    marginRight: 6,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    background: selected ? "#ec4899" : "var(--color-g100)",
+                    color: selected ? "white" : "var(--color-g400)",
+                  }}
+                >
+                  {selected ? rank + 1 : ""}
+                </span>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {q.options?.map((opt) => {
@@ -480,6 +543,15 @@ function ResultView({
       </div>
       <div style={{ fontSize: 11.5, color: "var(--color-g400)", marginBottom: 12 }}>
         같은 방향(위 BP)을 예산에 따라 어느 규모로 실행하느냐.
+        {result.seedingBudgetKrw != null && (
+          <>
+            {" "}입력 기준 월 실 시딩예산 ≈{" "}
+            <b style={{ color: "var(--color-g600)" }}>
+              {fmtKrw(result.seedingBudgetKrw)}
+            </b>
+            .
+          </>
+        )}
         {result.topBpMonthly != null && (
           <> 매칭된 BP는 월 약 {result.topBpMonthly}개 규모.</>
         )}
@@ -636,6 +708,12 @@ function fmtUsd(n: number | null): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${Math.round(n)}`;
+}
+
+function fmtKrw(n: number): string {
+  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억원`;
+  if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만원`;
+  return `${Math.round(n).toLocaleString()}원`;
 }
 
 function channelKo(v: string): string {

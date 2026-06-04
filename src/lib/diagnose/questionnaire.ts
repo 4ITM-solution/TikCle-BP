@@ -8,7 +8,7 @@
  * LLM 호출 없음 — 답변은 match.ts의 deterministic 스코어러로 전달.
  */
 
-export type QuestionType = "single" | "multi" | "scale" | "text";
+export type QuestionType = "single" | "multi" | "rank" | "scale" | "text";
 
 export type QuestionOption = {
   value: string;
@@ -33,7 +33,10 @@ export type Question = {
     | "asset_score"
     | "goal_horizon"
     | "budget"
+    | "seeding_ratio"
     | "urgent";
+  /** rank 타입에서 최대 선택 수 */
+  maxRank?: number;
   placeholder?: string;
   hint?: string;
 };
@@ -77,13 +80,32 @@ export const CHANNEL_OPTIONS: QuestionOption[] = [
   { value: "etc", label: "기타" },
 ];
 
-// 매출 규모 밴드 (KRW 월 매출, cases.rev_30d와 대조용)
+// 매출 규모 밴드 (KRW 월 매출, cases.rev_30d와 대조용) — 촘촘하게
 export const REVENUE_BAND_OPTIONS: QuestionOption[] = [
-  { value: "lt_50m", label: "월 5천만원 미만" },
-  { value: "50m_300m", label: "월 5천만~3억" },
-  { value: "300m_1b", label: "월 3억~10억" },
-  { value: "1b_3b", label: "월 10억~30억" },
-  { value: "gt_3b", label: "월 30억 이상" },
+  { value: "lt_30m", label: "월 3천만원 미만" },
+  { value: "30m_100m", label: "월 3천만~1억" },
+  { value: "100m_300m", label: "월 1억~3억" },
+  { value: "300m_700m", label: "월 3억~7억" },
+  { value: "700m_2b", label: "월 7억~20억" },
+  { value: "gt_2b", label: "월 20억 이상" },
+];
+
+// 월 마케팅 예산 밴드 (KRW)
+export const BUDGET_OPTIONS: QuestionOption[] = [
+  { value: "lt_10m", label: "월 1,000만원 미만" },
+  { value: "10m_30m", label: "월 1,000만~3,000만" },
+  { value: "30m_50m", label: "월 3,000만~5,000만" },
+  { value: "50m_100m", label: "월 5,000만~1억" },
+  { value: "gt_100m", label: "월 1억 이상" },
+];
+
+// 마케팅 예산 중 시딩 비중
+export const SEEDING_RATIO_OPTIONS: QuestionOption[] = [
+  { value: "lt_20", label: "20% 미만" },
+  { value: "20_40", label: "20~40%" },
+  { value: "40_60", label: "40~60%" },
+  { value: "60_80", label: "60~80%" },
+  { value: "gt_80", label: "80% 이상" },
 ];
 
 // =============================================================================
@@ -225,26 +247,30 @@ export const QUESTIONS: Question[] = [
   {
     id: "q13",
     group: "하고 싶은 건",
-    prompt: "올해 배정된 월 평균 마케팅 예산 + 시딩 비중은?",
+    prompt: "올해 배정된 월 평균 마케팅 예산은?",
     type: "single",
     matchKey: "budget",
-    hint: "예산 티어에 따라 추천 BP가 곧장 달라집니다.",
-    options: [
-      { value: "10m", label: "월 1,000만원 내외" },
-      { value: "30m", label: "월 3,000만원 내외" },
-      { value: "50m", label: "월 5,000만원 내외" },
-      { value: "gt_50m", label: "월 5,000만원 이상" },
-      { value: "unknown", label: "아직 미정" },
-    ],
+    hint: "예산 × 시딩 비중 = 실 시딩예산으로 환산해 실행 시나리오를 잡습니다.",
+    options: BUDGET_OPTIONS,
+  },
+  {
+    id: "q13b",
+    group: "하고 싶은 건",
+    prompt: "그 예산 중 시딩(인플) 비중은?",
+    type: "single",
+    matchKey: "seeding_ratio",
+    options: SEEDING_RATIO_OPTIONS,
   },
 
   // ─── 가장 급한 건 ───
   {
     id: "q14",
     group: "가장 급한 건",
-    prompt: "지금 가장 먼저 풀고 싶은 문제는? (해당되는 것 모두)",
-    type: "multi",
+    prompt: "지금 가장 먼저 풀고 싶은 문제는? (순서대로 최대 3개)",
+    type: "rank",
     matchKey: "urgent",
+    maxRank: 3,
+    hint: "순위가 높을수록 그 문제를 잘 푼 BP를 더 끌어올립니다.",
     options: [
       { value: "paid_ops", label: "유가 시딩 운영/핸들링" },
       { value: "organic_volume", label: "무가 시딩 볼륨 확대" },
@@ -275,6 +301,8 @@ export function extractMatchInput(answers: DiagnoseAnswers) {
     assetScore: Array.isArray(get("q8")) ? (get("q8") as string[]).length : 0,
     goalHorizon: (get("q11") as string) ?? null,
     budget: (get("q13") as string) ?? null,
+    seedingRatio: (get("q13b") as string) ?? null,
+    // q14는 rank 타입 — 선택 순서가 곧 우선순위 (index 0 = 1순위)
     urgent: Array.isArray(get("q14")) ? (get("q14") as string[]) : [],
   };
 }
