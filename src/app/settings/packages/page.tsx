@@ -43,18 +43,14 @@ function PackageFields({ pkg }: { pkg?: SeedingPackage }) {
           <input name="duration" defaultValue={pkg?.duration ?? ""} placeholder="1.5개월" style={inputStyle} />
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px", gap: 10, marginTop: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginTop: 10 }}>
         <div>
-          <label style={labelStyle}>가격(원, 정렬용)</label>
+          <label style={labelStyle}>가격(원, 참고용)</label>
           <input name="price_krw" defaultValue={pkg?.price_krw?.toLocaleString() ?? ""} inputMode="numeric" style={{ ...inputStyle, fontFamily: "var(--font-mono)", textAlign: "right" }} />
         </div>
         <div>
           <label style={labelStyle}>제안 상황 (메모)</label>
           <input name="target_situation" defaultValue={pkg?.target_situation ?? ""} style={inputStyle} />
-        </div>
-        <div>
-          <label style={labelStyle}>노출순서</label>
-          <input name="sort_order" defaultValue={pkg?.sort_order ?? 0} inputMode="numeric" style={{ ...inputStyle, textAlign: "right" }} />
         </div>
       </div>
       <div style={{ marginTop: 10 }}>
@@ -101,7 +97,7 @@ export default async function PackagesPage() {
   const { data } = await supabase
     .from("seeding_packages")
     .select("*")
-    .order("sort_order", { ascending: true });
+    .order("created_at", { ascending: true });
   const packages = (data ?? []) as SeedingPackage[];
 
   return (

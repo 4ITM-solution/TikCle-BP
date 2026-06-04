@@ -22,7 +22,6 @@ function fields(formData: FormData) {
     duration: str("duration"),
     includes: str("includes"),
     target_situation: str("target_situation"),
-    sort_order: Number(formData.get("sort_order")) || 0,
     active: formData.get("active") === "on",
   };
 }
