@@ -365,9 +365,7 @@ export async function uploadAmazonSales(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "amazon") {
-    return { ok: false, error: "Amazon 케이스에서만 사용 가능" };
-  }
+  // A 모델: case.channel check 제거 — 다채널 자유 (Amazon 매출/BSR 데이터는 어느 case 든 업로드 가능)
 
   // 권역 case면 marketplace_country select 필수, 단일이면 case.country fallback.
   const productCountry =
@@ -693,8 +691,9 @@ import type { PhaseKey } from "@/lib/inngest/client";
  */
 export async function startPhase15Only(case_id: string): Promise<Result> {
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop" || c.country !== "US") {
-    return { ok: false, error: "TT Shop US 케이스만 지원" };
+  // A 모델: case.channel check 제거 — 다채널 자유. country 는 데이터 소스 구분 (US=Helium10).
+  if (c.country !== "US") {
+    return { ok: false, error: "US 전용 (비US TikTok Shop 은 Kalodata 업로드 사용)" };
   }
   if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
 
@@ -862,9 +861,7 @@ export async function uploadShopdoraSnapshot(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "shopee") {
-    return { ok: false, error: "Shopee 케이스에서만 사용 가능" };
-  }
+  // A 모델: case.channel check 제거 — 다채널 자유 (Shopee 데이터 업로드 case 채널 무관)
 
   const { rows, errors } = parseShopdoraSnapshot(text);
   if (rows.length === 0) {
@@ -950,9 +947,7 @@ export async function uploadShopdoraMonthly(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "shopee") {
-    return { ok: false, error: "Shopee 케이스에서만 사용 가능" };
-  }
+  // A 모델: case.channel check 제거 — 다채널 자유 (Shopee 데이터 업로드 case 채널 무관)
 
   const { rows, errors } = parseShopdoraMonthly(text);
   if (rows.length === 0) {
@@ -1891,8 +1886,9 @@ export async function dryRunTiktokProductFinder(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop" || c.country !== "US") {
-    return { ok: false, error: "US TikTok Shop 케이스만 지원" };
+  // A 모델: case.channel check 제거 — 다채널 자유. country 는 데이터 소스 구분 (US=Helium10).
+  if (c.country !== "US") {
+    return { ok: false, error: "US 전용 (비US TikTok Shop 은 Kalodata 업로드 사용)" };
   }
 
   const { data: prodRow } = await supabase
@@ -2008,8 +2004,9 @@ export async function uploadTiktokProductFinder(
   }
 
   const { supabase, c } = await getCase(case_id);
-  if (c.channel !== "tiktok_shop" || c.country !== "US") {
-    return { ok: false, error: "US TikTok Shop 케이스만 지원" };
+  // A 모델: case.channel check 제거 — 다채널 자유. country 는 데이터 소스 구분 (US=Helium10).
+  if (c.country !== "US") {
+    return { ok: false, error: "US 전용 (비US TikTok Shop 은 Kalodata 업로드 사용)" };
   }
   if (!c.brand_id) return { ok: false, error: "case에 brand_id 없음" };
 
