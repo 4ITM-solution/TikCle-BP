@@ -37,14 +37,6 @@ const PAID_COST_PER_CONTENT: Record<TierBucket, number> = {
   unknown: 200_000,
 };
 
-/** 무가(기프팅) 콘텐츠 1건당 비용 — 제품+배송+핸들링만. 티어 무관. */
-const ORGANIC_HANDLING_COST = 40_000;
-
-/**
- * TT Shop 어필리에이트 1건당 선불 비용 — 커미션은 성과기반(매출%)이라 선불 X.
- * 샘플+컨택+세팅 정도. (아마존 유가 단가와 달리 선불이 거의 없음)
- */
-const AFFILIATE_UPFRONT_COST = 80_000;
 
 /** fit 스코어 가중치 (예산은 fit에 들어가지 않음) */
 const WEIGHTS = {
@@ -233,13 +225,6 @@ function tierMixLabel(d: TierDistribution | null): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
-function paidTierShare(d: TierDistribution | null): number {
-  if (!d) return 0;
-  const total = STRATEGY_TIERS.reduce((s, t) => s + d[t], 0);
-  if (total <= 0) return 0;
-  return (d.mega + d.macro + d.mid) / total;
-}
-
 function organicTierShare(d: TierDistribution | null): number {
   if (!d) return 0;
   const total = STRATEGY_TIERS.reduce((s, t) => s + d[t], 0);
@@ -288,50 +273,34 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
     .filter((s) => s.count > 0)
     .sort((a, b) => b.count - a.count);
 
-  const ad = adRatio(c); // is_ad 비중
+  const ad = adRatio(c); // is_ad 비중 (참고용 — 분류/단가에 안 씀)
   const angle = angleConcentration(c);
   const upperShare = (d.mega + d.macro + d.mid) / total; // 상위 티어 비중
   const nanoMicroShare = (d.micro + d.nano + d["sub-nano"]) / total;
   const megaCount = d.mega;
-  // ⚠️ 채널별 'is_ad' 의미가 다름: 아마존=브랜드 유가, TT Shop=어필리에이트 커미션 포함
   const isTTShop = c.channel === "tiktok_shop";
   const adPct = Math.round(ad * 100);
 
-  // 실효 단가: 유가분은 채널별 단가, 무가분은 핸들링만
-  // 아마존 유가 = 티어 선불 단가 / TT Shop '유가' = 어필리에이트(선불 거의 0)
-  const tierPaidCost =
+  // 단가 = 순수 티어 기준 (커미션/유무가 구분 없이 티어가 비용을 결정)
+  const blended =
     tiers.reduce((s, x) => s + x.share * PAID_COST_PER_CONTENT[x.tier], 0) ||
     PAID_COST_PER_CONTENT.nano;
-  const paidUnit = isTTShop ? AFFILIATE_UPFRONT_COST : tierPaidCost;
-  const blended = ad * paidUnit + (1 - ad) * ORGANIC_HANDLING_COST;
 
-  // headline — 광고비중 × 티어 믹스 (채널별 해석)
+  // headline — 티어 믹스 우선
   let headline: string;
   let summary: string;
-  if (megaCount >= MEGA_REPEAT_THRESHOLD && ad >= 0.4) {
-    headline = isTTShop ? "메가 어필리에이트형" : "메가 유가 반복형";
-    summary = isTTShop
-      ? `메가 인플 ${megaCount}명 + 어필리에이트 비중 ${adPct}%. 상위 티어 크리에이터를 커미션으로 반복 투입.`
-      : `메가 인플 ${megaCount}명을 광고비중 ${adPct}%로 반복 투입. 상위 티어 유가로 노출을 끄는 전략.`;
-  } else if (megaCount >= MEGA_REPEAT_THRESHOLD) {
-    headline = "메가 활용형";
-    summary = `메가 인플 ${megaCount}명 투입. 상위 티어로 노출을 끌어올리는 전략.`;
-  } else if (ad >= 0.5 && upperShare >= 0.2) {
-    headline = isTTShop ? "어필리에이트·유가 드리븐형" : "유가 인플 드리븐형";
-    summary = isTTShop
-      ? `어필리에이트/유가 비중 ${adPct}% + 매크로·미드 ${Math.round(upperShare * 100)}%. (TT Shop은 광고비중에 커미션 어필리에이트가 섞여 순수 유가로 보긴 어려움)`
-      : `광고비중 ${adPct}% + 매크로·미드 ${Math.round(upperShare * 100)}%. 유가 인플로 퀄리티·전환을 끄는 전략.`;
-  } else if (ad >= 0.5 && nanoMicroShare >= 0.6) {
-    headline = isTTShop ? "어필리에이트 대량형" : "소액유가 대량형";
-    summary = isTTShop
-      ? `나노·마이크로 풀에 어필리에이트 비중 ${adPct}% — TT Shop 커미션 기반으로 대량 발행(선불 부담 낮음).`
-      : `나노·마이크로 중심인데 광고비중 ${adPct}% — 돈 주고 대량으로 까는 소액유가 전략.`;
-  } else if (ad <= 0.25) {
-    headline = "무가 대량 시딩형";
-    summary = `광고비중 ${adPct}%로 낮음 — 무가(기프팅) 대량으로 볼륨·바이럴을 노리는 전략.`;
+  if (megaCount >= MEGA_REPEAT_THRESHOLD) {
+    headline = "메가 반복 활용형";
+    summary = `메가 인플 ${megaCount}명 반복 투입. 상위 티어로 노출을 끌어올리는 전략.`;
+  } else if (upperShare >= 0.25) {
+    headline = "상위 티어(매크로·미드) 드리븐형";
+    summary = `매크로·미드 등 상위 티어 ${Math.round(upperShare * 100)}%. 큰 인플로 퀄리티·노출을 끄는 전략.`;
+  } else if (nanoMicroShare >= 0.6) {
+    headline = "나노·마이크로 대량형";
+    summary = `나노·마이크로 ${Math.round(nanoMicroShare * 100)}%. 작은 인플 대량으로 볼륨·바이럴을 노리는 전략.`;
   } else {
-    headline = "유·무가 하이브리드형";
-    summary = `광고비중 ${adPct}%. ${isTTShop ? "어필리에이트·" : ""}유가·무가를 섞은 균형 전략.`;
+    headline = "티어 혼합형";
+    summary = "여러 티어를 고르게 섞은 균형 전략.";
   }
 
   // 앵글 집중도 라벨 (보조)
@@ -390,7 +359,7 @@ function scaleToBudget(
   seedingKrw: number,
   rx: Prescription | null,
 ): { affordableMonthly: number; tierBreakdown: { tier: TierBucket; count: number }[] } {
-  const blended = rx?.blendedCostPerContent ?? ORGANIC_HANDLING_COST;
+  const blended = rx?.blendedCostPerContent ?? PAID_COST_PER_CONTENT.nano;
   const affordableMonthly = Math.max(0, Math.round(seedingKrw / blended));
   if (!rx) return { affordableMonthly, tierBreakdown: [] };
   const tierBreakdown = rx.tiers
