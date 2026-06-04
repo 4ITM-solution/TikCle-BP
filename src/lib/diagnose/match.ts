@@ -40,6 +40,12 @@ const PAID_COST_PER_CONTENT: Record<TierBucket, number> = {
 /** 무가(기프팅) 콘텐츠 1건당 비용 — 제품+배송+핸들링만. 티어 무관. */
 const ORGANIC_HANDLING_COST = 40_000;
 
+/**
+ * TT Shop 어필리에이트 1건당 선불 비용 — 커미션은 성과기반(매출%)이라 선불 X.
+ * 샘플+컨택+세팅 정도. (아마존 유가 단가와 달리 선불이 거의 없음)
+ */
+const AFFILIATE_UPFRONT_COST = 80_000;
+
 /** fit 스코어 가중치 (예산은 fit에 들어가지 않음) */
 const WEIGHTS = {
   channel: 30,
@@ -153,6 +159,8 @@ export type Prescription = {
   summary: string; // 한 줄
   tiers: TierSlice[]; // 내림차순 (unknown 제외)
   adRatio: number; // 0~1 광고(is_ad) 비중 = 유가 여부 1차 신호
+  paidSignalLabel: string; // 채널별 광고비중 라벨 ("광고비중(유가)" vs "어필리에이트/광고비중")
+  isTTShop: boolean; // TT Shop이면 광고비중=어필리에이트 포함이라 해석 주의
   angleConcentration: number | null; // 0~1 앵글 집중도 (보조, null=클러스터 없음)
   angleLabel: string | null; // "앵글 정리됨" / "앵글 분산"
   blendedCostPerContent: number; // 광고비중 반영 실효 단가 (KRW)
@@ -280,39 +288,50 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
     .filter((s) => s.count > 0)
     .sort((a, b) => b.count - a.count);
 
-  const ad = adRatio(c); // 유가 여부 1차 신호
+  const ad = adRatio(c); // is_ad 비중
   const angle = angleConcentration(c);
   const upperShare = (d.mega + d.macro + d.mid) / total; // 상위 티어 비중
   const nanoMicroShare = (d.micro + d.nano + d["sub-nano"]) / total;
   const megaCount = d.mega;
+  // ⚠️ 채널별 'is_ad' 의미가 다름: 아마존=브랜드 유가, TT Shop=어필리에이트 커미션 포함
+  const isTTShop = c.channel === "tiktok_shop";
+  const adPct = Math.round(ad * 100);
 
-  // 실효 단가: 유가분은 티어 단가, 무가분은 핸들링만
+  // 실효 단가: 유가분은 채널별 단가, 무가분은 핸들링만
+  // 아마존 유가 = 티어 선불 단가 / TT Shop '유가' = 어필리에이트(선불 거의 0)
   const tierPaidCost =
     tiers.reduce((s, x) => s + x.share * PAID_COST_PER_CONTENT[x.tier], 0) ||
     PAID_COST_PER_CONTENT.nano;
-  const blended = ad * tierPaidCost + (1 - ad) * ORGANIC_HANDLING_COST;
+  const paidUnit = isTTShop ? AFFILIATE_UPFRONT_COST : tierPaidCost;
+  const blended = ad * paidUnit + (1 - ad) * ORGANIC_HANDLING_COST;
 
-  // headline — 광고비중(유가) × 티어 믹스
+  // headline — 광고비중 × 티어 믹스 (채널별 해석)
   let headline: string;
   let summary: string;
   if (megaCount >= MEGA_REPEAT_THRESHOLD && ad >= 0.4) {
-    headline = "메가 유가 반복형";
-    summary = `메가 인플 ${megaCount}명을 광고비중 ${Math.round(ad * 100)}%로 반복 투입. 상위 티어 유가로 노출을 끄는 전략.`;
+    headline = isTTShop ? "메가 어필리에이트형" : "메가 유가 반복형";
+    summary = isTTShop
+      ? `메가 인플 ${megaCount}명 + 어필리에이트 비중 ${adPct}%. 상위 티어 크리에이터를 커미션으로 반복 투입.`
+      : `메가 인플 ${megaCount}명을 광고비중 ${adPct}%로 반복 투입. 상위 티어 유가로 노출을 끄는 전략.`;
   } else if (megaCount >= MEGA_REPEAT_THRESHOLD) {
     headline = "메가 활용형";
     summary = `메가 인플 ${megaCount}명 투입. 상위 티어로 노출을 끌어올리는 전략.`;
   } else if (ad >= 0.5 && upperShare >= 0.2) {
-    headline = "유가 인플 드리븐형";
-    summary = `광고비중 ${Math.round(ad * 100)}% + 매크로·미드 ${Math.round(upperShare * 100)}%. 유가 인플로 퀄리티·전환을 끄는 전략.`;
+    headline = isTTShop ? "어필리에이트·유가 드리븐형" : "유가 인플 드리븐형";
+    summary = isTTShop
+      ? `어필리에이트/유가 비중 ${adPct}% + 매크로·미드 ${Math.round(upperShare * 100)}%. (TT Shop은 광고비중에 커미션 어필리에이트가 섞여 순수 유가로 보긴 어려움)`
+      : `광고비중 ${adPct}% + 매크로·미드 ${Math.round(upperShare * 100)}%. 유가 인플로 퀄리티·전환을 끄는 전략.`;
   } else if (ad >= 0.5 && nanoMicroShare >= 0.6) {
-    headline = "소액유가 대량형";
-    summary = `나노·마이크로 중심인데 광고비중 ${Math.round(ad * 100)}% — 돈 주고 대량으로 까는 소액유가 전략.`;
+    headline = isTTShop ? "어필리에이트 대량형" : "소액유가 대량형";
+    summary = isTTShop
+      ? `나노·마이크로 풀에 어필리에이트 비중 ${adPct}% — TT Shop 커미션 기반으로 대량 발행(선불 부담 낮음).`
+      : `나노·마이크로 중심인데 광고비중 ${adPct}% — 돈 주고 대량으로 까는 소액유가 전략.`;
   } else if (ad <= 0.25) {
     headline = "무가 대량 시딩형";
-    summary = `광고비중 ${Math.round(ad * 100)}%로 낮음 — 무가(기프팅) 대량으로 볼륨·바이럴을 노리는 전략.`;
+    summary = `광고비중 ${adPct}%로 낮음 — 무가(기프팅) 대량으로 볼륨·바이럴을 노리는 전략.`;
   } else {
     headline = "유·무가 하이브리드형";
-    summary = `광고비중 ${Math.round(ad * 100)}%. 유가·무가를 섞은 균형 전략.`;
+    summary = `광고비중 ${adPct}%. ${isTTShop ? "어필리에이트·" : ""}유가·무가를 섞은 균형 전략.`;
   }
 
   // 앵글 집중도 라벨 (보조)
@@ -334,7 +353,9 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
       .join(" · ")}`,
   );
   bullets.push(
-    `광고비중(유가) ${Math.round(ad * 100)}% — ${ad >= 0.5 ? "돈 주고 쓰는 비중 높음" : ad <= 0.25 ? "무가/오가닉 중심" : "유무가 혼합"}`,
+    isTTShop
+      ? `어필리에이트/광고비중 ${adPct}% — TT Shop은 커미션 어필리에이트 포함 (순수 유가 아님)`
+      : `광고비중(유가) ${adPct}% — ${ad >= 0.5 ? "돈 주고 쓰는 비중 높음" : ad <= 0.25 ? "무가/오가닉 중심" : "유무가 혼합"}`,
   );
   if (megaCount >= MEGA_REPEAT_THRESHOLD) {
     bullets.push(`메가 ${megaCount}명 활용 — 메가 반복 투입 가능한 풀 확보 필요`);
@@ -353,6 +374,8 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
     summary,
     tiers,
     adRatio: ad,
+    paidSignalLabel: isTTShop ? "어필리에이트/광고비중" : "광고비중 (유가 신호)",
+    isTTShop,
     angleConcentration: angle,
     angleLabel,
     blendedCostPerContent: Math.round(blended),

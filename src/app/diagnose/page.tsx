@@ -684,12 +684,18 @@ function PrescriptionCard({ rx }: { rx: Prescription }) {
       <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 10, color: "var(--color-g400)", fontWeight: 600 }}>
-            광고비중 (유가 신호)
+            {rx.paidSignalLabel}
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: rx.adRatio >= 0.5 ? "#be185d" : "var(--color-g700)" }}>
             {Math.round(rx.adRatio * 100)}%
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-g400)", marginLeft: 5 }}>
-              {rx.adRatio >= 0.5 ? "유가 중심" : rx.adRatio <= 0.25 ? "무가 중심" : "혼합"}
+              {rx.isTTShop
+                ? "어필리에이트 포함"
+                : rx.adRatio >= 0.5
+                  ? "유가 중심"
+                  : rx.adRatio <= 0.25
+                    ? "무가 중심"
+                    : "혼합"}
             </span>
           </div>
         </div>
