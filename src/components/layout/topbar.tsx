@@ -7,6 +7,7 @@ const navItems = [
   { href: "/cases", label: "Browse" },
   { href: "/diagnose", label: "진단서" },
   { href: "/cases/new", label: "+ New Case", primary: true },
+  { href: "/settings/packages", label: "상품" },
   { href: "/settings/seeding-pricing", label: "시딩 단가" },
   { href: "/settings/exchange-rates", label: "환율 설정" },
 ];
