@@ -1518,6 +1518,62 @@ export default async function CaseDetailPage({
   const igAuthorsTotal = igAuthorsCounts.total;
   const igAuthorsWithFollowers = igAuthorsCounts.withFollowers;
 
+  // ★ 채널별 월별 티어 분포(명수) — Section A 티어 stack / Section B 월필터가 채널에 반응하도록.
+  //   TK: phase3.tier_dist_by_month(기존). IG: ig_posts(월·작성자) ↔ ig_authors(followers→tier)
+  //   의 월별 distinct 작성자 명수. YT: 데이터 없어 빈값. all = TK+IG 월별 병합.
+  //   (버그: 기존엔 모든 채널이 phase3 TK 월별만 봐서 채널 바꿔도 티어가 동일했음)
+  const monthlyTierByChannel = await (async () => {
+    type TK3 = "mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown";
+    const tierOf = (n: number | null | undefined): TK3 =>
+      n == null ? "unknown" : n >= 1_000_000 ? "mega" : n >= 500_000 ? "macro" : n >= 100_000 ? "mid" : n >= 10_000 ? "micro" : n >= 1_000 ? "nano" : "sub-nano";
+    const emptyTd = (): Record<TK3, number> => ({ mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0 });
+    const tk = ((keyStats.phase3 as { tier_dist_by_month?: Record<string, Record<TK3, number>> } | undefined)?.tier_dist_by_month) ?? {};
+
+    // IG 작성자 → tier
+    const igTierByUser = new Map<string, TK3>();
+    {
+      const { data } = await supabase.from("ig_authors").select("username, followers").eq("case_id", c.id).limit(10000);
+      for (const a of data ?? []) if (a.username) igTierByUser.set(a.username, tierOf(a.followers));
+    }
+    // IG 월별 tier → distinct 작성자
+    const igMonthAuthors = new Map<string, Map<TK3, Set<string>>>();
+    {
+      let from = 0;
+      for (;;) {
+        const { data } = await supabase.from("ig_posts").select("owner_username, posted_at").eq("case_id", c.id).range(from, from + 999);
+        if (!data || data.length === 0) break;
+        for (const p of data) {
+          if (!p.owner_username || !p.posted_at) continue;
+          const mo = String(p.posted_at).slice(0, 7);
+          const tier = igTierByUser.get(p.owner_username) ?? "unknown";
+          let mm = igMonthAuthors.get(mo);
+          if (!mm) { mm = new Map(); igMonthAuthors.set(mo, mm); }
+          let st = mm.get(tier);
+          if (!st) { st = new Set(); mm.set(tier, st); }
+          st.add(p.owner_username);
+        }
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+    }
+    const ig: Record<string, Record<TK3, number>> = {};
+    for (const [mo, mm] of igMonthAuthors) {
+      const td = emptyTd();
+      for (const [tier, set] of mm) td[tier] = set.size;
+      ig[mo] = td;
+    }
+    // all = TK + IG 월별 명수 병합
+    const all: Record<string, Record<TK3, number>> = {};
+    for (const src of [tk, ig]) {
+      for (const mo of Object.keys(src)) {
+        if (!all[mo]) all[mo] = emptyTd();
+        const s = src[mo]!;
+        for (const k of Object.keys(s) as TK3[]) all[mo][k] += s[k] ?? 0;
+      }
+    }
+    return { all, tk, ig, yt: {} as Record<string, Record<TK3, number>> };
+  })();
+
   // ★ IG / YT Top 작성자 박힘 박힘 Top 3 영상 fetch — SectionBMockup 클릭 → iframe embed 박힘 박힘.
   const [igTopAuthorVideos, ytTopChannelVideos] = await Promise.all([
     (async () => {
@@ -2499,6 +2555,7 @@ export default async function CaseDetailPage({
                         phase2={ks.phase2}
                         phase3={ks.phase3}
                         phase5={ks.phase5}
+                        monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                       />
                       <SectionBMockup
@@ -2518,6 +2575,7 @@ export default async function CaseDetailPage({
                           return out;
                         })()}
                         tierDistByChannel={tierDistByChannel}
+                        monthlyTierByChannel={monthlyTierByChannel}
                         igTopAuthors={igTopAuthors.map((a) => ({
                           username: a.username,
                           total_posts: a.total_posts,

@@ -40,6 +40,7 @@ export function SectionAMockup({
   phase2,
   phase3,
   phase5,
+  monthlyTierByChannel,
   hasAmazon,
 }: {
   phase2: Phase2Stats;
@@ -48,6 +49,8 @@ export function SectionAMockup({
     tier_distribution?: TierDistribution; // 전체 (월별 없을 때 fallback)
   };
   phase5?: Phase5Stats;
+  /** 채널별 월별 티어 분포 — Section A 티어 stack 이 채널 토글에 반응하게 (page.tsx server) */
+  monthlyTierByChannel?: Record<ChannelMode, Record<string, TierDistribution>>;
   /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
   hasAmazon?: boolean;
 }) {
@@ -106,6 +109,10 @@ export function SectionAMockup({
 
   // ─────────── stack chart ───────────
   const tierByMonth = phase3?.tier_dist_by_month ?? {};
+  // 티어 stack 렌더용 — 선택 채널의 월별 티어. 채널별 데이터 있으면 그걸, 없으면 TK(phase3) fallback.
+  // (months union 계산엔 기존 tierByMonth 유지해 grid 안정화)
+  const tierStackByMonth: Record<string, TierDistribution> =
+    monthlyTierByChannel?.[channelMode] ?? tierByMonth;
   // 월별 tier 없을 때 전체 tier_distribution 비율로 fallback (모든 막대 같은 비율로 stack)
   const totalTierFallback = phase3?.tier_distribution
     ? TIERS.reduce((s, t) => s + (phase3.tier_distribution![t.key] ?? 0), 0)
@@ -350,7 +357,7 @@ export function SectionAMockup({
           {months.map((mo, i) => {
             const total = totalByMonth.get(mo) ?? 0;
             const heightPct = barMode === "abs" ? (total / maxVids) * 100 : 100;
-            const td = tierByMonth[mo];
+            const td = tierStackByMonth[mo];
             const tierTotal = td ? TIERS.reduce((s, t) => s + (td[t.key] ?? 0), 0) : 0;
             const hasTierData = tierTotal > 0;
             const isPeak = i === months.length - 1; // ★ 마지막 달 강조
@@ -518,7 +525,7 @@ export function SectionAMockup({
         {hoverIdx !== null && months[hoverIdx] && (() => {
           const mo = months[hoverIdx]!;
           const total = totalByMonth.get(mo) ?? 0;
-          const td = tierByMonth[mo];
+          const td = tierStackByMonth[mo];
           const tierTotal = td ? TIERS.reduce((s, t) => s + (td[t.key] ?? 0), 0) : 0;
           const r = monthlyForMode.find((x) => x.month === mo);
           const paid = r?.paid ?? 0;

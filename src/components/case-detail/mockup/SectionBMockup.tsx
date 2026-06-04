@@ -54,6 +54,7 @@ export function SectionBMockup({
   shopGmvDistribution,
   ownedHandles,
   tierDistByChannel,
+  monthlyTierByChannel,
   igTopAuthors,
   ytTopChannels,
 }: {
@@ -68,6 +69,8 @@ export function SectionBMockup({
   ownedHandles?: Set<string>;
   /** 채널별 tier 분포 — TK: phase3, IG: ig_authors.followers, YT: yt_channels.subscriber_count (page.tsx server SQL) */
   tierDistByChannel?: Record<"tk" | "ig" | "yt", Record<TierBucket, number>>;
+  /** 채널별 월별 tier 분포 — 월 필터 선택 시 채널에 맞는 월별 티어 (page.tsx server) */
+  monthlyTierByChannel?: Record<"all" | "tk" | "ig" | "yt", Record<string, Record<TierBucket, number>>>;
   /** IG Top 작성자 list (phase4c.top_authors_preview) — channelMode='ig' 일 때 표시 */
   igTopAuthors?: Phase4cAuthorPreview[];
   /** YT Top 채널 list (phase4d.top_channels_preview) — channelMode='yt' 일 때 표시 */
@@ -93,7 +96,7 @@ export function SectionBMockup({
   // monthFilter 박혔으면 phase3.tier_dist_by_month (TK 만 — IG/YT 는 월별 데이터 없음)
   // channelMode 별: all = 합산, tk = phase3, ig = ig_authors, yt = yt_channels
   const tierDist = (() => {
-    if (monthFilter !== "all") return phase3?.tier_dist_by_month?.[monthFilter] ?? null;
+    if (monthFilter !== "all") return monthlyTierByChannel?.[channelMode]?.[monthFilter] ?? phase3?.tier_dist_by_month?.[monthFilter] ?? null;
     if (channelMode === "tk") return tierDistByChannel?.tk ?? phase3?.tier_distribution ?? null;
     if (channelMode === "ig") return tierDistByChannel?.ig ?? null;
     if (channelMode === "yt") return tierDistByChannel?.yt ?? null;
