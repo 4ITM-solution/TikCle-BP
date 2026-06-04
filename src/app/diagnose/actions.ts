@@ -10,6 +10,7 @@ import {
   type DiagnoseCaseInput,
   type DiagnoseMatchResult,
 } from "@/lib/diagnose/match";
+import { fetchSeedingPricing } from "@/lib/diagnose/pricing-server";
 import type {
   Phase2Stats,
   Phase3Stats,
@@ -63,6 +64,7 @@ export async function runDiagnose(
     };
   });
 
+  const pricing = await fetchSeedingPricing();
   const input = extractMatchInput(answers);
-  return computeDiagnoseMatch(input, cases);
+  return computeDiagnoseMatch(input, cases, pricing);
 }

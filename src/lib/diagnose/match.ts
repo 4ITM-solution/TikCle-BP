@@ -12,6 +12,7 @@
 
 import type { MatchInput } from "./questionnaire";
 import type { TierBucket, TierDistribution } from "@/lib/inngest/types";
+import { DEFAULT_PRICING, type SeedingPricing } from "./pricing";
 
 // =============================================================================
 // ⚙️ 튜너블 상수 — 비즈 수치는 전부 여기
@@ -26,16 +27,8 @@ export const BUDGET_TIERS = [
 
 export type BudgetTierId = (typeof BUDGET_TIERS)[number]["id"];
 
-/** 유가 콘텐츠 1건당 추정 단가 (KRW) — 티어별. 돈 주고 쓸 때의 비용. */
-const PAID_COST_PER_CONTENT: Record<TierBucket, number> = {
-  mega: 8_000_000,
-  macro: 2_500_000,
-  mid: 800_000,
-  micro: 300_000,
-  nano: 100_000,
-  "sub-nano": 60_000,
-  unknown: 200_000,
-};
+// 티어별 단가는 app_settings(diagnose_pricing) → SeedingPricing.tierCost 로 주입.
+// 기본값은 DEFAULT_PRICING (pricing.ts). 설정 페이지에서 운영자가 수정.
 
 
 /** fit 스코어 가중치 (예산은 fit에 들어가지 않음) */
@@ -259,7 +252,10 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 // BP → 처방(상품) 변환
 // =============================================================================
 
-function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
+function derivePrescription(
+  c: DiagnoseCaseInput,
+  pricing: SeedingPricing,
+): Prescription | null {
   const d = c.tierDistribution;
   if (!d) return null;
   const total = STRATEGY_TIERS.reduce((s, t) => s + d[t], 0);
@@ -281,10 +277,11 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
   const isTTShop = c.channel === "tiktok_shop";
   const adPct = Math.round(ad * 100);
 
-  // 단가 = 순수 티어 기준 (커미션/유무가 구분 없이 티어가 비용을 결정)
+  // 단가 = 순수 티어 기준 (설정 페이지의 단가 주입). 티어가 비용을 결정.
+  const cost = pricing.tierCost;
   const blended =
-    tiers.reduce((s, x) => s + x.share * PAID_COST_PER_CONTENT[x.tier], 0) ||
-    PAID_COST_PER_CONTENT.nano;
+    tiers.reduce((s, x) => s + x.share * (cost[x.tier] ?? 0), 0) ||
+    cost.nano;
 
   // headline — 티어 믹스 우선
   let headline: string;
@@ -359,7 +356,7 @@ function scaleToBudget(
   seedingKrw: number,
   rx: Prescription | null,
 ): { affordableMonthly: number; tierBreakdown: { tier: TierBucket; count: number }[] } {
-  const blended = rx?.blendedCostPerContent ?? PAID_COST_PER_CONTENT.nano;
+  const blended = rx?.blendedCostPerContent ?? DEFAULT_PRICING.tierCost.nano;
   const affordableMonthly = Math.max(0, Math.round(seedingKrw / blended));
   if (!rx) return { affordableMonthly, tierBreakdown: [] };
   const tierBreakdown = rx.tiers
@@ -479,6 +476,7 @@ function scoreCase(input: MatchInput, c: DiagnoseCaseInput): ScoredCase {
 export function computeDiagnoseMatch(
   input: MatchInput,
   cases: DiagnoseCaseInput[],
+  pricing: SeedingPricing = DEFAULT_PRICING,
 ): DiagnoseMatchResult {
   const byId = new Map(cases.map((c) => [c.id, c]));
 
@@ -491,7 +489,7 @@ export function computeDiagnoseMatch(
 
   // 2) BP → 처방(상품) 변환
   const topInput = topMatches[0] ? byId.get(topMatches[0].id) ?? null : null;
-  const prescription = topInput ? derivePrescription(topInput) : null;
+  const prescription = topInput ? derivePrescription(topInput, pricing) : null;
 
   // 3) 예산 → 처방을 얼마나 크게 실행하느냐
   const budgetKrw = input.budget ? BUDGET_BAND_KRW[input.budget] : null;
