@@ -10,11 +10,16 @@ import {
   type DiagnoseCaseInput,
   type DiagnoseMatchResult,
 } from "@/lib/diagnose/match";
-import type { Phase2Stats, Phase3Stats } from "@/lib/inngest/types";
+import type {
+  Phase2Stats,
+  Phase3Stats,
+  Phase4bClusterStats,
+} from "@/lib/inngest/types";
 
 type KeyStats = {
   phase2?: Phase2Stats;
   phase3?: Phase3Stats;
+  phase4b_clusters?: Phase4bClusterStats;
 };
 
 export async function runDiagnose(
@@ -36,6 +41,7 @@ export async function runDiagnose(
     const ks = (r.key_stats ?? {}) as KeyStats;
     const p2 = ks.phase2;
     const p3 = ks.phase3;
+    const clusters = ks.phase4b_clusters?.meta_clusters ?? [];
     return {
       id: r.id,
       brand:
@@ -52,6 +58,7 @@ export async function runDiagnose(
       })),
       tierDistribution: p3?.tier_distribution ?? null,
       top1Share: p2?.sales_summary?.top1_revenue_share ?? null,
+      clusterMemberCounts: clusters.map((c) => c.member_count ?? 0),
       summaryLine: null,
     };
   });

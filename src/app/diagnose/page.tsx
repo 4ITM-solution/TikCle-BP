@@ -680,6 +680,31 @@ function PrescriptionCard({ rx }: { rx: Prescription }) {
         <span style={{ fontSize: 12.5, color: "var(--color-g600)" }}>{rx.summary}</span>
       </div>
 
+      {/* 광고비중(유가/무가) + 앵글 — 이번 핵심 신호 */}
+      <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 10, color: "var(--color-g400)", fontWeight: 600 }}>
+            광고비중 (유가 신호)
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: rx.adRatio >= 0.5 ? "#be185d" : "var(--color-g700)" }}>
+            {Math.round(rx.adRatio * 100)}%
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-g400)", marginLeft: 5 }}>
+              {rx.adRatio >= 0.5 ? "유가 중심" : rx.adRatio <= 0.25 ? "무가 중심" : "혼합"}
+            </span>
+          </div>
+        </div>
+        {rx.angleLabel && (
+          <div>
+            <div style={{ fontSize: 10, color: "var(--color-g400)", fontWeight: 600 }}>
+              앵글 (보조)
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-g700)" }}>
+              {rx.angleLabel}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 티어 믹스 막대 */}
       <div style={{ marginTop: 14, display: "flex", height: 12, borderRadius: 6, overflow: "hidden" }}>
         {rx.tiers.map((t) => (

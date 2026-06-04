@@ -26,16 +26,19 @@ export const BUDGET_TIERS = [
 
 export type BudgetTierId = (typeof BUDGET_TIERS)[number]["id"];
 
-/** 시딩 콘텐츠 1건당 추정 단가 (KRW) — 티어별. 처방 믹스 단가/실행규모 산출용. */
-const SEEDING_COST_PER_CONTENT: Record<TierBucket, number> = {
+/** 유가 콘텐츠 1건당 추정 단가 (KRW) — 티어별. 돈 주고 쓸 때의 비용. */
+const PAID_COST_PER_CONTENT: Record<TierBucket, number> = {
   mega: 8_000_000,
   macro: 2_500_000,
   mid: 800_000,
-  micro: 250_000,
-  nano: 60_000,
-  "sub-nano": 40_000,
-  unknown: 120_000,
+  micro: 300_000,
+  nano: 100_000,
+  "sub-nano": 60_000,
+  unknown: 200_000,
 };
+
+/** 무가(기프팅) 콘텐츠 1건당 비용 — 제품+배송+핸들링만. 티어 무관. */
+const ORGANIC_HANDLING_COST = 40_000;
 
 /** fit 스코어 가중치 (예산은 fit에 들어가지 않음) */
 const WEIGHTS = {
@@ -123,6 +126,7 @@ export type DiagnoseCaseInput = {
   monthlyVideoCounts: { month: string; paid: number; total: number }[];
   tierDistribution: TierDistribution | null;
   top1Share: number | null; // Top1 SKU 매출 집중도 0~1
+  clusterMemberCounts: number[]; // phase4b 메타클러스터별 멤버수 (앵글 집중도용)
   summaryLine: string | null;
 };
 
@@ -145,12 +149,13 @@ export type TierSlice = { tier: TierBucket; count: number; share: number };
 /** BP → 변환된 상품(처방) */
 export type Prescription = {
   basedOn: string; // "Dr. Groot (US · 아마존) 패턴 기반"
-  headline: string; // "메가 반복 활용형"
+  headline: string; // "메가 반복 활용형" / "소액유가 대량형" / "무가 대량 시딩형"
   summary: string; // 한 줄
   tiers: TierSlice[]; // 내림차순 (unknown 제외)
-  paidShare: number; // 0~1 (mega+macro+mid)
-  organicShare: number; // 0~1 (nano+sub-nano)
-  blendedCostPerContent: number; // 이 믹스 단가 (KRW)
+  adRatio: number; // 0~1 광고(is_ad) 비중 = 유가 여부 1차 신호
+  angleConcentration: number | null; // 0~1 앵글 집중도 (보조, null=클러스터 없음)
+  angleLabel: string | null; // "앵글 정리됨" / "앵글 분산"
+  blendedCostPerContent: number; // 광고비중 반영 실효 단가 (KRW)
   monthlyContents: number; // 이 케이스 월 시딩 규모
   megaCount: number;
   bullets: string[];
@@ -234,6 +239,27 @@ function organicTierShare(d: TierDistribution | null): number {
   return (d.nano + d["sub-nano"]) / total;
 }
 
+/** 광고(is_ad) 비중 = 유가 여부 1차 신호. monthly paid/total. */
+function adRatio(c: DiagnoseCaseInput): number {
+  const m = c.monthlyVideoCounts ?? [];
+  const paid = m.reduce((s, x) => s + (x.paid ?? 0), 0);
+  const total = m.reduce((s, x) => s + (x.total ?? 0), 0);
+  return total > 0 ? clamp01(paid / total) : 0;
+}
+
+/**
+ * 앵글 집중도 0~1 — 상위 클러스터가 전체 멤버십의 몇 %를 덮나.
+ * ⚠️ 메타클러스터가 설계상 4~7개로 캡되고 멀티멤버십이라 거친 신호. 보조용.
+ */
+function angleConcentration(c: DiagnoseCaseInput): number | null {
+  const cnts = (c.clusterMemberCounts ?? []).filter((n) => n > 0);
+  if (cnts.length < 2) return null;
+  const total = cnts.reduce((s, n) => s + n, 0);
+  if (total <= 0) return null;
+  const top = [...cnts].sort((a, b) => b - a).slice(0, 2);
+  return clamp01(top.reduce((s, n) => s + n, 0) / total);
+}
+
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
 // =============================================================================
@@ -254,28 +280,50 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
     .filter((s) => s.count > 0)
     .sort((a, b) => b.count - a.count);
 
-  const paidShare = paidTierShare(d);
-  const organicShare = organicTierShare(d);
+  const ad = adRatio(c); // 유가 여부 1차 신호
+  const angle = angleConcentration(c);
+  const upperShare = (d.mega + d.macro + d.mid) / total; // 상위 티어 비중
+  const nanoMicroShare = (d.micro + d.nano + d["sub-nano"]) / total;
   const megaCount = d.mega;
-  const blended =
-    tiers.reduce((s, x) => s + x.share * SEEDING_COST_PER_CONTENT[x.tier], 0) ||
-    SEEDING_COST_PER_CONTENT.nano;
 
-  // headline — BP가 실제로 한 패턴
+  // 실효 단가: 유가분은 티어 단가, 무가분은 핸들링만
+  const tierPaidCost =
+    tiers.reduce((s, x) => s + x.share * PAID_COST_PER_CONTENT[x.tier], 0) ||
+    PAID_COST_PER_CONTENT.nano;
+  const blended = ad * tierPaidCost + (1 - ad) * ORGANIC_HANDLING_COST;
+
+  // headline — 광고비중(유가) × 티어 믹스
   let headline: string;
   let summary: string;
-  if (megaCount >= MEGA_REPEAT_THRESHOLD) {
-    headline = "메가 반복 활용형";
-    summary = `이 케이스는 메가 인플을 ${megaCount}명 반복 투입했어요. 상위 티어로 노출을 끌어올리는 전략.`;
-  } else if (paidShare >= 0.25) {
-    headline = "유가(매크로·미드) 드리븐형";
-    summary = `매크로·미드 유가 인플 비중이 ${Math.round(paidShare * 100)}%. 유가 인플로 퀄리티·전환을 끄는 전략.`;
-  } else if (organicShare >= 0.6) {
-    headline = "나노 대량 무가 시딩형";
-    summary = `나노·서브나노 비중이 ${Math.round(organicShare * 100)}%. 무가 대량으로 볼륨·바이럴을 노리는 전략.`;
+  if (megaCount >= MEGA_REPEAT_THRESHOLD && ad >= 0.4) {
+    headline = "메가 유가 반복형";
+    summary = `메가 인플 ${megaCount}명을 광고비중 ${Math.round(ad * 100)}%로 반복 투입. 상위 티어 유가로 노출을 끄는 전략.`;
+  } else if (megaCount >= MEGA_REPEAT_THRESHOLD) {
+    headline = "메가 활용형";
+    summary = `메가 인플 ${megaCount}명 투입. 상위 티어로 노출을 끌어올리는 전략.`;
+  } else if (ad >= 0.5 && upperShare >= 0.2) {
+    headline = "유가 인플 드리븐형";
+    summary = `광고비중 ${Math.round(ad * 100)}% + 매크로·미드 ${Math.round(upperShare * 100)}%. 유가 인플로 퀄리티·전환을 끄는 전략.`;
+  } else if (ad >= 0.5 && nanoMicroShare >= 0.6) {
+    headline = "소액유가 대량형";
+    summary = `나노·마이크로 중심인데 광고비중 ${Math.round(ad * 100)}% — 돈 주고 대량으로 까는 소액유가 전략.`;
+  } else if (ad <= 0.25) {
+    headline = "무가 대량 시딩형";
+    summary = `광고비중 ${Math.round(ad * 100)}%로 낮음 — 무가(기프팅) 대량으로 볼륨·바이럴을 노리는 전략.`;
   } else {
-    headline = "마이크로 중심 하이브리드형";
-    summary = "마이크로를 축으로 유가·무가를 섞은 균형 전략.";
+    headline = "유·무가 하이브리드형";
+    summary = `광고비중 ${Math.round(ad * 100)}%. 유가·무가를 섞은 균형 전략.`;
+  }
+
+  // 앵글 집중도 라벨 (보조)
+  let angleLabel: string | null = null;
+  if (angle != null) {
+    angleLabel =
+      angle >= 0.75
+        ? "앵글 정리됨 (그룹핑 뚜렷)"
+        : angle <= 0.5
+          ? "앵글 분산 (제멋대로 가능성)"
+          : "앵글 중간 정도 정리";
   }
 
   const bullets: string[] = [];
@@ -285,12 +333,13 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
       .map((t) => `${tierKo(t.tier)} ${Math.round(t.share * 100)}%`)
       .join(" · ")}`,
   );
+  bullets.push(
+    `광고비중(유가) ${Math.round(ad * 100)}% — ${ad >= 0.5 ? "돈 주고 쓰는 비중 높음" : ad <= 0.25 ? "무가/오가닉 중심" : "유무가 혼합"}`,
+  );
   if (megaCount >= MEGA_REPEAT_THRESHOLD) {
     bullets.push(`메가 ${megaCount}명 활용 — 메가 반복 투입 가능한 풀 확보 필요`);
   }
-  bullets.push(
-    `유가:무가 ≈ ${Math.round(paidShare * 100)} : ${Math.round(organicShare * 100)}`,
-  );
+  if (angleLabel) bullets.push(`앵글: ${angleLabel}`);
   if ((c.top1Share ?? 0) >= 0.35) {
     bullets.push(
       `히어로 SKU 집중 (Top1 매출 ${Math.round((c.top1Share ?? 0) * 100)}%) — SKU 1개에 화력 집중`,
@@ -303,8 +352,9 @@ function derivePrescription(c: DiagnoseCaseInput): Prescription | null {
     headline,
     summary,
     tiers,
-    paidShare,
-    organicShare,
+    adRatio: ad,
+    angleConcentration: angle,
+    angleLabel,
     blendedCostPerContent: Math.round(blended),
     monthlyContents: monthlyContents(c),
     megaCount,
@@ -317,7 +367,7 @@ function scaleToBudget(
   seedingKrw: number,
   rx: Prescription | null,
 ): { affordableMonthly: number; tierBreakdown: { tier: TierBucket; count: number }[] } {
-  const blended = rx?.blendedCostPerContent ?? SEEDING_COST_PER_CONTENT.nano;
+  const blended = rx?.blendedCostPerContent ?? ORGANIC_HANDLING_COST;
   const affordableMonthly = Math.max(0, Math.round(seedingKrw / blended));
   if (!rx) return { affordableMonthly, tierBreakdown: [] };
   const tierBreakdown = rx.tiers
@@ -345,8 +395,8 @@ function urgentBoost(
     let reason = "";
     switch (u) {
       case "paid_ops":
-        signal = paidTierShare(c.tierDistribution);
-        reason = "유가(매크로·미드) 운영 사례";
+        signal = adRatio(c); // 광고비중 = 유가 운영 신호
+        reason = "유가(광고비중↑) 운영 사례";
         break;
       case "organic_volume":
         signal =
