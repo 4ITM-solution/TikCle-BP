@@ -10,8 +10,10 @@ import {
 import type {
   BudgetScenario,
   DiagnoseMatchResult,
+  Prescription,
   ScoredCase,
 } from "@/lib/diagnose/match";
+import { tierKo } from "@/lib/diagnose/match";
 import { runDiagnose } from "./actions";
 
 // 결과 산출에 꼭 필요한 핵심 문항 (이게 비면 제출 막음)
@@ -537,12 +539,15 @@ function ResultView({
         </>
       )}
 
-      {/* 2) 예산별 실행 시나리오 */}
+      {/* 2) BP → 처방(상품) */}
+      {result.prescription && <PrescriptionCard rx={result.prescription} />}
+
+      {/* 3) 예산별 실행 시나리오 */}
       <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
-        💰 예산별 실행 시나리오
+        💰 예산별 실행 규모
       </div>
       <div style={{ fontSize: 11.5, color: "var(--color-g400)", marginBottom: 12 }}>
-        같은 방향(위 BP)을 예산에 따라 어느 규모로 실행하느냐.
+        위 처방(믹스)을 예산에 맞춰 몇 개 실행할 수 있는지 — 믹스 단가로 환산.
         {result.seedingBudgetKrw != null && (
           <>
             {" "}입력 기준 월 실 시딩예산 ≈{" "}
@@ -551,9 +556,6 @@ function ResultView({
             </b>
             .
           </>
-        )}
-        {result.topBpMonthly != null && (
-          <> 매칭된 BP는 월 약 {result.topBpMonthly}개 규모.</>
         )}
       </div>
       <div
@@ -614,43 +616,120 @@ function BudgetScenarioCard({ s }: { s: BudgetScenario }) {
           선택하신 예산
         </div>
       )}
-      <div style={{ fontSize: 16, fontWeight: 800 }}>{s.label}</div>
-      <div
-        style={{
-          fontSize: 11.5,
-          color: "var(--color-g500)",
-          marginTop: 2,
-          marginBottom: 12,
-        }}
-      >
-        {s.packageName}
+      <div style={{ fontSize: 15, fontWeight: 800 }}>{s.label}</div>
+
+      <div style={{ fontSize: 22, fontWeight: 800, marginTop: 10, color: "var(--color-ink)" }}>
+        월 {s.affordableMonthly.toLocaleString()}개
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-g400)", marginLeft: 4 }}>
+          시딩 가능
+        </span>
       </div>
 
-      <div style={{ fontSize: 12, color: "var(--color-g700)", fontWeight: 700 }}>
-        월 {s.targetMonthly[0]}~{s.targetMonthly[1]}개 영상
-      </div>
-      <div style={{ fontSize: 11.5, color: "var(--color-g500)", marginTop: 6, lineHeight: 1.5 }}>
-        {s.estInfluencers}
-      </div>
-
-      {s.matchesTopBp && (
-        <div
-          style={{
-            marginTop: 12,
-            fontSize: 10.5,
-            fontWeight: 700,
-            color: "var(--color-info)",
-            background: "var(--color-info-soft)",
-            padding: "5px 9px",
-            borderRadius: 7,
-            display: "inline-block",
-          }}
-        >
-          ← 매칭된 BP가 이 규모대
+      {s.tierBreakdown.length > 0 ? (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+          {s.tierBreakdown.map((t) => (
+            <div
+              key={t.tier}
+              style={{ fontSize: 11.5, color: "var(--color-g600)", display: "flex", justifyContent: "space-between" }}
+            >
+              <span>{tierKo(t.tier)}</span>
+              <b>{t.count.toLocaleString()}명</b>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: "var(--color-g400)", marginTop: 10 }}>
+          이 예산으론 처방 믹스 1건도 어려움 (단가↑)
         </div>
       )}
     </div>
   );
+}
+
+function PrescriptionCard({ rx }: { rx: Prescription }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--color-g100)",
+        borderRadius: 12,
+        background: "white",
+        padding: "18px 20px",
+        marginBottom: 22,
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
+        🧪 이 BP가 한 방식 = 처방
+      </div>
+      <div style={{ fontSize: 10.5, color: "var(--color-g400)", marginBottom: 12 }}>
+        {rx.basedOn}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <span
+          style={{
+            fontSize: 18,
+            fontWeight: 800,
+            color: "#be185d",
+            background: "var(--color-accent-soft)",
+            padding: "4px 12px",
+            borderRadius: 8,
+          }}
+        >
+          {rx.headline}
+        </span>
+        <span style={{ fontSize: 12.5, color: "var(--color-g600)" }}>{rx.summary}</span>
+      </div>
+
+      {/* 티어 믹스 막대 */}
+      <div style={{ marginTop: 14, display: "flex", height: 12, borderRadius: 6, overflow: "hidden" }}>
+        {rx.tiers.map((t) => (
+          <div
+            key={t.tier}
+            title={`${tierKo(t.tier)} ${Math.round(t.share * 100)}%`}
+            style={{ width: `${t.share * 100}%`, background: tierColor(t.tier) }}
+          />
+        ))}
+      </div>
+      <div style={{ marginTop: 6, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {rx.tiers.slice(0, 4).map((t) => (
+          <span key={t.tier} style={{ fontSize: 10.5, color: "var(--color-g500)" }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                borderRadius: 2,
+                background: tierColor(t.tier),
+                marginRight: 4,
+              }}
+            />
+            {tierKo(t.tier)} {Math.round(t.share * 100)}%
+          </span>
+        ))}
+      </div>
+
+      <ul style={{ marginTop: 14, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 5 }}>
+        {rx.bullets.map((b, i) => (
+          <li key={i} style={{ fontSize: 12, color: "var(--color-g600)", lineHeight: 1.5 }}>
+            {b}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function tierColor(t: string): string {
+  const m: Record<string, string> = {
+    mega: "#be185d",
+    macro: "#ec4899",
+    mid: "#f9a8d4",
+    micro: "#a5b4fc",
+    nano: "#7dd3fc",
+    "sub-nano": "#bae6fd",
+    unknown: "#e5e7eb",
+  };
+  return m[t] ?? "#e5e7eb";
 }
 
 function CaseRow({ c }: { c: ScoredCase }) {
