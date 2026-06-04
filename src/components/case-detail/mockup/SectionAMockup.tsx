@@ -230,6 +230,15 @@ export function SectionAMockup({
     );
   }
 
+  // 진행 중인 이번 달(부분월)은 데이터가 미완성 → 오버레이 라인에서 제외해
+  // 막대 꼭대기를 따라 바닥/천장으로 급등락하며 plot 가장자리로 튀는 현상 방지.
+  // (막대 + ★ 라벨은 그대로 표시. Date는 mounted 이후라 client-only → hydration 안전.)
+  const _now = new Date();
+  const nowYM = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}`;
+  const lastIsPartial = months.length > 1 && months[months.length - 1] === nowYM;
+  const lineEndIdx = lastIsPartial ? months.length - 1 : months.length; // 라인에 그릴 month 개수
+  const inLineRange = (mo: string) => months.indexOf(mo) < lineEndIdx;
+
   return (
     <div className="section" id="sec-a">
       <div className="section-h">
@@ -395,9 +404,10 @@ export function SectionAMockup({
           {/* SVG overlay — stack-bars 박힘 안 박힘 child 박힘 박힘 박힘 박힘 line 박힘 박힘 박힘 박힘 alignment 박힘 박힘 guaranteed.
               padding 박힘 박힘 박힘 박힘 박힘 박힘 box 박힘 박힘 박힘 박힘 박힘 박힘 박힘. */}
           <svg className="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">
-            {show.vc && months.length > 1 && (
+            {show.vc && lineEndIdx > 1 && (
               <polyline
                 points={months
+                  .slice(0, lineEndIdx)
                   .map((mo, i) => {
                     const x = (i / (months.length - 1)) * 1000 + 50;
                     const total = totalByMonth.get(mo) ?? 0;
@@ -414,8 +424,8 @@ export function SectionAMockup({
                 vectorEffect="non-scaling-stroke"
               />
             )}
-            {show.ad && months.length > 1 && (() => {
-              const adRatios = months.filter((mo) => adByMonth.has(mo)).map((mo) => adByMonth.get(mo) ?? 0);
+            {show.ad && lineEndIdx > 1 && (() => {
+              const adRatios = months.filter((mo) => adByMonth.has(mo) && inLineRange(mo)).map((mo) => adByMonth.get(mo) ?? 0);
               const adMax = Math.max(...adRatios, 0);
               const nonZeroCount = adRatios.filter((r) => r > 0.01).length;
               if (nonZeroCount < 2 || adMax < 0.02) return null;
@@ -423,7 +433,7 @@ export function SectionAMockup({
               return (
                 <polyline
                   points={months
-                    .filter((mo) => adByMonth.has(mo))
+                    .filter((mo) => adByMonth.has(mo) && inLineRange(mo))
                     .map((mo) => {
                       const idx = months.indexOf(mo);
                       const x = (idx / (months.length - 1)) * 1000 + 50;
@@ -445,7 +455,7 @@ export function SectionAMockup({
             {show.bsr && hasAmazon && bsrVals.length > 1 && (
               <polyline
                 points={months
-                  .filter((mo) => bsrByMonth.has(mo))
+                  .filter((mo) => bsrByMonth.has(mo) && inLineRange(mo))
                   .map((mo) => {
                     const idx = months.indexOf(mo);
                     const x = (idx / (months.length - 1)) * 1000 + 50;
