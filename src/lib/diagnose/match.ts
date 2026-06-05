@@ -42,7 +42,7 @@ export type BudgetTierId = (typeof BUDGET_TIERS)[number]["id"];
 const MILESTONE_TEMPLATE: {
   label: string;
   note: string;
-  items: { type: ProductType; qty: number }[];
+  items: { type: ProductType; qty?: number; people?: number; perPerson?: number }[];
 }[] = [
   {
     label: "1개월차",
@@ -63,7 +63,7 @@ const MILESTONE_TEMPLATE: {
     items: [
       { type: "organic", qty: 200 },
       { type: "sourcing", qty: 10 },
-      { type: "micro", qty: 6 },
+      { type: "micro", people: 3, perPerson: 2 }, // 3명 × 2개(반복) = 6영상
     ],
   },
   {
@@ -217,6 +217,8 @@ export type MilestoneLineItem = {
   label: string;
   unit: string;
   qty: number;
+  people?: number; // 인플 명수 (있으면 "N명 × M개" 표기)
+  perPerson?: number; // 1명당 영상 수
   unitCost: number;
   cost: number;
 };
@@ -254,12 +256,15 @@ export function buildMilestonePlan(pricing: ProductPricing): MilestonePlan {
     const items: MilestoneLineItem[] = m.items.map((it) => {
       const meta = labelOf(it.type);
       const unitCost = pricing[it.type] ?? 0;
-      const cost = it.qty * unitCost;
+      const qty = it.qty ?? (it.people ?? 0) * (it.perPerson ?? 0);
+      const cost = qty * unitCost;
       return {
         type: it.type,
         label: meta.label,
         unit: meta.unit,
-        qty: it.qty,
+        qty,
+        people: it.people,
+        perPerson: it.perPerson,
         unitCost,
         cost,
       };

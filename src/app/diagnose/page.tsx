@@ -8,7 +8,6 @@ import {
   type Question,
 } from "@/lib/diagnose/questionnaire";
 import type {
-  BudgetScenario,
   DiagnoseMatchResult,
   MilestonePlan,
   Prescription,
@@ -543,36 +542,7 @@ function ResultView({
       {/* 2) BP → 처방(상품) */}
       {result.prescription && <PrescriptionCard rx={result.prescription} />}
 
-      {/* 3) 예산별 실행 시나리오 */}
-      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
-        💰 예산별 실행 규모
-      </div>
-      <div style={{ fontSize: 11.5, color: "var(--color-g400)", marginBottom: 12 }}>
-        위 처방(믹스)을 예산에 맞춰 몇 개 실행할 수 있는지 — 믹스 단가로 환산.
-        {result.seedingBudgetKrw != null && (
-          <>
-            {" "}입력 기준 월 실 시딩예산 ≈{" "}
-            <b style={{ color: "var(--color-g600)" }}>
-              {fmtKrw(result.seedingBudgetKrw)}
-            </b>
-            .
-          </>
-        )}
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-          marginBottom: 26,
-        }}
-      >
-        {result.budgetScenarios.map((s) => (
-          <BudgetScenarioCard key={s.id} s={s} />
-        ))}
-      </div>
-
-      {/* 4) 마일스톤 견적 */}
+      {/* 3) 마일스톤 견적 (예산 = 실제 실행 플랜) */}
       <MilestonePlanView plan={result.milestonePlan} />
 
       {/* 벤치마크 히트 */}
@@ -587,64 +557,6 @@ function ResultView({
             ))}
           </div>
         </>
-      )}
-    </div>
-  );
-}
-
-function BudgetScenarioCard({ s }: { s: BudgetScenario }) {
-  return (
-    <div
-      style={{
-        border: s.selected ? "2px solid #ec4899" : "1px solid var(--color-g100)",
-        borderRadius: 12,
-        background: s.selected ? "var(--color-accent-soft)" : "white",
-        padding: "16px 16px 18px",
-        position: "relative",
-      }}
-    >
-      {s.selected && (
-        <div
-          style={{
-            position: "absolute",
-            top: -10,
-            left: 14,
-            background: "#ec4899",
-            color: "white",
-            fontSize: 10,
-            fontWeight: 700,
-            padding: "2px 8px",
-            borderRadius: 999,
-          }}
-        >
-          선택하신 예산
-        </div>
-      )}
-      <div style={{ fontSize: 15, fontWeight: 800 }}>{s.label}</div>
-
-      <div style={{ fontSize: 22, fontWeight: 800, marginTop: 10, color: "var(--color-ink)" }}>
-        월 {s.affordableMonthly.toLocaleString()}개
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-g400)", marginLeft: 4 }}>
-          시딩 가능
-        </span>
-      </div>
-
-      {s.tierBreakdown.length > 0 ? (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-          {s.tierBreakdown.map((t) => (
-            <div
-              key={t.tier}
-              style={{ fontSize: 11.5, color: "var(--color-g600)", display: "flex", justifyContent: "space-between" }}
-            >
-              <span>{tierKo(t.tier)}</span>
-              <b>{t.count.toLocaleString()}명</b>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: 11, color: "var(--color-g400)", marginTop: 10 }}>
-          이 예산으론 처방 믹스 1건도 어려움 (단가↑)
-        </div>
       )}
     </div>
   );
@@ -689,7 +601,9 @@ function MilestonePlanView({ plan }: { plan: MilestonePlan }) {
                     borderRadius: 6,
                   }}
                 >
-                  {it.label} {it.qty.toLocaleString()}{it.unit}
+                  {it.people
+                    ? `${it.label} ${it.people}명 × ${it.perPerson}개 = ${it.qty}${it.unit}`
+                    : `${it.label} ${it.qty.toLocaleString()}${it.unit}`}
                   <span style={{ color: "var(--color-g400)" }}> · {fmtKrw(it.cost)}</span>
                 </span>
               ))}
