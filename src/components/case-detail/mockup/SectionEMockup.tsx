@@ -204,23 +204,23 @@ export function SectionEMockup({
       >
         <div className="kpi">
           <div className="kpi-label">총 광고</div>
-          <div className="kpi-val">{phase4a.total_ads.toLocaleString()}</div>
-          <div className="kpi-sub">active {phase4a.active_ads}</div>
+          <div className="kpi-val">{(phase4a.total_ads ?? 0).toLocaleString()}</div>
+          <div className="kpi-sub">active {phase4a.active_ads ?? 0}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">🏢 본사 직접</div>
-          <div className="kpi-val">{phase4a.brand_official_ads.toLocaleString()}</div>
+          <div className="kpi-val">{(phase4a.brand_official_ads ?? 0).toLocaleString()}</div>
           <div className="kpi-sub">{brandPct}%</div>
         </div>
         <div className="kpi" title="유통 retailer (Walmart/Target/Sephora 등) — 본사 비용 X">
           <div className="kpi-label">🛒 유통 retailer</div>
-          <div className="kpi-val">{adCls.retailer.toLocaleString()}</div>
-          <div className="kpi-sub">샘플 안 {Math.round((adCls.retailer / adClsTotal) * 100)}%</div>
+          <div className="kpi-val">{(adCls.retailer ?? 0).toLocaleString()}</div>
+          <div className="kpi-sub">샘플 안 {Math.round(((adCls.retailer ?? 0) / adClsTotal) * 100)}%</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">👤 인플 partnership ★</div>
-          <div className="kpi-val">{phase4a.partnership_ads.toLocaleString()}</div>
-          <div className="kpi-sub">{phase4a.partnership_creators}명 인플</div>
+          <div className="kpi-val">{(phase4a.partnership_ads ?? 0).toLocaleString()}</div>
+          <div className="kpi-sub">{phase4a.partnership_creators ?? 0}명 인플</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">landing → Amazon</div>
@@ -546,7 +546,8 @@ export function SectionEMockup({
   );
 }
 
-function formatFollowers(n: number): string {
+function formatFollowers(n: number | null | undefined): string {
+  if (n == null) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return n.toLocaleString();
