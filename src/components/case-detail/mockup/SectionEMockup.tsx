@@ -322,6 +322,10 @@ export function SectionEMockup({
                 <img
                   src={ad.thumbnail_url}
                   alt=""
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : null}
