@@ -136,7 +136,7 @@ const BRAND_CATEGORY: Record<string, string> = {
   "Dr. for hair": "hair",
   Aromatica: "hair", // 미국 아마존 1등 = 로즈마리 두피/탈모 샴푸 (헤어)
   TOSOWOONG: "skin",
-  Elroel: "hair",
+  Elroel: "skin",
   Dyson: "device",
   "Shark Ninja": "device",
   medicube: "device",
