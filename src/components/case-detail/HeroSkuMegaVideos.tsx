@@ -63,13 +63,17 @@ export function HeroSkuMegaVideos({
         )
         .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
         .slice(0, MAX_VIDEOS_PER_SKU);
-    // 1M+ 매칭 없으면 500K+로 fallback
+    // viral 기준 cascade: 1M+ → 500K+ → 전체(중소 브랜드는 메가 viral 없어도
+    // vision 매칭된 영상을 다 보여줌). confidence high 는 모든 단계 유지.
     const mega = baseFilter(MEGA_VIEWS_THRESHOLD);
     if (mega.length > 0) {
       return { sku, matched: mega, threshold: MEGA_VIEWS_THRESHOLD };
     }
     const fallback = baseFilter(FALLBACK_VIEWS_THRESHOLD);
-    return { sku, matched: fallback, threshold: FALLBACK_VIEWS_THRESHOLD };
+    if (fallback.length > 0) {
+      return { sku, matched: fallback, threshold: FALLBACK_VIEWS_THRESHOLD };
+    }
+    return { sku, matched: baseFilter(0), threshold: 0 };
   });
 
   return (
@@ -87,8 +91,8 @@ export function HeroSkuMegaVideos({
             marginTop: 2,
           }}
         >
-          매출 Top 3 SKU에 매칭된 메가 viral 영상 (views ≥ 1M, Vision confidence
-          high). 마케팅 주력 SKU 추정용.
+          매출 Top 3 SKU에 매칭된 viral 영상 (Vision confidence high, 조회수순 ·
+          1M+ → 500K+ → 전체 순 fallback). 마케팅 주력 SKU 추정용.
         </div>
       </div>
 
@@ -229,7 +233,7 @@ function SkuRow({
             fontFamily: "var(--font-mono)",
           }}
         >
-          매칭된 메가 영상 없음 (views ≥ 500K + confidence high 기준)
+          이 SKU에 매칭된 영상 없음 (Vision confidence high 기준)
         </div>
       ) : (
         <>
@@ -246,6 +250,21 @@ function SkuRow({
               }}
             >
               ℹ 1M+ 메가 영상 없어 500K+로 fallback
+            </div>
+          )}
+          {threshold === 0 && (
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--color-g500)",
+                background: "var(--color-warn-soft)",
+                padding: "4px 8px",
+                borderRadius: 3,
+                marginBottom: 8,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              ℹ 500K+ viral 없어 매칭된 전체 영상 표시 (조회수순)
             </div>
           )}
         <div
