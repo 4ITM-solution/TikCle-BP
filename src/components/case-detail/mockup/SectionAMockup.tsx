@@ -246,6 +246,14 @@ export function SectionAMockup({
   const lineEndIdx = lastIsPartial ? months.length - 1 : months.length; // 라인에 그릴 month 개수
   const inLineRange = (mo: string) => months.indexOf(mo) < lineEndIdx;
 
+  // 오버레이 라인(영상수·광고비중·BSR) 표시 밴드 — viewBox 0~222 중 안쪽 [6,190]로 보정.
+  // 막대(티어 stack)와 라인이 같은 plot을 '다른 y축'으로 겹쳐 쓰므로, 라인 값이 0일 때
+  // 바닥(=날짜축)에 깔리거나 max일 때 천장에 닿는 걸 방지. frac(0~1) → 밴드 안 y.
+  const LINE_TOP = 6;
+  const LINE_BOT = 190;
+  const bandY = (frac: number) =>
+    LINE_TOP + (1 - Math.max(0, Math.min(1, frac))) * (LINE_BOT - LINE_TOP);
+
   return (
     <div className="section" id="sec-a">
       <div className="section-h">
@@ -418,10 +426,7 @@ export function SectionAMockup({
                   .map((mo, i) => {
                     const x = (i / (months.length - 1)) * 1000 + 50;
                     const total = totalByMonth.get(mo) ?? 0;
-                    const yRaw = 222 - (total / maxVids) * 222;
-                    // stroke 3px + 여유 → 위/아래 8 viewBox-unit clamp. 라인이 plot
-                    // 가장자리(=날짜축)에 닿거나 넘지 않게 안쪽에 머물게.
-                    const y = Math.max(8, Math.min(214, yRaw));
+                    const y = bandY(total / maxVids);
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -445,9 +450,7 @@ export function SectionAMockup({
                       const idx = months.indexOf(mo);
                       const x = (idx / (months.length - 1)) * 1000 + 50;
                       const ratio = (adByMonth.get(mo) ?? 0) / scaleMax;
-                      const normalized = Math.max(0, Math.min(1, ratio));
-                      const yRaw = 222 - normalized * 222;
-                      const y = Math.max(8, Math.min(214, yRaw));
+                      const y = bandY(ratio);
                       return `${x},${y}`;
                     })
                     .join(" ")}
@@ -468,8 +471,7 @@ export function SectionAMockup({
                     const x = (idx / (months.length - 1)) * 1000 + 50;
                     const v = bsrByMonth.get(mo)!;
                     const inv = Math.max(0, Math.min(1, 1 - (v - bsrMin) / bsrRange));
-                    const yRaw = 222 - inv * 222;
-                    const y = Math.max(8, Math.min(214, yRaw));
+                    const y = bandY(inv);
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -501,11 +503,10 @@ export function SectionAMockup({
               const x = months.length > 1 ? (idx / (months.length - 1)) * 1000 + 50 : 550;
               const mo = months[idx]!;
               const total = totalByMonth.get(mo) ?? 0;
-              // circle r=5 + stroke=2 → 반지름 7. cy clamp 으로 dot 이 box 안에 머물게.
-              const clampDot = (y: number) => Math.max(8, Math.min(214, y));
-              const vcY = total > 0 ? clampDot(222 - (total / maxVids) * 222) : 214;
+              // dot 도 라인과 동일 밴드(bandY)에 맞춰 — 라인 위에 정확히 얹힘.
+              const vcY = total > 0 ? bandY(total / maxVids) : bandY(0);
               const bsr = bsrByMonth.get(mo);
-              const bsrY = bsr !== undefined && bsrVals.length > 0 ? clampDot(222 - (1 - (bsr - bsrMin) / bsrRange) * 222) : null;
+              const bsrY = bsr !== undefined && bsrVals.length > 0 ? bandY(1 - (bsr - bsrMin) / bsrRange) : null;
               return (
                 <>
                   <line x1={x} y1="0" x2={x} y2="222" stroke="#1f2937" strokeWidth="1" strokeDasharray="2" />
