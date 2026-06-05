@@ -11,6 +11,45 @@ export type SeedingPricing = {
   tierCost: Record<TierBucket, number>;
 };
 
+// =============================================================================
+// 상품 유형 단가 (무가/소재수급/마이크로/매크로) — 마일스톤 견적 생성용
+// 크리에이터 티어(mega~nano)와 별개. 운영방식 기준.
+// =============================================================================
+
+export type ProductType = "organic" | "sourcing" | "micro" | "macro";
+
+export type ProductPricing = Record<ProductType, number>;
+
+export const PRODUCT_TYPES: {
+  key: ProductType;
+  label: string;
+  unit: string; // "건" / "영상" / "명"
+  hint: string;
+}[] = [
+  { key: "organic", label: "무가 시딩", unit: "건", hint: "기프팅 회수 (월 100건+ 프로모)" },
+  { key: "sourcing", label: "소재수급", unit: "건", hint: "빡센 가이드 유가 영상 (퍼포용)" },
+  { key: "micro", label: "마이크로", unit: "영상", hint: "마이크로 유가 인플" },
+  { key: "macro", label: "매크로", unit: "명", hint: "매크로(500K+) 빅시즌 부스터" },
+];
+
+export const DEFAULT_PRODUCT_PRICING: ProductPricing = {
+  organic: 60_000,
+  sourcing: 600_000,
+  micro: 1_500_000,
+  macro: 25_000_000,
+};
+
+export function normalizeProductPricing(raw: unknown): ProductPricing {
+  if (!raw || typeof raw !== "object") return DEFAULT_PRODUCT_PRICING;
+  const obj = raw as Record<string, unknown>;
+  const out = { ...DEFAULT_PRODUCT_PRICING };
+  for (const { key } of PRODUCT_TYPES) {
+    const v = obj[key];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[key] = v;
+  }
+  return out;
+}
+
 /** 편집 UI에 노출할 티어 순서 + 라벨 + 팔로워 가이드 */
 export const PRICING_TIERS: {
   tier: TierBucket;

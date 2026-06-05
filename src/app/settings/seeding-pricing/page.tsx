@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { fetchSeedingPricing } from "@/lib/diagnose/pricing-server";
+import {
+  fetchSeedingPricing,
+  fetchProductPricing,
+} from "@/lib/diagnose/pricing-server";
 import { SeedingPricingForm } from "./SeedingPricingForm";
+import { ProductPricingForm } from "./ProductPricingForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function SeedingPricingPage() {
-  const pricing = await fetchSeedingPricing();
+  const [pricing, productPricing] = await Promise.all([
+    fetchSeedingPricing(),
+    fetchProductPricing(),
+  ]);
   return (
     <div style={{ padding: "24px 32px", maxWidth: 720 }}>
       <nav
@@ -39,6 +46,21 @@ export default async function SeedingPricingPage() {
       </p>
 
       <SeedingPricingForm initial={pricing} />
+
+      <h1 className="page-title" style={{ marginTop: 36 }}>상품 유형 단가</h1>
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--color-g500)",
+          lineHeight: 1.6,
+          marginBottom: 18,
+        }}
+      >
+        무가·소재수급·마이크로·매크로 단가. 진단서의 <b>마일스톤 견적</b>(4개월 → 빅시즌)이
+        이 단가로 계산됩니다. 여기서 수정하면 배포 없이 즉시 반영.
+      </p>
+
+      <ProductPricingForm initial={productPricing} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 import type {
   BudgetScenario,
   DiagnoseMatchResult,
+  MilestonePlan,
   Prescription,
   ScoredCase,
 } from "@/lib/diagnose/match";
@@ -571,6 +572,9 @@ function ResultView({
         ))}
       </div>
 
+      {/* 4) 마일스톤 견적 */}
+      <MilestonePlanView plan={result.milestonePlan} />
+
       {/* 벤치마크 히트 */}
       {result.benchmarkHits.length > 0 && (
         <>
@@ -642,6 +646,61 @@ function BudgetScenarioCard({ s }: { s: BudgetScenario }) {
           이 예산으론 처방 믹스 1건도 어려움 (단가↑)
         </div>
       )}
+    </div>
+  );
+}
+
+function MilestonePlanView({ plan }: { plan: MilestonePlan }) {
+  return (
+    <div style={{ marginBottom: 26 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
+        📅 마일스톤 견적 (4개월 → 빅시즌 PBDD/BFCM)
+      </div>
+      <div style={{ fontSize: 11.5, color: "var(--color-g400)", marginBottom: 12 }}>
+        무가로 시작 → 소재수급·마이크로로 단계 ↑ → 빅시즌에 매크로 부스팅. (단가는 시딩 단가 설정 기준 · 처방 방향에 맞춘 표준 템플릿)
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {plan.months.map((m, i) => (
+          <div
+            key={i}
+            style={{
+              border: "1px solid var(--color-g100)",
+              borderRadius: 10,
+              padding: "12px 14px",
+              background: "white",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+              <div>
+                <span style={{ fontSize: 13.5, fontWeight: 800 }}>{m.label}</span>
+                <span style={{ fontSize: 11.5, color: "var(--color-g500)", marginLeft: 8 }}>{m.note}</span>
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 800, whiteSpace: "nowrap" }}>{fmtKrw(m.total)}</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {m.items.map((it, j) => (
+                <span
+                  key={j}
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-g600)",
+                    background: "var(--color-g50)",
+                    padding: "3px 9px",
+                    borderRadius: 6,
+                  }}
+                >
+                  {it.label} {it.qty.toLocaleString()}{it.unit}
+                  <span style={{ color: "var(--color-g400)" }}> · {fmtKrw(it.cost)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 10 }}>
+        <span style={{ fontSize: 12, color: "var(--color-g500)" }}>4개월 합계 (VAT 별도)</span>
+        <span style={{ fontSize: 20, fontWeight: 800, color: "#be185d" }}>{fmtKrw(plan.grandTotal)}</span>
+      </div>
     </div>
   );
 }

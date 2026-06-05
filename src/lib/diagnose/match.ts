@@ -12,7 +12,14 @@
 
 import type { MatchInput } from "./questionnaire";
 import type { TierBucket, TierDistribution } from "@/lib/inngest/types";
-import { DEFAULT_PRICING, type SeedingPricing } from "./pricing";
+import {
+  DEFAULT_PRICING,
+  DEFAULT_PRODUCT_PRICING,
+  PRODUCT_TYPES,
+  type ProductPricing,
+  type ProductType,
+  type SeedingPricing,
+} from "./pricing";
 
 // =============================================================================
 // ⚙️ 튜너블 상수 — 비즈 수치는 전부 여기
@@ -26,6 +33,49 @@ export const BUDGET_TIERS = [
 ];
 
 export type BudgetTierId = (typeof BUDGET_TIERS)[number]["id"];
+
+/**
+ * 마일스톤 견적 템플릿 — N개월 온보딩 → 빅시즌(PBDD/BFCM) 부스팅.
+ * 초기 진입 헤어/뷰티 브랜드 기준(닥터포헤어 케이스). 단가는 ProductPricing 주입.
+ * qty/구성은 여기서 조정. (상품유형: organic 무가 / sourcing 소재수급 / micro / macro)
+ */
+const MILESTONE_TEMPLATE: {
+  label: string;
+  note: string;
+  items: { type: ProductType; qty: number }[];
+}[] = [
+  {
+    label: "1개월차",
+    note: "무가 + 가이드라인 2개 A/B 테스트 (위닝 앵글 찾기)",
+    items: [{ type: "organic", qty: 200 }],
+  },
+  {
+    label: "2개월차",
+    note: "소재수급 본격 + 퍼포 투입",
+    items: [
+      { type: "organic", qty: 200 },
+      { type: "sourcing", qty: 20 },
+    ],
+  },
+  {
+    label: "3개월차",
+    note: "마이크로로 단계 ↑ (SOV·퍼포 감)",
+    items: [
+      { type: "organic", qty: 200 },
+      { type: "sourcing", qty: 10 },
+      { type: "micro", qty: 6 },
+    ],
+  },
+  {
+    label: "4개월차 (빅시즌 · PBDD/BFCM)",
+    note: "매크로 동반 부스팅",
+    items: [
+      { type: "organic", qty: 200 },
+      { type: "sourcing", qty: 10 },
+      { type: "macro", qty: 2 },
+    ],
+  },
+];
 
 // 티어별 단가는 app_settings(diagnose_pricing) → SeedingPricing.tierCost 로 주입.
 // 기본값은 DEFAULT_PRICING (pricing.ts). 설정 페이지에서 운영자가 수정.
@@ -163,15 +213,64 @@ export type BudgetScenario = {
   tierBreakdown: { tier: TierBucket; count: number }[]; // 그 믹스로 분해
 };
 
+export type MilestoneLineItem = {
+  type: ProductType;
+  label: string;
+  unit: string;
+  qty: number;
+  unitCost: number;
+  cost: number;
+};
+export type MilestoneMonth = {
+  label: string;
+  note: string;
+  items: MilestoneLineItem[];
+  total: number;
+};
+export type MilestonePlan = {
+  months: MilestoneMonth[];
+  grandTotal: number;
+};
+
 export type DiagnoseMatchResult = {
   topMatches: ScoredCase[];
   benchmarkHits: ScoredCase[];
   prescription: Prescription | null;
   budgetScenarios: BudgetScenario[];
+  milestonePlan: MilestonePlan;
   topBpMonthly: number | null;
   seedingBudgetKrw: number | null;
   profileLine: string;
 };
+
+// =============================================================================
+// 마일스톤 견적 생성 (템플릿 × 상품단가)
+// =============================================================================
+
+export function buildMilestonePlan(pricing: ProductPricing): MilestonePlan {
+  const labelOf = (t: ProductType) =>
+    PRODUCT_TYPES.find((p) => p.key === t)!;
+  let grandTotal = 0;
+  const months: MilestoneMonth[] = MILESTONE_TEMPLATE.map((m) => {
+    const items: MilestoneLineItem[] = m.items.map((it) => {
+      const meta = labelOf(it.type);
+      const unitCost = pricing[it.type] ?? 0;
+      const cost = it.qty * unitCost;
+      return {
+        type: it.type,
+        label: meta.label,
+        unit: meta.unit,
+        qty: it.qty,
+        unitCost,
+        cost,
+      };
+    });
+    const total = items.reduce((s, x) => s + x.cost, 0);
+    grandTotal += total;
+    return { label: m.label, note: m.note, items, total };
+  });
+  return { months, grandTotal };
+}
 
 // =============================================================================
 // Helper
@@ -287,8 +386,8 @@ function derivePrescription(
   let headline: string;
   let summary: string;
   if (megaCount >= MEGA_REPEAT_THRESHOLD) {
-    headline = "메가 반복 활용형";
-    summary = `메가 인플 ${megaCount}명 반복 투입. 상위 티어로 노출을 끌어올리는 전략.`;
+    headline = "메가 폭넓게 활용형";
+    summary = `메가급 크리에이터 ${megaCount}명(서로 다른)을 넓게 활용. 상위 티어로 노출을 끌어올리는 전략.`;
   } else if (upperShare >= 0.25) {
     headline = "상위 티어(매크로·미드) 드리븐형";
     summary = `매크로·미드 등 상위 티어 ${Math.round(upperShare * 100)}%. 큰 인플로 퀄리티·노출을 끄는 전략.`;
@@ -324,7 +423,7 @@ function derivePrescription(
       : `광고비중(유가) ${adPct}% — ${ad >= 0.5 ? "돈 주고 쓰는 비중 높음" : ad <= 0.25 ? "무가/오가닉 중심" : "유무가 혼합"}`,
   );
   if (megaCount >= MEGA_REPEAT_THRESHOLD) {
-    bullets.push(`메가 ${megaCount}명 활용 — 메가 반복 투입 가능한 풀 확보 필요`);
+    bullets.push(`메가급 ${megaCount}명(서로 다른 크리에이터) 활용 — 넓은 메가 풀 확보 필요`);
   }
   if (angleLabel) bullets.push(`앵글: ${angleLabel}`);
   if ((c.top1Share ?? 0) >= 0.35) {
@@ -477,6 +576,7 @@ export function computeDiagnoseMatch(
   input: MatchInput,
   cases: DiagnoseCaseInput[],
   pricing: SeedingPricing = DEFAULT_PRICING,
+  productPricing: ProductPricing = DEFAULT_PRODUCT_PRICING,
 ): DiagnoseMatchResult {
   const byId = new Map(cases.map((c) => [c.id, c]));
 
@@ -542,6 +642,7 @@ export function computeDiagnoseMatch(
     benchmarkHits,
     prescription,
     budgetScenarios,
+    milestonePlan: buildMilestonePlan(productPricing),
     topBpMonthly,
     seedingBudgetKrw,
     profileLine,
