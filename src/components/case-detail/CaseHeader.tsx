@@ -2,6 +2,7 @@ import { DeleteCaseButton } from "./DeleteCaseButton";
 import { RevenueTierPicker } from "./RevenueTierPicker";
 import { RegionScopeToggle } from "./RegionScopeToggle";
 import type { RegionScope } from "@/lib/case-detail/region-filter";
+import { fmtKstDate } from "@/lib/date-format";
 
 /**
  * CaseHeader — 케이스 메타 헤더 (브랜드 큰 이름 + status pills + 액션).
@@ -147,7 +148,7 @@ export function CaseHeader({
             <span>
               생성{" "}
               <b style={{ color: "var(--color-g700)" }}>
-                {new Date(createdAt).toLocaleDateString("ko-KR")}
+                {fmtKstDate(createdAt)}
               </b>
             </span>
           )}
@@ -155,7 +156,7 @@ export function CaseHeader({
             <span>
               업데이트{" "}
               <b style={{ color: "var(--color-g700)" }}>
-                {new Date(updatedAt).toLocaleDateString("ko-KR")}
+                {fmtKstDate(updatedAt)}
               </b>
             </span>
           )}

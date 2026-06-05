@@ -13,6 +13,7 @@ import {
   type Region,
 } from "@/lib/case-detail/countries";
 import { tierLabel } from "@/lib/case-detail/revenue-tiers";
+import { fmtKstDate } from "@/lib/date-format";
 
 export const dynamic = "force-dynamic";
 
@@ -348,8 +349,8 @@ function CaseCard({
         }}
       >
         {row.analyzed_at
-          ? `분석 ${new Date(row.analyzed_at).toLocaleDateString("ko-KR")}`
-          : `최종 ${new Date(row.updated_at).toLocaleDateString("ko-KR")}`}
+          ? `분석 ${fmtKstDate(row.analyzed_at)}`
+          : `최종 ${fmtKstDate(row.updated_at)}`}
       </div>
     </Link>
   );

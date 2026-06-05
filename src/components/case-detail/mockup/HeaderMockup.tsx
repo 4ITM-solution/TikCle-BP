@@ -7,6 +7,7 @@ import type { KeyStats } from "@/lib/inngest/types";
 import type { PhaseKey } from "@/lib/inngest/client";
 import { PHASES, isPhaseDone } from "../PhaseProgress";
 import { startAnalysis } from "@/app/cases/[id]/upload-actions";
+import { fmtKstDateTime } from "@/lib/date-format";
 
 /**
  * Header 영역 mockup 1:1 — mockup line 491-624 + footer 1354-1364
@@ -97,7 +98,7 @@ export function CaseStatusStripMockup({
       </div>
       {analyzedAt && (
         <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4, paddingLeft: 0 }}>
-          {country} · {status} · 분석 {new Date(analyzedAt).toLocaleString("ko-KR")}
+          {country} · {status} · 분석 {fmtKstDateTime(analyzedAt)}
         </div>
       )}
     </div>

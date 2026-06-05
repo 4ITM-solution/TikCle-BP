@@ -3,6 +3,7 @@ import {
   DATA_CHANNEL_ICONS,
   DATA_CHANNEL_LABELS,
 } from "@/lib/supabase/types";
+import { fmtKstDateTime } from "@/lib/date-format";
 
 /**
  * CaseStatusStrip — 페이지 최상단 sticky 진행 상태 strip.
@@ -77,7 +78,7 @@ export function CaseStatusStrip({
           >
             {country} · {channel} · {status}
             {analyzedAt
-              ? ` · ${new Date(analyzedAt).toLocaleString("ko", { dateStyle: "short", timeStyle: "short" })}`
+              ? ` · ${fmtKstDateTime(analyzedAt)}`
               : ""}
           </span>
         </div>

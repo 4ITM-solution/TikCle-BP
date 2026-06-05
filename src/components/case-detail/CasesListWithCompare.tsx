@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { tierLabel } from "@/lib/case-detail/revenue-tiers";
+import { fmtKstDateTime } from "@/lib/date-format";
 
 export type CaseListItem = {
   id: string;
@@ -183,7 +184,7 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
                   {c.channels && c.channels.length > 0 && (
                     <> | {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(", ")}</>
                   )}{" "}
-                  · {new Date(c.updated_at).toLocaleString("ko-KR")} → 케이스 열기
+                  · {fmtKstDateTime(c.updated_at)} → 케이스 열기
                 </Link>
               </div>
               <span className="case-tag country">{c.country}</span>
