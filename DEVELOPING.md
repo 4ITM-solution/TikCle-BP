@@ -24,7 +24,32 @@
 
 ## 현재 진행 상황 (다음 세션 시 먼저 읽기)
 
-> **갱신 시점**: 2026-06-01 (mockup 100% parity + A 모델 + Phase 4c.5 IG profile scraper + 옛 MD 기능 전부 복원)
+> **갱신 시점**: 2026-06-05 (멀티채널 A모델 마무리 + COSRX SEA 케이스 디버그 + 반복 #418 근본 fix)
+
+### 2026-06-02 ~ 06-05 세션 요약 — 멀티채널 마무리 + 안정화 (bp_bugs #69~#76)
+
+대상 케이스: COSRX SEA (스킨티픽 `9328a9c1` · 헤하이네스 `a5d8f68f` · 달바 `8d5cf229` · 오가나셀 `3be66bbd`) + Ninja `95012d4a`.
+
+**콘텐츠 분석(Phase 4b) 안정화**
+- IG vision 0건 → IG cover를 `case-assets` storage re-host 후 Anthropic에 전달 (cdninstagram robots.txt 차단 우회). TikTok은 URL source 유지. (#69)
+- Vision step batch화 (40개/step) — IG 500개 단일 step timeout 해소. (#70)
+- 클러스터 timeout으로 key_stats 미저장 시 C 섹션 빈값 → page.tsx에서 `content_clusters`(is_meta+parent_cluster_id) **DB fallback 복원**. ⚠️ 클러스터 step 자체 batch화는 아직 미해결 (재실행 시 timeout 가능, 화면은 fallback으로 안전). (#71)
+
+**C 섹션 채널 분리 (전 탭)**
+- 상단 공용 채널 토글(전채널/TK/IG/YT) — 통합클러스터·USP·시즈널리티 heatmap·tier·paid 5개 탭 전부 채널 반영. page.tsx clusterBundle을 통합 멤버(TK contents/IG ig_posts/YT yt_videos) 기반 채널별 재집계로. USP는 phase5-position의 `computeUspKeywords` export해 IG/YT 코퍼스 재계산.
+
+**Section A/B 버그**
+- 라인 그래프 축 밖 삐짐 → 진행중 부분월을 오버레이 라인에서 제외 + 툴팁 overflow/clamp. (#72)
+- 티어 분포가 채널 무시 → 채널별 월별 티어(page.tsx `monthlyTierByChannel`, IG=ig_posts↔ig_authors)로 Section A stack + Section B 월필터 둘 다 채널 반영. (#73, Slack 보배 리포트)
+
+**업로드/설정**
+- case.channel 업로드 게이트 전부 제거 (한 case 다채널). country 검사만 유지(US=Helium10 / 비US=Kalodata). (#74, #75)
+
+**반복 #418 근본 fix** ⭐
+- 잦은 "Application error"(React #418/가끔 500) = 렌더-시점 `new Date(x).toLocaleDateString("ko-KR")`가 여러 client 컴포넌트(특히 CaseHeader=모든 상세페이지)에 흩어져 서버(UTC/ICU)≠클라(KST) mismatch. **#57과 동일 원인 재발**.
+- → `src/lib/date-format.ts` (`fmtKstDate`/`fmtKstDateTime`, toLocale/ICU 미사용 결정적 포맷) 신설 + 전 사용처 교체. **날짜 표시는 이 유틸만 쓸 것.** (#76)
+
+**다음 세션 남은 것**: 클러스터 step batch화(근본), 부분월 라벨 시각 처리 옵션, 채널 토글 데이터 IG/YT 매핑 검증.
 
 ### 2026-06-01 박힌 변화 요약 — A 모델 마이그 + mockup 풍부화 + 데이터 통합
 
