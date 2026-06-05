@@ -81,12 +81,13 @@ const MILESTONE_TEMPLATE: {
 // 기본값은 DEFAULT_PRICING (pricing.ts). 설정 페이지에서 운영자가 수정.
 
 
-/** fit 스코어 가중치 (예산은 fit에 들어가지 않음) */
+/** fit 스코어 가중치 */
 const WEIGHTS = {
   channel: 30,
   country: 22,
   category: 20,
   revenueProximity: 18, // 매출 밴드 근접도 (0~1) × 이 값
+  budgetFit: 28, // ★ 내 예산으로 이 BP를 실행 가능한가 (0~1) × 이 값
   hasGoodData: 10, // 시딩 규모 충분(데이터 풍부) 보너스
 };
 
@@ -351,6 +352,36 @@ function angleConcentration(c: DiagnoseCaseInput): number | null {
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
+function fmtKrw(n: number): string {
+  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`;
+  if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
+  return `${Math.round(n)}원`;
+}
+
+/**
+ * 이 BP를 그대로 실행하면 월 얼마 드는가 (KRW 추정).
+ * = 월 시딩량 × [광고비중×티어단가 + (1-광고비중)×무가단가].
+ * 닥그루트(메가·유가·847개) → 수억/월, AROMATICA(나노·무가·130개) → 천만대.
+ */
+function caseImpliedMonthlyCost(
+  c: DiagnoseCaseInput,
+  pricing: SeedingPricing,
+  productPricing: ProductPricing,
+): number | null {
+  const d = c.tierDistribution;
+  const monthly = monthlyContents(c);
+  if (!d || monthly <= 0) return null;
+  const total = STRATEGY_TIERS.reduce((s, t) => s + d[t], 0);
+  if (total <= 0) return null;
+  const tierBlended = STRATEGY_TIERS.reduce(
+    (s, t) => s + (d[t] / total) * (pricing.tierCost[t] ?? 0),
+    0,
+  );
+  const ad = adRatio(c);
+  const perContent = ad * tierBlended + (1 - ad) * productPricing.organic;
+  return monthly * perContent;
+}
+
 // =============================================================================
 // BP → 처방(상품) 변환
 // =============================================================================
@@ -519,7 +550,17 @@ function urgentBoost(
 // fit 스코어
 // =============================================================================
 
-function scoreCase(input: MatchInput, c: DiagnoseCaseInput): ScoredCase {
+type ScoreCtx = {
+  pricing: SeedingPricing;
+  productPricing: ProductPricing;
+  userSeedingBudgetKrw: number | null; // 월 실 시딩예산 (예산×시딩비중)
+};
+
+function scoreCase(
+  input: MatchInput,
+  c: DiagnoseCaseInput,
+  ctx: ScoreCtx,
+): ScoredCase {
   const reasons: string[] = [];
   let score = 0;
 
@@ -548,6 +589,21 @@ function scoreCase(input: MatchInput, c: DiagnoseCaseInput): ScoredCase {
     const proximity = Math.max(0, 1 - logDist);
     score += WEIGHTS.revenueProximity * proximity;
     if (proximity > 0.6) reasons.push("비슷한 매출 규모");
+  }
+
+  // ★ 예산 적합도 — 내 예산으로 이 BP를 실행할 수 있나
+  const implied = caseImpliedMonthlyCost(c, ctx.pricing, ctx.productPricing);
+  if (ctx.userSeedingBudgetKrw && implied && implied > 0) {
+    const r = implied / ctx.userSeedingBudgetKrw;
+    // r<=1.3(여유롭게 실행가능) → 1.0 / r=10배 → 0
+    const prox = r <= 1.3 ? 1 : Math.max(0, 1 - Math.log10(r / 1.3));
+    score += WEIGHTS.budgetFit * prox;
+    if (prox >= 0.7) reasons.push("내 예산으로 실행 가능");
+    else if (prox <= 0.2) {
+      // 예산으로 실행 불가능한 BP는 처방 부적격 — 강한 페널티
+      score -= 25;
+      reasons.push(`예산 대비 과대 (실행 추정 ${fmtKrw(implied)}/월)`);
+    }
   }
 
   if ((c.totalContents ?? 0) >= 300) {
@@ -584,9 +640,21 @@ export function computeDiagnoseMatch(
 ): DiagnoseMatchResult {
   const byId = new Map(cases.map((c) => [c.id, c]));
 
-  // 1) fit 매칭
+  // 실 시딩예산 (예산 × 시딩비중) — 매칭(예산적합도) + 시나리오 공통
+  const budgetKrw = input.budget ? BUDGET_BAND_KRW[input.budget] : null;
+  const ratio =
+    (input.seedingRatio ? SEEDING_RATIO_PCT[input.seedingRatio] : undefined) ??
+    0.5;
+  const seedingBudgetKrw = budgetKrw != null ? budgetKrw * ratio : null;
+
+  // 1) fit 매칭 (예산 적합도 포함 — 내 예산으로 실행 가능한 BP 우대)
+  const ctx: ScoreCtx = {
+    pricing,
+    productPricing,
+    userSeedingBudgetKrw: seedingBudgetKrw,
+  };
   const scored = cases
-    .map((c) => scoreCase(input, c))
+    .map((c) => scoreCase(input, c, ctx))
     .sort((a, b) => b.score - a.score);
   const topMatches = scored.slice(0, 6);
   const topBpMonthly = topMatches[0]?.monthlyContents ?? null;
@@ -596,11 +664,6 @@ export function computeDiagnoseMatch(
   const prescription = topInput ? derivePrescription(topInput, pricing) : null;
 
   // 3) 예산 → 처방을 얼마나 크게 실행하느냐
-  const budgetKrw = input.budget ? BUDGET_BAND_KRW[input.budget] : null;
-  const ratio =
-    (input.seedingRatio ? SEEDING_RATIO_PCT[input.seedingRatio] : undefined) ??
-    0.5;
-  const seedingBudgetKrw = budgetKrw != null ? budgetKrw * ratio : null;
   const selectedTierId =
     seedingBudgetKrw != null
       ? BUDGET_TIERS.reduce((best, t) =>
