@@ -21,6 +21,7 @@ import { SectionAMockup } from "@/components/case-detail/mockup/SectionAMockup";
 import { SectionEMockup } from "@/components/case-detail/mockup/SectionEMockup";
 import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
+import { SectionBoundary } from "@/components/case-detail/SectionBoundary";
 import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
@@ -2096,6 +2097,7 @@ export default async function CaseDetailPage({
 
                   return (
                     <div className="bp-mockup">
+                      <SectionBoundary name="KPI 스트립">
                       <KpiStripMockup
                         totalVideos={allVids}
                         videoBreakdown={`TK ${totalVids.toLocaleString()} · IG ${igTotal.toLocaleString()} · YT ${ytTotal.toLocaleString()}`}
@@ -2124,6 +2126,7 @@ export default async function CaseDetailPage({
                         costEstimate={costEstimate.total_max_usd}
                         costBreakdown={"예상 최대"}
                       />
+                      </SectionBoundary>
                       {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
                       <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
                       {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
@@ -2466,6 +2469,7 @@ export default async function CaseDetailPage({
 
                   return axes.length > 0 ? (
                     <div className="bp-mockup">
+                      <SectionBoundary name="G 종합 인사이트(언어 포함)">
                       <InsightCardMockup
                         title={oneLineSummary}
                         tagline={tagline}
@@ -2489,6 +2493,7 @@ export default async function CaseDetailPage({
                         }))}
                         relatedCases={relatedCases}
                       />
+                      </SectionBoundary>
                     </div>
                   ) : null;
                 })()}
@@ -2551,6 +2556,7 @@ export default async function CaseDetailPage({
                   <div style={{ minWidth: 0 }}>
                     {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
                     <div className="bp-mockup">
+                      <SectionBoundary name="A 콘텐츠 활동">
                       <SectionAMockup
                         phase2={ks.phase2}
                         phase3={ks.phase3}
@@ -2558,6 +2564,8 @@ export default async function CaseDetailPage({
                         monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                       />
+                      </SectionBoundary>
+                      <SectionBoundary name="B 인플루언서 풀">
                       <SectionBMockup
                         phase2={ks.phase2}
                         phase3={ks.phase3}
@@ -2594,7 +2602,9 @@ export default async function CaseDetailPage({
                           top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
                       />
+                      </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
+                      <SectionBoundary name="C 콘텐츠 포맷">
                       <SectionCMockup
                         phase2={ks.phase2}
                         phase4bClusters={phase4bClustersForUi}
@@ -2604,7 +2614,9 @@ export default async function CaseDetailPage({
                         uspByChannel={uspByChannel}
                         uspVideosByChannel={uspVideosByChannel}
                       />
+                      </SectionBoundary>
                       {ks.phase2.sales_summary && (
+                        <SectionBoundary name="D 매출·SKU">
                         <SectionDMockup
                           phase2={ks.phase2}
                           phase4bSku={ks.phase4b_sku}
@@ -2633,11 +2645,13 @@ export default async function CaseDetailPage({
                              SkuHealthCards 가 Date.now() 직접 호출하면 SSR/CSR 시점 차이로 React #418. */
                           nowMs={Date.now()}
                         />
+                        </SectionBoundary>
                       )}
                     </div>
                     {/* ★ Section E mockup 1:1 */}
                     {ks.phase4a && (
                       <div className="bp-mockup">
+                        <SectionBoundary name="E Meta 광고">
                         <SectionEMockup
                           phase4a={ks.phase4a}
                           metaAdsList={metaAdsList}
@@ -2660,6 +2674,7 @@ export default async function CaseDetailPage({
                             return result;
                           })()}
                         />
+                        </SectionBoundary>
                       </div>
                     )}
                   </div>
