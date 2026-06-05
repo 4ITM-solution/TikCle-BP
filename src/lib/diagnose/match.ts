@@ -142,9 +142,7 @@ const BRAND_CATEGORY: Record<string, string> = {
   medicube: "device",
   Poppi: "food",
   Buldak: "food",
-  SimplyVital: "food",
   Tirtir: "makeup",
-  Kahi: "makeup",
   Lepique: "skin",
   Lefilleo: "skin",
 };
