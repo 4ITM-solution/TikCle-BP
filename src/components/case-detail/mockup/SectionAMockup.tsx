@@ -644,7 +644,7 @@ export function SectionAMockup({
         )}
       </div>
 
-      {topInflection && (
+      {hasAmazon && topInflection && (
         <div style={{ marginTop: 12, padding: "10px 14px", background: "#ecfdf5", borderLeft: "3px solid #10b981", borderRadius: 4, fontSize: 11, color: "#065f46" }}>
           💡 <b>볼륨 ↔ BSR 상관:</b> {topInflection.date} 시점 BSR #{topInflection.rank_before.toLocaleString()} → #{topInflection.rank_after.toLocaleString()} ({Math.round(topInflection.rank_improvement_pct)}% 개선).
           직전 7일 뷰 합계 +{Math.round((topInflection.views_ratio - 1) * 100)}% 동조{topInflection.is_mega_volume ? " (메가 볼륨)" : ""}.
