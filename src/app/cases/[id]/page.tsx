@@ -967,81 +967,6 @@ export default async function CaseDetailPage({
   }
   const availableSalesChannels = Array.from(new Set(Object.values(skuChannelMap).filter(Boolean))) as string[];
 
-  // ── SKU별 명시적 영상 (contents.product_id 링크) + 조회수 + 어필리에이트 GMV ──
-  // 사용자가 "제품 선택"해서 올린 어필리에이트/영상은 contents.product_id로 SKU에 직접
-  // 연결됨. Vision 매칭(phase4b, 500K 임계) 없이 이 명시적 링크로 SKU별 영상·매출 표시.
-  type SkuVideo = {
-    url: string;
-    views: number;
-    gmv: number | null;
-    handle: string | null;
-    is_ad: boolean;
-  };
-  const skuVideoMap: Record<string, SkuVideo[]> = {};
-  {
-    const { data: prodIdRows } = await supabase
-      .from("products")
-      .select("id, asin, external_product_id")
-      .eq("case_id", c.id);
-    const pidToAsin = new Map<string, string>();
-    for (const p of prodIdRows ?? []) {
-      const asin = p.asin ?? p.external_product_id;
-      if (asin) pidToAsin.set(p.id, asin);
-    }
-    const pids = [...pidToAsin.keys()];
-    if (pids.length > 0) {
-      const { data: ctRows } = await supabase
-        .from("contents")
-        .select("url, views, product_id, influencer_id, is_ad")
-        .in("product_id", pids)
-        .limit(5000);
-      const inflIds = [
-        ...new Set((ctRows ?? []).map((r) => r.influencer_id).filter(Boolean)),
-      ] as string[];
-      const inflHandle = new Map<string, string>();
-      if (inflIds.length > 0) {
-        const { data: inflRows } = await supabase
-          .from("influencers")
-          .select("id, handle")
-          .in("id", inflIds);
-        for (const r of inflRows ?? []) if (r.handle) inflHandle.set(r.id, r.handle);
-      }
-      // handle → 어필리에이트 GMV (key_stats.tt_shop_us_affiliates, handle별 최대값)
-      const affGmv = new Map<string, number>();
-      const affArr = (
-        c.key_stats as {
-          tt_shop_us_affiliates?: Array<{ handle?: string; gmv_30d_usd?: number }>;
-        }
-      )?.tt_shop_us_affiliates;
-      if (Array.isArray(affArr)) {
-        for (const a of affArr) {
-          if (a?.handle)
-            affGmv.set(
-              a.handle,
-              Math.max(affGmv.get(a.handle) ?? 0, a.gmv_30d_usd ?? 0),
-            );
-        }
-      }
-      for (const r of ctRows ?? []) {
-        if (!r.product_id) continue;
-        const asin = pidToAsin.get(r.product_id);
-        if (!asin) continue;
-        const handle = r.influencer_id
-          ? inflHandle.get(r.influencer_id) ?? null
-          : null;
-        const gmv = handle ? affGmv.get(handle) ?? null : null;
-        (skuVideoMap[asin] ??= []).push({
-          url: r.url,
-          views: r.views ?? 0,
-          gmv,
-          handle,
-          is_ad: !!r.is_ad,
-        });
-      }
-      for (const k in skuVideoMap) skuVideoMap[k]!.sort((a, b) => b.views - a.views);
-    }
-  }
-
   // ★ USP 키워드 — 채널별(all/tk/ig/yt) 키워드 + 키워드별 매칭 영상 top3.
   //   TK: phase5 키워드 + contents ilike (기존). IG/YT: 해당 테이블 캡션 코퍼스에서
   //   computeUspKeywords 재계산 + in-memory 매칭. all: 세 채널 키워드 병합.
@@ -2699,7 +2624,6 @@ export default async function CaseDetailPage({
                           caseChannel={c.channel}
                           availableSalesChannels={availableSalesChannels}
                           skuChannelMap={skuChannelMap}
-                          skuVideoMap={skuVideoMap}
                           kalodataVideos={ks.kalodata_videos_xlsx}
                           kalodataLives={ks.kalodata_lives}
                           categoryRanking={
