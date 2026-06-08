@@ -388,7 +388,7 @@ async function aggregateAmazonSalesAndBsr(
   // category/launch_date/price 추가 (D SKU 매출 표 컬럼 확장 B2).
   const { data: prods } = await supabase
     .from("products")
-    .select("id, asin, external_product_id, name, product_url, country, category, launch_date, price")
+    .select("id, asin, external_product_id, name, product_url, country, category, launch_date, price, channel")
     .eq("case_id", case_id);
 
   if (!prods || prods.length === 0) {
@@ -508,17 +508,42 @@ async function aggregateAmazonSalesAndBsr(
     })
     .sort((a, b) => b.revenue - a.revenue);
 
-  // sales_summary — currency 단위로 합산 (혼합 통화면 USD 환산은 UI 단계에서)
-  // 권역 case는 by_country sub로 보조 분포 계산.
-  const total_revenue = sku_sales.reduce((acc, s) => acc + s.revenue, 0);
-  const total_units = sku_sales.reduce((acc, s) => acc + s.units, 0);
-  const top1 = sku_sales[0]?.revenue ?? 0;
-  const top3 = sku_sales
+  // sales_summary — total_revenue/top/by_country는 케이스 "주 채널"(channel) 제품만 합산.
+  //   멀티채널 케이스(예: tiktok_shop + amazon 동시 업로드)에서 KPI "TT Shop GMV"가
+  //   다른 채널 매출까지 더해져 오염되는 것 방지. 타 채널 SKU는 sku_sales엔 그대로 남아
+  //   D섹션 채널 토글로 표시됨. 단일채널 케이스는 primarySkus === sku_sales라 변화 없음.
+  const asinToChannel = new Map<string, string | null>(
+    prods.map((p) => [
+      p.asin ?? p.external_product_id ?? "",
+      (p as { channel?: string | null }).channel ?? null,
+    ]),
+  );
+  const primarySkus = sku_sales.filter(
+    (s) => (asinToChannel.get(s.asin ?? "") ?? channel) === channel,
+  );
+  // 채널별 매출 분포 (KPI 채널 분리용)
+  const by_channel: Record<
+    string,
+    { revenue: number; units: number; sku_count: number }
+  > = {};
+  for (const s of sku_sales) {
+    const ch = asinToChannel.get(s.asin ?? "") ?? channel;
+    const cur = by_channel[ch] ?? { revenue: 0, units: 0, sku_count: 0 };
+    cur.revenue += s.revenue;
+    cur.units += s.units;
+    cur.sku_count += 1;
+    by_channel[ch] = cur;
+  }
+
+  const total_revenue = primarySkus.reduce((acc, s) => acc + s.revenue, 0);
+  const total_units = primarySkus.reduce((acc, s) => acc + s.units, 0);
+  const top1 = primarySkus[0]?.revenue ?? 0;
+  const top3 = primarySkus
     .slice(0, 3)
     .reduce((acc, s) => acc + s.revenue, 0);
 
   const by_country: SalesSummary["by_country"] = {};
-  for (const s of sku_sales) {
+  for (const s of primarySkus) {
     const k = s.country ?? "_unknown";
     const cur = by_country![k] ?? {
       revenue: 0,
@@ -542,12 +567,13 @@ async function aggregateAmazonSalesAndBsr(
     period_end: latestPeriod?.period_end ?? null,
     total_revenue,
     total_units,
-    sku_count: sku_sales.length,
+    sku_count: primarySkus.length,
     top1_revenue_share: total_revenue > 0 ? top1 / total_revenue : 0,
     top3_revenue_share: total_revenue > 0 ? top3 / total_revenue : 0,
     prev_period_revenue,
     prev_period_end: prevPeriodEnd,
     by_country,
+    by_channel,
   };
 
   // BSR series (Amazon만 — 매출 Top 5 SKU).

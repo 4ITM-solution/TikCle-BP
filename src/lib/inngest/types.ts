@@ -93,6 +93,16 @@ export type SalesSummary = {
       currency: string;
     }
   >;
+  // 채널별(tiktok_shop/amazon/shopee) 매출 분포 — 멀티채널 케이스 KPI 분리용.
+  // total_revenue는 주 채널만 합산하므로, 다른 채널 매출은 여기서 확인.
+  by_channel?: Record<
+    string,
+    {
+      revenue: number;
+      units: number;
+      sku_count: number;
+    }
+  >;
 };
 
 export type Phase2Stats = {

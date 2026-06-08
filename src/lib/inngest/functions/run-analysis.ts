@@ -551,7 +551,12 @@ export const runAnalysis = inngest.createFunction(
     // tiktok_shop이면 phase2Final 갱신 (이후 save에 반영)
     const phase2Effective = phase2Refiltered as Phase2Stats;
 
-    if (phase37New) {
+    // phase2Effective(매출 재집계)는 phase37 변화와 무관하게 항상 저장.
+    //   phase2Refiltered 스텝은 US tiktok_shop에서 매번 재집계되는데, 예전엔
+    //   phase37New일 때만 저장돼서 — phase37이 캐시되고(새 인플 없음) phase4a/4b/5
+    //   save도 안 돌면 — 수기 업로드(Amazon/Helium/Kalodata)로 바뀐 case_product_sales가
+    //   phase2에 영속화되지 않았다. 이제 무조건 저장해 재실행 시 항상 반영.
+    {
       await step.run("phase-2-refilter-save", async () => {
         const newStats: KeyStats = {
           ...existing,
