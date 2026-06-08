@@ -398,47 +398,70 @@ async function aggregateAmazonSalesAndBsr(
   const productIds = prods.map((p) => p.id);
   const isAmazon = channel === "amazon";
 
-  // 가장 최근 period의 case_product_sales만 사용
+  // case_product_sales — 제품별로 "소스 신뢰도" 우선 선택.
+  //   ⚠️ period_end 최신만 쓰면 tiktok_shop_scraper(스토어프론트 "누적판매×정가" 추정)가
+  //   사용자가 올린 정확한 Helium10/Kalodata 실 GMV를 덮어버림 (GMV 4배 부풀).
+  //   → 신뢰도 순으로 고르고, 같은 소스 내에서만 period_end 최신/직전 비교.
+  type SaleRow = {
+    product_id: string;
+    units_30d: number | null;
+    revenue_30d: number | null;
+    currency: string;
+    country: string | null;
+    period_start: string | null;
+    period_end: string | null;
+    source: string | null;
+  };
   const { data: salesAll } = await supabase
     .from("case_product_sales")
-    .select("product_id, units_30d, revenue_30d, currency, country, period_start, period_end")
-    .eq("case_id", case_id)
-    .order("period_end", { ascending: false });
+    .select("product_id, units_30d, revenue_30d, currency, country, period_start, period_end, source")
+    .eq("case_id", case_id);
 
-  // product_id별 가장 최근 row 1개씩
-  const latestByProduct = new Map<
-    string,
-    {
-      units_30d: number | null;
-      revenue_30d: number | null;
-      currency: string;
-      country: string | null;
-      period_start: string | null;
-      period_end: string | null;
+  // 낮을수록 우선: Kalodata 실GMV > Helium10/Amazon 실GMV > 기타 > scraper(정가×누적 추정)
+  const sourceRank = (src: string | null): number => {
+    switch (src) {
+      case "kalodata": return 0;
+      case "helium10_tt_finder": return 1;
+      case "amazon_sales": return 1;
+      case "shopdora": return 2;
+      case "tiktok_shop_scraper": return 9; // 정가×누적수량 추정 — 최후순위
+      default: return 3;
     }
-  >();
-  // 직전 period revenue (각 product 의 두 번째 row)
+  };
+
+  const rowsByProduct = new Map<string, SaleRow[]>();
+  for (const s of (salesAll ?? []) as SaleRow[]) {
+    const arr = rowsByProduct.get(s.product_id) ?? [];
+    arr.push(s);
+    rowsByProduct.set(s.product_id, arr);
+  }
+
+  const latestByProduct = new Map<string, SaleRow>();
+  // 직전 period revenue (동일 소스의 이전 period — trend 비교용)
   const prevByProduct = new Map<string, number>();
   let latestPeriodEnd: string | null = null;
   let prevPeriodEnd: string | null = null;
-  const seenSeconds = new Map<string, number>(); // product_id → seen 횟수
-  for (const s of salesAll ?? []) {
-    const seen = seenSeconds.get(s.product_id) ?? 0;
-    if (seen === 0) {
-      latestByProduct.set(s.product_id, s);
-      if (s.period_end && (!latestPeriodEnd || s.period_end > latestPeriodEnd)) {
-        latestPeriodEnd = s.period_end;
-      }
-    } else if (seen === 1) {
-      prevByProduct.set(s.product_id, s.revenue_30d ?? 0);
-      if (s.period_end && (!prevPeriodEnd || s.period_end > prevPeriodEnd)) {
-        // prev 는 latest 와 같을 수 없음
-        if (s.period_end !== latestPeriodEnd) {
-          prevPeriodEnd = s.period_end;
-        }
+  for (const [pid, rows] of rowsByProduct) {
+    const sorted = [...rows].sort(
+      (a, b) =>
+        sourceRank(a.source) - sourceRank(b.source) ||
+        (b.period_end ?? "").localeCompare(a.period_end ?? ""),
+    );
+    const chosen = sorted[0]!;
+    latestByProduct.set(pid, chosen);
+    if (chosen.period_end && (!latestPeriodEnd || chosen.period_end > latestPeriodEnd)) {
+      latestPeriodEnd = chosen.period_end;
+    }
+    // 직전 = 같은 소스의 더 이른 period_end
+    const prev = sorted.find(
+      (r) => r.source === chosen.source && (r.period_end ?? "") < (chosen.period_end ?? ""),
+    );
+    if (prev) {
+      prevByProduct.set(pid, prev.revenue_30d ?? 0);
+      if (prev.period_end && prev.period_end !== latestPeriodEnd && (!prevPeriodEnd || prev.period_end > prevPeriodEnd)) {
+        prevPeriodEnd = prev.period_end;
       }
     }
-    seenSeconds.set(s.product_id, seen + 1);
   }
 
   // 최신 BSR 한 점 (Amazon만 — tiktok_shop은 BSR 개념 없음).
