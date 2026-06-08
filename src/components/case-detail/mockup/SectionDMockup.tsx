@@ -38,6 +38,7 @@ export function SectionDMockup({
   caseChannel,
   availableSalesChannels,
   skuChannelMap,
+  skuVideoMap,
   kalodataVideos,
   kalodataLives,
   categoryRanking,
@@ -58,6 +59,12 @@ export function SectionDMockup({
   availableSalesChannels?: string[];
   /** asin → channel — SKU 매출 filter 용 */
   skuChannelMap?: Record<string, string>;
+  /** asin → 명시적 링크 영상 (contents.product_id 기반) + 조회수 + 어필리에이트 GMV.
+   *  사용자가 제품 선택해 올린 영상 — Vision 매칭(phase4b) 없이 직접 SKU별 표시. */
+  skuVideoMap?: Record<
+    string,
+    Array<{ url: string; views: number; gmv: number | null; handle: string | null; is_ad: boolean }>
+  >;
   kalodataVideos?: KalodataVideoXlsxRow[];
   kalodataLives?: KalodataLiveRow[];
   /** C1: cases.key_stats.kalodata_category_ranking.points */
@@ -148,6 +155,23 @@ export function SectionDMockup({
   const allDisplayed = phase4bSku?.displayed_videos ?? [];
   const matchedFor = (asin: string, skuName?: string): DisplayedVideoEntry[] => {
     if (!asin) return [];
+    // 0차: 명시적 링크 (contents.product_id) — 사용자가 제품 선택해 올린 영상.
+    //   Vision 매칭/임계 없이 조회수순. caption에 @handle + 어필리에이트 GMV 노출.
+    const explicit = skuVideoMap?.[asin];
+    if (explicit && explicit.length > 0) {
+      return explicit.slice(0, 6).map((v) => ({
+        content_id: v.url,
+        url: v.url,
+        views: v.views,
+        thumbnail_url: null,
+        caption_preview: v.handle
+          ? `@${v.handle}${v.gmv != null ? ` · GMV $${Math.round(v.gmv).toLocaleString()}` : ""}`
+          : null,
+        matched_skus: [asin],
+        matched_sku_names: skuName ? [skuName] : [],
+        confidence: "explicit-link" as unknown as DisplayedVideoEntry["confidence"],
+      }));
+    }
     // 1차: Phase 4b.5 SKU 매칭 (high confidence)
     const primary = allDisplayed
       .filter(
@@ -887,12 +911,61 @@ export function SectionDMockup({
       {tab === "vid" && (
         <div className="panel active">
           {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <>
-              <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
-                ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
-              </div>
-              {renderKalodataFallbackHint()}
-            </>
+            (() => {
+              // Kalodata 없으면 Helium 어필리에이트 GMV로 대체.
+              //   어필리에이트 GMV는 "작성자 단위"라 — 작성자별 1행(대표영상=최고조회)으로 집계해
+              //   중복합산 방지. "영상별"보단 "작성자별 매출 + 대표영상"에 가까움.
+              const byHandle = new Map<
+                string,
+                { handle: string; gmv: number; url: string; views: number }
+              >();
+              for (const vids of Object.values(skuVideoMap ?? {})) {
+                for (const v of vids) {
+                  if (!v.handle || v.gmv == null) continue;
+                  const ex = byHandle.get(v.handle);
+                  if (!ex) byHandle.set(v.handle, { handle: v.handle, gmv: v.gmv, url: v.url, views: v.views });
+                  else { ex.gmv = Math.max(ex.gmv, v.gmv); if (v.views > ex.views) { ex.url = v.url; ex.views = v.views; } }
+                }
+              }
+              const rows = [...byHandle.values()].sort((a, b) => b.gmv - a.gmv);
+              if (rows.length === 0) {
+                return (
+                  <>
+                    <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+                      ⚠ Kalodata Video xlsx 미적재 — Kalodata LIST_VIDEO 업로드 또는 Helium 어필리에이트 CSV(제품 선택) 업로드 시 채워짐
+                    </div>
+                    {renderKalodataFallbackHint()}
+                  </>
+                );
+              }
+              const total = rows.reduce((s, r) => s + r.gmv, 0);
+              const top10 = rows.slice(0, 10).reduce((s, r) => s + r.gmv, 0);
+              return (
+                <>
+                  <div style={{ marginBottom: 10, padding: "6px 10px", fontSize: 10, color: "#1e3a8a", background: "#dbeafe", border: "1px dashed #3b82f6", borderRadius: 4 }}>
+                    💡 Kalodata 미적재 → <b>Helium 어필리에이트 GMV(30일)</b> 기준. GMV는 작성자 단위라 작성자별 1행(대표영상=최고조회)으로 집계.
+                  </div>
+                  <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 12 }}>
+                    <div className="kpi"><div className="kpi-label">매출 발생 작성자</div><div className="kpi-val">{rows.length.toLocaleString()}</div></div>
+                    <div className="kpi"><div className="kpi-label">Top 작성자 GMV</div><div className="kpi-val">{formatUsdShort(rows[0]?.gmv ?? 0)}</div><div className="kpi-sub">@{rows[0]?.handle}</div></div>
+                    <div className="kpi"><div className="kpi-label">Top 10 GMV 비중</div><div className="kpi-val">{total > 0 ? Math.round((top10 / total) * 100) : 0}%</div></div>
+                  </div>
+                  <table>
+                    <thead><tr><th>작성자</th><th>대표 영상</th><th style={{ textAlign: "right" }}>조회</th><th style={{ textAlign: "right" }}>GMV(30d)</th></tr></thead>
+                    <tbody>
+                      {rows.slice(0, 20).map((r) => (
+                        <tr key={r.handle}>
+                          <td style={{ fontFamily: "monospace", fontSize: 11 }}>@{r.handle}</td>
+                          <td><a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", fontSize: 10 }}>영상 ↗</a></td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{r.views > 0 ? r.views.toLocaleString() : "—"}</td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace", color: "#10b981", fontWeight: 700 }}>${Math.round(r.gmv).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              );
+            })()
           ) : (
             (() => {
               const videos = kalodataVideos;
