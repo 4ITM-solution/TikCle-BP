@@ -121,7 +121,7 @@ async function persistShopProductsAndSales(
     external_product_id: string | null;
     price: number | null;
   }> = [];
-  const toInsert: Array<Record<string, unknown>> = [];
+  const toInsert: Database["public"]["Tables"]["products"]["Insert"][] = [];
   for (const p of products) {
     const existingId = p.external_id ? extToId.get(p.external_id) : undefined;
     if (existingId) {
