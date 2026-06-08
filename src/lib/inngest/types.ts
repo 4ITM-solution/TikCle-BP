@@ -409,6 +409,8 @@ export type DisplayedVideoEntry = {
   matched_skus: string[]; // ASIN 또는 external_product_id
   matched_sku_names: string[];
   confidence: "high" | "mid" | "low" | null;
+  /** 영상 귀속 GMV (어필리에이트 조회수가중 분배 등). "매출 기여 영상" 정렬용. */
+  gmv?: number | null;
 };
 
 export type Phase4bSkuStats = {

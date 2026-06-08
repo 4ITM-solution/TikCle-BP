@@ -167,9 +167,15 @@ export function SkuHealthCards({
                   // 1차: Vision LLM high confidence — 정확 매칭이라 매출 기여 추정 적합.
                   v.confidence === "high" ||
                   // 2차: Kalodata product_title 매칭 — 매출 매핑이라 매출 기여 추정에 핏.
-                  (v.confidence as unknown as string) === "kalodata-fallback",
+                  (v.confidence as unknown as string) === "kalodata-fallback" ||
+                  // 3차: 명시적 링크(어필리에이트 CSV) — 영상 귀속 GMV 있음.
+                  (v.confidence as unknown as string) === "explicit-link",
               )
-              .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+              // GMV(영상 귀속) 우선, 없으면 조회수.
+              .sort(
+                (a, b) =>
+                  (b.gmv ?? 0) - (a.gmv ?? 0) || (b.views ?? 0) - (a.views ?? 0),
+              )
               .slice(0, 5)}
             empty="—"
           />

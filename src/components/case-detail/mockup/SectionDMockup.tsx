@@ -128,6 +128,7 @@ export function SectionDMockup({
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const onSelectSku = setSelectedSku;
   const [skuShowAll, setSkuShowAll] = useState(false);
+  const [vidShowAll, setVidShowAll] = useState(false);
 
   // 채널 toggle state — 기본 case.channel 또는 첫 available
   const defaultCh =
@@ -158,6 +159,40 @@ export function SectionDMockup({
           .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
           .slice(0, 3);
 
+  // SKU 매출 표 — 같은 제품의 여러 리스팅(캠페인: mothersdaygift/Summervibes 등)을
+  //   제품명 정규화로 묶어 합산 표시. 데이터(sku_sales)는 그대로, 표시만 그룹.
+  //   대표(rep) = 그룹 내 최고매출 리스팅. count>1이면 "🔗 N 리스팅" 배지.
+  const groupedSkus = (() => {
+    const normName = (n: string | null | undefined) =>
+      (n ?? "")
+        .toLowerCase()
+        .replace(/\[new\]/g, "")
+        .replace(/[^a-z0-9 ]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 45);
+    const base = skus.filter((s) => selectedSku === "all" || s.asin === selectedSku);
+    const gmap = new Map<
+      string,
+      { rep: (typeof base)[number]; revenue: number; units: number; count: number }
+    >();
+    for (const s of base) {
+      const key = normName(s.name) || (s.asin ?? "");
+      const ex = gmap.get(key);
+      if (!ex)
+        gmap.set(key, { rep: s, revenue: s.revenue ?? 0, units: s.units ?? 0, count: 1 });
+      else {
+        ex.revenue += s.revenue ?? 0;
+        ex.units += s.units ?? 0;
+        ex.count += 1;
+        if ((s.revenue ?? 0) > (ex.rep.revenue ?? 0)) ex.rep = s;
+      }
+    }
+    return [...gmap.values()].sort((a, b) => b.revenue - a.revenue);
+  })();
+  const skuLimit =
+    selectedSku !== "all" ? groupedSkus.length : skuShowAll ? groupedSkus.length : 5;
+
   // 매칭 영상 — phase4bSku.displayed_videos 에서 sku.asin 매칭 + Kalodata fallback
   const allDisplayed = phase4bSku?.displayed_videos ?? [];
   const matchedFor = (asin: string, skuName?: string): DisplayedVideoEntry[] => {
@@ -177,6 +212,7 @@ export function SectionDMockup({
         matched_skus: [asin],
         matched_sku_names: skuName ? [skuName] : [],
         confidence: "explicit-link" as unknown as DisplayedVideoEntry["confidence"],
+        gmv: v.gmv,
       }));
     }
     // 1차: Phase 4b.5 SKU 매칭 (high confidence)
@@ -604,14 +640,8 @@ export function SectionDMockup({
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                const sorted = skus
-                  .filter((s) => selectedSku === "all" || s.asin === selectedSku)
-                  .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
-                const limit = selectedSku !== "all" ? sorted.length : (skuShowAll ? sorted.length : 5);
-                return sorted.slice(0, limit);
-              })()
-                .map((s) => {
+              {groupedSkus.slice(0, skuLimit).map((g) => {
+                  const s = g.rep;
                   const matched = allDisplayed.filter((v) =>
                     Array.isArray(v.matched_skus) && s.asin && v.matched_skus.includes(s.asin),
                   ).length;
@@ -626,6 +656,14 @@ export function SectionDMockup({
                         <b>
                           {s.name && s.name.length > 40 ? `${s.name.slice(0, 40)}…` : s.name}
                         </b>
+                        {g.count > 1 && (
+                          <span
+                            style={{ marginLeft: 6, fontSize: 9, color: "#7c3aed", background: "#ede9fe", padding: "1px 5px", borderRadius: 3, fontWeight: 700, whiteSpace: "nowrap" }}
+                            title="같은 제품의 여러 리스팅(캠페인) 합산"
+                          >
+                            🔗 {g.count} 리스팅 합산
+                          </span>
+                        )}
                       </td>
                       <td>
                         <a
@@ -654,10 +692,10 @@ export function SectionDMockup({
                           fontWeight: 700,
                         }}
                       >
-                        {formatUsdShort(s.revenue ?? 0)}
+                        {formatUsdShort(g.revenue)}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "monospace" }}>
-                        {(s.units ?? 0).toLocaleString()}
+                        {g.units.toLocaleString()}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "monospace", color: s.bsr_latest != null ? "#1f2937" : "#9ca3af" }}>
                         {s.bsr_latest != null ? `#${s.bsr_latest.toLocaleString()}` : "—"}
@@ -670,7 +708,7 @@ export function SectionDMockup({
                 })}
             </tbody>
           </table>
-          {selectedSku === "all" && skus.length > 5 && (
+          {selectedSku === "all" && groupedSkus.length > 5 && (
             <div style={{ textAlign: "center", marginTop: 8 }}>
               <button
                 type="button"
@@ -686,7 +724,7 @@ export function SectionDMockup({
                   color: "#6b7280",
                 }}
               >
-                {skuShowAll ? `▲ 5개만 보기` : `▼ 전체 ${skus.length}개 SKU 보기 (현재 5개)`}
+                {skuShowAll ? `▲ 5개만 보기` : `▼ 전체 ${groupedSkus.length}개 제품 보기 (현재 5개)`}
               </button>
             </div>
           )}
@@ -778,25 +816,14 @@ export function SectionDMockup({
       {/* Creator × SKU GMV matrix panel — mockup line 1205-1221 */}
       {tab === "matrix" && (
         <div className="panel active">
-          {!kalodataVideos || kalodataVideos.length === 0 ? (
-            <>
-              <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
-                ⚠ Kalodata Video xlsx 미적재 — 위 KalodataSection 에서 LIST_VIDEO xlsx 업로드 시 채워짐
-              </div>
-              {renderKalodataFallbackHint()}
-            </>
-          ) : (
-            (() => {
-              // creator × product matrix
+          {(() => {
+              // creator × product matrix — Kalodata 우선, 없으면 Helium 어필리에이트(skuVideoMap)
               type Cell = { gmv: number; videos: number };
               const matrix = new Map<string, Map<string, Cell>>(); // creator → (product → cell)
               const productGmv = new Map<string, number>();
               const creatorGmv = new Map<string, number>();
-              for (const v of kalodataVideos) {
-                const handle = v.creator_handle ?? "—";
-                const product = v.product_title ?? "기타";
-                const gmv = v.revenue_usd ?? 0;
-                if (gmv <= 0) continue;
+              const add = (handle: string, product: string, gmv: number) => {
+                if (gmv <= 0) return;
                 if (!matrix.has(handle)) matrix.set(handle, new Map());
                 const cMap = matrix.get(handle)!;
                 const cur = cMap.get(product) ?? { gmv: 0, videos: 0 };
@@ -805,6 +832,31 @@ export function SectionDMockup({
                 cMap.set(product, cur);
                 productGmv.set(product, (productGmv.get(product) ?? 0) + gmv);
                 creatorGmv.set(handle, (creatorGmv.get(handle) ?? 0) + gmv);
+              };
+              const useKalo = kalodataVideos && kalodataVideos.length > 0;
+              if (useKalo) {
+                for (const v of kalodataVideos!) {
+                  add(v.creator_handle ?? "—", v.product_title ?? "기타", v.revenue_usd ?? 0);
+                }
+              } else {
+                // Helium 어필리에이트 — skuVideoMap(asin → 영상[handle, gmv]) → asin을 제품명으로
+                const asinName = new Map(
+                  skus.map((s) => [s.asin ?? "", s.name ?? s.asin ?? "기타"] as const),
+                );
+                for (const [asin, vids] of Object.entries(skuVideoMap ?? {})) {
+                  const product = (asinName.get(asin) ?? asin).slice(0, 40);
+                  for (const v of vids) add(v.handle ?? "—", product, v.gmv ?? 0);
+                }
+              }
+              if (creatorGmv.size === 0) {
+                return (
+                  <>
+                    <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
+                      ⚠ Creator×SKU 매출 데이터 없음 — Kalodata LIST_VIDEO 또는 Helium 어필리에이트 CSV(제품 선택) 업로드 시 채워짐
+                    </div>
+                    {renderKalodataFallbackHint()}
+                  </>
+                );
               }
               // Top 5 creator, Top 4 product (각자 GMV 내림차순) + 기타
               const topCreators = [...creatorGmv.entries()]
@@ -900,7 +952,7 @@ export function SectionDMockup({
                 </>
               );
             })()
-          )}
+          }
         </div>
       )}
 
@@ -922,9 +974,12 @@ export function SectionDMockup({
               // Kalodata 없으면 Helium 어필리에이트 GMV로 대체.
               //   page.tsx에서 작성자 GMV/판매량을 조회수 비중으로 영상별 분배(합계 보존) →
               //   여기선 영상 단위로 그대로 표시. (영상 1개 작성자 = 그 영상 매출 그대로)
-              const flat = Object.values(skuVideoMap ?? {})
-                .flat()
-                .filter((v) => v.gmv != null && v.gmv > 0);
+              // selectedSku 선택 시 그 SKU 영상만 (전체면 모든 SKU)
+              const entries =
+                selectedSku !== "all"
+                  ? [skuVideoMap?.[selectedSku] ?? []]
+                  : Object.values(skuVideoMap ?? {});
+              const flat = entries.flat().filter((v) => v.gmv != null && v.gmv > 0);
               const seen = new Set<string>();
               const vids = flat
                 .filter((v) => {
@@ -958,7 +1013,7 @@ export function SectionDMockup({
                   <table>
                     <thead><tr><th>영상</th><th>작성자</th><th style={{ textAlign: "right" }}>조회</th><th style={{ textAlign: "right" }}>판매</th><th style={{ textAlign: "right" }}>GMV(30d)</th></tr></thead>
                     <tbody>
-                      {vids.slice(0, 30).map((v, i) => (
+                      {vids.slice(0, vidShowAll ? vids.length : 30).map((v, i) => (
                         <tr key={`${v.url}-${i}`}>
                           <td><a href={v.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", fontSize: 10 }}>영상 ↗</a></td>
                           <td style={{ fontFamily: "monospace", fontSize: 10 }}>{v.handle ? `@${v.handle}` : "—"}</td>
@@ -969,6 +1024,17 @@ export function SectionDMockup({
                       ))}
                     </tbody>
                   </table>
+                  {vids.length > 30 && (
+                    <div style={{ textAlign: "center", marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setVidShowAll(!vidShowAll)}
+                        style={{ fontSize: 11, padding: "5px 14px", border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer", fontFamily: "inherit", color: "#6b7280" }}
+                      >
+                        {vidShowAll ? `▲ 30개만 보기` : `▼ 전체 ${vids.length.toLocaleString()}개 영상 보기 (현재 30개)`}
+                      </button>
+                    </div>
+                  )}
                 </>
               );
             })()
