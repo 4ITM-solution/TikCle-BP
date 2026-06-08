@@ -63,7 +63,14 @@ export function SectionDMockup({
    *  사용자가 제품 선택해 올린 영상 — Vision 매칭(phase4b) 없이 직접 SKU별 표시. */
   skuVideoMap?: Record<
     string,
-    Array<{ url: string; views: number; gmv: number | null; handle: string | null; is_ad: boolean }>
+    Array<{
+      url: string;
+      views: number;
+      gmv: number | null;
+      items: number | null;
+      handle: string | null;
+      is_ad: boolean;
+    }>
   >;
   kalodataVideos?: KalodataVideoXlsxRow[];
   kalodataLives?: KalodataLiveRow[];
@@ -913,22 +920,20 @@ export function SectionDMockup({
           {!kalodataVideos || kalodataVideos.length === 0 ? (
             (() => {
               // Kalodata 없으면 Helium 어필리에이트 GMV로 대체.
-              //   어필리에이트 GMV는 "작성자 단위"라 — 작성자별 1행(대표영상=최고조회)으로 집계해
-              //   중복합산 방지. "영상별"보단 "작성자별 매출 + 대표영상"에 가까움.
-              const byHandle = new Map<
-                string,
-                { handle: string; gmv: number; url: string; views: number }
-              >();
-              for (const vids of Object.values(skuVideoMap ?? {})) {
-                for (const v of vids) {
-                  if (!v.handle || v.gmv == null) continue;
-                  const ex = byHandle.get(v.handle);
-                  if (!ex) byHandle.set(v.handle, { handle: v.handle, gmv: v.gmv, url: v.url, views: v.views });
-                  else { ex.gmv = Math.max(ex.gmv, v.gmv); if (v.views > ex.views) { ex.url = v.url; ex.views = v.views; } }
-                }
-              }
-              const rows = [...byHandle.values()].sort((a, b) => b.gmv - a.gmv);
-              if (rows.length === 0) {
+              //   page.tsx에서 작성자 GMV/판매량을 조회수 비중으로 영상별 분배(합계 보존) →
+              //   여기선 영상 단위로 그대로 표시. (영상 1개 작성자 = 그 영상 매출 그대로)
+              const flat = Object.values(skuVideoMap ?? {})
+                .flat()
+                .filter((v) => v.gmv != null && v.gmv > 0);
+              const seen = new Set<string>();
+              const vids = flat
+                .filter((v) => {
+                  if (seen.has(v.url)) return false;
+                  seen.add(v.url);
+                  return true;
+                })
+                .sort((a, b) => (b.gmv ?? 0) - (a.gmv ?? 0));
+              if (vids.length === 0) {
                 return (
                   <>
                     <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e", textAlign: "center" }}>
@@ -938,27 +943,28 @@ export function SectionDMockup({
                   </>
                 );
               }
-              const total = rows.reduce((s, r) => s + r.gmv, 0);
-              const top10 = rows.slice(0, 10).reduce((s, r) => s + r.gmv, 0);
+              const total = vids.reduce((s, v) => s + (v.gmv ?? 0), 0);
+              const top10 = vids.slice(0, 10).reduce((s, v) => s + (v.gmv ?? 0), 0);
               return (
                 <>
                   <div style={{ marginBottom: 10, padding: "6px 10px", fontSize: 10, color: "#1e3a8a", background: "#dbeafe", border: "1px dashed #3b82f6", borderRadius: 4 }}>
-                    💡 Kalodata 미적재 → <b>Helium 어필리에이트 GMV(30일)</b> 기준. GMV는 작성자 단위라 작성자별 1행(대표영상=최고조회)으로 집계.
+                    💡 Kalodata 미적재 → <b>Helium 어필리에이트 GMV(30일)</b> 기준. 작성자 GMV·판매량을 <b>조회수 비중</b>으로 영상별 분배 (합계 보존).
                   </div>
                   <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 12 }}>
-                    <div className="kpi"><div className="kpi-label">매출 발생 작성자</div><div className="kpi-val">{rows.length.toLocaleString()}</div></div>
-                    <div className="kpi"><div className="kpi-label">Top 작성자 GMV</div><div className="kpi-val">{formatUsdShort(rows[0]?.gmv ?? 0)}</div><div className="kpi-sub">@{rows[0]?.handle}</div></div>
-                    <div className="kpi"><div className="kpi-label">Top 10 GMV 비중</div><div className="kpi-val">{total > 0 ? Math.round((top10 / total) * 100) : 0}%</div></div>
+                    <div className="kpi"><div className="kpi-label">매출 발생 영상</div><div className="kpi-val">{vids.length.toLocaleString()}</div></div>
+                    <div className="kpi"><div className="kpi-label">총 GMV (영상 귀속)</div><div className="kpi-val">{formatUsdShort(total)}</div></div>
+                    <div className="kpi"><div className="kpi-label">Top 10 영상 GMV 비중</div><div className="kpi-val">{total > 0 ? Math.round((top10 / total) * 100) : 0}%</div></div>
                   </div>
                   <table>
-                    <thead><tr><th>작성자</th><th>대표 영상</th><th style={{ textAlign: "right" }}>조회</th><th style={{ textAlign: "right" }}>GMV(30d)</th></tr></thead>
+                    <thead><tr><th>영상</th><th>작성자</th><th style={{ textAlign: "right" }}>조회</th><th style={{ textAlign: "right" }}>판매</th><th style={{ textAlign: "right" }}>GMV(30d)</th></tr></thead>
                     <tbody>
-                      {rows.slice(0, 20).map((r) => (
-                        <tr key={r.handle}>
-                          <td style={{ fontFamily: "monospace", fontSize: 11 }}>@{r.handle}</td>
-                          <td><a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", fontSize: 10 }}>영상 ↗</a></td>
-                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{r.views > 0 ? r.views.toLocaleString() : "—"}</td>
-                          <td style={{ textAlign: "right", fontFamily: "monospace", color: "#10b981", fontWeight: 700 }}>${Math.round(r.gmv).toLocaleString()}</td>
+                      {vids.slice(0, 30).map((v, i) => (
+                        <tr key={`${v.url}-${i}`}>
+                          <td><a href={v.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", fontSize: 10 }}>영상 ↗</a></td>
+                          <td style={{ fontFamily: "monospace", fontSize: 10 }}>{v.handle ? `@${v.handle}` : "—"}</td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{v.views > 0 ? v.views.toLocaleString() : "—"}</td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{v.items != null ? Math.round(v.items).toLocaleString() : "—"}</td>
+                          <td style={{ textAlign: "right", fontFamily: "monospace", color: "#10b981", fontWeight: 700 }}>${Math.round(v.gmv ?? 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>

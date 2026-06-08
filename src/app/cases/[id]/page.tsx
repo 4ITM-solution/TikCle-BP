@@ -974,6 +974,7 @@ export default async function CaseDetailPage({
     url: string;
     views: number;
     gmv: number | null;
+    items: number | null;
     handle: string | null;
     is_ad: boolean;
   };
@@ -1006,22 +1007,30 @@ export default async function CaseDetailPage({
           .in("id", inflIds);
         for (const r of inflRows ?? []) if (r.handle) inflHandle.set(r.id, r.handle);
       }
-      // handle → 어필리에이트 GMV (key_stats.tt_shop_us_affiliates, handle별 최대값)
-      const affGmv = new Map<string, number>();
+      // handle → 어필리에이트 GMV + 판매량 (handle별 최대 GMV row 채택)
+      const affByHandle = new Map<string, { gmv: number; items: number }>();
       const affArr = (
         c.key_stats as {
-          tt_shop_us_affiliates?: Array<{ handle?: string; gmv_30d_usd?: number }>;
+          tt_shop_us_affiliates?: Array<{
+            handle?: string;
+            gmv_30d_usd?: number;
+            items_sold_30d?: number;
+          }>;
         }
       )?.tt_shop_us_affiliates;
       if (Array.isArray(affArr)) {
         for (const a of affArr) {
-          if (a?.handle)
-            affGmv.set(
-              a.handle,
-              Math.max(affGmv.get(a.handle) ?? 0, a.gmv_30d_usd ?? 0),
-            );
+          if (!a?.handle) continue;
+          const g = a.gmv_30d_usd ?? 0;
+          const ex = affByHandle.get(a.handle);
+          if (!ex || g > ex.gmv)
+            affByHandle.set(a.handle, { gmv: g, items: a.items_sold_30d ?? 0 });
         }
       }
+      // 영상을 작성자별로 그룹 → 작성자 GMV/판매량을 "조회수 비중"으로 영상별 분배.
+      //   영상 1개 작성자 = 그대로, 여러 개 = 조회수 비례 (합계 보존). 조회수 0이면 균등.
+      type Vid = { url: string; views: number; asin: string; is_ad: boolean; handle: string | null };
+      const vidsByHandle = new Map<string, Vid[]>();
       for (const r of ctRows ?? []) {
         if (!r.product_id) continue;
         const asin = pidToAsin.get(r.product_id);
@@ -1029,15 +1038,33 @@ export default async function CaseDetailPage({
         const handle = r.influencer_id
           ? inflHandle.get(r.influencer_id) ?? null
           : null;
-        const gmv = handle ? affGmv.get(handle) ?? null : null;
-        (skuVideoMap[asin] ??= []).push({
-          url: r.url,
-          views: r.views ?? 0,
-          gmv,
-          handle,
-          is_ad: !!r.is_ad,
-        });
+        const key = handle ?? `__solo__${r.url}`;
+        const arr = vidsByHandle.get(key) ?? [];
+        arr.push({ url: r.url, views: r.views ?? 0, asin, is_ad: !!r.is_ad, handle });
+        vidsByHandle.set(key, arr);
       }
+      for (const [key, vids] of vidsByHandle) {
+        const aff = key.startsWith("__solo__") ? undefined : affByHandle.get(key);
+        const totalViews = vids.reduce((s, v) => s + v.views, 0);
+        for (const v of vids) {
+          let gmv: number | null = null;
+          let items: number | null = null;
+          if (aff) {
+            const share = totalViews > 0 ? v.views / totalViews : 1 / vids.length;
+            gmv = aff.gmv * share;
+            items = aff.items * share;
+          }
+          (skuVideoMap[v.asin] ??= []).push({
+            url: v.url,
+            views: v.views,
+            gmv,
+            items,
+            handle: v.handle,
+            is_ad: v.is_ad,
+          });
+        }
+      }
+      // "뷰 Top 영상" 박스용 — 조회수순. (영상별 매출 탭은 자체적으로 GMV순 정렬)
       for (const k in skuVideoMap) skuVideoMap[k]!.sort((a, b) => b.views - a.views);
     }
   }
