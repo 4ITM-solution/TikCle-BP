@@ -2142,7 +2142,8 @@ export default async function CaseDetailPage({
               </>
             )}
 
-            {c.channel === "tiktok_shop" && c.country !== "US" && (
+            {/* Kalodata — 모든 tiktok_shop(US 포함). US는 Helium10/어필리에이트와 함께 선택 가능. */}
+            {c.channel === "tiktok_shop" && (
               <KalodataSection
                 case_id={c.id}
                 productCount={skuRows.length}
@@ -2471,42 +2472,46 @@ export default async function CaseDetailPage({
                             </>
                           ),
                           shopee: <ShopdoraSection case_id={c.id} productCount={skuRows.length} />,
-                          tt_shop:
-                            c.country === "US" ? (
-                              <>
-                                <TiktokProductFinderSection
-                                  case_id={c.id}
-                                  products={skuRows.map((s) => ({
-                                    id: s.id,
-                                    name: s.name ?? "",
-                                    asin: s.asin || null,
-                                    external_product_id: s.external_product_id,
-                                  }))}
-                                  existingProducts={
-                                    Object.keys((c.key_stats as { tt_shop_us_helium10?: Record<string, unknown> })?.tt_shop_us_helium10 ?? {}).length
-                                  }
-                                  hasUndo={
-                                    ((c.key_stats as { _last_undo?: { type?: string } })?._last_undo?.type ?? "") === "helium10_product_finder"
-                                  }
-                                />
-                                <TiktokShopUsAffiliateSection
-                                  case_id={c.id}
-                                  products={skuRows.map((s) => ({
-                                    id: s.id,
-                                    name: s.name ?? "",
-                                    asin: s.asin || null,
-                                    external_product_id: s.external_product_id,
-                                  }))}
-                                  existingAffiliates={
-                                    Array.isArray((c.key_stats as { tt_shop_us_affiliates?: unknown[] })?.tt_shop_us_affiliates)
-                                      ? (c.key_stats as { tt_shop_us_affiliates: unknown[] }).tt_shop_us_affiliates.length
-                                      : 0
-                                  }
-                                />
-                              </>
-                            ) : (
+                          tt_shop: (
+                            // US: Helium10 + 어필리에이트 + Kalodata 모두 선택 가능.
+                            // 비US: Kalodata만.
+                            <>
+                              {c.country === "US" && (
+                                <>
+                                  <TiktokProductFinderSection
+                                    case_id={c.id}
+                                    products={skuRows.map((s) => ({
+                                      id: s.id,
+                                      name: s.name ?? "",
+                                      asin: s.asin || null,
+                                      external_product_id: s.external_product_id,
+                                    }))}
+                                    existingProducts={
+                                      Object.keys((c.key_stats as { tt_shop_us_helium10?: Record<string, unknown> })?.tt_shop_us_helium10 ?? {}).length
+                                    }
+                                    hasUndo={
+                                      ((c.key_stats as { _last_undo?: { type?: string } })?._last_undo?.type ?? "") === "helium10_product_finder"
+                                    }
+                                  />
+                                  <TiktokShopUsAffiliateSection
+                                    case_id={c.id}
+                                    products={skuRows.map((s) => ({
+                                      id: s.id,
+                                      name: s.name ?? "",
+                                      asin: s.asin || null,
+                                      external_product_id: s.external_product_id,
+                                    }))}
+                                    existingAffiliates={
+                                      Array.isArray((c.key_stats as { tt_shop_us_affiliates?: unknown[] })?.tt_shop_us_affiliates)
+                                        ? (c.key_stats as { tt_shop_us_affiliates: unknown[] }).tt_shop_us_affiliates.length
+                                        : 0
+                                    }
+                                  />
+                                </>
+                              )}
                               <KalodataSection case_id={c.id} productCount={skuRows.length} />
-                            ),
+                            </>
+                          ),
                           meta_ads: (
                             <div style={{ padding: 12, fontSize: 11, color: "var(--color-info)", background: "var(--color-info-soft)", borderRadius: 6 }}>
                               📢 Meta 광고는 brand 설정에서 <code>brand_meta_pages</code> 또는 <code>brand_keyword</code> 박아야 자동 수집됩니다. brand 페이지에서 입력 후 Phase 4a 재실행.
