@@ -1069,6 +1069,91 @@ export default async function CaseDetailPage({
     }
   }
 
+  // ── Amazon BSR — SKU별 월별 시계열 + 상승시점(inflection) + 당시 브랜드 영상 ──
+  //   phase2.bsr_series는 매출 Top5(TT샵, BSR 없음)로 계산돼 Amazon BSR을 놓침 →
+  //   sales_snapshot에서 직접. 전체 SKU=모든 라인 / 개별=상승시점+당시 영상.
+  type BsrInflectionPt = {
+    month: string;
+    from: number;
+    to: number;
+    videos: Array<{ url: string; views: number; caption: string | null }>;
+  };
+  type BsrSkuData = {
+    asin: string;
+    name: string;
+    series: Array<{ m: string; bsr: number }>;
+    inflections: BsrInflectionPt[];
+  };
+  const bsrSkus: BsrSkuData[] = [];
+  {
+    const { data: amzProds } = await supabase
+      .from("products")
+      .select("id, asin, name")
+      .eq("case_id", c.id)
+      .eq("channel", "amazon");
+    const amz = (amzProds ?? []).filter((p) => p.asin);
+    if (amz.length > 0) {
+      const pidList = amz.map((p) => p.id);
+      const { data: snaps } = await supabase
+        .from("sales_snapshot")
+        .select("product_id, bsr, collected_at")
+        .in("product_id", pidList)
+        .not("bsr", "is", null)
+        .order("collected_at", { ascending: true });
+      const { data: bvids } = brand_id
+        ? await supabase
+            .from("contents")
+            .select("url, views, caption, uploaded_at")
+            .eq("brand_id", brand_id)
+            .ilike("url", "%tiktok.com%")
+            .not("uploaded_at", "is", null)
+            .limit(5000)
+        : { data: [] as Array<{ url: string; views: number | null; caption: string | null; uploaded_at: string | null }> };
+      // 제품별 월별 min BSR (랭크는 낮을수록 좋음)
+      const byPid = new Map<string, Map<string, number>>();
+      for (const s of snaps ?? []) {
+        if (s.bsr == null) continue;
+        const m = String(s.collected_at).slice(0, 7);
+        const mm = byPid.get(s.product_id) ?? new Map<string, number>();
+        const cur = mm.get(m);
+        if (cur == null || s.bsr < cur) mm.set(m, s.bsr);
+        byPid.set(s.product_id, mm);
+      }
+      // 월별 브랜드 영상 (상관용)
+      const vidsByMonth = new Map<string, Array<{ url: string; views: number; caption: string | null }>>();
+      for (const v of bvids ?? []) {
+        const m = String(v.uploaded_at).slice(0, 7);
+        const arr = vidsByMonth.get(m) ?? [];
+        arr.push({ url: v.url, views: v.views ?? 0, caption: v.caption ?? null });
+        vidsByMonth.set(m, arr);
+      }
+      for (const p of amz) {
+        const mm = byPid.get(p.id);
+        if (!mm || mm.size < 2) continue;
+        const months = [...mm.keys()].sort();
+        const series = months.map((m) => ({ m, bsr: mm.get(m)! }));
+        // inflection: 전월 대비 BSR 40%+ 개선(하락) & 8만위 이내 도달
+        const inflections: BsrInflectionPt[] = [];
+        for (let i = 1; i < series.length; i++) {
+          const prevPt = series[i - 1];
+          const curPt = series[i];
+          if (!prevPt || !curPt) continue;
+          const prev = prevPt.bsr;
+          const cur = curPt.bsr;
+          if (cur < prev * 0.6 && cur < 80000) {
+            const month = curPt.m;
+            const vids = (vidsByMonth.get(month) ?? [])
+              .sort((a, b) => b.views - a.views)
+              .slice(0, 3);
+            inflections.push({ month, from: prev, to: cur, videos: vids });
+          }
+        }
+        bsrSkus.push({ asin: p.asin!, name: p.name ?? p.asin!, series, inflections });
+      }
+      bsrSkus.sort((a, b) => Math.min(...a.series.map((s) => s.bsr)) - Math.min(...b.series.map((s) => s.bsr)));
+    }
+  }
+
   // ★ USP 키워드 — 채널별(all/tk/ig/yt) 키워드 + 키워드별 매칭 영상 top3.
   //   TK: phase5 키워드 + contents ilike (기존). IG/YT: 해당 테이블 캡션 코퍼스에서
   //   computeUspKeywords 재계산 + in-memory 매칭. all: 세 채널 키워드 병합.
@@ -2743,6 +2828,7 @@ export default async function CaseDetailPage({
                             })?.kalodata_brand ?? null
                           }
                           bsrSeries={ks.phase2?.bsr_series}
+                          bsrSkus={bsrSkus}
                           weeklyViews={weeklyViews}
                           /* Hydration 안전: server 시점 Date.now() 박아 SkuHealthCards 까지 전달.
                              SkuHealthCards 가 Date.now() 직접 호출하면 SSR/CSR 시점 차이로 React #418. */

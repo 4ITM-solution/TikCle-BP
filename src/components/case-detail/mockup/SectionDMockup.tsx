@@ -47,6 +47,7 @@ export function SectionDMockup({
   bsrInflections,
   kalodataBrandKpi,
   bsrSeries,
+  bsrSkus,
   weeklyViews,
   nowMs,
 }: {
@@ -93,6 +94,18 @@ export function SectionDMockup({
   kalodataBrandKpi?: KalodataBrandKpi | null;
   /** BSR series (Amazon top 5 SKU) + weekly views — BSR sub-tab line chart (옛 BsrTrendChart) */
   bsrSeries?: BsrSeries[];
+  /** Amazon BSR — SKU별 월별 시계열 + 상승시점 + 당시 영상 (sales_snapshot 직접). */
+  bsrSkus?: Array<{
+    asin: string;
+    name: string;
+    series: Array<{ m: string; bsr: number }>;
+    inflections: Array<{
+      month: string;
+      from: number;
+      to: number;
+      videos: Array<{ url: string; views: number; caption: string | null }>;
+    }>;
+  }>;
   weeklyViews?: WeeklyViewPoint[];
   /** Hydration 안전 — page.tsx 가 server 시점 Date.now() 박아 SkuHealthCards 까지 전달. */
   nowMs?: number;
@@ -1194,83 +1207,98 @@ export function SectionDMockup({
               />
             </div>
           )}
-          {!bsrInflections || bsrInflections.length === 0 ? (
-            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-              BSR inflection 데이터 없음 — Amazon 케이스에서 Phase 5 돌면 sales_snapshot BSR 시계열로 급등 시점 자동 detect
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
-                BSR 7일간 급등 시점 + 그 직전 7일 viral 영상 매칭 — 어떤 영상이 매출 견인했는지 추정
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>ASIN</th>
-                    <th>날짜</th>
-                    <th style={{ textAlign: "right" }}>BSR 전</th>
-                    <th style={{ textAlign: "right" }}>BSR 후</th>
-                    <th style={{ textAlign: "right" }}>개선 %</th>
-                    <th style={{ textAlign: "right" }}>뷰 비율</th>
-                    <th>동반 viral 영상 (Top 3)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bsrInflections.slice(0, 10).map((inf, i) => (
-                    <tr key={`${inf.asin}-${inf.date}-${i}`}>
-                      <td style={{ fontFamily: "monospace", fontSize: 10 }}>{inf.asin}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 10 }}>{inf.date}</td>
-                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>#{inf.rank_before.toLocaleString()}</td>
-                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>#{inf.rank_after.toLocaleString()}</td>
-                      <td
-                        style={{
-                          textAlign: "right",
-                          fontFamily: "monospace",
-                          color: inf.rank_improvement_pct > 0 ? "#10b981" : "#ec4899",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {inf.rank_improvement_pct > 0 ? "▲" : "▼"} {Math.abs(inf.rank_improvement_pct).toFixed(0)}%
-                      </td>
-                      <td
-                        style={{
-                          textAlign: "right",
-                          fontFamily: "monospace",
-                          color: inf.is_mega_volume ? "#ec4899" : "#1f2937",
-                          fontWeight: inf.is_mega_volume ? 700 : 400,
-                        }}
-                      >
-                        × {inf.views_ratio.toFixed(1)}{inf.is_mega_volume ? " 🔥" : ""}
-                      </td>
-                      <td style={{ fontSize: 10 }}>
-                        {inf.top_videos.length === 0 ? (
-                          <span style={{ color: "#9ca3af" }}>—</span>
-                        ) : (
-                          inf.top_videos.slice(0, 3).map((v, j) => (
-                            <a
-                              key={j}
-                              href={v.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: "#1d4ed8", textDecoration: "none", marginRight: 8 }}
-                              title={v.caption ?? ""}
-                            >
-                              {formatViews(v.views)} ↗
-                            </a>
-                          ))
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {bsrInflections.length > 10 && (
-                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 8, textAlign: "center" }}>
-                  + {bsrInflections.length - 10}개 시점 더보기
+          {(() => {
+            const skusBsr = bsrSkus ?? [];
+            if (skusBsr.length === 0) {
+              return (
+                <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+                  Amazon BSR 데이터 없음 — Helium BSR export(ASIN별 BSR 시계열) 업로드 시 채워짐
                 </div>
-              )}
-            </>
-          )}
+              );
+            }
+            const short = (n: string) => n.replace(/^\[New\]\s*/i, "").slice(0, 24);
+            const selectedBsr = selectedSku !== "all" ? skusBsr.find((s) => s.asin === selectedSku) ?? null : null;
+            const isIndividualTT = selectedSku !== "all" && !selectedBsr;
+            const shown = selectedBsr ? [selectedBsr] : skusBsr;
+            const allBsr = shown.flatMap((s) => s.series.map((p) => p.bsr));
+            const allMonths = [...new Set(shown.flatMap((s) => s.series.map((p) => p.m)))].sort();
+            const minB = Math.max(1, Math.min(...allBsr));
+            const maxB = Math.max(...allBsr);
+            const W = 620, H = 170, PX = 40, PY = 16;
+            const lmin = Math.log(minB), lmax = Math.log(maxB) || lmin + 1;
+            const xx = (m: string) => PX + (allMonths.length > 1 ? (allMonths.indexOf(m) / (allMonths.length - 1)) * (W - PX * 2) : 0);
+            const yy = (bsr: number) => PY + ((Math.log(bsr) - lmin) / (lmax - lmin || 1)) * (H - PY * 2);
+            const colors = ["#2563eb", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
+            return (
+              <>
+                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+                  {selectedBsr
+                    ? `📉 ${short(selectedBsr.name)} BSR 추이 — 상승시점(▼) + 당시 브랜드 영상`
+                    : isIndividualTT
+                      ? "이 SKU는 TT샵 SKU라 Amazon BSR 없음 — Amazon SKU 선택 시 상승시점+영상 표시"
+                      : "📉 전체 Amazon SKU BSR 추이 (낮을수록 좋은 랭크=위쪽). 개별 SKU 선택 시 상승시점+영상."}
+                </div>
+                {!isIndividualTT && (
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 180, background: "#fafafa", borderRadius: 6 }}>
+                    <text x={4} y={yy(minB) + 3} fontSize="8" fill="#9ca3af">#{minB.toLocaleString()}</text>
+                    <text x={4} y={yy(maxB) + 3} fontSize="8" fill="#9ca3af">#{Math.round(maxB / 1000)}K</text>
+                    {shown.map((s, si) => {
+                      const path = s.series.map((p, i) => `${i === 0 ? "M" : "L"} ${xx(p.m).toFixed(1)} ${yy(p.bsr).toFixed(1)}`).join(" ");
+                      return (
+                        <g key={s.asin}>
+                          <path d={path} fill="none" stroke={colors[si % colors.length]} strokeWidth={1.6} />
+                          {selectedBsr && s.inflections.map((inf, k) => (
+                            <g key={k}>
+                              <circle cx={xx(inf.month)} cy={yy(inf.to)} r={4} fill="#dc2626" />
+                              <text x={xx(inf.month)} y={yy(inf.to) - 7} fontSize="8" textAnchor="middle" fill="#dc2626">▼{inf.month.slice(2)}</text>
+                            </g>
+                          ))}
+                        </g>
+                      );
+                    })}
+                    {allMonths.filter((_, i) => i % Math.max(1, Math.ceil(allMonths.length / 8)) === 0).map((m) => (
+                      <text key={m} x={xx(m)} y={H - 2} fontSize="7" textAnchor="middle" fill="#9ca3af">{m.slice(2)}</text>
+                    ))}
+                  </svg>
+                )}
+                {!selectedBsr && !isIndividualTT && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6, fontSize: 9 }}>
+                    {shown.map((s, si) => (
+                      <span key={s.asin} style={{ color: "#374151" }}>
+                        <span style={{ display: "inline-block", width: 9, height: 9, background: colors[si % colors.length], borderRadius: 2, marginRight: 3, verticalAlign: "middle" }} />
+                        {short(s.name)} (best #{Math.min(...s.series.map((p) => p.bsr)).toLocaleString()})
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {selectedBsr && (
+                  selectedBsr.inflections.length === 0 ? (
+                    <div style={{ fontSize: 11, color: "#9ca3af", padding: 10 }}>뚜렷한 BSR 상승시점 없음 (전월比 40%+ 개선 기준)</div>
+                  ) : (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {selectedBsr.inflections.map((inf, i) => (
+                        <div key={i} style={{ border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 6, padding: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#991b1b" }}>
+                            ▼ {inf.month} — BSR #{inf.from.toLocaleString()} → #{inf.to.toLocaleString()} ({Math.round((1 - inf.to / inf.from) * 100)}% 개선)
+                          </div>
+                          <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>당시 브랜드 영상 (조회 Top {inf.videos.length}):</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                            {inf.videos.length === 0 ? (
+                              <span style={{ fontSize: 10, color: "#9ca3af" }}>— 해당 월 영상 없음</span>
+                            ) : inf.videos.map((v, j) => (
+                              <a key={j} href={v.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#1d4ed8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={v.caption ?? ""}>
+                                {formatViews(v.views)}뷰 · {v.caption ? v.caption.slice(0, 50) : "(캡션 없음)"} ↗
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
