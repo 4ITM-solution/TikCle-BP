@@ -979,11 +979,20 @@ export function SectionDMockup({
               //   page.tsx에서 작성자 GMV/판매량을 조회수 비중으로 영상별 분배(합계 보존) →
               //   여기선 영상 단위로 그대로 표시. (영상 1개 작성자 = 그 영상 매출 그대로)
               // selectedSku 선택 시 그 SKU 영상만 (전체면 모든 SKU)
+              // selectedSku 선택 시 그 SKU 영상만. asin/제품명 함께 보존(전체일 때 SKU 표시용).
+              const asinName = new Map(
+                skus.map((s) => [s.asin ?? "", s.name ?? s.asin ?? ""] as const),
+              );
+              const allEntries = Object.entries(skuVideoMap ?? {});
               const entries =
                 selectedSku !== "all"
-                  ? [skuVideoMap?.[selectedSku] ?? []]
-                  : Object.values(skuVideoMap ?? {});
-              const flat = entries.flat().filter((v) => v.gmv != null && v.gmv > 0);
+                  ? allEntries.filter(([a]) => a === selectedSku)
+                  : allEntries;
+              const flat = entries
+                .flatMap(([asin, list]) =>
+                  list.map((v) => ({ ...v, asin, skuName: asinName.get(asin) ?? asin })),
+                )
+                .filter((v) => v.gmv != null && v.gmv > 0);
               const seen = new Set<string>();
               const vids = flat
                 .filter((v) => {
@@ -1014,20 +1023,52 @@ export function SectionDMockup({
                     <div className="kpi"><div className="kpi-label">총 GMV (영상 귀속)</div><div className="kpi-val">{formatUsdShort(total)}</div></div>
                     <div className="kpi"><div className="kpi-label">Top 10 영상 GMV 비중</div><div className="kpi-val">{total > 0 ? Math.round((top10 / total) * 100) : 0}%</div></div>
                   </div>
-                  <table>
-                    <thead><tr><th>영상</th><th>작성자</th><th style={{ textAlign: "right" }}>조회</th><th style={{ textAlign: "right" }}>판매</th><th style={{ textAlign: "right" }}>GMV(30d)</th></tr></thead>
-                    <tbody>
-                      {vids.slice(0, vidShowAll ? vids.length : 30).map((v, i) => (
-                        <tr key={`${v.url}-${i}`}>
-                          <td><a href={v.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", fontSize: 10 }}>영상 ↗</a></td>
-                          <td style={{ fontFamily: "monospace", fontSize: 10 }}>{v.handle ? `@${v.handle}` : "—"}</td>
-                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{v.views > 0 ? v.views.toLocaleString() : "—"}</td>
-                          <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>{v.items != null ? Math.round(v.items).toLocaleString() : "—"}</td>
-                          <td style={{ textAlign: "right", fontFamily: "monospace", color: "#10b981", fontWeight: 700 }}>${Math.round(v.gmv ?? 0).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {/* 행 = 클릭 시 TikTok 임베드 펼침(details). 전체 SKU면 어떤 SKU인지 배지 표시. */}
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 4 }}>
+                    영상 클릭 → 임베드 재생 · {selectedSku === "all" ? "전체 SKU (SKU 배지 표시)" : "선택 SKU"}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {vids.slice(0, vidShowAll ? vids.length : 30).map((v, i) => {
+                      const id = extractTikTokVideoId(v.url);
+                      return (
+                        <details key={`${v.url}-${i}`} style={{ border: "1px solid #f3f4f6", borderRadius: 4, background: "white" }}>
+                          <summary
+                            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", cursor: "pointer", listStyle: "none", fontSize: 11 }}
+                          >
+                            <span style={{ width: 12, color: "#6b7280" }}>{id ? "▶" : "↗"}</span>
+                            {selectedSku === "all" && (
+                              <span
+                                title={v.skuName}
+                                style={{ background: "#ede9fe", color: "#7c3aed", padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 700, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}
+                              >
+                                {v.skuName.replace(/^\[New\]\s*/i, "").slice(0, 16)}
+                              </span>
+                            )}
+                            <span style={{ fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {v.handle ? `@${v.handle}` : "—"}
+                            </span>
+                            <span style={{ fontFamily: "monospace", color: "#6b7280", fontSize: 10 }}>{v.views > 0 ? `${v.views.toLocaleString()}뷰` : ""}</span>
+                            <span style={{ fontFamily: "monospace", color: "#6b7280", fontSize: 10 }}>{v.items != null ? `${Math.round(v.items)}판매` : ""}</span>
+                            <span style={{ fontFamily: "monospace", color: "#10b981", fontWeight: 700 }}>${Math.round(v.gmv ?? 0).toLocaleString()}</span>
+                          </summary>
+                          {id ? (
+                            <iframe
+                              src={`https://www.tiktok.com/embed/v2/${id}`}
+                              style={{ width: "100%", height: 500, border: "none", borderRadius: 6, background: "#f3f4f6" }}
+                              loading="lazy"
+                              allow="encrypted-media"
+                              allowFullScreen
+                              title={v.url}
+                            />
+                          ) : (
+                            <a href={v.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", padding: 8, fontSize: 10, color: "#1d4ed8" }}>
+                              외부 링크로 열기 ↗
+                            </a>
+                          )}
+                        </details>
+                      );
+                    })}
+                  </div>
                   {vids.length > 30 && (
                     <div style={{ textAlign: "center", marginTop: 8 }}>
                       <button
