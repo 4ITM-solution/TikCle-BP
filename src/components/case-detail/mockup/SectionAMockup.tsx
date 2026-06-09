@@ -179,7 +179,13 @@ export function SectionAMockup({
     }
     return Math.max(1, ...Array.from(merged.values()));
   }, [phase2]);
-  const maxVids = globalMaxVids;
+  // 전체(all)면 합산 max로 채널 크기 차이를 보이고, 특정 채널(tk/ig/yt) 선택 시엔
+  // 그 채널 자체 max로 스케일 — 안 그러면 IG/YT(월 수십)가 TK(월 수백~천) max 대비
+  // 막대 높이 ~2%로 안 보임("영상 수 안 보임" 버그).
+  const maxVids = useMemo(() => {
+    if (channelMode === "all") return globalMaxVids;
+    return Math.max(1, ...monthlyForMode.map((m) => m.total));
+  }, [channelMode, globalMaxVids, monthlyForMode]);
 
   // 월별 광고 비중 (0~1)
   const adByMonth = useMemo(() => {
