@@ -497,7 +497,9 @@ export function SectionDMockup({
         );
       })()}
 
-      {/* 히어로 SKU × 메가 viral 영상 (mockup 1097) */}
+      {/* 히어로 SKU × 메가 viral 영상 — 전체 SKU 선택 시만 (개별 SKU는 아래 뷰Top/매출기여 박스로 대체) */}
+      {selectedSku === "all" && (
+        <>
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, marginTop: 16 }}>
         ⭐ 히어로 SKU × 메가 viral 영상 (1M+ views 매칭)
       </div>
@@ -591,6 +593,8 @@ export function SectionDMockup({
       <div style={{ fontSize: 10, color: "#6b7280", marginTop: 6 }}>
         ★ 매출 Top 3 × 1M+ views 영상으로 마케팅 주력 판정 (Phase 4b.5 SKU 매칭, high confidence만)
       </div>
+        </>
+      )}
 
       {/* sub-tabs */}
       <div className="sub-tabs" style={{ marginTop: 20 }}>

@@ -275,93 +275,57 @@ function VideoTopCard({
         <div style={{ fontSize: 10, color: "#9ca3af", padding: 8 }}>{empty}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {videos.map((v, i) => (
-            <a
-              key={v.content_id}
-              href={v.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                padding: 6,
-                background: "white",
-                borderRadius: 4,
-                border: "1px solid #f3f4f6",
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#6b7280",
-                  width: 14,
-                  textAlign: "center",
-                }}
+          {videos.map((v, i) => {
+            const id = extractTikTokId(v.url);
+            return (
+              <details
+                key={v.content_id}
+                style={{ background: "white", borderRadius: 4, border: "1px solid #f3f4f6" }}
               >
-                #{i + 1}
-              </span>
-              {v.thumbnail_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={v.thumbnail_url}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const t = e.currentTarget;
-                    t.style.display = "none";
-                    if (t.parentElement) {
-                      const ph = document.createElement("div");
-                      ph.style.cssText = "width:32px;height:32px;background:#f3f4f6;border-radius:3px;display:inline-block;";
-                      t.parentElement.insertBefore(ph, t);
-                    }
-                  }}
+                <summary
                   style={{
-                    width: 32,
-                    height: 32,
-                    objectFit: "cover",
-                    borderRadius: 3,
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: "#f3f4f6",
-                    borderRadius: 3,
-                  }}
-                />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 10,
-                    lineHeight: 1.3,
-                    color: "#374151",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={v.caption_preview ?? ""}
-                >
-                  {v.caption_preview ?? "—"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 9,
-                    color: "#9ca3af",
-                    fontFamily: "monospace",
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: 6,
+                    cursor: "pointer",
+                    listStyle: "none",
                   }}
                 >
-                  {formatViewsCount(v.views)} views · {v.confidence ?? "—"}
-                </div>
-              </div>
-            </a>
-          ))}
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", width: 14, textAlign: "center" }}>
+                    #{i + 1}
+                  </span>
+                  <span style={{ fontSize: 11 }}>{id ? "▶" : "↗"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{ fontSize: 10, lineHeight: 1.3, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={v.caption_preview ?? ""}
+                    >
+                      {v.caption_preview ?? "—"}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#9ca3af", fontFamily: "monospace" }}>
+                      {formatViewsCount(v.views)} views
+                      {v.gmv != null ? ` · GMV $${Math.round(v.gmv).toLocaleString()}` : ""}
+                    </div>
+                  </div>
+                </summary>
+                {id ? (
+                  <iframe
+                    src={`https://www.tiktok.com/embed/v2/${id}`}
+                    style={{ width: "100%", height: 500, border: "none", borderRadius: 6, background: "#f3f4f6" }}
+                    loading="lazy"
+                    allow="encrypted-media"
+                    allowFullScreen
+                    title={v.url}
+                  />
+                ) : (
+                  <a href={v.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", padding: 8, fontSize: 10, color: "#1d4ed8" }}>
+                    외부 링크로 열기 ↗
+                  </a>
+                )}
+              </details>
+            );
+          })}
         </div>
       )}
     </div>
@@ -373,4 +337,11 @@ function formatViewsCount(n: number | null): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(n);
+}
+
+/** TikTok 영상 URL → video id (임베드용). */
+function extractTikTokId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/\/(?:video|photo)\/(\d+)/);
+  return m?.[1] ?? null;
 }
