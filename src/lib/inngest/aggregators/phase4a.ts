@@ -11,7 +11,6 @@ import {
   isRegionCode,
   type Region,
 } from "@/lib/case-detail/countries";
-import { downloadAndStore } from "@/lib/storage/asset-downloader";
 import type {
   LandingType,
   MetaAdEntry,
@@ -141,10 +140,8 @@ export async function runPhase4a(
     );
   };
 
-  // 6. meta_ads insert — 광고 썸네일을 Supabase Storage에 재호스트.
-  //   FB/Meta 광고 이미지 URL은 만료/차단돼 시간 지나면 엑박 → 스크랩 직후(URL 살아있을 때)
-  //   다운로드해 영구 저장. 실패 시 원본 URL 폴백. 동시성 8로 제한.
-  const buildRow = (ad: (typeof dedupedAds)[number], thumb: string | null) => ({
+  // 6. meta_ads insert
+  const inserts = dedupedAds.map((ad) => ({
     case_id,
     ad_archive_id: ad.ad_archive_id,
     page_name: ad.page_name,
@@ -158,36 +155,14 @@ export async function runPhase4a(
     cta_type: ad.cta_type,
     cta_text: ad.cta_text,
     link_url: ad.link_url,
-    thumbnail_url: thumb,
+    thumbnail_url: ad.thumbnail_url,
     video_url: ad.video_url,
     is_brand_official: isBrandOfficial(ad.page_name),
     creator_page_name: ad.creator_page_name ?? null,
     partner_page_name: ad.partner_page_name ?? null,
     partner_page_id: ad.partner_page_id ?? null,
     snapshot: ad.snapshot as never,
-  });
-  const REHOST_CHUNK = 8;
-  const inserts: Array<ReturnType<typeof buildRow>> = [];
-  for (let i = 0; i < dedupedAds.length; i += REHOST_CHUNK) {
-    const slice = dedupedAds.slice(i, i + REHOST_CHUNK);
-    const part = await Promise.all(
-      slice.map(async (ad) => {
-        let thumb = ad.thumbnail_url;
-        if (thumb) {
-          const safeId = String(ad.ad_archive_id ?? `${i}`).replace(/[^a-zA-Z0-9_-]/g, "_");
-          const stored = await downloadAndStore(
-            supabase,
-            thumb,
-            `meta-ads/${case_id}/${safeId}.jpg`,
-            "image/jpeg",
-          );
-          if (stored) thumb = stored;
-        }
-        return buildRow(ad, thumb);
-      }),
-    );
-    inserts.push(...part);
-  }
+  }));
 
   // landing 분류 (DB엔 컬럼 없음, 집계용으로만 계산)
   const adsWithLanding = inserts.map((a) => ({
