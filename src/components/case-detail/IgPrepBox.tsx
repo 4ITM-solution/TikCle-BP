@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   acceptIgConfigSuggested,
@@ -45,6 +45,22 @@ export function IgPrepBox({
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
+  // 발굴된 config를 편집 가능하게 (불필요한 해시태그 등 × 삭제). 재발굴 시 리셋.
+  const [editedConfig, setEditedConfig] = useState<IgConfig | null>(
+    suggestedConfig,
+  );
+  const cfgSig = JSON.stringify(suggestedConfig);
+  useEffect(() => {
+    setEditedConfig(suggestedConfig ? { ...suggestedConfig } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfgSig]);
+  const removeItem = (field: keyof IgConfig, item: string) => {
+    setEditedConfig((prev) => {
+      if (!prev) return prev;
+      const arr = (prev[field] as string[] | undefined) ?? [];
+      return { ...prev, [field]: arr.filter((x) => x !== item) };
+    });
+  };
 
   function handleRun() {
     if (!seed.trim()) return;
@@ -77,7 +93,7 @@ export function IgPrepBox({
     setMsg(null);
     start(async () => {
       try {
-        const r = await acceptIgConfigSuggested(case_id);
+        const r = await acceptIgConfigSuggested(case_id, editedConfig ?? undefined);
         if (r.ok) {
           setMsg({
             type: "ok",
@@ -197,27 +213,29 @@ export function IgPrepBox({
                 seed @{debug.seed_username} · {debug.seed_post_count} posts 분석
               </span>
             </div>
+            <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginBottom: 4 }}>
+              칩의 × 로 불필요한 항목 삭제 → Accept (삭제 반영됨)
+            </div>
             <ConfigRow
               label="ig_owned_usernames"
-              value={suggestedConfig.ig_owned_usernames ?? []}
+              value={editedConfig?.ig_owned_usernames ?? []}
+              onRemove={(v) => removeItem("ig_owned_usernames", v)}
             />
             <ConfigRow
               label="ig_brand_hashtags"
-              value={suggestedConfig.ig_brand_hashtags ?? []}
+              value={editedConfig?.ig_brand_hashtags ?? []}
+              onRemove={(v) => removeItem("ig_brand_hashtags", v)}
             />
             <ConfigRow
               label="ig_brand_regex"
-              value={suggestedConfig.ig_brand_regex ?? []}
+              value={editedConfig?.ig_brand_regex ?? []}
               mono
+              onRemove={(v) => removeItem("ig_brand_regex", v)}
             />
             <ConfigRow
               label="ig_paid_keywords"
-              value={(suggestedConfig.ig_paid_keywords ?? []).slice(0, 12)}
-              suffix={
-                (suggestedConfig.ig_paid_keywords ?? []).length > 12
-                  ? `... +${(suggestedConfig.ig_paid_keywords ?? []).length - 12}개`
-                  : ""
-              }
+              value={editedConfig?.ig_paid_keywords ?? []}
+              onRemove={(v) => removeItem("ig_paid_keywords", v)}
             />
           </div>
 
@@ -342,11 +360,13 @@ function ConfigRow({
   value,
   mono,
   suffix,
+  onRemove,
 }: {
   label: string;
   value: string[];
   mono?: boolean;
   suffix?: string;
+  onRemove?: (item: string) => void;
 }) {
   return (
     <div style={{ display: "flex", gap: 8, fontSize: 11, padding: "4px 0", alignItems: "flex-start" }}>
@@ -366,9 +386,47 @@ function ConfigRow({
           lineHeight: 1.5,
         }}
       >
-        {value.length === 0
-          ? <span style={{ color: "var(--color-text-muted)" }}>(빈 배열 — 자동 발굴 안 됨, 수동 보완 필요)</span>
-          : value.join(", ")}
+        {value.length === 0 ? (
+          <span style={{ color: "var(--color-text-muted)" }}>(빈 배열 — 자동 발굴 안 됨, 수동 보완 필요)</span>
+        ) : onRemove ? (
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>
+            {value.map((v) => (
+              <span
+                key={v}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "1px 4px 1px 7px",
+                  borderRadius: 4,
+                  background: "var(--color-info-bg, #eef2ff)",
+                  border: "1px solid var(--color-border, #d1d5db)",
+                }}
+              >
+                {v}
+                <button
+                  type="button"
+                  onClick={() => onRemove(v)}
+                  title="삭제"
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#9ca3af",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    lineHeight: 1,
+                    padding: "0 2px",
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </span>
+        ) : (
+          value.join(", ")
+        )}
         {suffix && <span style={{ color: "var(--color-text-muted)" }}> {suffix}</span>}
       </span>
     </div>
