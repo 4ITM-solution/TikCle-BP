@@ -295,16 +295,13 @@ export function SectionBMockup({
           <div className="ch-toggle">
             {(["all", "tk", "ig", "yt"] as const).map((m) => {
               const isDisabled = (m === "ig" && !hasIg) || (m === "yt" && !hasYt);
-              // 라벨 = "TK 작성자N (영상M)" 식으로 인플수 vs 영상수 명확화
-              const igAuthorCount = (igTopAuthors?.length ?? 0) > 0
-                ? Math.max(igTopAuthors!.length, tierDistByChannel?.ig
-                    ? Object.values(tierDistByChannel.ig).reduce((s, n) => s + n, 0)
-                    : 0)
-                : (tierDistByChannel?.ig ? Object.values(tierDistByChannel.ig).reduce((s, n) => s + n, 0) : 0);
-              const ytChannelCount = tierDistByChannel?.yt
-                ? Object.values(tierDistByChannel.yt).reduce((s, n) => s + n, 0)
-                : (ytTopChannels?.length ?? 0);
-              const totalAll = (phase3?.total_creators ?? 0) + igAuthorCount + ytChannelCount;
+              // 토글 카운트 = 실제 렌더되는 풀 길이로 일원화 — 토글·요약카드·티어차트·표가
+              // 서로 다른 소스(phase2/phase3/tierDist preview)를 보던 불일치 버그 fix.
+              //   TK = tkCreatorsList(라이브 전체 인플) / IG = igCreatorsList(ig_authors 전체) / YT = ytCreatorsList
+              const tkPoolN = tkCreatorsList.length;
+              const igPoolN = igCreatorsList.length;
+              const ytPoolN = ytCreatorsList.length;
+              const totalAll = tkPoolN + igPoolN + ytPoolN;
               return (
                 <button
                   key={m}
@@ -315,10 +312,10 @@ export function SectionBMockup({
                   title={isDisabled ? "이 채널 데이터 없음" : ""}
                   style={isDisabled ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
                 >
-                  {m === "all" ? `전체 (${totalAll}명)` :
-                   m === "tk" ? `TikTok (${tkUnique.toLocaleString()}명)` :
-                   m === "ig" ? `IG (${igAuthorCount.toLocaleString()}명)` :
-                   `YT (${ytChannelCount.toLocaleString()}명)`}
+                  {m === "all" ? `전체 (${totalAll.toLocaleString()}명)` :
+                   m === "tk" ? `TikTok (${tkPoolN.toLocaleString()}명)` :
+                   m === "ig" ? `IG (${igPoolN.toLocaleString()}명)` :
+                   `YT (${ytPoolN.toLocaleString()}명)`}
                 </button>
               );
             })}
