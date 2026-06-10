@@ -54,6 +54,10 @@ export type KalodataBrandKpi = {
   avg_unit_price: number | null;
   active_affiliates: number | null;
   new_videos_by_affiliate: number | null;
+  // "By Content" 매출 분해 (브랜드 페이지) — Live/Video/Product Card 정확 매출.
+  live_revenue_usd: number | null;
+  video_revenue_usd: number | null;
+  product_card_revenue_usd: number | null;
 };
 
 export type KalodataProductRow = {
@@ -395,7 +399,22 @@ export function parseKalodata(raw: string): KalodataParsed {
     avg_unit_price: null as number | null,
     active_affiliates: null as number | null,
     new_videos_by_affiliate: null as number | null,
+    live_revenue_usd: null as number | null,
+    video_revenue_usd: null as number | null,
+    product_card_revenue_usd: null as number | null,
   };
+
+  // "By Content" 매출 분해: "Live $11.91k (3.35%) + Video $325.68k (91.51%) + Product Card $18.30k (5.14%)"
+  //   (%) 가 붙은 형태라 다른 "Live/Video" 텍스트와 구분됨. parseMagnitude 로 $값 파싱.
+  const byContent = (label: string): number | null => {
+    const m = raw.match(
+      new RegExp(`${label}\\s*\\$([\\d.,]+\\s*[kmKM]?)\\s*\\(\\d`, "i"),
+    );
+    return m ? parseMagnitude(m[1]!) : null;
+  };
+  brand_kpi.live_revenue_usd = byContent("Live");
+  brand_kpi.video_revenue_usd = byContent("Video");
+  brand_kpi.product_card_revenue_usd = byContent("Product\\s*Card");
 
   // 기간: 데이터에서 직접 파싱. 두 형식 모두 지원:
   //   "Last 365 Days (06/10/2025 ~ 06/10/2026)"  ← 연도 있음(365일은 해 걸침)

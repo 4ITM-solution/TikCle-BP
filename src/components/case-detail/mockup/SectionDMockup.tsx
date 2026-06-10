@@ -97,6 +97,7 @@ export function SectionDMockup({
   liveVideoStats?: {
     liveGmv: number;
     videoGmv: number;
+    productCardGmv?: number;
     liveCount: number;
     videoCount: number;
     mixedCount: number;
@@ -384,26 +385,33 @@ export function SectionDMockup({
         (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0) &&
         (() => {
           const lv = liveVideoStats;
-          const tot = lv.liveGmv + lv.videoGmv;
-          const livePct = tot > 0 ? Math.round((lv.liveGmv / tot) * 100) : 0;
-          const videoPct = 100 - livePct;
+          const pc = lv.productCardGmv ?? 0;
+          const tot = lv.liveGmv + lv.videoGmv + pc;
+          const pctOf = (n: number) => (tot > 0 ? Math.round((n / tot) * 100) : 0);
+          const livePct = pctOf(lv.liveGmv);
+          const videoPct = pctOf(lv.videoGmv);
+          const pcPct = pctOf(pc);
           const verdict =
-            livePct >= 65 ? "🔴 라이브 driven 브랜드" : videoPct >= 65 ? "🎬 영상 driven 브랜드" : "⚖️ 라이브·영상 균형형";
+            lv.liveGmv >= lv.videoGmv && livePct >= 45 ? "🔴 라이브 driven 브랜드"
+            : videoPct >= 45 ? "🎬 영상 driven 브랜드"
+            : "⚖️ 혼합형";
           const fF = (n: number | null) =>
             n == null ? "" : n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
           return (
             <div style={{ marginTop: 10, padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, background: "#f9fafb" }}>
               <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
-                🎙 Live vs Video 매출 분해 (Kalodata)
+                🎙 매출 콘텐츠 분해 (Kalodata) — Live vs Video{pc > 0 ? " vs Product Card" : ""}
               </div>
               <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>→ {verdict}</div>
               <div style={{ display: "flex", height: 16, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
                 <div style={{ width: `${livePct}%`, background: "#ef4444" }} title={`Live ${livePct}%`} />
                 <div style={{ width: `${videoPct}%`, background: "#3b82f6" }} title={`Video ${videoPct}%`} />
+                {pc > 0 && <div style={{ width: `${pcPct}%`, background: "#06b6d4" }} title={`Product Card ${pcPct}%`} />}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#374151", marginBottom: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 11, color: "#374151", marginBottom: 12 }}>
                 <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
                 <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
+                {pc > 0 && <span><b style={{ color: "#06b6d4" }}>🛒 Product Card {formatUsdShort(pc)}</b> · {pcPct}%</span>}
               </div>
               {lv.liveCount + lv.videoCount + lv.mixedCount > 0 ? (
                 <>

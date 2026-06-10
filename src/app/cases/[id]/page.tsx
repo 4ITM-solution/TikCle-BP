@@ -2970,55 +2970,60 @@ export default async function CaseDetailPage({
                               kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
                               kalodata_lives?: Array<{ revenue_usd?: number | null }>;
                               kalodata_videos?: Array<{ revenue_usd?: number | null }>;
+                              kalodata_brand?: {
+                                live_revenue_usd?: number | null;
+                                video_revenue_usd?: number | null;
+                                product_card_revenue_usd?: number | null;
+                              } | null;
                             };
+                            const bk = ks2?.kalodata_brand;
                             const creators = ks2?.kalodata_creators_xlsx ?? [];
-                            // 1순위: 크리에이터 xlsx (크리에이터별 live/video GMV + 포맷 분류 가능)
+                            // 매출 분해 소스 우선순위: brand By-Content(정확) > creators xlsx 합 > lives/videos 복붙 합
+                            let liveGmv = 0;
+                            let videoGmv = 0;
+                            const productCardGmv = bk?.product_card_revenue_usd ?? 0;
+                            if (bk && (bk.live_revenue_usd != null || bk.video_revenue_usd != null)) {
+                              liveGmv = bk.live_revenue_usd ?? 0;
+                              videoGmv = bk.video_revenue_usd ?? 0;
+                            } else if (creators.length > 0) {
+                              for (const cr of creators) {
+                                liveGmv += cr.live_gmv_usd ?? 0;
+                                videoGmv += cr.video_gmv_usd ?? 0;
+                              }
+                            } else {
+                              liveGmv = (ks2?.kalodata_lives ?? []).reduce((s, l) => s + (l.revenue_usd ?? 0), 0);
+                              videoGmv = (ks2?.kalodata_videos ?? []).reduce((s, v) => s + (v.revenue_usd ?? 0), 0);
+                            }
+                            // 크리에이터 포맷 분류 (live/video 전문) — creators xlsx 있을 때만
+                            let liveCount = 0;
+                            let videoCount = 0;
+                            let mixedCount = 0;
+                            let topLive: Array<{ handle: string; followers: number | null; gmv: number }> = [];
+                            let topVideo: Array<{ handle: string; followers: number | null; gmv: number }> = [];
                             if (creators.length > 0) {
-                              let liveGmv = 0;
-                              let videoGmv = 0;
                               const cls = creators.map((cr) => {
                                 const lg = cr.live_gmv_usd ?? 0;
                                 const vg = cr.video_gmv_usd ?? 0;
-                                liveGmv += lg;
-                                videoGmv += vg;
                                 const tot = lg + vg;
                                 const share = tot > 0 ? lg / tot : 0;
-                                const type =
-                                  tot === 0 ? "none" : share >= 0.7 ? "live" : share <= 0.3 ? "video" : "mixed";
-                                return { handle: cr.handle, followers: cr.followers ?? null, total: tot, type };
+                                return {
+                                  handle: cr.handle,
+                                  followers: cr.followers ?? null,
+                                  total: tot,
+                                  type: tot === 0 ? "none" : share >= 0.7 ? "live" : share <= 0.3 ? "video" : "mixed",
+                                };
                               });
                               const topBy = (t: string) =>
-                                cls
-                                  .filter((x) => x.type === t)
-                                  .sort((a, b) => b.total - a.total)
-                                  .slice(0, 5)
+                                cls.filter((x) => x.type === t).sort((a, b) => b.total - a.total).slice(0, 5)
                                   .map((x) => ({ handle: x.handle, followers: x.followers, gmv: x.total }));
-                              return {
-                                liveGmv,
-                                videoGmv,
-                                liveCount: cls.filter((x) => x.type === "live").length,
-                                videoCount: cls.filter((x) => x.type === "video").length,
-                                mixedCount: cls.filter((x) => x.type === "mixed").length,
-                                topLive: topBy("live"),
-                                topVideo: topBy("video"),
-                              };
+                              liveCount = cls.filter((x) => x.type === "live").length;
+                              videoCount = cls.filter((x) => x.type === "video").length;
+                              mixedCount = cls.filter((x) => x.type === "mixed").length;
+                              topLive = topBy("live");
+                              topVideo = topBy("video");
                             }
-                            // 2순위: 브랜드 페이지 복붙 (kalodata_lives + kalodata_videos 매출 합).
-                            //   크리에이터별 분류는 없지만 Live/Video 매출 비중은 계산됨.
-                            const lives = ks2?.kalodata_lives ?? [];
-                            const videos = ks2?.kalodata_videos ?? [];
-                            const liveGmv = lives.reduce((s, l) => s + (l.revenue_usd ?? 0), 0);
-                            const videoGmv = videos.reduce((s, v) => s + (v.revenue_usd ?? 0), 0);
-                            if (liveGmv === 0 && videoGmv === 0) return null;
-                            return {
-                              liveGmv,
-                              videoGmv,
-                              liveCount: 0,
-                              videoCount: 0,
-                              mixedCount: 0,
-                              topLive: [],
-                              topVideo: [],
-                            };
+                            if (liveGmv === 0 && videoGmv === 0 && productCardGmv === 0) return null;
+                            return { liveGmv, videoGmv, productCardGmv, liveCount, videoCount, mixedCount, topLive, topVideo };
                           })()}
                           bsrSeries={ks.phase2?.bsr_series}
                           bsrSkus={bsrSkus}
