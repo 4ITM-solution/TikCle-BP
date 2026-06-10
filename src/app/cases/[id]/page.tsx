@@ -1752,16 +1752,19 @@ export default async function CaseDetailPage({
       langCount.set(lang, (langCount.get(lang) ?? 0) + 1);
     }
     const ids = [...byInf.keys()];
-    const infMap = new Map<string, { handle: string; follower_count: number | null }>();
+    const infMap = new Map<string, { handle: string; follower_count: number | null; lifetime_gmv_usd: number | null }>();
     for (let i = 0; i < ids.length; i += 500) {
       const { data } = await supabase
         .from("influencers")
-        .select("id, handle, follower_count")
+        .select("id, handle, follower_count, lifetime_gmv_usd")
         .in("id", ids.slice(i, i + 500));
       for (const inf of data ?? [])
         infMap.set(inf.id, {
           handle: inf.handle ?? "",
           follower_count: inf.follower_count ?? null,
+          // GMV 박힘 — B Top 작성자 GMV 컬럼·정렬·3축 분포가 "—"/"$0"로만 뜨던 버그 fix.
+          // (라이브 집계가 GMV를 하드코딩 null로 박아 카로데이터 lifetime_gmv_usd가 버려졌었음.)
+          lifetime_gmv_usd: inf.lifetime_gmv_usd ?? null,
         });
     }
     const list = [...byInf.entries()].map(([id, agg]) => {
@@ -1773,7 +1776,7 @@ export default async function CaseDetailPage({
         max_views: agg.maxV,
         follower_count: inf?.follower_count ?? null,
         is_shop_creator: null,
-        lifetime_gmv_usd: null,
+        lifetime_gmv_usd: inf?.lifetime_gmv_usd ?? null,
         top_videos: [] as Array<{ url: string; views: number; caption: string | null }>,
       };
     });
