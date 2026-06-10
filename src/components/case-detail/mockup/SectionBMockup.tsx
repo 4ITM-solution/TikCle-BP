@@ -49,6 +49,8 @@ export function SectionBMockup({
   phase3,
   phase35,
   phase37,
+  allTkCreators,
+  languageDist,
   crossChannelMatrix,
   topGmvCreators,
   shopGmvDistribution,
@@ -62,6 +64,10 @@ export function SectionBMockup({
   phase3?: Phase3Stats;
   phase35?: Phase35Stats;
   phase37?: Phase37Stats;
+  /** 전체 TK 인플 (≥10편 제한 없음) — 티어 표·3축 분포·cross-channel 용 (page.tsx server) */
+  allTkCreators?: TopCreator[];
+  /** TK 콘텐츠 언어 분포 — 오디언스·인종 시그널 (page.tsx server) */
+  languageDist?: Array<{ language: string; count: number }>;
   crossChannelMatrix?: MatrixRow[];
   topGmvCreators?: TopGmvCreator[];
   shopGmvDistribution?: ShopGmvDistribution | null;
@@ -150,7 +156,11 @@ export function SectionBMockup({
         top_videos: ch.top_videos ?? [], // page.tsx 박힘 yt_videos 박힘 박힘 Top 3 박힘
       }));
     }
-    return phase2.top_creators ?? [];
+    // TK / 전체: 전체 인플(allTkCreators) 우선 — phase2.top_creators 는 ≥10편만이라
+    // 티어 표·3축 분포가 소수 영상 시더를 놓침. allTkCreators 없으면 fallback.
+    return allTkCreators && allTkCreators.length > 0
+      ? allTkCreators
+      : (phase2.top_creators ?? []);
   })();
   const sortFn = (a: TopCreator, b: TopCreator) => {
     if (sortBy === "views") return (b.max_views ?? 0) - (a.max_views ?? 0);
@@ -159,7 +169,9 @@ export function SectionBMockup({
   };
   const topCreatorsRaw = topCreatorsBase.slice().sort(sortFn);
   const topCreators = tierFilter
-    ? topCreatorsRaw.filter((c) => tierOf(c.follower_count) === tierFilter)
+    ? topCreatorsRaw
+        .filter((c) => tierOf(c.follower_count) === tierFilter)
+        .slice(0, 20) // 티어 선택 시 상위 20명 보장
     : topCreatorsRaw;
 
   // ── 3축 분포 (영상 수 / 조회수 / 매출) — bucket 분포 ──
@@ -217,6 +229,51 @@ export function SectionBMockup({
         <span className="title">인플루언서 풀</span>
         <span className="sub">★ 채널 toggle + 월 필터 + cross-channel matrix + Shop creator + GMV 분포</span>
       </div>
+
+      {/* ★ 풀 요약 한 줄 + 언어 분포 (Part2 B) — 차트 보기 전 "이 풀의 모양" */}
+      {(() => {
+        const all = topCreatorsBase;
+        if (all.length === 0) return null;
+        const tc = (t: TierBucket) => all.filter((c) => tierOf(c.follower_count) === t).length;
+        const oneoff = all.filter((c) => c.video_count <= 1).length;
+        const repeat = all.filter((c) => c.video_count >= 2).length;
+        const pct = (n: number) => (all.length > 0 ? Math.round((n / all.length) * 100) : 0);
+        const sortedV = [...all].sort((a, b) => (b.max_views ?? 0) - (a.max_views ?? 0));
+        const totalV = all.reduce((s, c) => s + (c.max_views ?? 0), 0);
+        const top10n = Math.max(1, Math.round(all.length * 0.1));
+        const top10Share =
+          totalV > 0
+            ? Math.round((sortedV.slice(0, top10n).reduce((s, c) => s + (c.max_views ?? 0), 0) / totalV) * 100)
+            : 0;
+        const langTotal = (languageDist ?? []).reduce((s, l) => s + l.count, 0);
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: languageDist && languageDist.length > 0 ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 14 }}>
+            <div style={{ padding: "10px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 11, color: "#374151", lineHeight: 1.8 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>📊 풀 요약 — 총 {all.length}명 ({channelMode === "all" ? "전 채널" : channelMode.toUpperCase()})</div>
+              메가 {tc("mega")} · 매크로 {tc("macro")} · 미드 {tc("mid")} · 마이크로 {tc("micro")} · 나노↓ {tc("nano") + tc("sub-nano")}
+              <br />
+              1회성 {pct(oneoff)}% vs 반복협업 {pct(repeat)}% · <b style={{ color: "#7c3aed" }}>상위 10%가 조회 {top10Share}% 집중</b>
+            </div>
+            {languageDist && languageDist.length > 0 && (
+              <div style={{ padding: "10px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 11 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6, color: "#374151" }}>🗣 콘텐츠 언어 (타깃 오디언스 시그널)</div>
+                {languageDist.slice(0, 6).map((l) => {
+                  const p = langTotal > 0 ? Math.round((l.count / langTotal) * 100) : 0;
+                  return (
+                    <div key={l.language} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                      <span style={{ width: 40, color: "#6b7280", textTransform: "uppercase", fontSize: 10 }}>{l.language}</span>
+                      <div style={{ flex: 1, height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ width: `${p}%`, height: "100%", background: "#6366f1" }} />
+                      </div>
+                      <span style={{ width: 32, textAlign: "right", color: "#374151", fontSize: 10 }}>{p}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <div>

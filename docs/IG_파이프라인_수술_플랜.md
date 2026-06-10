@@ -179,6 +179,10 @@
 
 **리스트럭처 방향**: 상단 요약 카드 → 티어(클릭 시 상위20 보장) → 활동 3축(전체 기준) → **언어** → cross-channel(매칭 버그 수정) → 반복협업.
 
+**🔬 정밀 진단 (2026-06-10 코드 추적)**: TK 채널의 `topCreatorsBase = phase2.top_creators`인데 phase2가 **영상 ≥10편 작성자만** 담음(phase2.ts:315). 그래서 **티어 클릭 표·3축 분포·cross-channel 매칭이 전부 ≥10편으로 제한** → 소수 영상 시더(시딩의 대부분) 누락 → 티어 빈칸, 3축 "30명", cross-channel 미스. IG/YT는 igTopAuthors/ytTopChannels(전체) 써서 정상.
+- **단일 fix (재실행 불필요)**: page.tsx에 **전체 TK 인플 쿼리**(contents group by influencer_id + influencers.follower_count) 추가 → `allTkCreators: TopCreator[]`로 SectionB에 전달 → 티어 표(티어별 top20)·3축(distAll=allTkCreators)·crossChannelMatrix가 그걸 쓰게. 묵직한 page.tsx 데이터 작업.
+- 요약 카드·언어 분포는 allTkCreators 확보 후 그 위에 추가.
+
 ---
 
 ## C · 콘텐츠 포맷 분석  → "어떤 콘텐츠가 먹혔나?"  (탭 5개)

@@ -1706,6 +1706,75 @@ export default async function CaseDetailPage({
   const igAuthorsTotal = igAuthorsCounts.total;
   const igAuthorsWithFollowers = igAuthorsCounts.withFollowers;
 
+  // ★ 전체 TK 인플 (phase2.top_creators 는 ≥10편만 → 티어 표·3축·cross-channel 이
+  //   소수 영상 시더를 놓침). contents 전체를 인플별 집계 + influencers 팔로워 join.
+  //   언어 분포(contents.language)도 같이 — 오디언스·인종 시그널 (Part2 B fix).
+  const { allTkCreators, tkLanguageDist } = await (async () => {
+    if (!brand_id)
+      return {
+        allTkCreators: [] as Array<{
+          handle: string;
+          video_count: number;
+          promoted_count: number;
+          max_views: number;
+          follower_count: number | null;
+          is_shop_creator: boolean | null;
+          lifetime_gmv_usd: number | null;
+          top_videos: Array<{ url: string; views: number; caption: string | null }>;
+        }>,
+        tkLanguageDist: [] as Array<{ language: string; count: number }>,
+      };
+    const { data: tkContents } = await supabase
+      .from("contents")
+      .select("influencer_id, views, is_ad, language")
+      .eq("brand_id", brand_id)
+      .not("influencer_id", "is", null)
+      .limit(50000);
+    const byInf = new Map<string, { vc: number; maxV: number; promoted: number }>();
+    const langCount = new Map<string, number>();
+    for (const ct of tkContents ?? []) {
+      const id = ct.influencer_id as string;
+      const e = byInf.get(id) ?? { vc: 0, maxV: 0, promoted: 0 };
+      e.vc += 1;
+      e.maxV = Math.max(e.maxV, ct.views ?? 0);
+      if (ct.is_ad === true) e.promoted += 1;
+      byInf.set(id, e);
+      const lang = (ct.language ?? "").trim().toLowerCase() || "unknown";
+      langCount.set(lang, (langCount.get(lang) ?? 0) + 1);
+    }
+    const ids = [...byInf.keys()];
+    const infMap = new Map<string, { handle: string; follower_count: number | null }>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const { data } = await supabase
+        .from("influencers")
+        .select("id, handle, follower_count")
+        .in("id", ids.slice(i, i + 500));
+      for (const inf of data ?? [])
+        infMap.set(inf.id, {
+          handle: inf.handle ?? "",
+          follower_count: inf.follower_count ?? null,
+        });
+    }
+    const list = [...byInf.entries()].map(([id, agg]) => {
+      const inf = infMap.get(id);
+      return {
+        handle: inf?.handle || id,
+        video_count: agg.vc,
+        promoted_count: agg.promoted,
+        max_views: agg.maxV,
+        follower_count: inf?.follower_count ?? null,
+        is_shop_creator: null,
+        lifetime_gmv_usd: null,
+        top_videos: [] as Array<{ url: string; views: number; caption: string | null }>,
+      };
+    });
+    const tkLanguageDist = [...langCount.entries()]
+      .filter(([l]) => l !== "unknown")
+      .sort((a, b) => b[1] - a[1])
+      .map(([language, count]) => ({ language, count }));
+    return { allTkCreators: list, tkLanguageDist };
+  })();
+
   // ★ 채널별 월별 티어 분포(명수) — Section A 티어 stack / Section B 월필터가 채널에 반응하도록.
   //   TK: phase3.tier_dist_by_month(기존). IG: ig_posts(월·작성자) ↔ ig_authors(followers→tier)
   //   의 월별 distinct 작성자 명수. YT: 데이터 없어 빈값. all = TK+IG 월별 병합.
@@ -2724,7 +2793,8 @@ export default async function CaseDetailPage({
                   const normHandle = (s: string) =>
                     s.toLowerCase().replace(/[^a-z0-9]/g, "");
                   const tkByHandleMap = new Map<string, number>();
-                  for (const tc of ks.phase2?.top_creators ?? []) {
+                  // 전체 TK 인플 기준 매칭 (≥10편 제한 없이) — cross-channel 누락 방지.
+                  for (const tc of allTkCreators) {
                     const k = normHandle(tc.handle);
                     if (k.length >= 4) tkByHandleMap.set(k, tc.video_count);
                   }
@@ -2763,6 +2833,8 @@ export default async function CaseDetailPage({
                         phase3={ks.phase3}
                         phase35={ks.phase35}
                         phase37={ks.phase37}
+                        allTkCreators={allTkCreators}
+                        languageDist={tkLanguageDist}
                         crossChannelMatrix={sharedMatrix}
                         topGmvCreators={topGmvCreators}
                         shopGmvDistribution={shopGmvDistribution}
