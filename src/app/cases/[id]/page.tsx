@@ -2866,7 +2866,21 @@ export default async function CaseDetailPage({
                     <div className="bp-mockup">
                       <SectionBoundary name="A 콘텐츠 활동">
                       <SectionAMockup
-                        phase2={ks.phase2}
+                        phase2={
+                          // phase2.bsr_series 가 비었지만 sales_snapshot BSR(bsrSkus)은 있는 경우
+                          // (TT Shop 케이스 + Amazon 제품) → bsrSkus 로 BSR 라인 채워줌.
+                          ks.phase2 && !(ks.phase2.bsr_series?.length) && bsrSkus.length > 0
+                            ? {
+                                ...ks.phase2,
+                                bsr_series: bsrSkus.map((s) => ({
+                                  asin: s.asin,
+                                  name: s.name,
+                                  country: null,
+                                  points: s.series.map((p) => ({ date: `${p.m}-01`, bsr: p.bsr })),
+                                })),
+                              }
+                            : ks.phase2
+                        }
                         phase3={ks.phase3}
                         phase5={ks.phase5}
                         monthlyTierByChannel={monthlyTierByChannel}
