@@ -84,7 +84,20 @@ export async function runPhase4a(
 
     // hybrid 모드: partnership 의심 ad만 골라서 공식 액터로 detail 재호출
     // (curious_coder는 partnership 정보 손실하니 detail로 보강).
-    if (metaAdsSource === "hybrid" && result.ads.length > 0) {
+    // ★ Fix ④: ad-heavy(>400) 케이스는 detail 재호출 스킵 = 자동 curious.
+    //   대량 스크랩 + 200건 detail 이 함수 maxDuration(800s) 초과 → http_unreachable
+    //   로 분석 전체가 실패함(685광고 케이스 6769b0bb). partnership 정보만 일부 손실.
+    const AD_HEAVY_SKIP_HYBRID = 400;
+    if (metaAdsSource === "hybrid" && result.ads.length > AD_HEAVY_SKIP_HYBRID) {
+      console.log(
+        `[phase4a] ad-heavy (${result.ads.length} > ${AD_HEAVY_SKIP_HYBRID}) → hybrid detail 스킵 (curious-only, 타임아웃 회피)`,
+      );
+    }
+    if (
+      metaAdsSource === "hybrid" &&
+      result.ads.length > 0 &&
+      result.ads.length <= AD_HEAVY_SKIP_HYBRID
+    ) {
       const partnershipCandidates = result.ads
         .filter((a) => isPartnershipCandidate(a))
         .map((a) => a.ad_archive_id)
