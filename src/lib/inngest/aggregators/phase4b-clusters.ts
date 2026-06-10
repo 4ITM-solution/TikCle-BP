@@ -234,7 +234,7 @@ export async function runPhase4bClusters(
     });
   }
 
-  return {
+  const stats = {
     total_input_videos: videos.length,
     pass1_candidates: candidates.length,
     pass2_validated: validated.length,
@@ -249,6 +249,25 @@ export async function runPhase4bClusters(
     pass2_debug,
     computed_at: new Date().toISOString(),
   };
+
+  // ★ 방어망: 큰 케이스는 clusters step 이 거의 maxDuration(800s)에 끝나고 step return /
+  //   phase-4b-clusters-save 에서 끊겨(http_unreachable) key_stats.phase4b_clusters 가
+  //   저장 안 되는 일이 있음 → DB엔 새 클러스터가 있는데 화면 meta 가 옛것이라 미스정렬(C 토글 0).
+  //   여기서 insert 직후 key_stats 를 즉시 merge-저장해 두면, return 이 끊겨도 매핑이 보존됨.
+  try {
+    const { data: row } = await supabase
+      .from("cases")
+      .select("key_stats")
+      .eq("id", case_id)
+      .single();
+    const ks = (row?.key_stats ?? {}) as Record<string, unknown>;
+    ks.phase4b_clusters = JSON.parse(JSON.stringify(stats));
+    await supabase.from("cases").update({ key_stats: ks as never }).eq("id", case_id);
+  } catch (e) {
+    console.warn("[phase4b-clusters] 방어 저장 실패(무시):", e);
+  }
+
+  return stats;
 }
 
 // =============================================================================
