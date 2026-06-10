@@ -479,16 +479,24 @@ export function parseKalodata(raw: string): KalodataParsed {
   const productStart = findSectionStart(/^Product\(\d+\s*items?\)/);
   const videoStart = findSectionStart(/^Video\s*&\s*Ad\(\d+\s*items?\)/);
   const liveStart = findSectionStart(/^Live\(\d+\s*items?\)/);
+  const creatorStart = findSectionStart(/^Creator\(\d+\s*items?\)/);
 
-  // 3) Products 파싱 (Product 섹션 ~ Video & Ad 또는 끝까지)
+  // 3) Products 파싱 (Product 섹션 ~ 다음 섹션 또는 끝까지)
   const products: KalodataProductRow[] = [];
   if (productStart >= 0) {
-    const endIdx = videoStart > productStart ? videoStart : lines.length;
+    // ★ "Product(13 items)" 선언 개수만큼만 파싱 — 경계(Video & Ad 헤더)를 못 찾으면
+    //   뒤 섹션(크리에이터가 판 타브랜드 제품 등)까지 긁어 cross-brand 혼입하던 버그 방지.
+    const declaredCount =
+      parseInt(lines[productStart]!.match(/\((\d+)\s*items?\)/)?.[1] ?? "0", 10) || Infinity;
+    // 경계: productStart 뒤 섹션 헤더(Video/Live/Creator) 중 가장 빠른 것, 없으면 끝.
+    const nextStarts = [videoStart, liveStart, creatorStart].filter((s) => s > productStart);
+    const endIdx = nextStarts.length > 0 ? Math.min(...nextStarts) : lines.length;
     const slice = lines.slice(productStart, endIdx);
     // 표 행 패턴: 번호("1"~"100"), 다음 줄(들)에 제품명, 마지막에 "MM/DD/YYYY\t$X.XXk\tX.XXk\t$X.XX" 또는 줄 단위.
     // 줄별 처리: 숫자만(번호) → 다음에 텍스트(이름) → publish_date → revenue → item_sold → avg_price
     let i = 0;
     while (i < slice.length) {
+      if (products.length >= declaredCount) break; // 선언 개수 도달 → 뒤 섹션 침범 방지
       const line = slice[i]!;
       if (/^\d{1,3}$/.test(line)) {
         const rank = parseInt(line, 10);
