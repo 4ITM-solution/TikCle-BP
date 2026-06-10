@@ -308,6 +308,142 @@ export function SectionDMockup({
         <span className="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
       </div>
 
+      {/* ── 전체 브랜드 기준 (채널 토글과 무관) — Kalodata 매출 분해 ── */}
+      {(kalodataBrandKpi &&
+        (kalodataBrandKpi.self_operated_revenue_usd != null ||
+          kalodataBrandKpi.affiliate_revenue_usd != null ||
+          kalodataBrandKpi.shopping_mall_revenue_usd != null)) ||
+      (liveVideoStats && (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0)) ? (
+        <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 600, margin: "4px 0 0" }}>
+          ↓ 전체 브랜드 기준 (아래 채널 토글·SKU 표와 무관)
+        </div>
+      ) : null}
+
+      {/* ★ Kalodata Brand 매출 분해 — Self/Affiliate/Mall % (전체 브랜드 기준) */}
+      {kalodataBrandKpi &&
+        (kalodataBrandKpi.self_operated_revenue_usd != null ||
+          kalodataBrandKpi.affiliate_revenue_usd != null ||
+          kalodataBrandKpi.shopping_mall_revenue_usd != null) &&
+        (() => {
+          const self = kalodataBrandKpi.self_operated_revenue_usd ?? 0;
+          const aff = kalodataBrandKpi.affiliate_revenue_usd ?? 0;
+          const mall = kalodataBrandKpi.shopping_mall_revenue_usd ?? 0;
+          const tot = self + aff + mall;
+          if (tot === 0) return null;
+          const pct = (n: number) => Math.round((n / tot) * 100);
+          const driverNote =
+            pct(aff) >= 50
+              ? "🔥 affiliate (시딩) driven brand"
+              : pct(self) >= 50
+                ? "🏢 self-operated 비중 큼"
+                : pct(mall) >= 30
+                  ? "🛍 Shopping Mall 비중 큼"
+                  : "혼합형";
+          return (
+            <div style={{ marginTop: 10, padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, background: "#f9fafb" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
+                💰 매출 출처 분해 (Kalodata) — Self-운영 vs Affiliate(시딩) vs Shopping Mall
+              </div>
+              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>
+                → {driverNote}
+                {kalodataBrandKpi.period_start && kalodataBrandKpi.period_end && (
+                  <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
+                    ({kalodataBrandKpi.period_start} ~ {kalodataBrandKpi.period_end})
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                {[
+                  { label: "Self-Operated", val: self, color: "#a855f7" },
+                  { label: "Affiliate (시딩)", val: aff, color: "#ec4899" },
+                  { label: "Shopping Mall", val: mall, color: "#06b6d4" },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <div style={{ fontSize: 10, color: "#6b7280" }}>{s.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>
+                      {formatUsdShort(s.val)} <span style={{ fontSize: 11, color: "#9ca3af" }}>· {pct(s.val)}%</span>
+                    </div>
+                    <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, marginTop: 4 }}>
+                      <div style={{ height: "100%", width: `${pct(s.val)}%`, background: s.color, borderRadius: 3 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {kalodataBrandKpi.active_affiliates != null && (
+                <div style={{ marginTop: 10, fontSize: 10, color: "#831843" }}>
+                  ★ Active Affiliates {kalodataBrandKpi.active_affiliates.toLocaleString()}명{" "}
+                  {kalodataBrandKpi.new_videos_by_affiliate != null && `· 신규 영상 ${kalodataBrandKpi.new_videos_by_affiliate.toLocaleString()}개`}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+      {/* 🎙 Live vs Video 매출 분해 (전체 브랜드 기준) */}
+      {liveVideoStats &&
+        (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0) &&
+        (() => {
+          const lv = liveVideoStats;
+          const tot = lv.liveGmv + lv.videoGmv;
+          const livePct = tot > 0 ? Math.round((lv.liveGmv / tot) * 100) : 0;
+          const videoPct = 100 - livePct;
+          const verdict =
+            livePct >= 65 ? "🔴 라이브 driven 브랜드" : videoPct >= 65 ? "🎬 영상 driven 브랜드" : "⚖️ 라이브·영상 균형형";
+          const fF = (n: number | null) =>
+            n == null ? "" : n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
+          return (
+            <div style={{ marginTop: 10, padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, background: "#f9fafb" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
+                🎙 Live vs Video 매출 분해 (Kalodata)
+              </div>
+              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>→ {verdict}</div>
+              <div style={{ display: "flex", height: 16, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+                <div style={{ width: `${livePct}%`, background: "#ef4444" }} title={`Live ${livePct}%`} />
+                <div style={{ width: `${videoPct}%`, background: "#3b82f6" }} title={`Video ${videoPct}%`} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#374151", marginBottom: 12 }}>
+                <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
+                <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
+              </div>
+              {lv.liveCount + lv.videoCount + lv.mixedCount > 0 ? (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+                    크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}{" "}
+                    <span style={{ color: "#9ca3af" }}>(GMV 70%↑ 기준)</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+                    {[
+                      { label: "🔴 라이브 전문 Top", color: "#ef4444", list: lv.topLive },
+                      { label: "🎬 영상 전문 Top", color: "#3b82f6", list: lv.topVideo },
+                    ].map((g) => (
+                      <div key={g.label} style={{ fontSize: 10 }}>
+                        <div style={{ fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.label}</div>
+                        {g.list.length === 0 ? (
+                          <span style={{ color: "#9ca3af" }}>—</span>
+                        ) : (
+                          g.list.map((cr, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "1px 0", color: "#374151" }}>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                @{cr.handle}
+                                {cr.followers != null && <span style={{ color: "#9ca3af" }}> · {fF(cr.followers)}</span>}
+                              </span>
+                              <span style={{ flexShrink: 0, marginLeft: 6 }}>{formatUsdShort(cr.gmv)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 10, color: "#9ca3af" }}>
+                  💡 브랜드 페이지 기준 Top 라이브·영상 매출 합. 크리에이터별 라이브/영상 전문 분류는 Kalodata 크리에이터 xlsx 업로드 시 표시.
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       {/* 채널 + 기간 toggle — availableSalesChannels (products.channel 분포) 기반 active.
           여러 채널 있는 케이스면 toggle 클릭 시 sku_sales filter. 1 채널만 있으면 그 채널 active 만. */}
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
@@ -427,134 +563,7 @@ export function SectionDMockup({
         nowMs={nowMs}
       />
 
-      {/* ★ Kalodata Brand 매출 분해 — Self/Affiliate/Mall % (SEA TT Shop case BP 핵심) */}
-      {kalodataBrandKpi && (kalodataBrandKpi.self_operated_revenue_usd != null || kalodataBrandKpi.affiliate_revenue_usd != null || kalodataBrandKpi.shopping_mall_revenue_usd != null) && (
-        (() => {
-          const self = kalodataBrandKpi.self_operated_revenue_usd ?? 0;
-          const aff = kalodataBrandKpi.affiliate_revenue_usd ?? 0;
-          const mall = kalodataBrandKpi.shopping_mall_revenue_usd ?? 0;
-          const tot = self + aff + mall;
-          if (tot === 0) return null;
-          const pct = (n: number) => Math.round((n / tot) * 100);
-          // 핵심 narrative: affiliate 비중 ≥ 50% → 시딩 driven, self ≥ 50% → 자체운영
-          const driverNote =
-            pct(aff) >= 50 ? "🔥 affiliate (시딩) driven brand" :
-            pct(self) >= 50 ? "🏢 self-operated 비중 큼" :
-            pct(mall) >= 30 ? "🛍 Shopping Mall 비중 큼" :
-            "혼합형";
-          return (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 14,
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                background: "#f9fafb",
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
-                💰 매출 출처 분해 (Kalodata) — Self-운영 vs Affiliate(시딩) vs Shopping Mall
-              </div>
-              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>
-                → {driverNote}
-                {kalodataBrandKpi.period_start && kalodataBrandKpi.period_end && (
-                  <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
-                    ({kalodataBrandKpi.period_start} ~ {kalodataBrandKpi.period_end})
-                  </span>
-                )}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-                {[
-                  { label: "Self-Operated", val: self, color: "#a855f7" },
-                  { label: "Affiliate (시딩)", val: aff, color: "#ec4899" },
-                  { label: "Shopping Mall", val: mall, color: "#06b6d4" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <div style={{ fontSize: 10, color: "#6b7280" }}>{s.label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>
-                      {formatUsdShort(s.val)} <span style={{ fontSize: 11, color: "#9ca3af" }}>· {pct(s.val)}%</span>
-                    </div>
-                    <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, marginTop: 4 }}>
-                      <div style={{ height: "100%", width: `${pct(s.val)}%`, background: s.color, borderRadius: 3 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {kalodataBrandKpi.active_affiliates != null && (
-                <div style={{ marginTop: 10, fontSize: 10, color: "#831843" }}>
-                  ★ Active Affiliates {kalodataBrandKpi.active_affiliates.toLocaleString()}명{" "}
-                  {kalodataBrandKpi.new_videos_by_affiliate != null && `· 신규 영상 ${kalodataBrandKpi.new_videos_by_affiliate.toLocaleString()}개`}
-                </div>
-              )}
-            </div>
-          );
-        })()
-      )}
-
-      {/* 🎙 Live vs Video 매출 분해 + 포맷별 크리에이터 (Kalodata creators xlsx) */}
-      {liveVideoStats &&
-        (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0) &&
-        (() => {
-          const lv = liveVideoStats;
-          const tot = lv.liveGmv + lv.videoGmv;
-          const livePct = tot > 0 ? Math.round((lv.liveGmv / tot) * 100) : 0;
-          const videoPct = 100 - livePct;
-          const verdict =
-            livePct >= 65 ? "🔴 라이브 driven 브랜드" : videoPct >= 65 ? "🎬 영상 driven 브랜드" : "⚖️ 라이브·영상 균형형";
-          const fF = (n: number | null) =>
-            n == null ? "" : n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
-          return (
-            <div style={{ marginTop: 16, padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, background: "#f9fafb" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
-                🎙 Live vs Video 매출 분해 (Kalodata 크리에이터 기준)
-              </div>
-              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>→ {verdict}</div>
-              <div style={{ display: "flex", height: 16, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-                <div style={{ width: `${livePct}%`, background: "#ef4444" }} title={`Live ${livePct}%`} />
-                <div style={{ width: `${videoPct}%`, background: "#3b82f6" }} title={`Video ${videoPct}%`} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#374151", marginBottom: 12 }}>
-                <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
-                <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
-              </div>
-              {lv.liveCount + lv.videoCount + lv.mixedCount > 0 ? (
-                <>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
-                    크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}{" "}
-                    <span style={{ color: "#9ca3af" }}>(GMV 70%↑ 기준)</span>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
-                    {[
-                      { label: "🔴 라이브 전문 Top", color: "#ef4444", list: lv.topLive },
-                      { label: "🎬 영상 전문 Top", color: "#3b82f6", list: lv.topVideo },
-                    ].map((g) => (
-                      <div key={g.label} style={{ fontSize: 10 }}>
-                        <div style={{ fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.label}</div>
-                        {g.list.length === 0 ? (
-                          <span style={{ color: "#9ca3af" }}>—</span>
-                        ) : (
-                          g.list.map((cr, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "1px 0", color: "#374151" }}>
-                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                @{cr.handle}
-                                {cr.followers != null && <span style={{ color: "#9ca3af" }}> · {fF(cr.followers)}</span>}
-                              </span>
-                              <span style={{ flexShrink: 0, marginLeft: 6 }}>{formatUsdShort(cr.gmv)}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 10, color: "#9ca3af" }}>
-                  💡 브랜드 페이지 기준 Top 라이브·영상 매출 합. 크리에이터별 라이브/영상 전문 분류는 Kalodata 크리에이터 xlsx 업로드 시 표시.
-                </div>
-              )}
-            </div>
-          );
-        })()}
+      {/* 매출 출처 분해 · Live/Video 박스 → 섹션 상단(채널 토글 위)으로 이동됨 */}
 
       {/* SKU 선택 시 GMV 시계열 (Kalodata 영상매출 publish_date 그룹) — mockup line 1163-1173 */}
       {selectedSku !== "all" && kalodataVideos && kalodataVideos.length > 0 && (() => {
