@@ -2952,55 +2952,58 @@ export default async function CaseDetailPage({
                             })?.kalodata_brand ?? null
                           }
                           liveVideoStats={(() => {
-                            const creators =
-                              (keyStats as unknown as {
-                                kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
-                              })?.kalodata_creators_xlsx ?? [];
-                            if (!creators || creators.length === 0) return null;
-                            let liveGmv = 0;
-                            let videoGmv = 0;
-                            const cls = creators.map((cr) => {
-                              const lg = cr.live_gmv_usd ?? 0;
-                              const vg = cr.video_gmv_usd ?? 0;
-                              liveGmv += lg;
-                              videoGmv += vg;
-                              const tot = lg + vg;
-                              const share = tot > 0 ? lg / tot : 0;
-                              const type =
-                                tot === 0
-                                  ? "none"
-                                  : share >= 0.7
-                                    ? "live"
-                                    : share <= 0.3
-                                      ? "video"
-                                      : "mixed";
+                            const ks2 = keyStats as unknown as {
+                              kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
+                              kalodata_lives?: Array<{ revenue_usd?: number | null }>;
+                              kalodata_videos?: Array<{ revenue_usd?: number | null }>;
+                            };
+                            const creators = ks2?.kalodata_creators_xlsx ?? [];
+                            // 1순위: 크리에이터 xlsx (크리에이터별 live/video GMV + 포맷 분류 가능)
+                            if (creators.length > 0) {
+                              let liveGmv = 0;
+                              let videoGmv = 0;
+                              const cls = creators.map((cr) => {
+                                const lg = cr.live_gmv_usd ?? 0;
+                                const vg = cr.video_gmv_usd ?? 0;
+                                liveGmv += lg;
+                                videoGmv += vg;
+                                const tot = lg + vg;
+                                const share = tot > 0 ? lg / tot : 0;
+                                const type =
+                                  tot === 0 ? "none" : share >= 0.7 ? "live" : share <= 0.3 ? "video" : "mixed";
+                                return { handle: cr.handle, followers: cr.followers ?? null, total: tot, type };
+                              });
+                              const topBy = (t: string) =>
+                                cls
+                                  .filter((x) => x.type === t)
+                                  .sort((a, b) => b.total - a.total)
+                                  .slice(0, 5)
+                                  .map((x) => ({ handle: x.handle, followers: x.followers, gmv: x.total }));
                               return {
-                                handle: cr.handle,
-                                followers: cr.followers ?? null,
-                                live_gmv: lg,
-                                video_gmv: vg,
-                                total: tot,
-                                type,
+                                liveGmv,
+                                videoGmv,
+                                liveCount: cls.filter((x) => x.type === "live").length,
+                                videoCount: cls.filter((x) => x.type === "video").length,
+                                mixedCount: cls.filter((x) => x.type === "mixed").length,
+                                topLive: topBy("live"),
+                                topVideo: topBy("video"),
                               };
-                            });
-                            const topBy = (t: string) =>
-                              cls
-                                .filter((x) => x.type === t)
-                                .sort((a, b) => b.total - a.total)
-                                .slice(0, 5)
-                                .map((x) => ({
-                                  handle: x.handle,
-                                  followers: x.followers,
-                                  gmv: x.total,
-                                }));
+                            }
+                            // 2순위: 브랜드 페이지 복붙 (kalodata_lives + kalodata_videos 매출 합).
+                            //   크리에이터별 분류는 없지만 Live/Video 매출 비중은 계산됨.
+                            const lives = ks2?.kalodata_lives ?? [];
+                            const videos = ks2?.kalodata_videos ?? [];
+                            const liveGmv = lives.reduce((s, l) => s + (l.revenue_usd ?? 0), 0);
+                            const videoGmv = videos.reduce((s, v) => s + (v.revenue_usd ?? 0), 0);
+                            if (liveGmv === 0 && videoGmv === 0) return null;
                             return {
                               liveGmv,
                               videoGmv,
-                              liveCount: cls.filter((x) => x.type === "live").length,
-                              videoCount: cls.filter((x) => x.type === "video").length,
-                              mixedCount: cls.filter((x) => x.type === "mixed").length,
-                              topLive: topBy("live"),
-                              topVideo: topBy("video"),
+                              liveCount: 0,
+                              videoCount: 0,
+                              mixedCount: 0,
+                              topLive: [],
+                              topVideo: [],
                             };
                           })()}
                           bsrSeries={ks.phase2?.bsr_series}

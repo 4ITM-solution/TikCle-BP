@@ -517,33 +517,41 @@ export function SectionDMockup({
                 <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
                 <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
               </div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
-                크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}{" "}
-                <span style={{ color: "#9ca3af" }}>(GMV 70%↑ 기준)</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
-                {[
-                  { label: "🔴 라이브 전문 Top", color: "#ef4444", list: lv.topLive },
-                  { label: "🎬 영상 전문 Top", color: "#3b82f6", list: lv.topVideo },
-                ].map((g) => (
-                  <div key={g.label} style={{ fontSize: 10 }}>
-                    <div style={{ fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.label}</div>
-                    {g.list.length === 0 ? (
-                      <span style={{ color: "#9ca3af" }}>—</span>
-                    ) : (
-                      g.list.map((cr, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "1px 0", color: "#374151" }}>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            @{cr.handle}
-                            {cr.followers != null && <span style={{ color: "#9ca3af" }}> · {fF(cr.followers)}</span>}
-                          </span>
-                          <span style={{ flexShrink: 0, marginLeft: 6 }}>{formatUsdShort(cr.gmv)}</span>
-                        </div>
-                      ))
-                    )}
+              {lv.liveCount + lv.videoCount + lv.mixedCount > 0 ? (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+                    크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}{" "}
+                    <span style={{ color: "#9ca3af" }}>(GMV 70%↑ 기준)</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+                    {[
+                      { label: "🔴 라이브 전문 Top", color: "#ef4444", list: lv.topLive },
+                      { label: "🎬 영상 전문 Top", color: "#3b82f6", list: lv.topVideo },
+                    ].map((g) => (
+                      <div key={g.label} style={{ fontSize: 10 }}>
+                        <div style={{ fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.label}</div>
+                        {g.list.length === 0 ? (
+                          <span style={{ color: "#9ca3af" }}>—</span>
+                        ) : (
+                          g.list.map((cr, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "1px 0", color: "#374151" }}>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                @{cr.handle}
+                                {cr.followers != null && <span style={{ color: "#9ca3af" }}> · {fF(cr.followers)}</span>}
+                              </span>
+                              <span style={{ flexShrink: 0, marginLeft: 6 }}>{formatUsdShort(cr.gmv)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 10, color: "#9ca3af" }}>
+                  💡 브랜드 페이지 기준 Top 라이브·영상 매출 합. 크리에이터별 라이브/영상 전문 분류는 Kalodata 크리에이터 xlsx 업로드 시 표시.
+                </div>
+              )}
             </div>
           );
         })()}
