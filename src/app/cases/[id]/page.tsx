@@ -1094,12 +1094,22 @@ export default async function CaseDetailPage({
     const amz = (amzProds ?? []).filter((p) => p.asin);
     if (amz.length > 0) {
       const pidList = amz.map((p) => p.id);
-      const { data: snaps } = await supabase
-        .from("sales_snapshot")
-        .select("product_id, bsr, collected_at")
-        .in("product_id", pidList)
-        .not("bsr", "is", null)
-        .order("collected_at", { ascending: true });
+      // ★ 페이지네이션 — PostgREST 기본 1000행 제한 때문에 그냥 쿼리하면 가장
+      //   오래된 1000행(asc)만 와서, 최근 월 BSR이 누락→차트 범위와 안 겹쳐 BSR
+      //   라인 토글이 비활성되던 버그. range로 전체 수집.
+      const snaps: Array<{ product_id: string; bsr: number | null; collected_at: string }> = [];
+      for (let off = 0; off < 200000; off += 1000) {
+        const { data: page } = await supabase
+          .from("sales_snapshot")
+          .select("product_id, bsr, collected_at")
+          .in("product_id", pidList)
+          .not("bsr", "is", null)
+          .order("collected_at", { ascending: true })
+          .range(off, off + 999);
+        if (!page || page.length === 0) break;
+        snaps.push(...page);
+        if (page.length < 1000) break;
+      }
       const { data: bvids } = brand_id
         ? await supabase
             .from("contents")
