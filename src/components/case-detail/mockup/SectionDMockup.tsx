@@ -46,6 +46,7 @@ export function SectionDMockup({
   kalodataInOtherCases,
   bsrInflections,
   kalodataBrandKpi,
+  liveVideoStats,
   bsrSeries,
   bsrSkus,
   weeklyViews,
@@ -92,6 +93,16 @@ export function SectionDMockup({
   bsrInflections?: BsrInflection[];
   /** Kalodata Brand KPI — Self/Affiliate/Mall % 분해 (SEA TT Shop case 의 BP 분석 핵심) */
   kalodataBrandKpi?: KalodataBrandKpi | null;
+  /** Kalodata 크리에이터별 live/video GMV — 라이브 vs 영상 매출 분해 + 포맷별 크리에이터 (page.tsx). */
+  liveVideoStats?: {
+    liveGmv: number;
+    videoGmv: number;
+    liveCount: number;
+    videoCount: number;
+    mixedCount: number;
+    topLive: Array<{ handle: string; followers: number | null; gmv: number }>;
+    topVideo: Array<{ handle: string; followers: number | null; gmv: number }>;
+  } | null;
   /** BSR series (Amazon top 5 SKU) + weekly views — BSR sub-tab line chart (옛 BsrTrendChart) */
   bsrSeries?: BsrSeries[];
   /** Amazon BSR — SKU별 월별 시계열 + 상승시점 + 당시 영상 (sales_snapshot 직접). */
@@ -474,6 +485,63 @@ export function SectionDMockup({
           );
         })()
       )}
+
+      {/* 🎙 Live vs Video 매출 분해 + 포맷별 크리에이터 (Kalodata creators xlsx) */}
+      {liveVideoStats &&
+        (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0) &&
+        (() => {
+          const lv = liveVideoStats;
+          const tot = lv.liveGmv + lv.videoGmv;
+          const livePct = tot > 0 ? Math.round((lv.liveGmv / tot) * 100) : 0;
+          const videoPct = 100 - livePct;
+          const verdict =
+            livePct >= 65 ? "🔴 라이브 driven 브랜드" : videoPct >= 65 ? "🎬 영상 driven 브랜드" : "⚖️ 라이브·영상 균형형";
+          const fF = (n: number | null) =>
+            n == null ? "" : n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
+          return (
+            <div style={{ marginTop: 16, padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, background: "#f9fafb" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
+                🎙 Live vs Video 매출 분해 (Kalodata 크리에이터 기준)
+              </div>
+              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>→ {verdict}</div>
+              <div style={{ display: "flex", height: 16, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+                <div style={{ width: `${livePct}%`, background: "#ef4444" }} title={`Live ${livePct}%`} />
+                <div style={{ width: `${videoPct}%`, background: "#3b82f6" }} title={`Video ${videoPct}%`} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#374151", marginBottom: 12 }}>
+                <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
+                <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+                크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}{" "}
+                <span style={{ color: "#9ca3af" }}>(GMV 70%↑ 기준)</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+                {[
+                  { label: "🔴 라이브 전문 Top", color: "#ef4444", list: lv.topLive },
+                  { label: "🎬 영상 전문 Top", color: "#3b82f6", list: lv.topVideo },
+                ].map((g) => (
+                  <div key={g.label} style={{ fontSize: 10 }}>
+                    <div style={{ fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.label}</div>
+                    {g.list.length === 0 ? (
+                      <span style={{ color: "#9ca3af" }}>—</span>
+                    ) : (
+                      g.list.map((cr, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "1px 0", color: "#374151" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            @{cr.handle}
+                            {cr.followers != null && <span style={{ color: "#9ca3af" }}> · {fF(cr.followers)}</span>}
+                          </span>
+                          <span style={{ flexShrink: 0, marginLeft: 6 }}>{formatUsdShort(cr.gmv)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       {/* SKU 선택 시 GMV 시계열 (Kalodata 영상매출 publish_date 그룹) — mockup line 1163-1173 */}
       {selectedSku !== "all" && kalodataVideos && kalodataVideos.length > 0 && (() => {

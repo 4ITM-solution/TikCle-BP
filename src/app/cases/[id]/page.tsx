@@ -2913,6 +2913,58 @@ export default async function CaseDetailPage({
                               kalodata_brand?: import("@/lib/parsers/kalodata").KalodataBrandKpi | null;
                             })?.kalodata_brand ?? null
                           }
+                          liveVideoStats={(() => {
+                            const creators =
+                              (keyStats as unknown as {
+                                kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];
+                              })?.kalodata_creators_xlsx ?? [];
+                            if (!creators || creators.length === 0) return null;
+                            let liveGmv = 0;
+                            let videoGmv = 0;
+                            const cls = creators.map((cr) => {
+                              const lg = cr.live_gmv_usd ?? 0;
+                              const vg = cr.video_gmv_usd ?? 0;
+                              liveGmv += lg;
+                              videoGmv += vg;
+                              const tot = lg + vg;
+                              const share = tot > 0 ? lg / tot : 0;
+                              const type =
+                                tot === 0
+                                  ? "none"
+                                  : share >= 0.7
+                                    ? "live"
+                                    : share <= 0.3
+                                      ? "video"
+                                      : "mixed";
+                              return {
+                                handle: cr.handle,
+                                followers: cr.followers ?? null,
+                                live_gmv: lg,
+                                video_gmv: vg,
+                                total: tot,
+                                type,
+                              };
+                            });
+                            const topBy = (t: string) =>
+                              cls
+                                .filter((x) => x.type === t)
+                                .sort((a, b) => b.total - a.total)
+                                .slice(0, 5)
+                                .map((x) => ({
+                                  handle: x.handle,
+                                  followers: x.followers,
+                                  gmv: x.total,
+                                }));
+                            return {
+                              liveGmv,
+                              videoGmv,
+                              liveCount: cls.filter((x) => x.type === "live").length,
+                              videoCount: cls.filter((x) => x.type === "video").length,
+                              mixedCount: cls.filter((x) => x.type === "mixed").length,
+                              topLive: topBy("live"),
+                              topVideo: topBy("video"),
+                            };
+                          })()}
                           bsrSeries={ks.phase2?.bsr_series}
                           bsrSkus={bsrSkus}
                           weeklyViews={weeklyViews}
