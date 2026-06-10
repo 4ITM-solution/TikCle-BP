@@ -50,6 +50,7 @@ export function SectionBMockup({
   phase35,
   phase37,
   allTkCreators,
+  allIgCreators,
   languageDist,
   crossChannelMatrix,
   topGmvCreators,
@@ -66,6 +67,8 @@ export function SectionBMockup({
   phase37?: Phase37Stats;
   /** 전체 TK 인플 (≥10편 제한 없음) — 티어 표·3축 분포·cross-channel 용 (page.tsx server) */
   allTkCreators?: TopCreator[];
+  /** 전체 IG 작성자 (igTopAuthors 25 preview 대신 전체) — IG 요약·3축·티어표 용 */
+  allIgCreators?: TopCreator[];
   /** TK 콘텐츠 언어 분포 — 오디언스·인종 시그널 (page.tsx server) */
   languageDist?: Array<{ language: string; count: number }>;
   crossChannelMatrix?: MatrixRow[];
@@ -131,16 +134,26 @@ export function SectionBMockup({
 
   // Top 작성자 — channelMode 따라 source 변경
   // TK: phase2.top_creators / IG: phase4c.top_authors_preview / YT: phase4d.top_channels_preview
-  const igCreatorsList: TopCreator[] = (igTopAuthors ?? []).map((a) => ({
-    handle: a.username,
-    video_count: a.total_posts,
-    promoted_count: a.paid_posts,
-    max_views: a.max_likes ?? 0, // IG = max_likes 로 proxy
-    follower_count: a.followers ?? null,
-    is_shop_creator: null,
-    lifetime_gmv_usd: null,
-    top_videos: a.top_videos ?? [],
-  }));
+  // IG 영상(top_videos)은 igTopAuthors(25 preview)에만 있으니 handle로 매핑해 붙임.
+  const igVideoMap = new Map(
+    (igTopAuthors ?? []).map((a) => [a.username, a.top_videos ?? []] as const),
+  );
+  const igCreatorsList: TopCreator[] =
+    allIgCreators && allIgCreators.length > 0
+      ? allIgCreators.map((cr) => ({
+          ...cr,
+          top_videos: igVideoMap.get(cr.handle) ?? cr.top_videos ?? [],
+        }))
+      : (igTopAuthors ?? []).map((a) => ({
+          handle: a.username,
+          video_count: a.total_posts,
+          promoted_count: a.paid_posts,
+          max_views: a.max_likes ?? 0,
+          follower_count: a.followers ?? null,
+          is_shop_creator: null,
+          lifetime_gmv_usd: null,
+          top_videos: a.top_videos ?? [],
+        }));
   const ytCreatorsList: TopCreator[] = (ytTopChannels ?? []).map((ch) => ({
     handle: ch.channel_name,
     video_count: ch.total_videos,

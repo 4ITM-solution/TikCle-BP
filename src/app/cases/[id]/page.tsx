@@ -1784,6 +1784,43 @@ export default async function CaseDetailPage({
     return { allTkCreators: list, tkLanguageDist };
   })();
 
+  // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
+  //   ig_authors 전체를 가져와 TopCreator로 — followers/total_posts/max_views 기반.
+  const allIgCreators = await (async () => {
+    if (!phase4cStats || phase4cStats.skipped_reason) return [];
+    const list: Array<{
+      handle: string;
+      video_count: number;
+      promoted_count: number;
+      max_views: number;
+      follower_count: number | null;
+      is_shop_creator: boolean | null;
+      lifetime_gmv_usd: number | null;
+      top_videos: Array<{ url: string; views: number; caption: string | null }>;
+    }> = [];
+    for (let off = 0; off < 50000; off += 1000) {
+      const { data } = await supabase
+        .from("ig_authors")
+        .select("username, total_posts, paid_posts, max_views, max_likes, followers")
+        .eq("case_id", c.id)
+        .range(off, off + 999);
+      if (!data || data.length === 0) break;
+      for (const a of data)
+        list.push({
+          handle: a.username,
+          video_count: a.total_posts ?? 0,
+          promoted_count: a.paid_posts ?? 0,
+          max_views: a.max_views ?? a.max_likes ?? 0,
+          follower_count: a.followers ?? null,
+          is_shop_creator: null,
+          lifetime_gmv_usd: null,
+          top_videos: [],
+        });
+      if (data.length < 1000) break;
+    }
+    return list;
+  })();
+
   // ★ 채널별 월별 티어 분포(명수) — Section A 티어 stack / Section B 월필터가 채널에 반응하도록.
   //   TK: phase3.tier_dist_by_month(기존). IG: ig_posts(월·작성자) ↔ ig_authors(followers→tier)
   //   의 월별 distinct 작성자 명수. YT: 데이터 없어 빈값. all = TK+IG 월별 병합.
@@ -2843,6 +2880,7 @@ export default async function CaseDetailPage({
                         phase35={ks.phase35}
                         phase37={ks.phase37}
                         allTkCreators={allTkCreators}
+                        allIgCreators={allIgCreators}
                         languageDist={tkLanguageDist}
                         crossChannelMatrix={sharedMatrix}
                         topGmvCreators={topGmvCreators}
