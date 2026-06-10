@@ -677,14 +677,17 @@ export function SectionAMockup({
       </div>
 
       {/* ★ 변곡점 timeline 카드 — phase5.bsr_inflections (Amazon BSR 급등 시점, day 단위 정확) */}
-      {hasAmazon && phase5?.bsr_inflections && phase5.bsr_inflections.length > 0 && (
+      {hasAmazon &&
+        phase5?.bsr_inflections &&
+        phase5.bsr_inflections.some((inf) => inf.top_videos.length > 0) && (
         <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            ✨ 변곡점 timeline ({phase5.bsr_inflections.length}개 자동 detect ·{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 7일 급등 + 동반 viral 영상 매칭</span>)
+            ✨ 변곡점 timeline (
+            {phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length}개 ·{" "}
+            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 급등 시점 전후(±7일)에 올라온 콘텐츠가 잡힌 것만</span>)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[...phase5.bsr_inflections]
+            {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
               .sort((a, b) => a.date.localeCompare(b.date))
               .map((inf, i) => (
                 <div
