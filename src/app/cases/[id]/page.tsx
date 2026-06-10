@@ -1787,6 +1787,51 @@ export default async function CaseDetailPage({
     return { allTkCreators: list, tkLanguageDist };
   })();
 
+  // ★ TK 월별 영상수 라이브 집계 — phase2.monthly_video_counts/total_contents는 분석 시점
+  //   스냅샷이라 이후 스크랩분(엑솔릿/카로 추가)을 누락하는 stale undercount.
+  //   contents에서 distinct video id 기준으로 다시 세어 Section A/C·KPI를 정확화.
+  //   (organic=비광고 / paid=is_ad). live가 캐시보다 클 때만 덮음(절대 악화 X).
+  const { liveTkMonthly, liveTkTotal } = await (async () => {
+    if (!brand_id)
+      return {
+        liveTkMonthly: null as
+          | null
+          | Array<{ month: string; organic: number; paid: number; total: number }>,
+        liveTkTotal: null as number | null,
+      };
+    const seen = new Set<string>();
+    const byMonth = new Map<string, { organic: number; paid: number }>();
+    let total = 0;
+    const PAGE = 1000;
+    for (let off = 0; off < 200000; off += PAGE) {
+      const { data } = await supabase
+        .from("contents")
+        .select("url, uploaded_at, is_ad")
+        .eq("brand_id", brand_id)
+        .ilike("url", "%tiktok.com%")
+        .not("uploaded_at", "is", null)
+        .range(off, off + PAGE - 1);
+      if (!data || data.length === 0) break;
+      for (const r of data) {
+        const vid = (r.url as string | null)?.match(/\/(?:video|photo)\/(\d+)/)?.[1];
+        if (!vid || seen.has(vid)) continue;
+        seen.add(vid);
+        const month = String(r.uploaded_at).slice(0, 7);
+        const e = byMonth.get(month) ?? { organic: 0, paid: 0 };
+        if (r.is_ad === true) e.paid += 1;
+        else e.organic += 1;
+        byMonth.set(month, e);
+        total += 1;
+      }
+      if (data.length < PAGE) break;
+    }
+    if (total === 0) return { liveTkMonthly: null, liveTkTotal: null };
+    const arr = [...byMonth.entries()]
+      .map(([month, v]) => ({ month, organic: v.organic, paid: v.paid, total: v.organic + v.paid }))
+      .sort((a, b) => (a.month < b.month ? -1 : 1));
+    return { liveTkMonthly: arr, liveTkTotal: total };
+  })();
+
   // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
   //   ig_authors 전체를 가져와 TopCreator로 — followers/total_posts/max_views 기반.
   const allIgCreators = await (async () => {
@@ -2314,6 +2359,25 @@ export default async function CaseDetailPage({
                 account_type_filter?: string | null;
               } | null;
             };
+            // ★ phase2 라이브 패치 — total_contents/monthly_video_counts/monthly_by_channel.tk를
+            //   contents 실집계로 덮어 stale undercount 제거 (Section A/C·KPI 일관). live가 더 클 때만.
+            if (
+              ks.phase2 &&
+              liveTkMonthly &&
+              liveTkTotal != null &&
+              liveTkTotal > (ks.phase2.total_contents ?? 0)
+            ) {
+              ks.phase2 = {
+                ...ks.phase2,
+                total_contents: liveTkTotal,
+                monthly_video_counts: liveTkMonthly,
+                monthly_by_channel: {
+                  ig: ks.phase2.monthly_by_channel?.ig ?? [],
+                  yt: ks.phase2.monthly_by_channel?.yt ?? [],
+                  tk: liveTkMonthly,
+                },
+              };
+            }
             const lastError = ks.last_error;
             // phase2 없으면 mockup main path 그대로 가되 SectionA~E + G 만 skip (이미 그 guard 박힘).
             // KPI / 데이터 채널 / Phase Progress 는 phase2 없어도 표시 — 사용자가 데이터 채널 카드 클릭해서 적재 가능해야.
