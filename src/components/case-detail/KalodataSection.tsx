@@ -20,10 +20,18 @@ import { UploadDropzone } from "./UploadDropzone";
 export function KalodataSection({
   case_id,
   productCount,
+  country,
 }: {
   case_id: string;
   productCount: number;
+  /** 케이스 국가 — 라벨/예시/placeholder를 US vs SEA로 분기 (파싱은 두 형식 모두 자동 인식) */
+  country?: string | null;
 }) {
+  // US는 연도 형식 "06/10/2025 ~ 06/09/2026"(괄호X), SEA는 "(04/19 ~ 05/18)"(연도X) — 파서는 둘 다 처리.
+  const isUs = (country ?? "").toUpperCase() === "US";
+  const regionLabel = isUs ? "US" : "SEA";
+  const exampleBrand = isUs ? "Oganacell Store US" : "SKIN1004 Thailand";
+  const examplePeriod = isUs ? "06/10/2025 ~ 06/09/2026" : "Last 30 Days (04/19 ~ 05/18)";
   const router = useRouter();
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
@@ -113,14 +121,14 @@ export function KalodataSection({
   return (
     <div className="field">
       <label className="field-label">
-        Kalodata 매출 데이터 (TikTok Shop SEA){" "}
+        Kalodata 매출 데이터 (TikTok Shop {regionLabel}){" "}
         <span className="req">*</span>
       </label>
       <span
         className="field-help"
         style={{ marginBottom: 10, display: "block" }}
       >
-        Kalodata 브랜드 페이지(예: SKIN1004 Thailand) 통째 텍스트 복사 →
+        Kalodata 브랜드 페이지(예: {exampleBrand}) 통째 텍스트 복사 →
         붙여넣기. <b>크레딧 0 소비</b>, 다운로드 X. Brand KPI + Products(Top N)
         + Creators(Top N) 한 번에 적재돼요.
       </span>
@@ -163,7 +171,7 @@ export function KalodataSection({
             lineHeight: 1.5,
           }}
         >
-          📌 Kalodata 로그인 → 브랜드 페이지(SKIN1004 Thailand 등) → 페이지
+          📌 Kalodata 로그인 → 브랜드 페이지({exampleBrand} 등) → 페이지
           <b> 전체 텍스트 선택</b>(Cmd+A) → 복사 → 아래 붙여넣기.
           <br />
           "Core Metrics", "Creator(N items)", "Product(N items)" 섹션이 모두 한
@@ -172,7 +180,7 @@ export function KalodataSection({
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="SKIN1004 Thailand&#10;Follow&#10;BRAND&#10;...&#10;Core Metrics&#10;Last 30 Days (04/19 ~ 05/18)&#10;Revenue&#10;$1.10m&#10;..."
+          placeholder={`${exampleBrand}\nFollow\nBRAND\n...\nCore Metrics\n${examplePeriod}\nRevenue\n$1.10m\n...`}
           rows={8}
           style={{
             width: "100%",

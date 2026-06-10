@@ -2262,6 +2262,7 @@ export default async function CaseDetailPage({
               <KalodataSection
                 case_id={c.id}
                 productCount={skuRows.length}
+                country={c.country}
               />
             )}
           </section>
@@ -2624,7 +2625,7 @@ export default async function CaseDetailPage({
                                   />
                                 </>
                               )}
-                              <KalodataSection case_id={c.id} productCount={skuRows.length} />
+                              <KalodataSection case_id={c.id} productCount={skuRows.length} country={c.country} />
                             </>
                           ),
                           meta_ads: (
