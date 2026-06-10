@@ -397,14 +397,31 @@ export function parseKalodata(raw: string): KalodataParsed {
     new_videos_by_affiliate: null as number | null,
   };
 
-  // 기간: "Last 30 Days (04/19 ~ 05/18)" 또는 "MM/DD/YYYY" 두 개 인접
-  const periodMatch = raw.match(/\((\d{2}\/\d{2})\s*~\s*(\d{2}\/\d{2})\)/);
+  // 기간: 데이터에서 직접 파싱. 두 형식 모두 지원:
+  //   "Last 365 Days (06/10/2025 ~ 06/10/2026)"  ← 연도 있음(365일은 해 걸침)
+  //   "Last 30 Days (04/19 ~ 05/18)"             ← 연도 없음
+  // "Last N Days (...)" 앵커로 Core Metrics 기간을 정확히 집음(다른 날짜 오매칭 방지).
+  // 형식이 다양함: US "06/10/2025 ~ 06/09/2026"(연도O, 괄호X) / SEA "(04/19 ~ 05/18)"(연도X, 괄호O).
+  // 괄호 유무·연도 유무 모두 허용하고, 첫 "MM/DD[/YYYY] ~ MM/DD[/YYYY]" 쌍(=Core Metrics 기간)을 집음.
+  const periodMatch = raw.match(
+    /(\d{1,2}\/\d{1,2}(?:\/\d{4})?)\s*~\s*(\d{1,2}\/\d{1,2}(?:\/\d{4})?)/,
+  );
   if (periodMatch) {
-    const yearGuess = new Date().getFullYear();
-    const [ms, ds] = periodMatch[1]!.split("/");
-    const [me, de] = periodMatch[2]!.split("/");
-    brand_kpi.period_start = `${yearGuess}-${ms}-${ds}`;
-    brand_kpi.period_end = `${yearGuess}-${me}-${de}`;
+    const thisYear = new Date().getFullYear();
+    const parts = (s: string) => {
+      const p = s.split("/").map((x) => parseInt(x, 10));
+      return { m: p[0]!, d: p[1]!, y: p[2] as number | undefined };
+    };
+    const a = parts(periodMatch[1]!);
+    const b = parts(periodMatch[2]!);
+    const endY = b.y ?? thisYear;
+    // 연도 없는데 start 월/일이 end보다 크면 연말→연초 걸침 → start는 한 해 전.
+    const startY =
+      a.y ?? (a.m > b.m || (a.m === b.m && a.d > b.d) ? endY - 1 : endY);
+    const iso = (m: number, d: number, y: number) =>
+      `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    brand_kpi.period_start = iso(a.m, a.d, startY);
+    brand_kpi.period_end = iso(b.m, b.d, endY);
   }
 
   // Brand KPI는 라벨 라인 다음 줄에 값. 라벨 매핑.

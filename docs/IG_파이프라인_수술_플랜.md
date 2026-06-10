@@ -5,6 +5,33 @@
 
 ---
 
+## 📌 2026-06-10 작업 로그 (이 세션, ~18 배포)
+
+**✅ 배포 완료 (파이프라인)**
+- ② concurrency(케이스당 1실행) `3c6ff10` · ④ ad-heavy 자동 curious `bb55cc4` · ①③ IG/YT 스크랩을 phase2·phase4b 앞으로 + 캐시 무효화 `154bc7b`
+- phase4b **방어 저장** `bbe1426` — clusters insert 직후 key_stats.phase4b_clusters 즉시 저장(큰 케이스 step return 끊겨도 C 정렬 보존)
+
+**✅ 배포 완료 (UX)**
+- D UI: 노란박스→중립필터 + 긴 제품명(shortSku, 대소문자 무시) `793fa88`
+- A: 변곡점 0vs0 제거+top15캡 `58748b0` · 영상분포 B로 이관 `f058788` · BSR 라인을 bsrSkus로 채움(TT Shop+amazon) `53ce1bc`
+- B: 전체 TK 인플(페이지네이션 485→3743) + 전체합산(전체=TK+IG+YT) + %표기 + 탑20캡 + 언어분포 + cross-channel전체 + 요약카드 `92029cc` · 전체 IG 작성자(25→390) `afd9656`
+- D: Live/Video 패널(creators xlsx + 브랜드복붙 fallback) `314e593`/`3199c52` · kalodata SKU 매칭(접두어 strip) + 동반영상→매칭영상 `9c15074` · 매출출처/Live·Video 박스를 채널토글 위로 이동 `22496b7` · 분홍박스 중립화 · 매출기여 overflow
+
+**⚠️ 오늘 내가 틀려서 정정한 것 (다음 세션 주의)**
+- "샘플 줄여야" ❌ → 배치화/방어저장으로 데이터 손실 없이 완주 가능
+- "데이터 미업로드" ❌ → 브랜드복붙으로 lives/videos 있었음 (Live/Video는 그걸로 계산하게 고침)
+- "cross-source 코드로 못 이어줌" → 정정: **영상 xlsx(Product Title) 올리면** kalodata SKU 매칭 됨. 텍스트 복붙 영상엔 Product Title 없어서 안 됐던 것. **크리에이터 xlsx엔 제품 정보 없음(ProductCount 개수만)** — Creator×SKU는 영상 xlsx의 Creator Handle×Product Title.
+
+**🔧 남은 진짜 작업 (우선순위)**
+1. **phase4b 큰 케이스 완주** — 방어저장(배포) + 오버포스된 0d5673a2·6769b0bb는 **깨끗이 1회 재실행** 필요(누적 cleanup). 더 근본은 clusters step 배치화(고위험, 전 케이스 영향 → 별도 세션 테스트).
+2. **phase2 bsr_series** — TT Shop+amazon 케이스에도 computeBsrSeries 하게(지금 A는 render 패치 `53ce1bc`만).
+3. **D SKU 요약카드 채널 종속**(#3 잔여) · **⑤ Meta 배치 재호스트**(미용, 인라인은 타임아웃나서 revert함 → 별도 batched step 필요).
+4. **cross-source(#5·6·7)**: 코드 OK, **영상 xlsx 업로드되면 채워짐**(데이터). 365일 플랜으로 재업로드 예정.
+
+**Kalodata 입력(365일)**: 케이스 KalodataSection — ①브랜드페이지 Cmd+A 복붙 ②크리에이터 xlsx(Top500) ③영상 xlsx. 기간 365일로 맞춘 뒤 복사/export. 영상 xlsx의 `Product Title`/`Creator Handle`, 크리에이터 xlsx의 `LiveGmv($)`/`VideoGmv($)`가 핵심.
+
+---
+
 ## 한 줄 요약
 
 > **버그는 사실상 2개다.** ① IG/YT 스크랩이 그걸 쓰는 phase보다 **늦게** 돈다. ② 클러스터를 **삭제 없이 쌓는다.**
