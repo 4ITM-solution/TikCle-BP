@@ -282,10 +282,67 @@ export const runAnalysis = inngest.createFunction(
       };
     }
 
+    // ─── Phase 4c/4d: IG/YT Brand Monitoring 스크랩 (phase2·phase4b 앞으로 당김, Fix ①③) ───
+    // IG/YT 영상이 phase2(월별 집계)·phase4b(클러스터링)에 반영되려면 그 전에 ig_posts/
+    // yt_videos 가 DB에 있어야 함 → 스크랩(compute)을 여기서 먼저 실행.
+    // 저장(save)은 cascade 충돌 회피 위해 맨 끝(기존 위치)에 그대로 둔다.
+    const phase4c = await step.run("phase-4c-ig-monitor", async () => {
+      if (existing.phase4c && !force("phase4c")) {
+        logger.info("[Phase 4c] cached", {
+          computed_at: existing.phase4c.computed_at,
+          unique: existing.phase4c.total_unique,
+        });
+        return sanitizeDeep(existing.phase4c);
+      }
+      logger.info("[Phase 4c] IG brand monitoring", { case_id });
+      const stats = await runPhase4c(supabase, case_id);
+      logger.info("[Phase 4c] done", {
+        raw: stats.total_raw,
+        unique: stats.total_unique,
+        brand_matched: stats.total_brand_matched,
+        paid: stats.total_paid_signal,
+        authors: stats.unique_authors,
+        cost: stats.cost_actual_usd,
+        skipped: stats.skipped_reason,
+      });
+      return sanitizeDeep(stats);
+    });
+    const phase4cNew = !existing.phase4c || force("phase4c");
+
+    const phase4d = await step.run("phase-4d-yt-monitor", async () => {
+      if (existing.phase4d && !force("phase4d")) {
+        logger.info("[Phase 4d] cached", {
+          computed_at: existing.phase4d.computed_at,
+          unique: existing.phase4d.total_unique,
+        });
+        return sanitizeDeep(existing.phase4d);
+      }
+      logger.info("[Phase 4d] YouTube brand monitoring", { case_id });
+      const stats = await runPhase4d(supabase, case_id);
+      logger.info("[Phase 4d] done", {
+        raw: stats.total_raw,
+        unique: stats.total_unique,
+        brand_matched: stats.total_brand_matched,
+        paid: stats.total_paid_signal,
+        channels: stats.unique_channels,
+        cost: stats.cost_actual_usd,
+        skipped: stats.skipped_reason,
+      });
+      return sanitizeDeep(stats);
+    });
+    const phase4dNew = !existing.phase4d || force("phase4d");
+
     // ─── Phase 2: Stats Aggregator ───
-    // Phase 1.5가 새로 돌면 case_product_sales 새로 들어왔으니 Phase 2도 자동 재실행
+    // Phase 1.5가 새로 돌면 case_product_sales 새로 들어왔으니 Phase 2도 자동 재실행.
+    // phase4c/4d(IG/YT)가 새로 스크랩되면 월별 집계에 반영하려 phase2도 재실행 (Fix ①③).
     const phase2 = await step.run("phase-2-aggregate", async () => {
-      if (existing.phase2 && !force("phase2") && !phase1_5_New) {
+      if (
+        existing.phase2 &&
+        !force("phase2") &&
+        !phase1_5_New &&
+        !phase4cNew &&
+        !phase4dNew
+      ) {
         logger.info("[Phase 2] cached", {
           computed_at: existing.phase2.computed_at,
         });
@@ -301,7 +358,11 @@ export const runAnalysis = inngest.createFunction(
     });
 
     const phase2New =
-      !existing.phase2 || force("phase2") || phase1_5_HasData;
+      !existing.phase2 ||
+      force("phase2") ||
+      phase1_5_HasData ||
+      phase4cNew ||
+      phase4dNew;
     if (phase2New) {
       await step.run("phase-2-save", async () => {
         const newStats: KeyStats = { ...existing, phase2 };
@@ -699,7 +760,9 @@ export const runAnalysis = inngest.createFunction(
       if (
         existing.phase4b_sample &&
         !force("phase4b_sample") &&
-        !phase37New
+        !phase37New &&
+        !phase4cNew &&
+        !phase4dNew
       ) {
         logger.info("[Phase 4b.1] cached", {
           total: existing.phase4b_sample.total_picked,
@@ -717,7 +780,11 @@ export const runAnalysis = inngest.createFunction(
     });
 
     const phase4bSampleNew =
-      !existing.phase4b_sample || force("phase4b_sample") || phase37HasData;
+      !existing.phase4b_sample ||
+      force("phase4b_sample") ||
+      phase37HasData ||
+      phase4cNew ||
+      phase4dNew;
     if (phase4bSampleNew) {
       await step.run("phase-4b-sample-save", async () => {
         const newStats: KeyStats = {
@@ -1107,33 +1174,7 @@ export const runAnalysis = inngest.createFunction(
       });
     }
 
-    // ─── Phase 4c: IG Brand Monitoring (cases.ig_config 있을 때만) ───
-    // 카테고리 정의자 BP (SharkNinja/Dyson/Medicube/Poppi)용. ig_config 없으면 graceful skip.
-    // Phase 5 뒤에 박은 이유: phase4c는 phase4b/phase5와 independent. cascade save 충돌 회피.
-    // 4-소스 (hashtag + owned + author_seed + celeb_reel) 통합 → ig_posts/ig_authors 정규화.
-    const phase4c = await step.run("phase-4c-ig-monitor", async () => {
-      if (existing.phase4c && !force("phase4c")) {
-        logger.info("[Phase 4c] cached", {
-          computed_at: existing.phase4c.computed_at,
-          unique: existing.phase4c.total_unique,
-        });
-        return sanitizeDeep(existing.phase4c);
-      }
-      logger.info("[Phase 4c] IG brand monitoring", { case_id });
-      const stats = await runPhase4c(supabase, case_id);
-      logger.info("[Phase 4c] done", {
-        raw: stats.total_raw,
-        unique: stats.total_unique,
-        brand_matched: stats.total_brand_matched,
-        paid: stats.total_paid_signal,
-        authors: stats.unique_authors,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
-      });
-      return sanitizeDeep(stats);
-    });
-
-    const phase4cNew = !existing.phase4c || force("phase4c");
+    // ─── Phase 4c save (compute/스크랩은 phase2 앞에서 이미 실행 — Fix ①③) ───
     if (phase4cNew) {
       await step.run("phase-4c-save", async () => {
         const newStats: KeyStats = {
@@ -1160,31 +1201,7 @@ export const runAnalysis = inngest.createFunction(
       });
     }
 
-    // ─── Phase 4d: YouTube Brand Monitoring (cases.yt_config 있을 때만) ───
-    // phase4c와 같은 패턴 — independent, phase5 뒤에 박힘.
-    const phase4d = await step.run("phase-4d-yt-monitor", async () => {
-      if (existing.phase4d && !force("phase4d")) {
-        logger.info("[Phase 4d] cached", {
-          computed_at: existing.phase4d.computed_at,
-          unique: existing.phase4d.total_unique,
-        });
-        return sanitizeDeep(existing.phase4d);
-      }
-      logger.info("[Phase 4d] YouTube brand monitoring", { case_id });
-      const stats = await runPhase4d(supabase, case_id);
-      logger.info("[Phase 4d] done", {
-        raw: stats.total_raw,
-        unique: stats.total_unique,
-        brand_matched: stats.total_brand_matched,
-        paid: stats.total_paid_signal,
-        channels: stats.unique_channels,
-        cost: stats.cost_actual_usd,
-        skipped: stats.skipped_reason,
-      });
-      return sanitizeDeep(stats);
-    });
-
-    const phase4dNew = !existing.phase4d || force("phase4d");
+    // ─── Phase 4d save (compute/스크랩은 phase2 앞에서 이미 실행 — Fix ①③) ───
     if (phase4dNew) {
       await step.run("phase-4d-save", async () => {
         const newStats: KeyStats = {
