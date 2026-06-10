@@ -252,11 +252,16 @@ export function SectionDMockup({
       .slice(0, 5);
     if (primary.length > 0) return primary;
 
-    // 2차: Kalodata video xlsx 의 product_title fuzzy 매칭 (이름 일치)
+    // 2차: Kalodata video xlsx 의 product_title fuzzy 매칭 (이름 일치).
+    // ★ "kalodata:[Shop명] - 실제제품명" 접두어를 떼고 매칭 — 안 떼면 skuKey가
+    //   "kalodata:[haruha" 가 돼서 영상 product_title 과 절대 안 맞음 (매칭 0개 버그).
     if (!skuName || !kalodataVideos || kalodataVideos.length === 0) return [];
-    const skuKey = skuName.toLowerCase().slice(0, 16);
+    const cleanName = (s: string) =>
+      s.toLowerCase().replace(/^kalodata:\s*/, "").replace(/^\[[^\]]*\]\s*-\s*/, "").trim();
+    const skuKey = cleanName(skuName).slice(0, 18);
+    if (skuKey.length < 5) return [];
     const fallback = kalodataVideos
-      .filter((v) => v.product_title && v.product_title.toLowerCase().includes(skuKey))
+      .filter((v) => v.product_title && cleanName(v.product_title).includes(skuKey))
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 5);
     // DisplayedVideoEntry 키 정확히 맞춤 — caption_preview / matched_sku_names / confidence.
@@ -546,8 +551,11 @@ export function SectionDMockup({
       {/* SKU 선택 시 GMV 시계열 (Kalodata 영상매출 publish_date 그룹) — mockup line 1163-1173 */}
       {selectedSku !== "all" && kalodataVideos && kalodataVideos.length > 0 && (() => {
         const selectedSkuName = skus.find((s) => s.asin === selectedSku)?.name;
+        const cleanN = (s: string) =>
+          s.toLowerCase().replace(/^kalodata:\s*/, "").replace(/^\[[^\]]*\]\s*-\s*/, "").trim();
+        const selKey = selectedSkuName ? cleanN(selectedSkuName).slice(0, 18) : "";
         const matched = kalodataVideos.filter((v) =>
-          selectedSkuName && v.product_title && v.product_title.toLowerCase().includes(selectedSkuName.toLowerCase().slice(0, 12)),
+          selKey.length >= 5 && v.product_title && cleanN(v.product_title).includes(selKey),
         );
         if (matched.length === 0) return null;
         // publish_date YYYY-MM 그룹 합산
@@ -744,17 +752,16 @@ export function SectionDMockup({
                 <th style={{ textAlign: "right" }}>30d GMV</th>
                 <th style={{ textAlign: "right" }}>판매</th>
                 <th style={{ textAlign: "right" }}>BSR</th>
-                <th style={{ textAlign: "right" }} title="이 SKU 가 Phase 4b.5 SKU 매칭 또는 Kalodata 영상에서 등장한 영상 수">
-                  동반 영상 ?
+                <th style={{ textAlign: "right" }} title="이 SKU 와 매칭된 영상 수 (Vision SKU 매칭 + Kalodata 영상 제목 매칭)">
+                  매칭 영상
                 </th>
               </tr>
             </thead>
             <tbody>
               {groupedSkus.slice(0, skuLimit).map((g) => {
                   const s = g.rep;
-                  const matched = allDisplayed.filter((v) =>
-                    Array.isArray(v.matched_skus) && s.asin && v.matched_skus.includes(s.asin),
-                  ).length;
+                  // matchedFor = explicit-link + Kalodata 제목 매칭 둘 다 포함 (kalodata SKU도 카운트).
+                  const matched = matchedFor(s.asin ?? "", s.name ?? undefined).length;
                   // server enrichment 우선 (옛 phase2 cache 에 새 field 없을 때)
                   const meta = (s.asin && skuMetaMap?.[s.asin]) || null;
                   const category = s.category ?? meta?.category ?? null;
