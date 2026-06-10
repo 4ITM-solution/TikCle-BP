@@ -131,37 +131,38 @@ export function SectionBMockup({
 
   // Top 작성자 — channelMode 따라 source 변경
   // TK: phase2.top_creators / IG: phase4c.top_authors_preview / YT: phase4d.top_channels_preview
-  const topCreatorsBase: TopCreator[] = (() => {
-    if (channelMode === "ig") {
-      return (igTopAuthors ?? []).map((a) => ({
-        handle: a.username,
-        video_count: a.total_posts,
-        promoted_count: a.paid_posts,
-        max_views: a.max_likes ?? 0, // IG = max_likes 로 proxy
-        follower_count: a.followers ?? null, // Phase 4c.5 IG profile scraper 박힘
-        is_shop_creator: null,
-        lifetime_gmv_usd: null,
-        top_videos: a.top_videos ?? [], // page.tsx 박힘 ig_posts 박힘 박힘 Top 3 박힘
-      }));
-    }
-    if (channelMode === "yt") {
-      return (ytTopChannels ?? []).map((ch) => ({
-        handle: ch.channel_name,
-        video_count: ch.total_videos,
-        promoted_count: ch.paid_videos,
-        max_views: ch.max_views ?? 0,
-        follower_count: ch.subscriber_count ?? null,
-        is_shop_creator: null,
-        lifetime_gmv_usd: null,
-        top_videos: ch.top_videos ?? [], // page.tsx 박힘 yt_videos 박힘 박힘 Top 3 박힘
-      }));
-    }
-    // TK / 전체: 전체 인플(allTkCreators) 우선 — phase2.top_creators 는 ≥10편만이라
-    // 티어 표·3축 분포가 소수 영상 시더를 놓침. allTkCreators 없으면 fallback.
-    return allTkCreators && allTkCreators.length > 0
-      ? allTkCreators
-      : (phase2.top_creators ?? []);
-  })();
+  const igCreatorsList: TopCreator[] = (igTopAuthors ?? []).map((a) => ({
+    handle: a.username,
+    video_count: a.total_posts,
+    promoted_count: a.paid_posts,
+    max_views: a.max_likes ?? 0, // IG = max_likes 로 proxy
+    follower_count: a.followers ?? null,
+    is_shop_creator: null,
+    lifetime_gmv_usd: null,
+    top_videos: a.top_videos ?? [],
+  }));
+  const ytCreatorsList: TopCreator[] = (ytTopChannels ?? []).map((ch) => ({
+    handle: ch.channel_name,
+    video_count: ch.total_videos,
+    promoted_count: ch.paid_videos,
+    max_views: ch.max_views ?? 0,
+    follower_count: ch.subscriber_count ?? null,
+    is_shop_creator: null,
+    lifetime_gmv_usd: null,
+    top_videos: ch.top_videos ?? [],
+  }));
+  // TK: 전체 인플(allTkCreators) 우선 — phase2.top_creators 는 ≥10편만이라 누락.
+  const tkCreatorsList: TopCreator[] =
+    allTkCreators && allTkCreators.length > 0 ? allTkCreators : (phase2.top_creators ?? []);
+  // 전체(all) = TK+IG+YT 합산 (전엔 TK만 → 전체=틱톡 동일 버그).
+  const topCreatorsBase: TopCreator[] =
+    channelMode === "ig"
+      ? igCreatorsList
+      : channelMode === "yt"
+        ? ytCreatorsList
+        : channelMode === "tk"
+          ? tkCreatorsList
+          : [...tkCreatorsList, ...igCreatorsList, ...ytCreatorsList];
   const sortFn = (a: TopCreator, b: TopCreator) => {
     if (sortBy === "views") return (b.max_views ?? 0) - (a.max_views ?? 0);
     if (sortBy === "gmv") return (b.lifetime_gmv_usd ?? 0) - (a.lifetime_gmv_usd ?? 0);
@@ -250,13 +251,13 @@ export function SectionBMockup({
           <div style={{ display: "grid", gridTemplateColumns: languageDist && languageDist.length > 0 ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 14 }}>
             <div style={{ padding: "10px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 11, color: "#374151", lineHeight: 1.8 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>📊 풀 요약 — 총 {all.length}명 ({channelMode === "all" ? "전 채널" : channelMode.toUpperCase()})</div>
-              메가 {tc("mega")} · 매크로 {tc("macro")} · 미드 {tc("mid")} · 마이크로 {tc("micro")} · 나노↓ {tc("nano") + tc("sub-nano")}
+              메가 {pct(tc("mega"))}% · 매크로 {pct(tc("macro"))}% · 미드 {pct(tc("mid"))}% · 마이크로 {pct(tc("micro"))}% · 나노↓ {pct(tc("nano") + tc("sub-nano"))}%
               <br />
               1회성 {pct(oneoff)}% vs 반복협업 {pct(repeat)}% · <b style={{ color: "#7c3aed" }}>상위 10%가 조회 {top10Share}% 집중</b>
             </div>
             {languageDist && languageDist.length > 0 && (
               <div style={{ padding: "10px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 11 }}>
-                <div style={{ fontWeight: 700, marginBottom: 6, color: "#374151" }}>🗣 콘텐츠 언어 (타깃 오디언스 시그널)</div>
+                <div style={{ fontWeight: 700, marginBottom: 6, color: "#374151" }}>🗣 콘텐츠 언어 — TikTok 기준 (타깃 오디언스 시그널)</div>
                 {languageDist.slice(0, 6).map((l) => {
                   const p = langTotal > 0 ? Math.round((l.count / langTotal) * 100) : 0;
                   return (
@@ -533,7 +534,7 @@ export function SectionBMockup({
                   </td>
                 </tr>
               ) : null}
-              {topCreators.slice(0, showAllCreators ? topCreators.length : 5).map((c) => {
+              {topCreators.slice(0, showAllCreators ? Math.min(topCreators.length, 20) : 5).map((c) => {
                 const xc = xcMap.get(normalize(c.handle));
                 const isCeleb = c.follower_count != null && c.follower_count >= 10_000_000;
                 const isOwned = ownedHandles?.has(normalize(c.handle)) ?? false;
@@ -620,8 +621,8 @@ export function SectionBMockup({
                       }}
                     >
                       {showAllCreators
-                        ? `▲ 5명만 보기`
-                        : `▼ + ${topCreators.length - 5}명 더보기 (전체 ${topCreators.length}명)`}
+                        ? `▲ 접기 (상위 5명만)`
+                        : `▼ 상위 ${Math.min(topCreators.length, 20)}명 보기 (총 ${topCreators.length.toLocaleString()}명)`}
                     </button>
                   </td>
                 </tr>

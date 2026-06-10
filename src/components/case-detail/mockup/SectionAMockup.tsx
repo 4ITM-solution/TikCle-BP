@@ -656,12 +656,14 @@ export function SectionAMockup({
         phase5.bsr_inflections.some((inf) => inf.top_videos.length > 0) && (
         <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            ✨ 변곡점 timeline (
-            {phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length}개 ·{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 급등 시점 전후(±7일)에 올라온 콘텐츠가 잡힌 것만</span>)
+            ✨ 변곡점 timeline (주요{" "}
+            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개 ·{" "}
+            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 급등 ±7일에 콘텐츠가 잡힌 급등 중 개선폭 상위</span>)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
+              .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
+              .slice(0, 15) // 줄줄이 방지 — 개선폭 큰 주요 급등 15개만
               .sort((a, b) => a.date.localeCompare(b.date))
               .map((inf, i) => (
                 <div

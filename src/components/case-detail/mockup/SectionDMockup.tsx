@@ -263,22 +263,23 @@ export function SectionDMockup({
 
   // 긴 SKU명 직관화 — 모든 SKU가 공유하는 브랜드 접두어를 떼고 구분되는 부분만 노출.
   // 예: "Oganacell PDRN Gua Sha Peptide..." → "PDRN Gua Sha Peptide..." (브랜드 중복 제거).
-  const skuCommonPrefix = (() => {
+  // 대소문자 무시로 공통 접두어 길이 계산 (Haruharu/haruharu/HARUHARU 혼용 대응).
+  const skuCommonPrefixLen = (() => {
     const names = skus.map((s) => s.name ?? "").filter((n) => n.length > 0);
-    if (names.length < 2) return "";
-    let p = names[0]!;
-    for (const n of names) {
-      while (p && !n.startsWith(p)) p = p.slice(0, -1);
-      if (!p) break;
+    if (names.length < 2) return 0;
+    const lower = names.map((n) => n.toLowerCase());
+    const first = lower[0]!;
+    let len = first.length;
+    for (const n of lower) {
+      while (len > 0 && n.slice(0, len) !== first.slice(0, len)) len -= 1;
+      if (len === 0) break;
     }
-    return p.replace(/\S*$/, "").trimEnd(); // 단어 경계에서 자르기
+    // 단어 경계까지만 (어중간하게 안 끊기게)
+    return (names[0] ?? "").slice(0, len).replace(/\S*$/, "").length;
   })();
   const shortSku = (name?: string | null, max = 26): string => {
     if (!name) return "(이름 없음)";
-    const stripped =
-      skuCommonPrefix && name.startsWith(skuCommonPrefix)
-        ? name.slice(skuCommonPrefix.length).trim()
-        : name;
+    const stripped = name.slice(skuCommonPrefixLen).trim();
     const s = stripped || name;
     return s.length > max ? `${s.slice(0, max)}…` : s;
   };
@@ -430,16 +431,21 @@ export function SectionDMockup({
               style={{
                 marginTop: 16,
                 padding: 14,
-                border: "1.5px solid #ec4899",
+                border: "1px solid #e5e7eb",
                 borderRadius: 8,
-                background: "#fdf2f8",
+                background: "#f9fafb",
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, color: "#831843" }}>
-                💰 Kalodata Brand 매출 분해 — {driverNote}
-                <span style={{ fontSize: 10, color: "#9d174d", fontWeight: 400, marginLeft: 6 }}>
-                  ({kalodataBrandKpi.period_start ?? "?"} ~ {kalodataBrandKpi.period_end ?? "?"})
-                </span>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "#374151" }}>
+                💰 매출 출처 분해 (Kalodata) — Self-운영 vs Affiliate(시딩) vs Shopping Mall
+              </div>
+              <div style={{ fontSize: 11, marginBottom: 10, color: "#7c3aed", fontWeight: 600 }}>
+                → {driverNote}
+                {kalodataBrandKpi.period_start && kalodataBrandKpi.period_end && (
+                  <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
+                    ({kalodataBrandKpi.period_start} ~ {kalodataBrandKpi.period_end})
+                  </span>
+                )}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
                 {[
@@ -452,7 +458,7 @@ export function SectionDMockup({
                     <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>
                       {formatUsdShort(s.val)} <span style={{ fontSize: 11, color: "#9ca3af" }}>· {pct(s.val)}%</span>
                     </div>
-                    <div style={{ height: 6, background: "#fce7f3", borderRadius: 3, marginTop: 4 }}>
+                    <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, marginTop: 4 }}>
                       <div style={{ height: "100%", width: `${pct(s.val)}%`, background: s.color, borderRadius: 3 }} />
                     </div>
                   </div>

@@ -1724,12 +1724,21 @@ export default async function CaseDetailPage({
         }>,
         tkLanguageDist: [] as Array<{ language: string; count: number }>,
       };
-    const { data: tkContents } = await supabase
-      .from("contents")
-      .select("influencer_id, views, is_ad, language")
-      .eq("brand_id", brand_id)
-      .not("influencer_id", "is", null)
-      .limit(50000);
+    // PostgREST가 응답을 1000행으로 캡 → .limit(50000) 무효. range로 페이지네이션해
+    // 전체 contents 수집(브랜드당 ~만 단위). 안 하면 distinct 인플이 크게 누락됨.
+    const tkContents: Array<{ influencer_id: string | null; views: number | null; is_ad: boolean | null; language: string | null }> = [];
+    const PAGE = 1000;
+    for (let off = 0; off < 100000; off += PAGE) {
+      const { data } = await supabase
+        .from("contents")
+        .select("influencer_id, views, is_ad, language")
+        .eq("brand_id", brand_id)
+        .not("influencer_id", "is", null)
+        .range(off, off + PAGE - 1);
+      if (!data || data.length === 0) break;
+      tkContents.push(...data);
+      if (data.length < PAGE) break;
+    }
     const byInf = new Map<string, { vc: number; maxV: number; promoted: number }>();
     const langCount = new Map<string, number>();
     for (const ct of tkContents ?? []) {

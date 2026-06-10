@@ -151,7 +151,7 @@ export function SkuHealthCards({
 
       {/* SKU 선택 시: 매출 잘 나온 영상 Top 5 + 뷰 잘 나온 영상 Top 5 — 2 col */}
       {isSingleSelected ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           <VideoTopCard
             title="⭐ 뷰 Top 영상 (이 SKU)"
             videos={[...matchedVideos]
