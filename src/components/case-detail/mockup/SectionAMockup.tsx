@@ -210,16 +210,7 @@ export function SectionAMockup({
     )[0];
   }, [phase5]);
 
-  // ─────────── 1인당 영상 분포 ───────────
-  const dist = phase2.videos_per_creator;
-  const distBuckets: Array<{ key: keyof typeof dist; label: string }> = [
-    { key: "1", label: "1편" },
-    { key: "2-4", label: "2-4편" },
-    { key: "5-9", label: "5-9편" },
-    { key: "10-19", label: "10-19편" },
-    { key: "20-49", label: "20+편" },
-  ];
-  const totalCreators = dist.total_creators || 1;
+  // 1인당 영상 분포는 B(인플 풀)의 활동 3축 분포로 이관 (Part2 A) — 여기선 제거.
 
   const fmtView = (n: number) =>
     n >= 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)}B` :
@@ -657,24 +648,7 @@ export function SectionAMockup({
         </div>
       )}
 
-      <div style={{ marginTop: 24, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>1인당 영상 분포 (인플 기준)</div>
-      {distBuckets.map((b) => {
-        const count = dist[b.key] as number;
-        const pct = Math.round((count / totalCreators) * 100);
-        return (
-          <div key={b.key} className="dist-row">
-            <span>{b.label}</span>
-            <div className="dist-bar">
-              <div className="dist-fill" style={{ width: `${pct}%` }} />
-            </div>
-            <span style={{ textAlign: "right" }}>{count.toLocaleString()}명</span>
-            <span style={{ color: "#9ca3af", textAlign: "right" }}>{pct}%</span>
-          </div>
-        );
-      })}
-      <div style={{ fontSize: 10, color: "#6b7280", marginTop: 6 }}>
-        ★ long-tail {Math.round(((dist["1"] as number) / totalCreators) * 100)}% — portfolio 전략 시그널
-      </div>
+      {/* 1인당 영상 분포 → B(인플 풀)의 활동 3축 분포로 이관 (Part2 A) */}
 
       {/* ★ 변곡점 timeline 카드 — phase5.bsr_inflections (Amazon BSR 급등 시점, day 단위 정확) */}
       {hasAmazon &&
