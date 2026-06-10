@@ -52,15 +52,23 @@ export default async function CasesPage({
   const channelsByCaseId: Record<string, string[]> = {};
   if (allCases.length > 0) {
     const caseIds = allCases.map((c) => c.id);
-    const { data: prods } = await supabase
-      .from("products")
-      .select("case_id, channel")
-      .in("case_id", caseIds);
     const set = new Map<string, Set<string>>();
-    for (const p of prods ?? []) {
-      if (!p.case_id || !p.channel) continue;
-      if (!set.has(p.case_id)) set.set(p.case_id, new Set());
-      set.get(p.case_id)!.add(String(p.channel));
+    // PostgREST 1000행 캡 → 케이스 많으면 일부 제품만 잡혀 채널 뱃지가 cases.channel 로
+    // fallback(다 "Amazon")됨. range 로 전체 페이지네이션해 모든 제품 채널 수집.
+    const PAGE = 1000;
+    for (let off = 0; off < 200000; off += PAGE) {
+      const { data: prods } = await supabase
+        .from("products")
+        .select("case_id, channel")
+        .in("case_id", caseIds)
+        .range(off, off + PAGE - 1);
+      if (!prods || prods.length === 0) break;
+      for (const p of prods) {
+        if (!p.case_id || !p.channel) continue;
+        if (!set.has(p.case_id)) set.set(p.case_id, new Set());
+        set.get(p.case_id)!.add(String(p.channel));
+      }
+      if (prods.length < PAGE) break;
     }
     for (const [cid, ch] of set) channelsByCaseId[cid] = [...ch].sort();
   }
