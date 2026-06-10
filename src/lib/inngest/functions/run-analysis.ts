@@ -76,6 +76,13 @@ export const runAnalysis = inngest.createFunction(
   {
     id: "case-run-analysis",
     retries: 1,
+    // 같은 케이스에 이벤트가 겹쳐 들어와도 동시 실행 금지 (케이스당 1개씩 직렬화).
+    // 없으면 phase4b cleanup→insert 가 동시 런과 race → content_clusters 누적
+    // (6769b0bb 91개) + 메타↔멤버 미스정렬. 다른 case_id 끼리는 그대로 병렬.
+    concurrency: {
+      limit: 1,
+      key: "event.data.case_id",
+    },
     onFailure: async ({ event, error }) => {
       // 모든 retry 소진 후 호출. case status가 'running'에 stuck되지 않게
       // 'ready'로 reset + key_stats에 last_error 저장 → UI에서 alert + 재실행 가능
