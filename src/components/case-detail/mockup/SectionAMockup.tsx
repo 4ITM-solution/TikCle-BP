@@ -66,6 +66,9 @@ export function SectionAMockup({
   const [barMode, setBarMode] = useState<BarMode>("abs");
   // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
   const [show, setShow] = useState({ tier: true, ad: false, bsr: false, vc: true });
+  // BSR 데이터 있으면 자동 ON (오버레이 기본 off라 데이터 있어도 안 보이던 문제).
+  //   최초 1회만 켜고 이후 사용자 토글은 존중.
+  const [bsrAutoOn, setBsrAutoOn] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const tkVids = phase2.total_contents ?? 0;
@@ -201,6 +204,14 @@ export function SectionAMockup({
   const bsrMin = bsrVals.length ? Math.min(...bsrVals) : 0;
   const bsrMax = bsrVals.length ? Math.max(...bsrVals) : 1;
   const bsrRange = bsrMax - bsrMin || 1;
+
+  // BSR 데이터가 잡히면 최초 1회 자동으로 라인 ON (이후 사용자가 끄면 존중).
+  useEffect(() => {
+    if (!bsrAutoOn && bsrVals.length > 0) {
+      setShow((s) => ({ ...s, bsr: true }));
+      setBsrAutoOn(true);
+    }
+  }, [bsrVals.length, bsrAutoOn]);
 
   // 변곡점 callout
   const topInflection = useMemo(() => {
