@@ -479,7 +479,6 @@ export function parseKalodata(raw: string): KalodataParsed {
   const productStart = findSectionStart(/^Product\(\d+\s*items?\)/);
   const videoStart = findSectionStart(/^Video\s*&\s*Ad\(\d+\s*items?\)/);
   const liveStart = findSectionStart(/^Live\(\d+\s*items?\)/);
-  const creatorStart = findSectionStart(/^Creator\(\d+\s*items?\)/);
 
   // 3) Products 파싱 (Product 섹션 ~ 다음 섹션 또는 끝까지)
   const products: KalodataProductRow[] = [];
