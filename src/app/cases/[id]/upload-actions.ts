@@ -1061,12 +1061,25 @@ export async function uploadKalodata(
     .single();
   const existingStats = (caseRow?.key_stats as Record<string, unknown>) ?? {};
   const existingVideos =
-    (existingStats.kalodata_videos as { caption: string }[] | undefined) ?? [];
-  // dedupe by caption (Kalodata가 한 영상에 unique id 안 줘서 caption이 최선)
-  const existingCaptions = new Set(existingVideos.map((v) => v.caption));
+    (existingStats.kalodata_videos as {
+      caption: string;
+      revenue_usd?: number | null;
+      views?: number | null;
+      publish_date?: string | null;
+    }[] | undefined) ?? [];
+  // dedupe (Kalodata가 한 영상에 unique id 안 줘서) — caption 단독은 위험:
+  //   캡션 없는 영상(설명 X)이 여럿이면 caption="" 끼리 충돌해 두 번째가 통째로 누락됨.
+  //   → caption + 매출 + 조회수 + 게시일 조합을 키로 사용.
+  const videoKey = (v: {
+    caption: string;
+    revenue_usd?: number | null;
+    views?: number | null;
+    publish_date?: string | null;
+  }) => `${v.caption}@${v.revenue_usd ?? ""}@${v.views ?? ""}@${v.publish_date ?? ""}`;
+  const existingVideoKeys = new Set(existingVideos.map(videoKey));
   const mergedVideos = [
     ...existingVideos,
-    ...parsed.videos.filter((v) => !existingCaptions.has(v.caption)),
+    ...parsed.videos.filter((v) => !existingVideoKeys.has(videoKey(v))),
   ];
 
   // Lives 누적 (title + start_at 조합으로 dedupe — 같은 라이브 두 번 안 박힘)

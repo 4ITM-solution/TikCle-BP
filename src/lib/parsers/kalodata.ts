@@ -604,19 +604,25 @@ export function parseKalodata(raw: string): KalodataParsed {
   if (videoStart >= 0) {
     const endIdx = liveStart > videoStart ? liveStart : lines.length;
     const slice = lines.slice(videoStart, endIdx);
-    // 행 패턴:
+    // 행 패턴 (캡션 있음, 4줄):
     //   "1"
     //   <캡션 1줄 — #해시태그 + 텍스트>
     //   "41s" (duration)
     //   "$15.02k\t304.1k\t987\t04/21/2026" (revenue \t views \t item_sold \t publish_date)
+    // 캡션 없는 영상(설명 텍스트 X)은 3줄 — rank 다음 줄이 곧장 duration:
+    //   "10"
+    //   "1m 53s" (duration)
+    //   "$6.37k\t351.56k\t315\t04/04/2026"
+    // → slice[i+1]이 duration 패턴이면 캡션 빈칸으로 보고 한 줄 시프트(이 처리 안 하면 row 통째로 누락).
     let i = 0;
     while (i < slice.length) {
       const line = slice[i]!;
       if (/^\d{1,3}$/.test(line)) {
         const rank = parseInt(line, 10);
-        const caption = slice[i + 1] ?? "";
-        const durLine = slice[i + 2] ?? "";
-        const dataLine = slice[i + 3] ?? "";
+        const captionLessLayout = parseDurationSeconds(slice[i + 1] ?? "") != null;
+        const caption = captionLessLayout ? "" : slice[i + 1] ?? "";
+        const durLine = captionLessLayout ? slice[i + 1] ?? "" : slice[i + 2] ?? "";
+        const dataLine = captionLessLayout ? slice[i + 2] ?? "" : slice[i + 3] ?? "";
         const dur = parseDurationSeconds(durLine);
         // dataLine: 4개 cell — $rev \t views \t item_sold \t MM/DD/YYYY
         const cells = dataLine.split(/[\t\s]+/).filter(Boolean);
@@ -629,7 +635,6 @@ export function parseKalodata(raw: string): KalodataParsed {
         if (
           rank >= 1 &&
           rank <= 5000 &&
-          caption &&
           (moneyCell || dateCell) &&
           dur != null
         ) {
@@ -642,7 +647,7 @@ export function parseKalodata(raw: string): KalodataParsed {
             item_sold: parseMagnitude(numCells[1]),
             publish_date: parseUsDate(dateCell),
           });
-          i += 4;
+          i += captionLessLayout ? 3 : 4;
           continue;
         }
       }
