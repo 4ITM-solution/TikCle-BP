@@ -261,6 +261,28 @@ export function SectionDMockup({
     }));
   };
 
+  // 긴 SKU명 직관화 — 모든 SKU가 공유하는 브랜드 접두어를 떼고 구분되는 부분만 노출.
+  // 예: "Oganacell PDRN Gua Sha Peptide..." → "PDRN Gua Sha Peptide..." (브랜드 중복 제거).
+  const skuCommonPrefix = (() => {
+    const names = skus.map((s) => s.name ?? "").filter((n) => n.length > 0);
+    if (names.length < 2) return "";
+    let p = names[0]!;
+    for (const n of names) {
+      while (p && !n.startsWith(p)) p = p.slice(0, -1);
+      if (!p) break;
+    }
+    return p.replace(/\S*$/, "").trimEnd(); // 단어 경계에서 자르기
+  })();
+  const shortSku = (name?: string | null, max = 26): string => {
+    if (!name) return "(이름 없음)";
+    const stripped =
+      skuCommonPrefix && name.startsWith(skuCommonPrefix)
+        ? name.slice(skuCommonPrefix.length).trim()
+        : name;
+    const s = stripped || name;
+    return s.length > max ? `${s.slice(0, max)}…` : s;
+  };
+
   return (
     <div className="section" id="sec-d">
       <div className="section-h">
@@ -303,41 +325,36 @@ export function SectionDMockup({
         </div>
       </div>
 
-      {/* SKU selector — mockup line 1043-1061 */}
+      {/* SKU 필터 — 중립 필터 UI (알럿처럼 안 보이게). 선택 시 아래 표/차트 종속 갱신. */}
       <div
         style={{
-          background: "linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)",
-          border: "1.5px solid #d97706",
+          background: "#f9fafb",
+          border: "1px solid #e5e7eb",
           borderRadius: 8,
           padding: "10px 14px",
           marginBottom: 14,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: "#92400e", fontWeight: 700 }}>🎯 SKU 필터:</span>
-          <span style={{ fontSize: 10, color: "#b45309" }}>
-            선택한 SKU 기준으로 아래 모든 차트/표가 갱신
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: "#374151", fontWeight: 700 }}>SKU 필터</span>
+          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+            선택하면 아래 모든 표·차트가 그 SKU 기준으로 바뀝니다
           </span>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${Math.min(skus.length + 1, 9)}, 1fr)`,
-            gap: 4,
-          }}
-        >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <button
             type="button"
             onClick={() => onSelectSku("all")}
             style={{
-              padding: "6px 4px",
-              fontSize: 10,
-              border: "1px solid #d97706",
+              padding: "5px 12px",
+              fontSize: 11,
+              border: "1px solid",
+              borderColor: selectedSku === "all" ? "#1f2937" : "#d1d5db",
               background: selectedSku === "all" ? "#1f2937" : "white",
-              color: selectedSku === "all" ? "white" : "#92400e",
-              borderRadius: 4,
+              color: selectedSku === "all" ? "white" : "#374151",
+              borderRadius: 6,
               cursor: "pointer",
-              fontWeight: 700,
+              fontWeight: 600,
             }}
           >
             전체 ({skus.length} SKU)
@@ -348,29 +365,31 @@ export function SectionDMockup({
               type="button"
               onClick={() => onSelectSku(s.asin ?? "")}
               style={{
-                padding: "6px 4px",
-                fontSize: 10,
-                border: "1px solid #fde68a",
+                padding: "5px 12px",
+                fontSize: 11,
+                border: "1px solid",
+                borderColor: selectedSku === s.asin ? "#1f2937" : "#d1d5db",
                 background: selectedSku === s.asin ? "#1f2937" : "white",
-                color: selectedSku === s.asin ? "white" : "#92400e",
-                borderRadius: 4,
+                color: selectedSku === s.asin ? "white" : "#374151",
+                borderRadius: 6,
                 cursor: "pointer",
+                maxWidth: 220,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
               }}
-              title={s.name}
+              title={s.name ?? ""}
             >
-              {s.name && s.name.length > 14 ? `${s.name.slice(0, 14)}…` : s.name}
+              {shortSku(s.name)}
             </button>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: "#92400e", marginTop: 6, fontWeight: 600 }}>
+        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 8 }}>
           현재 선택:{" "}
-          <b>
+          <b style={{ color: "#374151" }}>
             {selectedSku === "all"
               ? `전체 ${skus.length} SKU`
-              : skus.find((s) => s.asin === selectedSku)?.name ?? selectedSku}
+              : shortSku(skus.find((s) => s.asin === selectedSku)?.name, 60)}
           </b>{" "}
           · 30일 GMV {formatUsdShort(totalRev)}
           {totalUnits > 0 && ` · ${totalUnits.toLocaleString()} 단위 판매`}
@@ -528,7 +547,7 @@ export function SectionDMockup({
             <div key={skuAsin || i} className="hero-card">
               <div className="hc-rank">Top {i + 1} 매출</div>
               <div className="hc-sku" title={sku.name}>
-                {sku.name && sku.name.length > 28 ? `${sku.name.slice(0, 28)}…` : sku.name}
+                {shortSku(sku.name, 32)}
               </div>
               <div className="hc-rev">
                 {formatUsdShort(sku.revenue ?? 0)} · {pct}%
@@ -671,7 +690,7 @@ export function SectionDMockup({
                     <tr key={s.asin}>
                       <td>
                         <b>
-                          {s.name && s.name.length > 40 ? `${s.name.slice(0, 40)}…` : s.name}
+                          {shortSku(s.name, 40)}
                         </b>
                         {g.count > 1 && (
                           <span
