@@ -212,21 +212,47 @@ export async function pass1FindCandidates(
     sample_member_id_format: null,
   };
 
+  // 배치 빌드
+  const pass1Batches: { batchIdx: number; userText: string }[] = [];
   for (let i = 0; i < videos.length; i += PASS1_BATCH_SIZE) {
-    diag.batches += 1;
     const batch = videos.slice(i, i + PASS1_BATCH_SIZE);
-    const userText = batch.map(summarizeVideo).join("\n");
-    const result = await callAnthropicJson(
-      PASS1_SYSTEM,
-      `Videos:\n${userText}`,
-      // 80영상 × 8자리 ID × 4-10클러스터 → 출력 2K+ 토큰. 여유있게 5K.
-      5000,
+    pass1Batches.push({
+      batchIdx: i / PASS1_BATCH_SIZE,
+      userText: batch.map(summarizeVideo).join("\n"),
+    });
+  }
+  diag.batches = pass1Batches.length;
+
+  // ★ LLM 호출 동시성 제한 병렬 — 기존엔 배치를 순차 await 해서, 영상 많을 때
+  //   (예: ~900개=12배치) pass1만 8분+ 걸려 Vercel 800s 한계 초과 → 타임아웃(500)이
+  //   클러스터링 실패의 근본 원인이었음. waves(5개씩 동시)로 묶어 pass1 시간을
+  //   1/5 수준으로 단축. rate-limit 안전 위해 동시성 5로 제한.
+  const PASS1_CONCURRENCY = 5;
+  const llmResults: {
+    batchIdx: number;
+    result: Awaited<ReturnType<typeof callAnthropicJson>>;
+  }[] = [];
+  for (let i = 0; i < pass1Batches.length; i += PASS1_CONCURRENCY) {
+    const wave = pass1Batches.slice(i, i + PASS1_CONCURRENCY);
+    const settled = await Promise.all(
+      wave.map(async (b) => ({
+        batchIdx: b.batchIdx,
+        // 80영상 × 8자리 ID × 4-10클러스터 → 출력 2K+ 토큰. 여유있게 5K.
+        result: await callAnthropicJson(PASS1_SYSTEM, `Videos:\n${b.userText}`, 5000),
+      })),
     );
+    llmResults.push(...settled);
+  }
+  // 결정적 처리 순서 (sample_member_id_format 등 안정화)
+  llmResults.sort((a, b) => a.batchIdx - b.batchIdx);
+
+  // 결과 처리 — 순차(공유 상태 candidates/usage/diag mutation 안전)
+  for (const { batchIdx, result } of llmResults) {
     addUsage(usage, result.usage);
     if (!result.json) {
       diag.parse_failures += 1;
       console.warn(
-        `[clusterer pass1] JSON parse failed for batch ${i / PASS1_BATCH_SIZE} (size=${batch.length}, output_tokens=${result.usage.output})`,
+        `[clusterer pass1] JSON parse failed for batch ${batchIdx} (output_tokens=${result.usage.output})`,
       );
       continue;
     }
