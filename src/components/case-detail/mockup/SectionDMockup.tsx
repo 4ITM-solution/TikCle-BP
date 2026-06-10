@@ -259,10 +259,18 @@ export function SectionDMockup({
     if (!skuName || !kalodataVideos || kalodataVideos.length === 0) return [];
     const cleanName = (s: string) =>
       s.toLowerCase().replace(/^kalodata:\s*/, "").replace(/^\[[^\]]*\]\s*-\s*/, "").trim();
-    const skuKey = cleanName(skuName).slice(0, 18);
-    if (skuKey.length < 5) return [];
+    // ★ 제목 전체 양방향 포함 매칭 — 기존엔 앞 18글자 prefix만 비교해, 같은 제품라인
+    //   SKU들(예: "...Centella Asiatica..." vs "...CentellaAsiatica...")이 앞부분이
+    //   동일해 같은 영상에 전부 매칭되던 버그. 영상 product_title 전체와 SKU명 전체를
+    //   대조(한쪽이 다른쪽을 contiguous 포함)해 SKU별로 정확히 분리.
+    const skuClean = cleanName(skuName);
+    if (skuClean.length < 8) return [];
     const fallback = kalodataVideos
-      .filter((v) => v.product_title && cleanName(v.product_title).includes(skuKey))
+      .filter((v) => {
+        if (!v.product_title) return false;
+        const vt = cleanName(v.product_title);
+        return vt.length >= 8 && (skuClean.includes(vt) || vt.includes(skuClean));
+      })
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 5);
     // DisplayedVideoEntry 키 정확히 맞춤 — caption_preview / matched_sku_names / confidence.
@@ -454,7 +462,8 @@ export function SectionDMockup({
 
       {/* 채널 + 기간 toggle — availableSalesChannels (products.channel 분포) 기반 active.
           여러 채널 있는 케이스면 toggle 클릭 시 sku_sales filter. 1 채널만 있으면 그 채널 active 만. */}
-      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+      {/* 위 "매출 콘텐츠 분해" 박스와 붙어 침범해 보이던 문제 — 상단 여백+구분선으로 분리. */}
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid #f3f4f6", marginBottom: 14, flexWrap: "wrap" }}>
         <div>
           <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>채널:</span>
           <div className="ch-toggle">
