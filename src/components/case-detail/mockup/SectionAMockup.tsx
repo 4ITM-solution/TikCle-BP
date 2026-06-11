@@ -261,10 +261,12 @@ export function SectionAMockup({
   const LINE_BOT = 190;
   const bandY = (frac: number) =>
     LINE_TOP + (1 - Math.max(0, Math.min(1, frac))) * (LINE_BOT - LINE_TOP);
-  // ★ 영상수 라인은 막대(영상수)와 같은 데이터 → 막대 top에 정확히 얹히게 full plot[0,222]
-  //   사용. bandY는 광고·BSR 등 다른 y축 라인이 천장/바닥 안 닿게 하는 inset 밴드라
-  //   막대 top과 어긋남(높은 막대에선 라인이 막대보다 아래로 깔리던 문제).
-  const barTopY = (frac: number) => (1 - Math.max(0, Math.min(1, frac))) * 222;
+  // ★ 영상수 라인은 막대(영상수)와 같은 데이터 → 막대 top에 얹히게 full plot 매핑.
+  //   단 [LINE_TOP, LINE_BOT]로 clamp — 영상 적은 달은 막대가 짧아 라인이 바닥(라벨
+  //   영역)까지 처지고, 영상 많은 달은 천장에 닿던 문제 방지. 보통 범위 달은 막대 top
+  //   정확히 추종, 극단(아주 짧은/높은 막대)만 밴드 안에 floor/cap.
+  const barTopY = (frac: number) =>
+    Math.max(LINE_TOP, Math.min((1 - Math.max(0, Math.min(1, frac))) * 222, LINE_BOT));
 
   return (
     <div className="section" id="sec-a">
