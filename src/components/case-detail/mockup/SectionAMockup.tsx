@@ -261,6 +261,10 @@ export function SectionAMockup({
   const LINE_BOT = 190;
   const bandY = (frac: number) =>
     LINE_TOP + (1 - Math.max(0, Math.min(1, frac))) * (LINE_BOT - LINE_TOP);
+  // ★ 영상수 라인은 막대(영상수)와 같은 데이터 → 막대 top에 정확히 얹히게 full plot[0,222]
+  //   사용. bandY는 광고·BSR 등 다른 y축 라인이 천장/바닥 안 닿게 하는 inset 밴드라
+  //   막대 top과 어긋남(높은 막대에선 라인이 막대보다 아래로 깔리던 문제).
+  const barTopY = (frac: number) => (1 - Math.max(0, Math.min(1, frac))) * 222;
 
   return (
     <div className="section" id="sec-a">
@@ -434,7 +438,7 @@ export function SectionAMockup({
                   .map((mo, i) => {
                     const x = (i / (months.length - 1)) * 1000 + 50;
                     const total = totalByMonth.get(mo) ?? 0;
-                    const y = bandY(total / maxVids);
+                    const y = barTopY(total / maxVids);
                     return `${x},${y}`;
                   })
                   .join(" ")}
@@ -512,7 +516,7 @@ export function SectionAMockup({
               const mo = months[idx]!;
               const total = totalByMonth.get(mo) ?? 0;
               // dot 도 라인과 동일 밴드(bandY)에 맞춰 — 라인 위에 정확히 얹힘.
-              const vcY = total > 0 ? bandY(total / maxVids) : bandY(0);
+              const vcY = total > 0 ? barTopY(total / maxVids) : barTopY(0);
               const bsr = bsrByMonth.get(mo);
               const bsrY = bsr !== undefined && bsrVals.length > 0 ? bandY(1 - (bsr - bsrMin) / bsrRange) : null;
               return (
