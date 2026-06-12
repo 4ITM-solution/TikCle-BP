@@ -503,8 +503,8 @@ export function SectionAMockup({
               return (
                 <g key={`inf-${infI}`}>
                   <text x={x} y={14} fontSize="14" textAnchor="middle" fill="#ec4899" style={{ cursor: "pointer" }}>★</text>
-                  {/* 변곡점 점선 — 바닥(=라벨 영역)까지 안 내려가게 200에서 끝냄 (라인 밴드와 톤 맞춤). */}
-                  <line x1={x} y1={18} x2={x} y2={200} stroke="#ec4899" strokeWidth="1" strokeDasharray="3 2" opacity="0.4" />
+                  {/* 변곡점 점선 — 트렌드 라인 밴드 바닥(158)에 맞춰 160에서 끝냄. 라벨 영역 안 침범. */}
+                  <line x1={x} y1={18} x2={x} y2={160} stroke="#ec4899" strokeWidth="1" strokeDasharray="3 2" opacity="0.4" />
                 </g>
               );
             })}
