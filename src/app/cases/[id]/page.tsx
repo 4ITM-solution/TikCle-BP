@@ -3065,6 +3065,14 @@ export default async function CaseDetailPage({
                               kalodata_brand?: import("@/lib/parsers/kalodata").KalodataBrandKpi | null;
                             })?.kalodata_brand ?? null
                           }
+                          kalodataBrandPeriods={
+                            (keyStats as unknown as {
+                              kalodata_brand_periods?: Record<
+                                string,
+                                import("@/lib/parsers/kalodata").KalodataBrandKpi
+                              >;
+                            })?.kalodata_brand_periods ?? null
+                          }
                           liveVideoStats={(() => {
                             const ks2 = keyStats as unknown as {
                               kalodata_creators_xlsx?: KalodataCreatorXlsxRow[];

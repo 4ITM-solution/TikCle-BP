@@ -45,7 +45,8 @@ export function SectionDMockup({
   skuMetaMap,
   kalodataInOtherCases,
   bsrInflections,
-  kalodataBrandKpi,
+  kalodataBrandKpi: kalodataBrandKpiRaw,
+  kalodataBrandPeriods,
   liveVideoStats,
   bsrSeries,
   bsrSkus,
@@ -93,6 +94,8 @@ export function SectionDMockup({
   bsrInflections?: BsrInflection[];
   /** Kalodata Brand KPI — Self/Affiliate/Mall % 분해 (SEA TT Shop case 의 BP 분석 핵심) */
   kalodataBrandKpi?: KalodataBrandKpi | null;
+  /** 기간별(period_end 키) 브랜드 KPI 시계열 — 기간 토글로 선택해 그 기간 매출/분해 표시. */
+  kalodataBrandPeriods?: Record<string, KalodataBrandKpi> | null;
   /** Kalodata 크리에이터별 live/video GMV — 라이브 vs 영상 매출 분해 + 포맷별 크리에이터 (page.tsx). */
   liveVideoStats?: {
     liveGmv: number;
@@ -151,6 +154,14 @@ export function SectionDMockup({
   };
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
+  // ★ 기간별 브랜드 KPI — 토글로 선택. 기본 "latest"(누적/최근 복붙 = kalodataBrandKpiRaw).
+  //   period_end 키 목록은 내림차순(최근 먼저).
+  const brandPeriodKeys = Object.keys(kalodataBrandPeriods ?? {}).sort().reverse();
+  const [brandPeriod, setBrandPeriod] = useState<string>("latest");
+  const kalodataBrandKpi: KalodataBrandKpi | null =
+    brandPeriod !== "latest" && kalodataBrandPeriods?.[brandPeriod]
+      ? kalodataBrandPeriods[brandPeriod]
+      : kalodataBrandKpiRaw ?? null;
   const onSelectSku = setSelectedSku;
   const [skuShowAll, setSkuShowAll] = useState(false);
   const [vidShowAll, setVidShowAll] = useState(false);
@@ -317,6 +328,53 @@ export function SectionDMockup({
         <span className="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
       </div>
 
+      {/* ★ 기간 토글 — 기간별 브랜드 KPI가 2개+ 있을 때. 선택 기간의 매출/분해 표시. */}
+      {brandPeriodKeys.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+            fontSize: 12,
+          }}
+        >
+          <span style={{ color: "#6b7280", fontWeight: 600 }}>📅 브랜드 매출 기간:</span>
+          <select
+            value={brandPeriod}
+            onChange={(e) => setBrandPeriod(e.target.value)}
+            style={{
+              padding: "5px 10px",
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <option value="latest">최근/누적 (마지막 복붙)</option>
+            {brandPeriodKeys.map((pk) => {
+              const k = kalodataBrandPeriods?.[pk];
+              const rev = k?.revenue_usd;
+              const revLabel =
+                rev != null
+                  ? rev >= 1_000_000
+                    ? ` · $${(rev / 1_000_000).toFixed(2)}M`
+                    : ` · $${Math.round(rev / 1000)}K`
+                  : "";
+              return (
+                <option key={pk} value={pk}>
+                  {k?.period_start ?? "?"} ~ {pk}
+                  {revLabel}
+                </option>
+              );
+            })}
+          </select>
+          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+            {brandPeriodKeys.length}개 기간 적재됨
+          </span>
+        </div>
+      )}
+
       {/* ── 전체 브랜드 기준 (채널 토글과 무관) — Kalodata 매출 분해 ── */}
       {(kalodataBrandKpi &&
         (kalodataBrandKpi.self_operated_revenue_usd != null ||
@@ -393,14 +451,25 @@ export function SectionDMockup({
         (liveVideoStats.liveGmv > 0 || liveVideoStats.videoGmv > 0) &&
         (() => {
           const lv = liveVideoStats;
-          const pc = lv.productCardGmv ?? 0;
-          const tot = lv.liveGmv + lv.videoGmv + pc;
+          // 기간 선택 시 그 기간 By Content 분해(effective brand KPI) 사용. 크리에이터 포맷
+          //   카운트는 xlsx 기반이라 기간 무관 — 누적 유지.
+          const useP =
+            brandPeriod !== "latest" &&
+            kalodataBrandKpi != null &&
+            (kalodataBrandKpi.live_revenue_usd != null ||
+              kalodataBrandKpi.video_revenue_usd != null);
+          const liveGmv = useP ? kalodataBrandKpi!.live_revenue_usd ?? 0 : lv.liveGmv;
+          const videoGmv = useP ? kalodataBrandKpi!.video_revenue_usd ?? 0 : lv.videoGmv;
+          const pc = useP
+            ? kalodataBrandKpi!.product_card_revenue_usd ?? 0
+            : lv.productCardGmv ?? 0;
+          const tot = liveGmv + videoGmv + pc;
           const pctOf = (n: number) => (tot > 0 ? Math.round((n / tot) * 100) : 0);
-          const livePct = pctOf(lv.liveGmv);
-          const videoPct = pctOf(lv.videoGmv);
+          const livePct = pctOf(liveGmv);
+          const videoPct = pctOf(videoGmv);
           const pcPct = pctOf(pc);
           const verdict =
-            lv.liveGmv >= lv.videoGmv && livePct >= 45 ? "🔴 라이브 driven 브랜드"
+            liveGmv >= videoGmv && livePct >= 45 ? "🔴 라이브 driven 브랜드"
             : videoPct >= 45 ? "🎬 영상 driven 브랜드"
             : "⚖️ 혼합형";
           const fF = (n: number | null) =>
@@ -417,8 +486,8 @@ export function SectionDMockup({
                 {pc > 0 && <div style={{ width: `${pcPct}%`, background: "#06b6d4" }} title={`Product Card ${pcPct}%`} />}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 11, color: "#374151", marginBottom: 12 }}>
-                <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(lv.liveGmv)}</b> · {livePct}%</span>
-                <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(lv.videoGmv)}</b> · {videoPct}%</span>
+                <span><b style={{ color: "#ef4444" }}>🔴 Live {formatUsdShort(liveGmv)}</b> · {livePct}%</span>
+                <span><b style={{ color: "#3b82f6" }}>🎬 Video {formatUsdShort(videoGmv)}</b> · {videoPct}%</span>
                 {pc > 0 && <span><b style={{ color: "#06b6d4" }}>🛒 Product Card {formatUsdShort(pc)}</b> · {pcPct}%</span>}
               </div>
               {lv.liveCount + lv.videoCount + lv.mixedCount > 0 ? (

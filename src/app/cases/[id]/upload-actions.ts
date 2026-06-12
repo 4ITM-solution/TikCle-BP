@@ -1106,9 +1106,23 @@ export async function uploadKalodata(
   }
   mergedBrand.captured_at = new Date().toISOString();
 
+  // ★ 기간별 브랜드 KPI 시계열 — period_end 키로 누적(덮어쓰기 X). 화면 기간 토글용.
+  //   실제 Core Metrics(기간+매출)가 파싱된 복붙일 때만 그 기간 entry 저장. 제품만 붙인
+  //   복붙(brand_kpi 전부 null)은 기간 entry 안 만듦(오늘 날짜로 오염 방지).
+  const existingPeriods =
+    (existingStats.kalodata_brand_periods as Record<string, unknown>) ?? {};
+  const mergedPeriods: Record<string, unknown> = { ...existingPeriods };
+  if (parsed.brand_kpi.period_end && parsed.brand_kpi.revenue_usd != null) {
+    mergedPeriods[parsed.brand_kpi.period_end] = {
+      ...parsed.brand_kpi,
+      captured_at: new Date().toISOString(),
+    };
+  }
+
   const newStats = {
     ...existingStats,
     kalodata_brand: mergedBrand,
+    kalodata_brand_periods: mergedPeriods,
     kalodata_videos: mergedVideos,
     kalodata_lives: mergedLives,
   } as Record<string, unknown>;
