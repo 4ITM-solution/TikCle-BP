@@ -2141,13 +2141,19 @@ export default async function CaseDetailPage({
               //   원하는 채널 카드만 눌러서 넣는다. (meta/ig/yt는 케이스 설정/자동수집이라 업로드 없음)
               uploadUI:
                 ch === "tiktok_video" ? (
-                  <ExolytSection
-                    case_id={c.id}
-                    hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
-                    reusable={reusable}
-                    reusedAlready={reusedAlready}
-                    contentCount={contentCount ?? 0}
-                  />
+                  <>
+                    <ExolytSection
+                      case_id={c.id}
+                      hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
+                      reusable={reusable}
+                      reusedAlready={reusedAlready}
+                      contentCount={contentCount ?? 0}
+                    />
+                    <BrandViewTrendsSection
+                      case_id={c.id}
+                      existingWeeks={weeklyViews.length}
+                    />
+                  </>
                 ) : ch === "amazon" ? (
                   <>
                     <AmazonSalesSection
