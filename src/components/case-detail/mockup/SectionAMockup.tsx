@@ -257,18 +257,15 @@ export function SectionAMockup({
   // 오버레이 라인(영상수·광고비중·BSR) 표시 밴드 — viewBox 0~222 중 안쪽 [6,190]로 보정.
   // 막대(티어 stack)와 라인이 같은 plot을 '다른 y축'으로 겹쳐 쓰므로, 라인 값이 0일 때
   // 바닥(=날짜축)에 깔리거나 max일 때 천장에 닿는 걸 방지. frac(0~1) → 밴드 안 y.
-  // 오버레이 라인 밴드 — 위아래 여백 충분히. 데이터 범위 큰 달(예: 128~2180)에서
-  //   라인이 천장(토글)·바닥(라벨)까지 꽉 차 "튀어나와" 보이던 문제 → 안쪽 [22,178]로 가둠.
-  const LINE_TOP = 22;
-  const LINE_BOT = 178;
+  // 오버레이 라인 밴드 — plot 위쪽 [28,158]에만 머물게. 데이터 범위 큰 달(128~2180)에서
+  //   짧은 막대 달에 라인이 바닥(=라벨 영역)까지 처져 텍스트랑 붙어 보이던 문제 →
+  //   모든 라인(영상수·광고·BSR)을 같은 상단 밴드로 가둬 텍스트 영역과 확실히 분리.
+  const LINE_TOP = 28;
+  const LINE_BOT = 158;
   const bandY = (frac: number) =>
     LINE_TOP + (1 - Math.max(0, Math.min(1, frac))) * (LINE_BOT - LINE_TOP);
-  // ★ 영상수 라인은 막대(영상수)와 같은 데이터 → 막대 top에 얹히게 full plot 매핑.
-  //   단 [LINE_TOP, LINE_BOT]로 clamp — 영상 적은 달은 막대가 짧아 라인이 바닥(라벨
-  //   영역)까지 처지고, 영상 많은 달은 천장에 닿던 문제 방지. 보통 범위 달은 막대 top
-  //   정확히 추종, 극단(아주 짧은/높은 막대)만 밴드 안에 floor/cap.
-  const barTopY = (frac: number) =>
-    Math.max(LINE_TOP, Math.min((1 - Math.max(0, Math.min(1, frac))) * 222, LINE_BOT));
+  // 영상수 라인도 같은 밴드 사용 (막대 top 정밀 추종보다 "텍스트와 분리"를 우선).
+  const barTopY = bandY;
 
   return (
     <div className="section" id="sec-a">
