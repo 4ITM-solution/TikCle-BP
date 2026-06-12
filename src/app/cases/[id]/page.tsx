@@ -2117,7 +2117,8 @@ export default async function CaseDetailPage({
       {/* Status branch */}
       {c.status === "draft" ? (
         <>
-          {/* ★ Phase 4: 데이터 채널 그리드 — 활성/비활성 한눈에. 입력은 Section 02 토글 유지 */}
+          {/* ★ 데이터 채널 그리드 — 카드 클릭 → 그 채널 입력 UI 펼침. 원하는 채널만 골라 적재.
+              (구 고정 "Section 02" 제거 — 채널 gating 없이 카드가 유일한 입력구) */}
           <div id="sec-channels" style={{ scrollMarginTop: 80 }} />
           <DataChannelGrid
             cards={[
@@ -2135,195 +2136,129 @@ export default async function CaseDetailPage({
               sub: dataChannels.includes(ch)
                 ? "활성"
                 : "이 케이스 사용 안 함",
+              // ★ 카드 클릭 → 그 채널 입력 UI 펼침. 채널 gating(c.channel) 제거 —
+              //   원하는 채널 카드만 눌러서 넣는다. (meta/ig/yt는 케이스 설정/자동수집이라 업로드 없음)
+              uploadUI:
+                ch === "tiktok_video" ? (
+                  <ExolytSection
+                    case_id={c.id}
+                    hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
+                    reusable={reusable}
+                    reusedAlready={reusedAlready}
+                    contentCount={contentCount ?? 0}
+                  />
+                ) : ch === "amazon" ? (
+                  <>
+                    <AmazonSalesSection
+                      case_id={c.id}
+                      skuRows={skuRows}
+                      caseCountry={c.country}
+                      exchangeRates={exchangeRates}
+                    />
+                    <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
+                  </>
+                ) : ch === "shopee" ? (
+                  <ShopdoraSection case_id={c.id} productCount={skuRows.length} />
+                ) : ch === "tt_shop" ? (
+                  <>
+                    {c.country === "US" && (
+                      <>
+                        <div
+                          style={{
+                            background: "var(--color-g25)",
+                            border: "1px dashed var(--color-g200)",
+                            borderRadius: 8,
+                            padding: "14px 16px",
+                            fontSize: 12,
+                            color: "var(--color-g500)",
+                            lineHeight: 1.6,
+                            marginBottom: 10,
+                          }}
+                        >
+                          <b style={{ color: "var(--color-ink)" }}>
+                            TikTok Shop 매출/제품 자동 수집 (US)
+                          </b>
+                          <br />
+                          분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다. <b>매출 데이터는 변형 옵션 가격대 큰 제품에서 부정확할 수 있어 — Helium10 paste로 정정 권장.</b>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: "8px 10px",
+                              background: "white",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontFamily: "var(--font-mono)",
+                              color: c.tiktok_shop_store_url
+                                ? "var(--color-g600)"
+                                : "var(--color-accent)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
+                          </div>
+                          {c.tiktok_shop_store_url && (
+                            <StartPhase15Button
+                              case_id={c.id}
+                              status={c.status}
+                              hasProducts={skuRows.length > 0}
+                            />
+                          )}
+                        </div>
+                        <TiktokProductFinderSection
+                          case_id={c.id}
+                          products={skuRows.map((s) => ({
+                            id: s.id,
+                            name: s.name ?? "",
+                            asin: s.asin || null,
+                            external_product_id: s.external_product_id,
+                            revenue_30d: s.revenue_30d,
+                          }))}
+                          existingProducts={
+                            Object.keys(
+                              (c.key_stats as {
+                                tt_shop_us_helium10?: Record<string, unknown>;
+                              })?.tt_shop_us_helium10 ?? {},
+                            ).length
+                          }
+                          hasUndo={
+                            ((c.key_stats as { _last_undo?: { type?: string } })
+                              ?._last_undo?.type ?? "") ===
+                            "helium10_product_finder"
+                          }
+                        />
+                        <TiktokShopUsAffiliateSection
+                          case_id={c.id}
+                          products={skuRows.map((s) => ({
+                            id: s.id,
+                            name: s.name ?? "",
+                            asin: s.asin || null,
+                            external_product_id: s.external_product_id,
+                            revenue_30d: s.revenue_30d,
+                          }))}
+                          existingAffiliates={
+                            Array.isArray(
+                              (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
+                                ?.tt_shop_us_affiliates,
+                            )
+                              ? (
+                                  c.key_stats as { tt_shop_us_affiliates: unknown[] }
+                                ).tt_shop_us_affiliates.length
+                              : 0
+                          }
+                        />
+                      </>
+                    )}
+                    <KalodataSection
+                      case_id={c.id}
+                      productCount={skuRows.length}
+                      country={c.country}
+                    />
+                  </>
+                ) : undefined,
             }))}
           />
-
-          {/* Section 02: 데이터 업로드 */}
-          <section className="section-card" style={{ marginBottom: 14 }}>
-            <div className="section-head">
-              <span className="section-num">SECTION 02</span>
-              <span className="section-title">데이터 업로드</span>
-              <span className={`section-status ${ready ? "done" : "partial"}`}>
-                {ready ? "완료" : "진행중"}
-              </span>
-            </div>
-
-            {c.channel === "tiktok_shop" && c.country === "US" && (
-              <div
-                style={{
-                  background: "var(--color-info-soft, rgba(0,100,255,0.05))",
-                  border: "1px solid var(--color-info)",
-                  borderRadius: 6,
-                  padding: "12px 14px",
-                  fontSize: 12,
-                  color: "var(--color-g700)",
-                  lineHeight: 1.6,
-                  marginBottom: 4,
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 700,
-                    color: "var(--color-info)",
-                    marginBottom: 6,
-                  }}
-                >
-                  💡 TT Shop US 케이스 — 영상 데이터 받는 2가지 경로
-                </div>
-                <ol style={{ margin: 0, paddingLeft: 18 }}>
-                  <li style={{ marginBottom: 4 }}>
-                    <b>Exolyt CSV (1차 추천)</b> — Exolyt social listener에서
-                    1년치 영상 export → 아래 첫 슬롯에 업로드. 캡션·views·해시태그
-                    등 풍부. Phase 4b 분석 깊어짐.
-                  </li>
-                  <li>
-                    <b>Affiliate CSV 우회 (Exolyt 못 받을 때)</b> — TikTok Shop{" "}
-                    <b>Seller Center 접근 권한 필요</b>. Seller Center → 제품 상세
-                    → Affiliate Creators 섹션 → Export CSV → 아래 "TikTok Shop US
-                    affiliate" 슬롯에 업로드. 영상 URL만 들어와 캡션·views 비어
-                    있음 → Phase 4b 분석 일부만.
-                  </li>
-                </ol>
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 11,
-                    color: "var(--color-g500)",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  → 둘 중 하나만 있으면 분석 시작 가능. 둘 다 있으면 영상 풀 +
-                  affiliate 매핑 둘 다 살려서 최고.
-                </div>
-              </div>
-            )}
-
-            <ExolytSection
-              case_id={c.id}
-              hasContents={(contentCount ?? 0) > 0 && !reusedAlready && !reusable}
-              reusable={reusable}
-              reusedAlready={reusedAlready}
-              contentCount={contentCount ?? 0}
-            />
-
-            {c.channel === "amazon" && (
-              <>
-                <AmazonSalesSection
-                  case_id={c.id}
-                  skuRows={skuRows}
-                  caseCountry={c.country}
-                  exchangeRates={exchangeRates}
-                />
-                <BsrSection case_id={c.id} skuRows={skuRows} caseCountry={c.country} />
-              </>
-            )}
-
-            {c.channel === "shopee" && (
-              <ShopdoraSection
-                case_id={c.id}
-                productCount={skuRows.length}
-              />
-            )}
-
-            {c.channel === "tiktok_shop" && c.country === "US" && (
-              <>
-                <div
-                  style={{
-                    background: "var(--color-g25)",
-                    border: "1px dashed var(--color-g200)",
-                    borderRadius: 8,
-                    padding: "14px 16px",
-                    fontSize: 12,
-                    color: "var(--color-g500)",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  <b style={{ color: "var(--color-ink)" }}>
-                    TikTok Shop 매출/제품 자동 수집 (US)
-                  </b>
-                  <br />
-                  분석 시작 시 Phase 1.5에서 pro100chok actor가 아래 스토어 URL을 통해 제품·가격·누적 판매량을 가져옵니다. <b>매출 데이터는 변형 옵션 가격대 큰 제품에서 부정확할 수 있어 — Helium10 paste로 정정 권장.</b>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      padding: "8px 10px",
-                      background: "white",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontFamily: "var(--font-mono)",
-                      color: c.tiktok_shop_store_url
-                        ? "var(--color-g600)"
-                        : "var(--color-accent)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {c.tiktok_shop_store_url ?? "⚠ 스토어 URL 비어있음"}
-                  </div>
-                  {c.tiktok_shop_store_url && (
-                    <StartPhase15Button
-                      case_id={c.id}
-                      status={c.status}
-                      hasProducts={skuRows.length > 0}
-                    />
-                  )}
-                </div>
-
-                <TiktokProductFinderSection
-                  case_id={c.id}
-                  products={skuRows.map((s) => ({
-                    id: s.id,
-                    name: s.name ?? "",
-                    asin: s.asin || null,
-                    external_product_id: s.external_product_id,
-                    revenue_30d: s.revenue_30d,
-                  }))}
-                  existingProducts={
-                    Object.keys(
-                      (c.key_stats as {
-                        tt_shop_us_helium10?: Record<string, unknown>;
-                      })?.tt_shop_us_helium10 ?? {},
-                    ).length
-                  }
-                  hasUndo={
-                    ((c.key_stats as { _last_undo?: { type?: string } })
-                      ?._last_undo?.type ?? "") ===
-                    "helium10_product_finder"
-                  }
-                />
-                <TiktokShopUsAffiliateSection
-                  case_id={c.id}
-                  products={skuRows.map((s) => ({
-                    id: s.id,
-                    name: s.name ?? "",
-                    asin: s.asin || null,
-                    external_product_id: s.external_product_id,
-                    revenue_30d: s.revenue_30d,
-                  }))}
-                  existingAffiliates={
-                    Array.isArray(
-                      (c.key_stats as { tt_shop_us_affiliates?: unknown[] })
-                        ?.tt_shop_us_affiliates,
-                    )
-                      ? (
-                          c.key_stats as { tt_shop_us_affiliates: unknown[] }
-                        ).tt_shop_us_affiliates.length
-                      : 0
-                  }
-                />
-              </>
-            )}
-
-            {/* Kalodata — 모든 tiktok_shop(US 포함). US는 Helium10/어필리에이트와 함께 선택 가능. */}
-            {c.channel === "tiktok_shop" && (
-              <KalodataSection
-                case_id={c.id}
-                productCount={skuRows.length}
-                country={c.country}
-              />
-            )}
-          </section>
 
           <StartAnalysisButton
             case_id={c.id}
