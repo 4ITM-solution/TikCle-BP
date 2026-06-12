@@ -2015,9 +2015,23 @@ export default async function CaseDetailPage({
     // 분석 전이라도 Exolyt contents 적재됐으면(=exolytDone) active — products로 즉시
     //   active되는 매출 채널과 대칭. (기존엔 phase2 결과 나와야만 켜져서 적재 후에도 사용안함)
     if ((ksAuto.phase2?.total_contents ?? 0) > 0 || exolytDone) set.add("tiktok_video");
-    if ((ksAuto.phase4a?.total_ads ?? 0) > 0) set.add("meta_ads");
-    if ((ksAuto.phase4c?.total_unique ?? ksAuto.phase4c?.total_posts ?? 0) > 0) set.add("instagram");
-    if ((ksAuto.phase4d?.total_unique ?? ksAuto.phase4d?.total_videos ?? 0) > 0) set.add("youtube");
+    // 분석 전이라도 카드에서 설정 저장했으면 active (Meta=키워드/페이지, IG/YT=seed).
+    if (
+      (ksAuto.phase4a?.total_ads ?? 0) > 0 ||
+      !!c.brand_keyword ||
+      ((c.brand_meta_pages as string[] | null)?.length ?? 0) > 0
+    )
+      set.add("meta_ads");
+    if (
+      (ksAuto.phase4c?.total_unique ?? ksAuto.phase4c?.total_posts ?? 0) > 0 ||
+      (igConfig?.ig_owned_usernames?.length ?? 0) > 0
+    )
+      set.add("instagram");
+    if (
+      (ksAuto.phase4d?.total_unique ?? ksAuto.phase4d?.total_videos ?? 0) > 0 ||
+      ytOwnedChannels.length > 0
+    )
+      set.add("youtube");
     // 매출 채널 (products.channel 분포 기반)
     for (const ch of availableSalesChannels ?? []) {
       if (ch === "amazon") set.add("amazon");

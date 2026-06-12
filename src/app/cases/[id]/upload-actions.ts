@@ -1118,7 +1118,19 @@ export async function uploadKalodata(
   // 2) Products upsert
   let productCount = 0;
   if (parsed.products.length > 0) {
-    const productInserts = parsed.products.map((p) => ({
+    // 같은 이름(앞 220자) 제품이 둘 이상이면 external_product_id가 같아져 upsert 배치 내
+    //   conflict 키 중복 → "ON CONFLICT DO UPDATE cannot affect row a second time" 에러.
+    //   매출 큰 행만 남겨 dedup (제품·매출 둘 다 이걸로 빌드).
+    const byExtId = new Map<string, (typeof parsed.products)[number]>();
+    for (const p of parsed.products) {
+      const key = `kalodata:${p.name.slice(0, 220)}`;
+      const prev = byExtId.get(key);
+      if (!prev || (p.revenue_usd ?? 0) > (prev.revenue_usd ?? 0)) {
+        byExtId.set(key, p);
+      }
+    }
+    const dedupedProducts = [...byExtId.values()];
+    const productInserts = dedupedProducts.map((p) => ({
       case_id: c.id,
       brand_id: c.brand_id,
       country: c.country,
@@ -1148,7 +1160,7 @@ export async function uploadKalodata(
       (prodRows ?? []).map((p) => [p.external_product_id ?? "", p.id]),
     );
 
-    const salesInserts = parsed.products
+    const salesInserts = dedupedProducts
       .map((p) => {
         const product_id = extToId.get(`kalodata:${p.name.slice(0, 220)}`);
         if (!product_id) return null;
