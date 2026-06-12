@@ -2692,3 +2692,72 @@ export async function runIgProfileScrape(
     message: `${updated}/${usernames.length}명 IG profile 박힘 · 비용 $${result.cost_estimate_usd.toFixed(2)} · run ${result.apify_run_id ?? "?"}`,
   };
 }
+
+// =============================================================================
+// 케이스 설정 — 채널 카드에서 입력 (구 new-case 폼의 채널별 설정을 카드로 이관).
+//   스토어 URL / brand_keyword / Meta 페이지 / IG·YT seed. formData에 들어온 필드만 갱신.
+// =============================================================================
+export async function updateCaseConfig(
+  case_id: string,
+  formData: FormData,
+): Promise<Result> {
+  const supabase = await createServer();
+  const s = (k: string): string => {
+    const v = formData.get(k);
+    return typeof v === "string" ? v.trim() : "";
+  };
+
+  const { data: existing, error: exErr } = await supabase
+    .from("cases")
+    .select("ig_config, yt_config")
+    .eq("id", case_id)
+    .maybeSingle();
+  if (exErr || !existing) {
+    return { ok: false, error: exErr?.message ?? "케이스를 찾을 수 없습니다" };
+  }
+
+  const update: Record<string, unknown> = {};
+
+  if (formData.has("tiktok_shop_store_url")) {
+    update.tiktok_shop_store_url = s("tiktok_shop_store_url") || null;
+  }
+  if (formData.has("brand_keyword")) {
+    update.brand_keyword = s("brand_keyword") || null;
+  }
+  if (formData.has("brand_meta_pages")) {
+    const pages = s("brand_meta_pages")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    update.brand_meta_pages = pages.length > 0 ? pages : null;
+  }
+  if (formData.has("ig_owned_username")) {
+    const u = s("ig_owned_username").replace(/^@/, "");
+    const igConfig = {
+      ...((existing.ig_config as Record<string, unknown>) ?? {}),
+    };
+    igConfig.ig_owned_usernames = u ? [u] : [];
+    update.ig_config = igConfig as never;
+  }
+  if (formData.has("yt_owned_channel")) {
+    const u = s("yt_owned_channel");
+    const ytConfig = {
+      ...((existing.yt_config as Record<string, unknown>) ?? {}),
+    };
+    ytConfig.yt_owned_channels = u ? [u] : [];
+    update.yt_config = ytConfig as never;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return { ok: false, error: "변경할 설정이 없습니다" };
+  }
+
+  const { error } = await supabase
+    .from("cases")
+    .update(update as never)
+    .eq("id", case_id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/cases/${case_id}`);
+  return { ok: true, message: "설정 저장됨" };
+}

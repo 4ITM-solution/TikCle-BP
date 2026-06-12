@@ -7,7 +7,6 @@ import {
   PlatformPicker,
   type PlatformValue,
 } from "@/components/case-create/PlatformPicker";
-import { MetaPagesInput } from "@/components/case-create/MetaPagesInput";
 import { createCaseDraft, type ActionResult } from "./actions";
 import {
   COUNTRY_OPTIONS,
@@ -66,15 +65,8 @@ export default function NewCasePage() {
     null,
   );
 
-  // A 모델: 모든 field 항상 active. 분기 변수 = true (옛 코드 호환)
-  const isAmazon = true;
-  const isShop = true;
-  const isShopee = true;
+  // A 모델: 새 케이스는 브랜드+국가만. 채널 설정·데이터는 케이스 상세 카드에서.
   void platform;
-  // SEA TikTok Shop = Kalodata 경로 (스토어 URL 불필요)
-  const SEA_COUNTRIES = ["SG", "MY", "TH", "ID", "VN", "PH"];
-  const isShopUs = isShop && country === "US";
-  const isShopSea = isShop && SEA_COUNTRIES.includes(country);
 
   return (
     <div style={{ padding: "24px 32px 140px", maxWidth: 920 }}>
@@ -86,7 +78,7 @@ export default function NewCasePage() {
 
       <h1 className="page-title">새 케이스 만들기</h1>
       <p className="page-sub">
-        브랜드·국가·플랫폼을 정하고, API 호출에 필요한 입력을 채워주세요. 데이터 업로드는 다음 단계에서 진행됩니다.
+        브랜드와 국가만 정하면 draft가 생성됩니다. 채널 설정(스토어 URL·키워드·seed)과 데이터 업로드는 다음 단계 — 케이스 상세의 데이터 채널 카드에서 진행해요.
       </p>
 
       <form action={action}>
@@ -183,173 +175,11 @@ export default function NewCasePage() {
                 <li><b>🛒 TT Shop</b> — store URL 입력 (US) / Kalodata 텍스트 paste (SEA)</li>
                 <li><b>📦 Amazon</b> — Helium10 매출 CSV + BSR CSV</li>
                 <li><b>🛍 Shopee</b> — Shopdora 텍스트 paste</li>
-                <li><b>📢 Meta 광고</b> — 아래 brand_meta_pages 또는 brand_keyword 박으면 자동 수집 (Phase 4a)</li>
-                <li><b>📷 Instagram / ▶ YouTube</b> — 자동 발굴 (BP 박스에서 트리거)</li>
+                <li><b>📢 Meta 광고</b> — 카드 안 설정에서 키워드/페이지 입력 → 자동 수집 (Phase 4a)</li>
+                <li><b>📷 Instagram / ▶ YouTube</b> — 카드 안 설정에서 owned 계정(seed) 입력 → BP 분석</li>
               </ul>
             </div>
           </div>
-        </section>
-
-        {/* Section 3: API 입력 */}
-        <section className="section-card" style={{ marginBottom: 80 }}>
-          <div className="section-head">
-            <span className="section-num">SECTION 03</span>
-            <span className="section-title">API 호출용 입력</span>
-          </div>
-
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--color-g500)",
-              marginBottom: 16,
-            }}
-          >
-            Apify로 외부 데이터를 가져옵니다. 호출은 다음 단계에서 비용 확인 후 시작.
-          </p>
-
-          {/* Amazon-only */}
-          <div className="field" style={{ opacity: isAmazon ? 1 : 0.45 }}>
-            <label className="field-label">
-              브랜드 키워드
-              {isAmazon ? (
-                <span className="req">*</span>
-              ) : (
-                <span
-                  style={{
-                    marginLeft: 6,
-                    fontSize: 9,
-                    background: "var(--color-g50)",
-                    color: "var(--color-g400)",
-                    padding: "1px 6px",
-                    borderRadius: 3,
-                    letterSpacing: 0,
-                    textTransform: "none",
-                    fontWeight: 700,
-                  }}
-                >
-                  AMAZON 전용
-                </span>
-              )}
-            </label>
-            <input
-              className="field-input mono"
-              name="brand_keyword"
-              disabled={!isAmazon}
-              placeholder={isAmazon ? "Dr.Reju-All, Rejuall, PDRN cream Korea" : ""}
-            />
-            <span className="field-help">
-              아래 페이지 이름으로 못 찾는 광고를 보충 수집할 때 쓸 키워드. 콤마로 구분.
-            </span>
-          </div>
-
-          <div className="field" style={{ opacity: isAmazon ? 1 : 0.45 }}>
-            <label className="field-label">
-              Meta 광고 페이지 이름 (우선)
-              {!isAmazon && (
-                <span
-                  style={{
-                    marginLeft: 6,
-                    fontSize: 9,
-                    background: "var(--color-g50)",
-                    color: "var(--color-g400)",
-                    padding: "1px 6px",
-                    borderRadius: 3,
-                    letterSpacing: 0,
-                    textTransform: "none",
-                    fontWeight: 700,
-                  }}
-                >
-                  AMAZON 전용
-                </span>
-              )}
-            </label>
-            <MetaPagesInput name="brand_meta_pages" disabled={!isAmazon} />
-            <span className="field-help">
-              본사/유통 페이지를 1순위로 끌어옵니다 (총 1,000건 cap 내). 비워두면 키워드 검색만 사용.
-            </span>
-          </div>
-
-          {/* TikTok Shop-only */}
-          {isShopSea ? (
-            <div className="field">
-              <label className="field-label">
-                TikTok Shop 매출 데이터
-                <span
-                  style={{
-                    marginLeft: 6,
-                    fontSize: 9,
-                    background: "var(--color-info-soft)",
-                    color: "var(--color-info)",
-                    padding: "1px 6px",
-                    borderRadius: 3,
-                    letterSpacing: 0,
-                    textTransform: "none",
-                    fontWeight: 700,
-                  }}
-                >
-                  SEA — KALODATA 경로
-                </span>
-              </label>
-              <div
-                style={{
-                  padding: "12px 14px",
-                  background: "var(--color-info-soft)",
-                  border: "1px solid #C7D6E8",
-                  borderRadius: 6,
-                  fontSize: 12,
-                  color: "var(--color-info)",
-                  lineHeight: 1.6,
-                }}
-              >
-                <b style={{ fontWeight: 800 }}>
-                  스토어 URL 입력 불필요 — 케이스 생성 후 상세 페이지에서{" "}
-                  <code>KalodataSection</code>에 데이터를 직접 붙여넣습니다.
-                </b>
-                <br />
-                <span style={{ fontSize: 11 }}>
-                  SEA TikTok Shop은 pro100chok actor가 미지원이라 Kalodata가
-                  유일한 경로. Brand 페이지 화면 텍스트(크레딧 0) + Creator
-                  xlsx Export(브랜드당 Top 500 = 500 크레딧 권장) 둘 다 가능해요.
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="field" style={{ opacity: isShopUs ? 1 : 0.45 }}>
-              <label className="field-label">
-                TikTok Shop 스토어 URL
-                {isShopUs ? (
-                  <span className="req">*</span>
-                ) : (
-                  <span
-                    style={{
-                      marginLeft: 6,
-                      fontSize: 9,
-                      background: "var(--color-g50)",
-                      color: "var(--color-g400)",
-                      padding: "1px 6px",
-                      borderRadius: 3,
-                      letterSpacing: 0,
-                      textTransform: "none",
-                      fontWeight: 700,
-                    }}
-                  >
-                    TIKTOK_SHOP US 전용
-                  </span>
-                )}
-              </label>
-              <input
-                className="field-input mono"
-                name="tiktok_shop_store_url"
-                disabled={!isShopUs}
-                placeholder={
-                  isShopUs ? "https://www.tiktok.com/shop/store/..." : ""
-                }
-              />
-              <span className="field-help">
-                apify pro100chok actor 입력 (US만 지원). 잘못된 URL이면 분석이 실패할 수 있어요.
-              </span>
-            </div>
-          )}
         </section>
 
         {/* Footer / Submit */}
@@ -389,80 +219,6 @@ export default function NewCasePage() {
             )}
           </div>
 
-          {/* BP IG/YT 분석 옵션 — Dyson/Medicube/Poppi 같은 카테고리 정의자 분석용.
-              매출 데이터 없어도 OK. IG/YT seed 박으면 case 생성 시 status=ready 자동 +
-              IG/YT 박스에서 자동 발굴 시작 가능. */}
-          <details
-            style={{
-              marginTop: 14,
-              padding: 14,
-              borderRadius: 8,
-              border: "1px dashed var(--color-g200)",
-              background: "var(--color-g25)",
-            }}
-          >
-            <summary
-              style={{
-                cursor: "pointer",
-                fontWeight: 700,
-                fontSize: 13,
-                color: "var(--color-g600)",
-                listStyle: "none",
-              }}
-            >
-              🎯 BP IG/YouTube 분석 추가 (옵션) — 카테고리 정의자 BP용
-            </summary>
-            <div style={{ marginTop: 12 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--color-g500)",
-                  marginBottom: 10,
-                  lineHeight: 1.6,
-                }}
-              >
-                IG/YT seed 둘 중 하나라도 박으면 케이스 생성 시{" "}
-                <b>status=ready 바로 박힘</b> (매출 데이터 안 박아도 OK). 케이스
-                페이지의 🎯 BP 박스에서 자동 발굴 → Accept → Phase 4c/4d 재실행 흐름.
-              </div>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label className="field-label">
-                  IG seed username (옵션)
-                </label>
-                <input
-                  className="field-input mono"
-                  name="ig_seed_username"
-                  placeholder="ninjakitchen / dyson / medicube_us / drinkpoppi"
-                />
-                <span className="field-help">
-                  @ 없이. 브랜드 owned IG 계정.
-                </span>
-              </div>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label className="field-label">
-                  YT seed channel URL (옵션)
-                </label>
-                <input
-                  className="field-input mono"
-                  name="yt_seed_url"
-                  placeholder="https://www.youtube.com/@ninjakitchen"
-                />
-                <span className="field-help">
-                  브랜드 owned YouTube 채널 URL.
-                </span>
-              </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label className="field-label">Region scope (옵션)</label>
-                <select className="field-input" name="region_scope" defaultValue="global">
-                  <option value="global">🌍 글로벌 (default)</option>
-                  <option value="us-only">🇺🇸 US-only (휴리스틱 필터)</option>
-                </select>
-                <span className="field-help">
-                  나중에 케이스 페이지에서도 토글 가능.
-                </span>
-              </div>
-            </div>
-          </details>
 
           <div style={{ display: "flex", gap: 8 }}>
             <Link href="/cases" className="btn btn-ghost">

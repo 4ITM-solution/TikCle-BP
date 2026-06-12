@@ -42,6 +42,7 @@ import {
   type CrossPlatformAuthor,
 } from "@/components/case-detail/CaseInsightCard";
 import { DataChannelGrid } from "@/components/case-detail/DataChannelGrid";
+import { CaseConfigBox } from "@/components/case-detail/CaseConfigBox";
 import { CaseKpiStrip } from "@/components/case-detail/CaseKpiStrip";
 import { CaseSideTOC } from "@/components/case-detail/CaseSideTOC";
 import { CaseHeader } from "@/components/case-detail/CaseHeader";
@@ -2161,6 +2162,19 @@ export default async function CaseDetailPage({
                   <ShopdoraSection case_id={c.id} productCount={skuRows.length} />
                 ) : ch === "tt_shop" ? (
                   <>
+                    <CaseConfigBox
+                      case_id={c.id}
+                      title="⚙️ TT Shop 설정"
+                      fields={[
+                        {
+                          name: "tiktok_shop_store_url",
+                          label: "TikTok Shop 스토어 URL (US 자동수집용)",
+                          placeholder: "https://www.tiktok.com/shop/store/...",
+                          defaultValue: c.tiktok_shop_store_url ?? "",
+                          help: "US만 pro100chok actor 지원. SEA는 Kalodata 붙여넣기로.",
+                        },
+                      ]}
+                    />
                     {c.country === "US" && (
                       <>
                         <div
@@ -2256,6 +2270,54 @@ export default async function CaseDetailPage({
                       country={c.country}
                     />
                   </>
+                ) : ch === "meta_ads" ? (
+                  <CaseConfigBox
+                    case_id={c.id}
+                    title="⚙️ Meta 광고 설정"
+                    fields={[
+                      {
+                        name: "brand_keyword",
+                        label: "브랜드 키워드 (Meta 광고 라이브러리 검색어)",
+                        placeholder: "ninja kitchen",
+                        defaultValue: c.brand_keyword ?? "",
+                      },
+                      {
+                        name: "brand_meta_pages",
+                        label: "Meta 페이지 ID (쉼표로 여러 개)",
+                        placeholder: "123456, 789012",
+                        defaultValue: (c.brand_meta_pages ?? []).join(", "),
+                        help: "분석 시 이 페이지/키워드로 Meta 광고 수집.",
+                      },
+                    ]}
+                  />
+                ) : ch === "instagram" ? (
+                  <CaseConfigBox
+                    case_id={c.id}
+                    title="⚙️ Instagram 설정"
+                    fields={[
+                      {
+                        name: "ig_owned_username",
+                        label: "브랜드 owned IG username (seed)",
+                        placeholder: "ninjakitchen",
+                        defaultValue: igConfig?.ig_owned_usernames?.[0] ?? "",
+                        help: "@ 없이. BP 분석(Phase 4c)의 시드.",
+                      },
+                    ]}
+                  />
+                ) : ch === "youtube" ? (
+                  <CaseConfigBox
+                    case_id={c.id}
+                    title="⚙️ YouTube 설정"
+                    fields={[
+                      {
+                        name: "yt_owned_channel",
+                        label: "브랜드 owned YouTube 채널 URL (seed)",
+                        placeholder: "https://www.youtube.com/@ninjakitchen",
+                        defaultValue: ytOwnedChannels[0] ?? "",
+                        help: "BP 분석(Phase 4d)의 시드.",
+                      },
+                    ]}
+                  />
                 ) : undefined,
             }))}
           />
