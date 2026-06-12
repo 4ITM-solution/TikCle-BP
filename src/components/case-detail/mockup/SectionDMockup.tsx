@@ -154,14 +154,32 @@ export function SectionDMockup({
   };
   const [tab, setTab] = useState<Tab>("sku");
   const [selectedSku, setSelectedSku] = useState<string>("all");
-  // ★ 기간별 브랜드 KPI — 토글로 선택. 기본 "latest"(누적/최근 복붙 = kalodataBrandKpiRaw).
-  //   period_end 키 목록은 내림차순(최근 먼저).
-  const brandPeriodKeys = Object.keys(kalodataBrandPeriods ?? {}).sort().reverse();
-  const [brandPeriod, setBrandPeriod] = useState<string>("latest");
+  // ★ 기간별 브랜드 KPI — 가장 긴 기간(span 최대)을 기본 "전체" 뷰로, 짧은 기간은 드릴다운.
+  const brandPeriodsObj = kalodataBrandPeriods ?? {};
+  const brandPeriodKeys = Object.keys(brandPeriodsObj).sort().reverse();
+  const spanDays = (k?: KalodataBrandKpi): number => {
+    if (!k?.period_start || !k?.period_end) return 0;
+    return (
+      (new Date(k.period_end).getTime() - new Date(k.period_start).getTime()) /
+      86_400_000
+    );
+  };
+  const longestPeriodKey: string | null =
+    brandPeriodKeys.length > 0
+      ? brandPeriodKeys.reduce(
+          (best, pk) =>
+            spanDays(brandPeriodsObj[pk]) > spanDays(brandPeriodsObj[best])
+              ? pk
+              : best,
+          brandPeriodKeys[0]!,
+        )
+      : null;
+  // 기본 선택 = 가장 긴 기간(있으면) else "latest"(구 케이스 = 누적 raw).
+  const [brandPeriod, setBrandPeriod] = useState<string>(
+    longestPeriodKey ?? "latest",
+  );
   const kalodataBrandKpi: KalodataBrandKpi | null =
-    brandPeriod !== "latest" && kalodataBrandPeriods?.[brandPeriod]
-      ? kalodataBrandPeriods[brandPeriod]
-      : kalodataBrandKpiRaw ?? null;
+    brandPeriodsObj[brandPeriod] ?? kalodataBrandKpiRaw ?? null;
   const onSelectSku = setSelectedSku;
   const [skuShowAll, setSkuShowAll] = useState(false);
   const [vidShowAll, setVidShowAll] = useState(false);
@@ -351,9 +369,8 @@ export function SectionDMockup({
               fontFamily: "var(--font-mono)",
             }}
           >
-            <option value="latest">최근/누적 (마지막 복붙)</option>
             {brandPeriodKeys.map((pk) => {
-              const k = kalodataBrandPeriods?.[pk];
+              const k = brandPeriodsObj[pk];
               const rev = k?.revenue_usd;
               const revLabel =
                 rev != null
@@ -361,8 +378,10 @@ export function SectionDMockup({
                     ? ` · $${(rev / 1_000_000).toFixed(2)}M`
                     : ` · $${Math.round(rev / 1000)}K`
                   : "";
+              const isWhole = pk === longestPeriodKey;
               return (
                 <option key={pk} value={pk}>
+                  {isWhole ? "전체 · " : ""}
                   {k?.period_start ?? "?"} ~ {pk}
                   {revLabel}
                 </option>
