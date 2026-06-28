@@ -1,9 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import {
-  fetchMetaAds,
-  fetchMetaAdsDetailsById,
-  fetchMetaAdsOfficial,
+  fetchMetaAdsCombined,
   type MetaAdRaw,
 } from "@/lib/apify/meta-ads";
 import {
@@ -51,85 +49,25 @@ export async function runPhase4a(
 
   // 2. Apify 호출 — 권역 case면 권역 안 단일 국가들로 풀어서 N번 fetch (Facebook
   //    Ads Library는 ISO 2자 country 코드만 인식). 단일 case는 그대로 한 국가.
-  //
-  // meta_ads_source 분기 (2026-05-27 추가):
-  //   - 'official': apify 공식 액터로 전체 fetch (partnership 정확, $3.4/1000)
-  //   - 'hybrid'   : curious_coder로 1차 ($0.75) + partnership 의심 ad만 공식 재호출
-  //   - undefined  : curious_coder만 (기존 동작, partnership 정보 없음)
   const targetCountries = isRegionCode(c.country)
     ? countriesInRegion(c.country as Region)
     : [c.country];
-  const metaAdsSource =
-    ((c.options as { meta_ads_source?: string } | null)?.meta_ads_source as
-      | "official"
-      | "hybrid"
-      | undefined) ?? "hybrid";
 
-  let result: Awaited<ReturnType<typeof fetchMetaAds>>;
-  if (metaAdsSource === "official") {
-    result = await fetchMetaAdsOfficial({
-      brand_meta_pages: c.brand_meta_pages ?? [],
-      brand_keyword: c.brand_keyword,
-      countries: targetCountries,
-      cap: 1000,
-    });
-  } else {
-    // 'hybrid' 또는 undefined — curious_coder 1차 fetch
-    result = await fetchMetaAds({
-      brand_meta_pages: c.brand_meta_pages ?? [],
-      brand_keyword: c.brand_keyword,
-      countries: targetCountries,
-      cap: 1000,
-    });
-
-    // hybrid 모드: partnership 의심 ad만 골라서 공식 액터로 detail 재호출
-    // (curious_coder는 partnership 정보 손실하니 detail로 보강).
-    // ★ Fix ④: ad-heavy(>400) 케이스는 detail 재호출 스킵 = 자동 curious.
-    //   대량 스크랩 + 200건 detail 이 함수 maxDuration(800s) 초과 → http_unreachable
-    //   로 분석 전체가 실패함(685광고 케이스 6769b0bb). partnership 정보만 일부 손실.
-    const AD_HEAVY_SKIP_HYBRID = 400;
-    if (metaAdsSource === "hybrid" && result.ads.length > AD_HEAVY_SKIP_HYBRID) {
-      console.log(
-        `[phase4a] ad-heavy (${result.ads.length} > ${AD_HEAVY_SKIP_HYBRID}) → hybrid detail 스킵 (curious-only, 타임아웃 회피)`,
-      );
-    }
-    if (
-      metaAdsSource === "hybrid" &&
-      result.ads.length > 0 &&
-      result.ads.length <= AD_HEAVY_SKIP_HYBRID
-    ) {
-      const partnershipCandidates = result.ads
-        .filter((a) => isPartnershipCandidate(a))
-        .map((a) => a.ad_archive_id)
-        .filter((id): id is string => !!id)
-        .slice(0, 200); // detail fetch cap — 케이스당 +$0.68 (200건 × $0.0034)
-
-      if (partnershipCandidates.length > 0) {
-        const detailResult = await fetchMetaAdsDetailsById({
-          ad_archive_ids: partnershipCandidates,
-          country: targetCountries[0] ?? "US",
-        });
-        // detail 결과를 기존 ad에 merge — ad_archive_id로 매칭해서 partnership 필드만 덮어쓰기
-        const detailMap = new Map(
-          detailResult.ads
-            .filter((d) => d.ad_archive_id)
-            .map((d) => [d.ad_archive_id!, d]),
-        );
-        result.ads = result.ads.map((a) => {
-          if (!a.ad_archive_id) return a;
-          const d = detailMap.get(a.ad_archive_id);
-          if (!d) return a;
-          return {
-            ...a,
-            creator_page_name: d.creator_page_name ?? null,
-            partner_page_name: d.partner_page_name ?? null,
-            partner_page_id: d.partner_page_id ?? null,
-          };
-        });
-        result.cost_estimate_usd += detailResult.cost_estimate_usd;
-      }
-    }
-  }
+  // ─── 결합 스크랩 (2026-06-28) ─────────────────────────────────────────────
+  //   키워드(curious_coder, 종료+활성 2.7년 라이프사이클) + 공식액터(page_id,
+  //   파트너십 attribution)를 ad_archive_id로 merge. 리테일러·카피 자동 제외.
+  //   officialPageId = brand_meta_pages 숫자 > 키워드 데이터에서 도출(최빈값).
+  //   → 종료+온고잉 다 나오면서 공식 직접광고 + 공식페이지 파트너십까지 잡힘.
+  const result = await fetchMetaAdsCombined({
+    brand_meta_pages: c.brand_meta_pages ?? [],
+    brand_keyword: c.brand_keyword,
+    countries: targetCountries,
+    cap: 1000,
+  });
+  const officialPageId = result.official_page_id;
+  console.log("[phase4a] combined", result.source_breakdown, {
+    official_page_id: officialPageId,
+  });
 
   if (result.skipped_reason) {
     return emptyPhase4a(result.skipped_reason);
@@ -142,12 +80,15 @@ export async function runPhase4a(
   await supabase.from("meta_ads").delete().eq("case_id", case_id);
 
   // 5. 본사 페이지 매칭 정규화
-  const officialPagesNormalized = (c.brand_meta_pages ?? []).map((p) =>
-    p.toLowerCase().trim(),
-  );
-  const isBrandOfficial = (page_name: string | null): boolean => {
-    if (!page_name) return false;
-    const norm = page_name.toLowerCase().trim();
+  const officialPagesNormalized = (c.brand_meta_pages ?? [])
+    .filter((p) => !/^\d+$/.test(p)) // 숫자 page_id는 이름매칭에서 제외
+    .map((p) => p.toLowerCase().trim());
+  const isBrandOfficial = (ad: MetaAdRaw): boolean => {
+    // 1차: 공식 page_id 일치 (가장 정확)
+    if (officialPageId && ad.page_id === officialPageId) return true;
+    // 폴백: brand_meta_pages 이름 매칭
+    const norm = ad.page_name?.toLowerCase().trim();
+    if (!norm) return false;
     return officialPagesNormalized.some(
       (op) => op.includes(norm) || norm.includes(op),
     );
@@ -170,7 +111,7 @@ export async function runPhase4a(
     link_url: ad.link_url,
     thumbnail_url: ad.thumbnail_url,
     video_url: ad.video_url,
-    is_brand_official: isBrandOfficial(ad.page_name),
+    is_brand_official: isBrandOfficial(ad),
     creator_page_name: ad.creator_page_name ?? null,
     partner_page_name: ad.partner_page_name ?? null,
     partner_page_id: ad.partner_page_id ?? null,
@@ -481,9 +422,19 @@ function isPartnershipCandidate(ad: MetaAdRaw): boolean {
     /in partnership with/,
     /#gifted/,
     /#prsample/,
+    // 한국어 협찬/광고 표기 (KR 브랜드 — #광고가 표준 disclosure)
+    /#광고/,
+    /#협찬/,
+    /#유료광고/,
+    /#광고포함/,
+    /#제품협찬/,
+    /#브랜디드/,
+    /유료\s?광고/,
+    /협찬/,
+    /광고\s?포함/,
   ];
   if (disclosurePatterns.some((p) => p.test(body))) return true;
-  // 1인칭 + @brand mention — 인플이 쓴 캡션이 브랜드 광고로 돌아간 패턴
+  // 1인칭 + @brand mention — 인플이 쓴 캡션이 브랜드 광고로 돌아간 패턴 (영어)
   const firstPerson = /\b(i|my|we|our)\b/.test(body);
   const hasMention = /@\w+/.test(body);
   return firstPerson && hasMention;

@@ -1,14 +1,13 @@
 /**
- * Apify apify/instagram-post-scraper 호출 래퍼.
- * 단가: $1.00 / 1,000 posts (paid plan)
+ * Apify apify/instagram-tagged-scraper ("Instagram Mentions Scraper") 호출 래퍼.
+ * Actor ID: zTSjdcGqjg6KEIBlt — 멘션/태그 전용 (범용 scraper보다 정확).
  *
- * Phase 4c (IG brand monitoring) 의 소스 3 (owned) + 소스 4 (author seed/celeb).
- *   - owned: username = brand owned 계정 (ninjakitchen 등)
- *   - author seed: 외부 데스크리서치 발견 작성자 (haleyybaylee 등)
+ * Phase 4c (IG brand monitoring) 의 소스 3 (mention/tagged).
+ *   - 남이 브랜드 계정을 태그/멘션한 글 (IG "태그됨" 피드 전용 수집)
+ *   - input: { username: [...], resultsLimit } — username당 태그된 글
  *
- * 출력 한계 (2026-05-28 검증):
- *   - paid partnership 라벨 안 줌 → caption regex 매칭 우회
- *   - 최근 3-6개월만 잡힘 (resultsLimit 깊이 제한)
+ * 한계:
+ *   - IG "태그됨" 탭에 노출되는 글만 (비공개/숨김 태그는 제외)
  */
 
 import {
@@ -19,15 +18,15 @@ import {
   runApifyActorDurable,
 } from "@/lib/apify/instagram-shared";
 
-const ACTOR_ID = "apify~instagram-post-scraper";
-const COST_PER_RESULT = 0.001;
+const ACTOR_ID = "apify~instagram-tagged-scraper";
+const COST_PER_RESULT = 0.0023;
 
-export type IgPostScraperInput = {
-  usernames: string[];          // 호출 대상 계정
-  resultsLimit?: number;        // 계정당 post 수 (default 100)
+export type IgTaggedScraperInput = {
+  usernames: string[]; // @ 없이 — 이 계정들이 "태그된" 글 수집
+  resultsLimit?: number; // 계정당 (default 200)
 };
 
-export type IgPostScraperResult = {
+export type IgTaggedScraperResult = {
   items: IgPostRaw[];
   cost_estimate_usd: number;
   apify_run_id: string | null;
@@ -36,10 +35,10 @@ export type IgPostScraperResult = {
   skipped_reason?: string;
 };
 
-export async function fetchIgPostsByUsername(
-  opts: IgPostScraperInput,
+export async function fetchIgPostsByTagged(
+  opts: IgTaggedScraperInput,
   durable?: { step: StepLike; label: string },
-): Promise<IgPostScraperResult> {
+): Promise<IgTaggedScraperResult> {
   const token = process.env.APIFY_TOKEN;
   if (!token) {
     return {
@@ -63,8 +62,8 @@ export async function fetchIgPostsByUsername(
   }
 
   const input = {
-    username: opts.usernames,
-    resultsLimit: opts.resultsLimit ?? 100,
+    username: opts.usernames.map((u) => u.replace(/^@/, "")),
+    resultsLimit: opts.resultsLimit ?? 200,
   };
 
   const run = durable

@@ -898,6 +898,7 @@ export default async function CaseDetailPage({
       .from("brand_view_trends")
       .select("week_start, total_views, total_videos")
       .eq("brand_id", brand_id)
+      .eq("country", c.country)
       .order("week_start", { ascending: true });
     weeklyViews = (bvt ?? []).map((r) => ({
       week_start: r.week_start,
@@ -919,17 +920,27 @@ export default async function CaseDetailPage({
         : c.channel === "shopee"
           ? skuRows.length > 0
           : true;
-  const ready = exolytDone && salesDone && c.status === "draft";
+  // owned 채널(IG/YT/Meta) — TikTok 시딩/커머스 없이 브랜드 모니터링만 돌리는 케이스 지원.
+  const igDone = (igConfig?.ig_owned_usernames?.length ?? 0) > 0;
+  const ytDone = ytOwnedChannels.length > 0;
+  const metaDone =
+    ((c.brand_meta_pages as string[] | null)?.length ?? 0) > 0 ||
+    !!c.brand_keyword;
+  const ownedChannelDone = igDone || ytDone || metaDone;
+  // 시작 가능: ① TikTok+커머스 풀세트(exolyt+sales) OR ② owned 채널(IG/YT/Meta) 중 하나라도.
+  const commerceReady = exolytDone && salesDone;
+  const ready =
+    (commerceReady || ownedChannelDone) && c.status === "draft";
 
   let reason = "";
   if (c.status !== "draft") reason = `현재 상태: ${c.status}`;
-  else if (!exolytDone) {
+  else if (!exolytDone && !ownedChannelDone) {
     // TT Shop US는 Affiliate CSV로 영상 URL 박혀도 contents에 들어가 exolytDone 충족됨 — 안내 명시
     if (c.channel === "tiktok_shop" && c.country === "US")
       reason =
         "영상 데이터 필요 — Exolyt CSV 또는 Affiliate CSV (TT Shop) 둘 중 하나";
-    else reason = "exolyt 데이터 업로드/재사용 필요";
-  } else if (!salesDone) {
+    else reason = "데이터 필요 — Exolyt(TikTok) 또는 IG/YT/Meta 중 하나";
+  } else if (exolytDone && !commerceReady && !ownedChannelDone) {
     if (c.channel === "amazon") reason = "30일 매출 CSV 업로드 필요";
     else if (c.channel === "tiktok_shop" && c.country === "US")
       reason = "TikTok Shop 스토어 URL 필요";
@@ -1116,6 +1127,7 @@ export default async function CaseDetailPage({
             .from("contents")
             .select("url, views, caption, uploaded_at")
             .eq("brand_id", brand_id)
+            .eq("country", c.country)
             .ilike("url", "%tiktok.com%")
             .not("uploaded_at", "is", null)
             .limit(5000)
@@ -1744,6 +1756,7 @@ export default async function CaseDetailPage({
         .from("contents")
         .select("influencer_id, views, is_ad, language")
         .eq("brand_id", brand_id)
+        .eq("country", c.country)
         .not("influencer_id", "is", null)
         .range(off, off + PAGE - 1);
       if (!data || data.length === 0) break;
@@ -1819,6 +1832,7 @@ export default async function CaseDetailPage({
         .from("contents")
         .select("url, uploaded_at, is_ad")
         .eq("brand_id", brand_id)
+        .eq("country", c.country)
         .ilike("url", "%tiktok.com%")
         .not("uploaded_at", "is", null)
         .range(off, off + PAGE - 1);
@@ -2327,6 +2341,16 @@ export default async function CaseDetailPage({
                         defaultValue: igConfig?.ig_owned_usernames?.[0] ?? "",
                         help: "@ 없이. BP 분석(Phase 4c)의 시드.",
                       },
+                      {
+                        name: "ig_brand_hashtags",
+                        label: "브랜드 해시태그 (쉼표로 여러 개)",
+                        placeholder: "aromatica, 아로마티카",
+                        defaultValue: (
+                          (igConfig as { ig_brand_hashtags?: string[] })
+                            ?.ig_brand_hashtags ?? []
+                        ).join(", "),
+                        help: "# 없이. 자사 계정 외 '태그된/언급한' 콘텐츠를 이 해시태그로 수집.",
+                      },
                     ]}
                   />
                 ) : ch === "youtube" ? (
@@ -2340,6 +2364,16 @@ export default async function CaseDetailPage({
                         placeholder: "https://www.youtube.com/@ninjakitchen",
                         defaultValue: ytOwnedChannels[0] ?? "",
                         help: "BP 분석(Phase 4d)의 시드.",
+                      },
+                      {
+                        name: "yt_brand_keywords",
+                        label: "브랜드 검색어 (쉼표로 여러 개)",
+                        placeholder: "aromatica, 아로마티카",
+                        defaultValue: (
+                          (ytConfig as { yt_brand_keywords?: string[] })
+                            ?.yt_brand_keywords ?? []
+                        ).join(", "),
+                        help: "자사 채널 외 '언급/검색' 영상을 이 키워드로 수집.",
                       },
                     ]}
                   />

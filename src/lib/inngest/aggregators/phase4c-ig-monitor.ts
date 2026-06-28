@@ -8,7 +8,11 @@ import {
   fetchIgPostsByUsername,
   type IgPostScraperResult,
 } from "@/lib/apify/instagram-post-scraper";
-import type { IgPostRaw } from "@/lib/apify/instagram-shared";
+import {
+  fetchIgPostsByTagged,
+  type IgTaggedScraperResult,
+} from "@/lib/apify/instagram-tagged-scraper";
+import type { IgPostRaw, StepLike } from "@/lib/apify/instagram-shared";
 import type { Phase4cStats } from "../types";
 
 type SupaClient = SupabaseClient<Database>;
@@ -27,6 +31,9 @@ export type IgConfig = {
   // 옵션 — resultsLimit override
   ig_hashtag_results_limit?: number; // default 300
   ig_post_results_limit?: number;    // default 50
+  // tagged 탭(멘션/태그) 수집 — 기본 ON. owned 계정 태그된 글 수집.
+  ig_skip_tagged?: boolean;          // true면 tagged 소스 끔
+  ig_tagged_results_limit?: number;  // default 200
 };
 
 const DEFAULT_PAID_KEYWORDS = [
@@ -67,6 +74,7 @@ const DEFAULT_POST_LIMIT = 50;
 export async function runPhase4c(
   supabase: SupaClient,
   case_id: string,
+  step?: StepLike,
 ): Promise<Phase4cStats> {
   // 1. case ig_config 읽기
   const { data: c, error: cErr } = await supabase
@@ -105,11 +113,14 @@ export async function runPhase4c(
   const runs: IgRunSummary[] = [];
   let hashtagResult: IgHashtagScraperResult | null = null;
   if (hashtags.length > 0) {
-    hashtagResult = await fetchIgPostsByHashtag({
-      hashtags,
-      resultsType: cfg.ig_use_reels_type ? "reels" : "posts",
-      resultsLimit: cfg.ig_hashtag_results_limit ?? DEFAULT_HASHTAG_LIMIT,
-    });
+    hashtagResult = await fetchIgPostsByHashtag(
+      {
+        hashtags,
+        resultsType: cfg.ig_use_reels_type ? "reels" : "posts",
+        resultsLimit: cfg.ig_hashtag_results_limit ?? DEFAULT_HASHTAG_LIMIT,
+      },
+      step ? { step, label: "ig-hashtag" } : undefined,
+    );
     runs.push({
       source: "hashtag",
       actor_id: "apify~instagram-hashtag-scraper",
@@ -135,10 +146,15 @@ export async function runPhase4c(
   if (usernamesToFetch.length > 0) {
     for (let i = 0; i < usernamesToFetch.length; i += POST_BATCH_SIZE) {
       const batchUsernames = usernamesToFetch.slice(i, i + POST_BATCH_SIZE);
-      const batchResult = await fetchIgPostsByUsername({
-        usernames: batchUsernames,
-        resultsLimit: cfg.ig_post_results_limit ?? DEFAULT_POST_LIMIT,
-      });
+      const batchResult = await fetchIgPostsByUsername(
+        {
+          usernames: batchUsernames,
+          resultsLimit: cfg.ig_post_results_limit ?? DEFAULT_POST_LIMIT,
+        },
+        step
+          ? { step, label: `ig-owned-${Math.floor(i / POST_BATCH_SIZE)}` }
+          : undefined,
+      );
       postResults.push(batchResult);
       runs.push({
         source: batchUsernames.every((u) => owned.includes(u))
@@ -176,9 +192,46 @@ export async function runPhase4c(
           ?.skipped_reason,
       };
 
+  // 4b. 소스 3: tagged 탭 (owned 계정을 남이 태그/멘션한 글)
+  //   owned 계정의 "태그됨" 피드 → collab·photo tag·caption 멘션 모두 포착.
+  //   ig_skip_tagged=true 면 끔. owned 없으면 skip.
+  let taggedResult: IgTaggedScraperResult | null = null;
+  if (owned.length > 0 && cfg.ig_skip_tagged !== true) {
+    taggedResult = await fetchIgPostsByTagged(
+      {
+        usernames: owned,
+        resultsLimit: cfg.ig_tagged_results_limit ?? 200,
+      },
+      step ? { step, label: "ig-tagged" } : undefined,
+    );
+    runs.push({
+      source: "tagged",
+      actor_id: "apify~instagram-tagged-scraper",
+      apify_run_id: taggedResult.apify_run_id,
+      dataset_id: taggedResult.dataset_id,
+      input: {
+        usernames: owned,
+        resultsLimit: cfg.ig_tagged_results_limit ?? 200,
+        mode: "tagged",
+      },
+      status: taggedResult.status,
+      items_count: taggedResult.items.length,
+      cost_estimate_usd: taggedResult.cost_estimate_usd,
+    });
+  }
+
   // 5. 통합 + dedup
   type Tagged = { item: IgPostRaw; source: string; run_id: string | null };
   const tagged: Tagged[] = [];
+  if (taggedResult) {
+    for (const it of taggedResult.items) {
+      tagged.push({
+        item: it,
+        source: "tagged",
+        run_id: taggedResult.apify_run_id,
+      });
+    }
+  }
   if (hashtagResult) {
     for (const it of hashtagResult.items) {
       tagged.push({
@@ -226,7 +279,9 @@ export async function runPhase4c(
       t.source === "owned" ||
       // author_seed로 직접 추적한 건 author seeding 자체가 brand 관련 시그널이라 자동 매칭
       // (실제 caption 매칭은 별도 분석에서)
-      t.source === "author_seed";
+      t.source === "author_seed" ||
+      // tagged 탭(브랜드를 태그/멘션한 글)도 그 자체가 brand 시그널 → 자동 매칭
+      t.source === "tagged";
     if (brandMatched) brandMatchedCount += 1;
 
     let paidSignal: string | null = null;
@@ -328,6 +383,7 @@ export async function runPhase4c(
     by_source: {
       hashtag: hashtagResult?.items.length ?? 0,
       owned_and_seeds: postResult?.items.length ?? 0,
+      tagged: taggedResult?.items.length ?? 0,
     },
     runs: runs.map((r) => ({
       source: r.source,
@@ -517,6 +573,93 @@ async function recomputeIgAuthors(
       throw new Error(`ig_authors upsert: ${upErr.message}`);
     }
   }
+}
+
+/**
+ * Phase 4c.5 — IG author 프로필(팔로워/bio/external_url) 박기.
+ *   ig_authors 중 followers IS NULL (rescrape_all 이면 전체) 인 username 모아
+ *   Apify instagram-profile-scraper 호출 → ig_authors update.
+ *   서버 액션(runIgProfileScrape)과 파이프라인(run-analysis)이 공용.
+ *   비용 ~$0.005/username.
+ */
+export async function enrichIgAuthorFollowers(
+  supabase: SupaClient,
+  case_id: string,
+  opts?: { rescrape_all?: boolean; step?: StepLike },
+): Promise<{
+  updated: number;
+  targeted: number;
+  cost_estimate_usd: number;
+  apify_run_id: string | null;
+  skipped_reason?: string;
+}> {
+  const baseQuery = supabase
+    .from("ig_authors")
+    .select("username")
+    .eq("case_id", case_id);
+  const { data: rows } = opts?.rescrape_all
+    ? await baseQuery
+    : await baseQuery.is("followers", null);
+  const usernames = [
+    ...new Set(
+      (rows ?? []).map((r) => r.username).filter((u): u is string => !!u),
+    ),
+  ];
+  if (usernames.length === 0) {
+    return {
+      updated: 0,
+      targeted: 0,
+      cost_estimate_usd: 0,
+      apify_run_id: null,
+      skipped_reason: "대상 author 0명 (이미 follower 박힘)",
+    };
+  }
+
+  const { runIgProfileScraper, extractCrossChannelHandles } = await import(
+    "@/lib/apify/instagram-profile-scraper"
+  );
+  const result = await runIgProfileScraper(
+    usernames,
+    opts?.step ? { step: opts.step, label: "ig-profile-enrich" } : undefined,
+  );
+  if (result.profiles.length === 0) {
+    return {
+      updated: 0,
+      targeted: usernames.length,
+      cost_estimate_usd: result.cost_estimate_usd,
+      apify_run_id: result.apify_run_id,
+      skipped_reason: result.skipped_reason ?? "Apify 결과 0건",
+    };
+  }
+
+  const now = new Date().toISOString();
+  let updated = 0;
+  for (const p of result.profiles) {
+    const linked = extractCrossChannelHandles(p.bio, p.external_url);
+    const { error: upErr } = await supabase
+      .from("ig_authors")
+      .update({
+        followers: p.followers,
+        following: p.following,
+        bio: p.bio,
+        external_url: p.external_url,
+        verified: p.verified,
+        is_business_account: p.is_business_account,
+        linked_handles: Object.keys(linked).length > 0 ? linked : null,
+        followers_source: "apify_profile_scraper",
+        profile_scraped_at: now,
+      } as never)
+      .eq("case_id", case_id)
+      .eq("username", p.username);
+    if (!upErr) updated += 1;
+  }
+
+  return {
+    updated,
+    targeted: usernames.length,
+    cost_estimate_usd: result.cost_estimate_usd,
+    apify_run_id: result.apify_run_id,
+  };
 }
 
 async function fetchAuthorStats(

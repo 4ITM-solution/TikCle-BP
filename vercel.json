@@ -5,7 +5,8 @@
   "installCommand": "npm install",
   "functions": {
     "src/app/api/inngest/route.ts": {
-      "maxDuration": 800
+      "maxDuration": 800,
+      "memory": 3009
     }
   }
 }

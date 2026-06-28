@@ -47,4 +47,8 @@ export type Events = {
   "case/phase.completed": {
     data: { case_id: string; phase: number };
   };
+  // 광고 모니터링 — 수동 "지금 수집" 트리거
+  "monitor/scrape.brand": {
+    data: { brand_id: string };
+  };
 };

@@ -18,17 +18,26 @@ export async function downloadAndStore(
   contentType: string,
   opts?: { headers?: Record<string, string>; referrerPolicy?: ReferrerPolicy },
 ): Promise<string | null> {
+  const MAX_BYTES = 80 * 1024 * 1024; // 80MB cap — 큰 영상 arrayBuffer OOM 방지
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000); // 60s fetch 타임아웃
   try {
     const res = await fetch(sourceUrl, {
       referrerPolicy: opts?.referrerPolicy ?? "no-referrer",
       headers: opts?.headers,
+      signal: controller.signal,
     });
     if (!res.ok) {
       console.warn(`[downloadAndStore] fetch ${res.status} for ${sourceUrl.slice(0, 80)}`);
       return null;
     }
+    const len = Number(res.headers.get("content-length") || 0);
+    if (len > MAX_BYTES) {
+      console.warn(`[downloadAndStore] skip large file ${(len / 1e6).toFixed(0)}MB ${sourceUrl.slice(0, 60)}`);
+      return null;
+    }
     const buf = await res.arrayBuffer();
-    if (buf.byteLength === 0) return null;
+    if (buf.byteLength === 0 || buf.byteLength > MAX_BYTES) return null;
 
     const { error } = await supabase.storage
       .from(BUCKET)
@@ -48,5 +57,7 @@ export async function downloadAndStore(
       `[downloadAndStore] exception: ${e instanceof Error ? e.message : String(e)}`,
     );
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }

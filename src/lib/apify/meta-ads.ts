@@ -684,3 +684,151 @@ function mapOfficialAdItem(raw: unknown): MetaAdRaw | null {
     snapshot: r,
   };
 }
+
+/**
+ * 키워드 데이터에서 브랜드 공식 page_id 도출.
+ *   brand_keyword 토큰(3자+)이 page_name에 들어간 광고들의 page_id 최빈값.
+ *   리테일러는 보통 브랜드명을 page_name에 안 넣으므로 공식/카피만 후보가 됨.
+ */
+function deriveOfficialPageId(
+  ads: MetaAdRaw[],
+  brandKeyword: string,
+): string | null {
+  const tokens = brandKeyword
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length >= 3);
+  if (tokens.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const a of ads) {
+    if (!a.page_id || !a.page_name) continue;
+    const pn = a.page_name.toLowerCase();
+    if (tokens.some((t) => pn.includes(t))) {
+      counts.set(a.page_id, (counts.get(a.page_id) ?? 0) + 1);
+    }
+  }
+  let best: string | null = null;
+  let max = 0;
+  for (const [p, n] of counts) if (n > max) ((max = n), (best = p));
+  return best;
+}
+
+export type MetaAdsCombinedResult = MetaAdsResult & {
+  official_page_id: string | null;
+  source_breakdown: { keyword: number; official: number; merged: number };
+};
+
+/**
+ * 결합 스크랩 — 키워드(curious_coder) + 공식액터(page_id) 합쳐서 둘의 강점 다 취함.
+ *
+ *   1. 키워드 스크랩 → 종료+활성 전부 (2.7년 라이프사이클), 단 리테일러·카피 섞임
+ *   2. 공식 page_id 결정 (brand_meta_pages 숫자 > 키워드에서 도출)
+ *   3. 공식액터 스크랩 (page_id) → 활성 + 파트너십 attribution(크리에이터 핸들)
+ *   4. ad_archive_id로 merge + 필터:
+ *        keep = 공식페이지 ∪ 파트너십(공식에서 확인) ∪ 현재 파트너 크리에이터의 광고
+ *        버림 = 리테일러·카피·무관 크리에이터
+ *      라이프사이클(start/end/is_active)은 키워드(종료 포함)에서, attribution은 공식에서.
+ *
+ * 결과: 종료+온고잉 다 나오면서, 공식 직접광고 + 공식페이지 파트너십까지 attribution.
+ */
+export async function fetchMetaAdsCombined(opts: {
+  brand_meta_pages: string[];
+  brand_keyword: string | null;
+  countries: string[];
+  cap?: number;
+}): Promise<MetaAdsCombinedResult> {
+  const cap = opts.cap ?? 1000;
+  const empty: MetaAdsResult = {
+    ads: [],
+    source_urls: [],
+    total_fetched: 0,
+    cost_estimate_usd: 0,
+  };
+
+  // 1) 키워드 스크랩 (전체 라이프사이클)
+  const kw: MetaAdsResult = opts.brand_keyword
+    ? await fetchMetaAds({
+        brand_meta_pages: [],
+        brand_keyword: opts.brand_keyword,
+        countries: opts.countries,
+        cap,
+      })
+    : empty;
+
+  // 2) 공식 page_id 결정
+  let officialPageId =
+    (opts.brand_meta_pages ?? []).find((p) => /^\d+$/.test(p)) ?? null;
+  if (!officialPageId && opts.brand_keyword) {
+    officialPageId = deriveOfficialPageId(kw.ads, opts.brand_keyword);
+  }
+
+  // 3) 공식액터 스크랩 (활성 + 파트너십)
+  const off: MetaAdsResult = officialPageId
+    ? await fetchMetaAdsOfficial({
+        brand_meta_pages: [officialPageId],
+        brand_keyword: null,
+        countries: opts.countries,
+        cap,
+      })
+    : empty;
+
+  // 4) merge + 필터
+  const partnershipById = new Map<string, MetaAdRaw>();
+  const partnerCreators = new Set<string>();
+  for (const a of off.ads) {
+    if (a.ad_archive_id) partnershipById.set(a.ad_archive_id, a);
+    if (a.creator_page_name)
+      partnerCreators.add(a.creator_page_name.toLowerCase());
+  }
+
+  const merged = new Map<string, MetaAdRaw>();
+  // 4a) 공식액터 ads 먼저 (전부 brand-relevant, attribution 보유)
+  for (const a of off.ads) if (a.ad_archive_id) merged.set(a.ad_archive_id, a);
+  // 4b) 키워드 ads 중 brand-relevant만 추가/보강
+  for (const a of kw.ads) {
+    const id = a.ad_archive_id;
+    if (!id) continue;
+    const onOfficialPage =
+      officialPageId != null && a.page_id === officialPageId;
+    const isKnownPartner =
+      a.page_name != null && partnerCreators.has(a.page_name.toLowerCase());
+    const inOfficial = partnershipById.has(id);
+    if (!onOfficialPage && !isKnownPartner && !inOfficial) continue; // 리테일러·카피 제외
+
+    const creatorFromOfficial = partnershipById.get(id)?.creator_page_name;
+    const creator =
+      creatorFromOfficial ??
+      (isKnownPartner && !onOfficialPage ? a.page_name : null);
+    const existing = merged.get(id);
+    if (existing) {
+      // 라이프사이클은 키워드가 더 정확(종료 포함) → 덮어씀, attribution은 공식 유지
+      merged.set(id, {
+        ...existing,
+        start_date: a.start_date ?? existing.start_date,
+        end_date: a.end_date ?? existing.end_date,
+        is_active: a.is_active ?? existing.is_active,
+        creator_page_name: existing.creator_page_name ?? creator,
+      });
+    } else {
+      merged.set(id, { ...a, creator_page_name: creator });
+    }
+  }
+
+  const ads = [...merged.values()];
+  return {
+    ads,
+    official_page_id: officialPageId,
+    source_urls: [...kw.source_urls, ...off.source_urls],
+    total_fetched: ads.length,
+    cost_estimate_usd: kw.cost_estimate_usd + off.cost_estimate_usd,
+    skipped_reason:
+      ads.length === 0
+        ? (kw.skipped_reason ?? off.skipped_reason ?? "결과 0건")
+        : undefined,
+    source_breakdown: {
+      keyword: kw.ads.length,
+      official: off.ads.length,
+      merged: ads.length,
+    },
+  };
+}

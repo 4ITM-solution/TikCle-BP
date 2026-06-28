@@ -1285,13 +1285,16 @@ export async function uploadKalodataCreatorsXlsx(
   }
 
   // 1) influencers upsert (handle 키)
+  //   lifetime_gmv_usd 는 video GMV 기준(라이브 커머스 GMV 제외) — 인플 풀은
+  //   "시딩(영상) 기여" 신호라 라이브 매출이 섞이면 안 됨. video_gmv 없으면(컬럼
+  //   부재) 총매출로 폴백. 순수 라이브 크리에이터는 video_gmv=0 → 풀에서 자연 제외.
   const inflRows = parsed.rows.map((r) => ({
     platform: "tiktok" as const,
     external_id: r.handle,
     handle: r.handle,
     follower_count: r.followers,
     fans_source: "kalodata",
-    lifetime_gmv_usd: r.revenue_usd,
+    lifetime_gmv_usd: r.video_gmv_usd ?? r.revenue_usd,
   }));
   const { error: inflErr } = await supabase
     .from("influencers")
@@ -2653,69 +2656,34 @@ export async function runIgProfileScrape(
   const supabase = await createServer();
   const { data: c } = await supabase
     .from("cases")
-    .select("id, brand_id, country")
+    .select("id")
     .eq("id", case_id)
     .maybeSingle();
   if (!c) return { ok: false, error: "case 없음" };
 
-  // 대상 username 추출
-  const baseQuery = supabase
-    .from("ig_authors")
-    .select("username")
-    .eq("case_id", case_id);
-  const { data: rows } = opts?.rescrape_all
-    ? await baseQuery
-    : await baseQuery.is("followers", null);
-  const usernames = [...new Set((rows ?? []).map((r) => r.username).filter((u): u is string => !!u))];
-  if (usernames.length === 0) {
-    return { ok: true, message: "대상 author 0명 (이미 follower 박힘)" };
-  }
-
-  const { runIgProfileScraper, extractCrossChannelHandles } = await import("@/lib/apify/instagram-profile-scraper");
-  let result: Awaited<ReturnType<typeof runIgProfileScraper>>;
+  const { enrichIgAuthorFollowers } = await import(
+    "@/lib/inngest/aggregators/phase4c-ig-monitor"
+  );
+  let r: Awaited<ReturnType<typeof enrichIgAuthorFollowers>>;
   try {
-    result = await runIgProfileScraper(usernames);
+    r = await enrichIgAuthorFollowers(supabase, case_id, opts);
   } catch (e) {
-    return { ok: false, error: `Apify 호출 실패: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  if (result.profiles.length === 0) {
     return {
       ok: false,
-      error: `Apify 결과 0건 (status: ${result.status}, ${result.skipped_reason ?? "scrape 실패"})`,
+      error: `Apify 호출 실패: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
-
-  // DB update — batch 200
-  const now = new Date().toISOString();
-  let updated = 0;
-  for (const p of result.profiles) {
-    const linked = extractCrossChannelHandles(p.bio, p.external_url);
-    const { error: upErr } = await supabase
-      .from("ig_authors")
-      .update({
-        followers: p.followers,
-        following: p.following,
-        bio: p.bio,
-        external_url: p.external_url,
-        verified: p.verified,
-        is_business_account: p.is_business_account,
-        linked_handles: Object.keys(linked).length > 0 ? linked : null,
-        followers_source: "apify_profile_scraper",
-        profile_scraped_at: now,
-      } as never)
-      .eq("case_id", case_id)
-      .eq("username", p.username);
-    if (upErr) {
-      console.warn(`[ig profile] update ${p.username} fail:`, upErr.message);
-      continue;
-    }
-    updated += 1;
+  if (r.targeted === 0) {
+    return { ok: true, message: r.skipped_reason ?? "대상 author 0명" };
+  }
+  if (r.updated === 0) {
+    return { ok: false, error: r.skipped_reason ?? "Apify 결과 0건" };
   }
 
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `${updated}/${usernames.length}명 IG profile 박힘 · 비용 $${result.cost_estimate_usd.toFixed(2)} · run ${result.apify_run_id ?? "?"}`,
+    message: `${r.updated}/${r.targeted}명 IG profile 박힘 · 비용 $${r.cost_estimate_usd.toFixed(2)} · run ${r.apify_run_id ?? "?"}`,
   };
 }
 
@@ -2757,20 +2725,40 @@ export async function updateCaseConfig(
       .filter(Boolean);
     update.brand_meta_pages = pages.length > 0 ? pages : null;
   }
-  if (formData.has("ig_owned_username")) {
-    const u = s("ig_owned_username").replace(/^@/, "");
+  // IG: owned username + brand hashtags(태그/언급 수집) 한 폼에서 같이 머지.
+  if (formData.has("ig_owned_username") || formData.has("ig_brand_hashtags")) {
     const igConfig = {
       ...((existing.ig_config as Record<string, unknown>) ?? {}),
     };
-    igConfig.ig_owned_usernames = u ? [u] : [];
+    if (formData.has("ig_owned_username")) {
+      const u = s("ig_owned_username").replace(/^@/, "");
+      igConfig.ig_owned_usernames = u ? [u] : [];
+    }
+    if (formData.has("ig_brand_hashtags")) {
+      const tags = s("ig_brand_hashtags")
+        .split(",")
+        .map((x) => x.trim().replace(/^#/, ""))
+        .filter(Boolean);
+      igConfig.ig_brand_hashtags = tags;
+    }
     update.ig_config = igConfig as never;
   }
-  if (formData.has("yt_owned_channel")) {
-    const u = s("yt_owned_channel");
+  // YT: owned channel + brand keywords(검색/언급 수집) 한 폼에서 같이 머지.
+  if (formData.has("yt_owned_channel") || formData.has("yt_brand_keywords")) {
     const ytConfig = {
       ...((existing.yt_config as Record<string, unknown>) ?? {}),
     };
-    ytConfig.yt_owned_channels = u ? [u] : [];
+    if (formData.has("yt_owned_channel")) {
+      const u = s("yt_owned_channel");
+      ytConfig.yt_owned_channels = u ? [u] : [];
+    }
+    if (formData.has("yt_brand_keywords")) {
+      const kws = s("yt_brand_keywords")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      ytConfig.yt_brand_keywords = kws;
+    }
     update.yt_config = ytConfig as never;
   }
 

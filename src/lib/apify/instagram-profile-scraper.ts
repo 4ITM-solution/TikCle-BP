@@ -8,7 +8,11 @@
  * 비용: 약 $0.005 / username (700명 ~$3.50).
  */
 
-import { runApifyActor } from "./instagram-shared";
+import {
+  runApifyActor,
+  runApifyActorDurable,
+  type StepLike,
+} from "./instagram-shared";
 
 export type IgProfileRaw = {
   username: string;
@@ -24,6 +28,7 @@ export type IgProfileRaw = {
 
 export async function runIgProfileScraper(
   usernames: string[],
+  durable?: { step: StepLike; label: string },
 ): Promise<{
   profiles: IgProfileRaw[];
   apify_run_id: string | null;
@@ -54,7 +59,17 @@ export async function runIgProfileScraper(
   });
 
   // Apify API actor id 형식은 'owner~name' (slash 박으면 URL path 깨짐)
-  const result = await runApifyActor("apify~instagram-api-scraper", input, token);
+  // durable 제공 시(파이프라인) step.sleep 폴링 — 비-durable 20분 폴링이 Vercel
+  // maxDuration(800s)을 넘겨 중복 과금 루프에 빠지는 걸 방지.
+  const result = durable
+    ? await runApifyActorDurable(
+        durable.step,
+        durable.label,
+        "apify~instagram-api-scraper",
+        input,
+        token,
+      )
+    : await runApifyActor("apify~instagram-api-scraper", input, token);
   console.log("[ig-profile-scraper] result", {
     status: result.status,
     items_count: result.items.length,

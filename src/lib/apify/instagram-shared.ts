@@ -40,15 +40,19 @@ export type ApifyRunResult = {
   skipped_reason?: string;
 };
 
-/**
- * Apify async run: start → poll → fetch dataset.
- */
-export async function runApifyActor(
+const TERMINAL_STATUSES = ["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"];
+
+/** Inngest step 인터페이스 최소 — durable 러너가 받는 것 (run/sleep만 사용). */
+export type StepLike = {
+  run<T>(id: string, fn: () => Promise<T>): Promise<T>;
+  sleep(id: string, duration: string | number): Promise<unknown>;
+};
+
+async function startApifyRun(
   actorId: string,
   input: unknown,
   token: string,
-): Promise<ApifyRunResult> {
-  // 1) Start
+): Promise<{ runId: string; datasetId: string }> {
   const startUrl = `https://api.apify.com/v2/acts/${actorId}/runs?token=${token}`;
   const startRes = await fetch(startUrl, {
     method: "POST",
@@ -69,40 +73,95 @@ export async function runApifyActor(
   if (!runId || !datasetId) {
     throw new Error(`Apify ${actorId}: run start response missing id`);
   }
+  return { runId, datasetId };
+}
 
-  // 2) Poll
-  const runUrl = `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`;
+async function getApifyRunStatus(
+  runId: string,
+  token: string,
+): Promise<string> {
+  const r = await fetch(
+    `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`,
+  );
+  if (!r.ok) return "RUNNING";
+  const j = (await r.json()) as { data?: { status?: string } };
+  return j.data?.status ?? "UNKNOWN";
+}
+
+async function fetchApifyItems(
+  datasetId: string,
+  token: string,
+): Promise<unknown[]> {
+  try {
+    const dsRes = await fetch(
+      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&format=json`,
+    );
+    if (dsRes.ok) return (await dsRes.json()) as unknown[];
+  } catch {
+    // dataset fetch 실패 무시 (status로 판단)
+  }
+  return [];
+}
+
+/**
+ * Apify async run: start → poll → fetch dataset. (동기 — 짧은 스크랩/서버액션용)
+ */
+export async function runApifyActor(
+  actorId: string,
+  input: unknown,
+  token: string,
+): Promise<ApifyRunResult> {
+  const { runId, datasetId } = await startApifyRun(actorId, input, token);
   const deadline = Date.now() + MAX_POLL_MINUTES * 60 * 1000;
   let status = "RUNNING";
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_SEC * 1000));
-    const r = await fetch(runUrl);
-    if (!r.ok) continue;
-    const j = (await r.json()) as { data?: { status?: string } };
-    status = j.data?.status ?? "UNKNOWN";
-    if (status === "SUCCEEDED") break;
-    if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") {
-      // 부분 결과라도 회수 시도
-      break;
-    }
+    status = await getApifyRunStatus(runId, token);
+    if (TERMINAL_STATUSES.includes(status)) break;
   }
-
-  // 3) Fetch dataset
-  const dsUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&format=json`;
-  let items: unknown[] = [];
-  try {
-    const dsRes = await fetch(dsUrl);
-    if (dsRes.ok) {
-      items = (await dsRes.json()) as unknown[];
-    }
-  } catch {
-    // dataset fetch 실패 무시 (status로 판단)
-  }
-
+  const items = await fetchApifyItems(datasetId, token);
   return {
     items,
     apify_run_id: runId,
     dataset_id: datasetId,
+    status,
+    skipped_reason:
+      status === "SUCCEEDED" ? undefined : `actor 완료 안 됨: ${status}`,
+  };
+}
+
+/**
+ * Durable 버전 — Inngest step으로 start/poll/fetch 분리.
+ *   - start는 step.run으로 memoize → 함수 재시도(Vercel maxDuration 초과 등)해도 새 Apify run 안 만듦(중복 과금 X).
+ *   - 대기는 step.sleep → 함수 실행시간 소비 안 함 → 18분짜리 5000건 스크랩도 안 죽음.
+ * label은 각 스크랩마다 유니크해야 함(step id 충돌 방지).
+ */
+export async function runApifyActorDurable(
+  step: StepLike,
+  label: string,
+  actorId: string,
+  input: unknown,
+  token: string,
+): Promise<ApifyRunResult> {
+  const started = await step.run(`${label}-start`, () =>
+    startApifyRun(actorId, input, token),
+  );
+  const MAX_POLLS = 40; // 40 × 30s = 20분
+  let status = "RUNNING";
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await step.sleep(`${label}-wait-${i}`, "30s");
+    status = await step.run(`${label}-poll-${i}`, () =>
+      getApifyRunStatus(started.runId, token),
+    );
+    if (TERMINAL_STATUSES.includes(status)) break;
+  }
+  const items = await step.run(`${label}-fetch`, () =>
+    fetchApifyItems(started.datasetId, token),
+  );
+  return {
+    items,
+    apify_run_id: started.runId,
+    dataset_id: started.datasetId,
     status,
     skipped_reason:
       status === "SUCCEEDED" ? undefined : `actor 완료 안 됨: ${status}`,

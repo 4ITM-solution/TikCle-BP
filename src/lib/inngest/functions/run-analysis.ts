@@ -26,7 +26,12 @@ import {
   type Phase37BatchResult,
 } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
-import { runPhase4c } from "@/lib/inngest/aggregators/phase4c-ig-monitor";
+import {
+  runPhase4c,
+  enrichIgAuthorFollowers,
+} from "@/lib/inngest/aggregators/phase4c-ig-monitor";
+import type { StepLike } from "@/lib/apify/instagram-shared";
+import { syncCaseBpBrands } from "@/lib/influencer-db/sync-bp-brands";
 import { runPhase4d } from "@/lib/inngest/aggregators/phase4d-yt-monitor";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
 import {
@@ -286,7 +291,10 @@ export const runAnalysis = inngest.createFunction(
     // IG/YT 영상이 phase2(월별 집계)·phase4b(클러스터링)에 반영되려면 그 전에 ig_posts/
     // yt_videos 가 DB에 있어야 함 → 스크랩(compute)을 여기서 먼저 실행.
     // 저장(save)은 cascade 충돌 회피 위해 맨 끝(기존 위치)에 그대로 둔다.
-    const phase4c = await step.run("phase-4c-ig-monitor", async () => {
+    // ⚠️ step.run으로 감싸지 않음 — runPhase4c가 내부에서 Apify 스크랩을 durable step
+    //   (start memoize + step.sleep 폴링)으로 돌리기 때문. step.run 안에 step.run은 불가.
+    //   plain async 래퍼는 Inngest step 추적에 영향 없음(중첩 아님).
+    const phase4c = await (async () => {
       if (existing.phase4c && !force("phase4c")) {
         logger.info("[Phase 4c] cached", {
           computed_at: existing.phase4c.computed_at,
@@ -294,8 +302,13 @@ export const runAnalysis = inngest.createFunction(
         });
         return sanitizeDeep(existing.phase4c);
       }
-      logger.info("[Phase 4c] IG brand monitoring", { case_id });
-      const stats = await runPhase4c(supabase, case_id);
+      logger.info("[Phase 4c] IG brand monitoring (durable)", { case_id });
+      // Inngest step → StepLike 캐스팅 (step.run의 Jsonify<T> 반환 타입 차이만 우회 — 런타임 동일)
+      const stats = await runPhase4c(
+        supabase,
+        case_id,
+        step as unknown as StepLike,
+      );
       logger.info("[Phase 4c] done", {
         raw: stats.total_raw,
         unique: stats.total_unique,
@@ -306,8 +319,28 @@ export const runAnalysis = inngest.createFunction(
         skipped: stats.skipped_reason,
       });
       return sanitizeDeep(stats);
-    });
+    })();
     const phase4cNew = !existing.phase4c || force("phase4c");
+
+    // ─── Phase 4c.5: IG author 팔로워/프로필 자동 박기 ───
+    // phase4c가 새로 스크랩됐으면(=새 author 들어왔으면) followers IS NULL 인 author
+    // 프로필을 Apify로 자동 enrich. 수동 "팔로워 박기" 버튼 없이 한 번에 완성.
+    // ⚠️ step.run으로 감싸지 않음 — enrichIgAuthorFollowers가 내부에서 Apify 스크랩을
+    //   durable step(start memoize + step.sleep 폴링)으로 돌리기 때문. step.run 중첩 불가.
+    //   비-durable로 감쌌다면 author 많은 케이스에서 20분 폴링 > maxDuration(800s) →
+    //   함수 강제종료 → 재시도 → Apify 중복 과금 루프 위험.
+    if (phase4cNew) {
+      logger.info("[Phase 4c.5] IG author 팔로워 자동 박기 (durable)", { case_id });
+      const r = await enrichIgAuthorFollowers(supabase, case_id, {
+        step: step as unknown as StepLike,
+      });
+      logger.info("[Phase 4c.5] done", {
+        updated: r.updated,
+        targeted: r.targeted,
+        cost: r.cost_estimate_usd,
+        skipped: r.skipped_reason,
+      });
+    }
 
     const phase4d = await step.run("phase-4d-yt-monitor", async () => {
       if (existing.phase4d && !force("phase4d")) {
@@ -687,38 +720,40 @@ export const runAnalysis = inngest.createFunction(
       });
       if (phase4a.ads_preview.length === 0) return phase4a;
 
-      const updated = await Promise.all(
-        phase4a.ads_preview.map(async (ad, i) => {
-          const idKey = ad.ad_archive_id ?? `idx${i}`;
-          const base = `${case_id}/meta-ads/${idKey}`;
+      // ⚠️ 순차 처리 — Promise.all로 동시에 받으면 큰 영상 여러 개가 한꺼번에
+      //   메모리(arrayBuffer)로 올라가 함수 OOM(500) 남. 1개씩 받아 footprint 최소화.
+      const updated: typeof phase4a.ads_preview = [];
+      for (let i = 0; i < phase4a.ads_preview.length; i++) {
+        const ad = phase4a.ads_preview[i]!;
+        const idKey = ad.ad_archive_id ?? `idx${i}`;
+        const base = `${case_id}/meta-ads/${idKey}`;
 
-          let stored_video: string | null = null;
-          if (ad.video_url) {
-            stored_video = await downloadAndStore(
-              supabase,
-              ad.video_url,
-              `${base}/video.mp4`,
-              "video/mp4",
-            );
-          }
+        let stored_video: string | null = null;
+        if (ad.video_url) {
+          stored_video = await downloadAndStore(
+            supabase,
+            ad.video_url,
+            `${base}/video.mp4`,
+            "video/mp4",
+          );
+        }
 
-          let stored_thumb: string | null = null;
-          if (ad.thumbnail_url) {
-            stored_thumb = await downloadAndStore(
-              supabase,
-              ad.thumbnail_url,
-              `${base}/thumb.jpg`,
-              "image/jpeg",
-            );
-          }
+        let stored_thumb: string | null = null;
+        if (ad.thumbnail_url) {
+          stored_thumb = await downloadAndStore(
+            supabase,
+            ad.thumbnail_url,
+            `${base}/thumb.jpg`,
+            "image/jpeg",
+          );
+        }
 
-          return {
-            ...ad,
-            video_url: stored_video ?? ad.video_url,
-            thumbnail_url: stored_thumb ?? ad.thumbnail_url,
-          };
-        }),
-      );
+        updated.push({
+          ...ad,
+          video_url: stored_video ?? ad.video_url,
+          thumbnail_url: stored_thumb ?? ad.thumbnail_url,
+        });
+      }
 
       const result: Phase4aStats = { ...phase4a, ads_preview: updated };
       const stored_video_count = updated.filter(
@@ -1228,6 +1263,21 @@ export const runAnalysis = inngest.createFunction(
         if (error) throw new Error(`save phase4d: ${error.message}`);
       });
     }
+
+    // ─── BP 브랜드 이력 → TIKCLE 2.0 운영 DB(influencer_db_tt/ig) 실시간 sync ───
+    // 이 케이스 인플들의 bp_brands를 2.0에 update/insert. 비치명적(실패해도 분석 성공 처리).
+    await step.run("sync-bp-brands-to-ops", async () => {
+      try {
+        const r = await syncCaseBpBrands(supabase, case_id);
+        logger.info("[bp-brands sync] done", r as Record<string, unknown>);
+        return r;
+      } catch (e) {
+        logger.warn("[bp-brands sync] 실패(무시)", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return { error: true };
+      }
+    });
 
     // ─── Final: status = ready + 직전 last_error 클리어 ───
     await step.run("mark-ready", async () => {
