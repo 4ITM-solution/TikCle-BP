@@ -6,6 +6,169 @@ import type { LandingType, Phase4aStats } from "@/lib/inngest/types";
 
 const PAGE_SIZE = 6;
 
+// 광고 집행기간(일) + 라이프사이클 단계.
+//   test  = 1~3일 (초기 테스트에서 솎인 것 — 대량테스트 묘지)
+//   scaled= 7일+ (스케일까지 살아남은 것 = 진짜 효율 신호)
+function adDays(a: MetaAdListItem): number {
+  if (!a.start_date) return 0;
+  const end = a.end_date ? new Date(a.end_date) : new Date();
+  const d = (end.getTime() - new Date(a.start_date).getTime()) / 86400000;
+  return Math.max(0, Math.round(d));
+}
+function lifecycle(days: number): "test" | "mid" | "scaled" {
+  if (days >= 7) return "scaled";
+  if (days <= 3) return "test";
+  return "mid";
+}
+
+const ORIGIN_LABEL: Record<string, string> = {
+  ugc_as_is: "인플 원본(as-is)",
+  ugc_processed: "인플 가공",
+  brand_produced: "브랜드 제작",
+};
+
+/**
+ * 광고 인텔 롤업 — 라이프사이클 분리로 평균 오염(테스트 묘지) 회피.
+ * scaled(7일+) 광고만으로 hook/origin별 효율을 보여줌.
+ */
+function AdIntelRollup({ ads }: { ads: MetaAdListItem[] }) {
+  const data = useMemo(() => {
+    const tagged = ads.filter((a) => a.ad_intel);
+    if (tagged.length === 0) return null;
+    const enriched = tagged.map((a) => {
+      const days = adDays(a);
+      return { a, days, stage: lifecycle(days) };
+    });
+    const total = enriched.length;
+    const stageCounts = { test: 0, mid: 0, scaled: 0 };
+    for (const e of enriched) stageCounts[e.stage] += 1;
+
+    const groupBy = (key: (i: (typeof enriched)[number]) => string | undefined) => {
+      const m = new Map<
+        string,
+        { n: number; scaled: number; scaledMaxDays: number; scaledSumDays: number }
+      >();
+      for (const e of enriched) {
+        const k = key(e) ?? "(없음)";
+        const g = m.get(k) ?? { n: 0, scaled: 0, scaledMaxDays: 0, scaledSumDays: 0 };
+        g.n += 1;
+        if (e.stage === "scaled") {
+          g.scaled += 1;
+          g.scaledSumDays += e.days;
+          g.scaledMaxDays = Math.max(g.scaledMaxDays, e.days);
+        }
+        m.set(k, g);
+      }
+      return [...m.entries()]
+        .map(([k, v]) => ({
+          k,
+          ...v,
+          scaledAvg: v.scaled > 0 ? Math.round(v.scaledSumDays / v.scaled) : 0,
+        }))
+        .sort((x, y) => y.scaledMaxDays - x.scaledMaxDays || y.n - x.n);
+    };
+
+    return {
+      total,
+      stageCounts,
+      byOrigin: groupBy((e) => e.a.ad_intel?.origin_class),
+      byHook: groupBy((e) => e.a.ad_intel?.hook_type),
+    };
+  }, [ads]);
+
+  if (!data) return null;
+
+  const Row = ({
+    label,
+    n,
+    scaled,
+    avg,
+    max,
+    maxBar,
+  }: {
+    label: string;
+    n: number;
+    scaled: number;
+    avg: number;
+    max: number;
+    maxBar: number;
+  }) => (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1.4fr 0.5fr 1.6fr 0.7fr",
+        gap: 8,
+        alignItems: "center",
+        fontSize: 11,
+        padding: "3px 0",
+      }}
+    >
+      <div style={{ color: "var(--color-ink)", fontWeight: 600 }}>
+        {ORIGIN_LABEL[label] ?? label}
+      </div>
+      <div style={{ fontFamily: "var(--font-mono)", color: "var(--color-g400)" }}>
+        {n}개
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div
+          style={{
+            height: 8,
+            borderRadius: 4,
+            background: "var(--color-accent)",
+            width: `${maxBar > 0 ? Math.max(4, (max / maxBar) * 100) : 0}%`,
+            minWidth: max > 0 ? 4 : 0,
+          }}
+        />
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-g500)" }}>
+          max {max}일
+        </span>
+      </div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-g400)" }}>
+        {scaled > 0 ? `평균 ${avg}일·${scaled}건` : "—"}
+      </div>
+    </div>
+  );
+
+  const hookMaxBar = Math.max(1, ...data.byHook.map((r) => r.scaledMaxDays));
+  const originMaxBar = Math.max(1, ...data.byOrigin.map((r) => r.scaledMaxDays));
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--color-g100)",
+        borderRadius: 8,
+        padding: "12px 14px",
+        marginBottom: 14,
+        background: "var(--color-g25)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>🔬 광고 인텔 — 효율 패턴</div>
+        <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--color-g400)" }}>
+          {data.total}개 분석 · scaled(7일+) {data.stageCounts.scaled} / mid {data.stageCounts.mid} / test(≤3일) {data.stageCounts.test}
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: "var(--color-g400)", marginBottom: 8 }}>
+        대량테스트(test)가 평균을 오염시키므로 <b>scaled(7일+) 광고 기준</b>으로 효율 표시
+      </div>
+
+      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-g500)", margin: "6px 0 2px" }}>
+        HOOK별
+      </div>
+      {data.byHook.slice(0, 8).map((r) => (
+        <Row key={`h-${r.k}`} label={r.k} n={r.n} scaled={r.scaled} avg={r.scaledAvg} max={r.scaledMaxDays} maxBar={hookMaxBar} />
+      ))}
+
+      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-g500)", margin: "10px 0 2px" }}>
+        ORIGIN별 (인플 원본 vs 가공 vs 브랜드제작)
+      </div>
+      {data.byOrigin.map((r) => (
+        <Row key={`o-${r.k}`} label={r.k} n={r.n} scaled={r.scaled} avg={r.scaledAvg} max={r.scaledMaxDays} maxBar={originMaxBar} />
+      ))}
+    </div>
+  );
+}
+
 const LANDING_OPTIONS: Array<{ key: "all" | LandingType; label: string }> = [
   { key: "all", label: "전체 랜딩" },
   { key: "dtc", label: "자사몰 (DTC)" },
@@ -330,6 +493,7 @@ export function MetaAdsBrowser({
         </div>
       </div>
 
+      <AdIntelRollup ads={ads} />
 
       {visible.length === 0 ? (
         <div
@@ -533,6 +697,67 @@ function AdCard({ ad }: { ad: MetaAdListItem }) {
             }}
           >
             {dateRange}
+          </div>
+        )}
+        {ad.ad_intel && (
+          <div
+            style={{
+              display: "flex",
+              gap: 3,
+              flexWrap: "wrap",
+              marginTop: 4,
+            }}
+          >
+            {ad.ad_intel.origin_class && (
+              <span
+                style={{
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 6,
+                  background:
+                    ad.ad_intel.origin_class === "ugc_as_is"
+                      ? "#16a34a"
+                      : ad.ad_intel.origin_class === "ugc_processed"
+                        ? "#ea580c"
+                        : "#64748b",
+                  color: "white",
+                }}
+              >
+                {ORIGIN_LABEL[ad.ad_intel.origin_class] ??
+                  ad.ad_intel.origin_class}
+              </span>
+            )}
+            {ad.ad_intel.hook_type && ad.ad_intel.hook_type !== "none" && (
+              <span
+                style={{
+                  fontSize: 8.5,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 6,
+                  background: "var(--color-g100)",
+                  color: "var(--color-g600)",
+                }}
+              >
+                {ad.ad_intel.hook_type}
+                {ad.ad_intel.hook_strength === "strong" ? " ⚡" : ""}
+              </span>
+            )}
+            {ad.inferred_creator_handle && (
+              <span
+                style={{
+                  fontSize: 8.5,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 6,
+                  background: "var(--color-info)",
+                  color: "white",
+                }}
+                title="UTM에서 추출한 소스 크리에이터"
+              >
+                @{ad.inferred_creator_handle}
+              </span>
+            )}
           </div>
         )}
         {ad.body_text && (

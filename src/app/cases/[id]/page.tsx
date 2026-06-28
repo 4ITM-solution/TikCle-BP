@@ -140,6 +140,21 @@ type ReusableInfo = {
   row_count: number;
 };
 
+export type AdIntelLite = {
+  is_ugc_person?: boolean;
+  origin_class?: "ugc_as_is" | "ugc_processed" | "brand_produced";
+  content_format?: string;
+  hook_type?: string;
+  hook_strength?: "strong" | "medium" | "weak";
+  product_focus?: "single_hero" | "multi_product";
+  has_promo_overlay?: boolean;
+  has_before_after?: boolean;
+  creator_read?: string;
+  market_read?: string;
+  products_visible?: string[];
+  rationale?: string | null;
+};
+
 export type MetaAdListItem = {
   id: string;
   ad_archive_id: string | null;
@@ -156,6 +171,8 @@ export type MetaAdListItem = {
   creator_page_name: string | null;
   partner_page_name: string | null;
   partner_page_id: string | null;
+  inferred_creator_handle: string | null;
+  ad_intel: AdIntelLite | null;
 };
 
 export default async function CaseDetailPage({
@@ -334,7 +351,7 @@ export default async function CaseDetailPage({
     const { data: ads } = await supabase
       .from("meta_ads")
       .select(
-        "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official, creator_page_name, partner_page_name, partner_page_id",
+        "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official, creator_page_name, partner_page_name, partner_page_id, inferred_creator_handle, ad_intel",
       )
       .eq("case_id", c.id)
       .order("start_date", { ascending: false })
@@ -355,6 +372,12 @@ export default async function CaseDetailPage({
       creator_page_name: a.creator_page_name ?? null,
       partner_page_name: a.partner_page_name ?? null,
       partner_page_id: a.partner_page_id ?? null,
+      inferred_creator_handle:
+        (a as { inferred_creator_handle?: string | null })
+          .inferred_creator_handle ?? null,
+      ad_intel:
+        ((a as { ad_intel?: AdIntelLite | null }).ad_intel as AdIntelLite) ??
+        null,
     }));
   }
 

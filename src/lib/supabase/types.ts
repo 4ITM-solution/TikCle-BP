@@ -602,6 +602,8 @@ export type Database = {
           creator_page_name: string | null;
           partner_page_name: string | null;
           partner_page_id: string | null;
+          inferred_creator_handle: string | null;
+          ad_intel: Json | null;
           snapshot: Json | null;
           created_at: string;
         };
@@ -626,6 +628,8 @@ export type Database = {
           creator_page_name?: string | null;
           partner_page_name?: string | null;
           partner_page_id?: string | null;
+          inferred_creator_handle?: string | null;
+          ad_intel?: Json | null;
           snapshot?: Json | null;
           created_at?: string;
         };
@@ -650,6 +654,8 @@ export type Database = {
           creator_page_name?: string | null;
           partner_page_name?: string | null;
           partner_page_id?: string | null;
+          inferred_creator_handle?: string | null;
+          ad_intel?: Json | null;
           snapshot?: Json | null;
           created_at?: string;
         };
