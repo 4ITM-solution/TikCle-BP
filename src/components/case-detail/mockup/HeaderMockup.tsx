@@ -554,6 +554,8 @@ function detailForPhase(key: PhaseKey, ks: KeyStats): string {
       return ks.phase4a?.ads_preview?.length
         ? `Storage ${ks.phase4a.ads_preview.filter((a) => (a.thumbnail_url ?? "").includes("supabase") || (a.video_url ?? "").includes("supabase")).length}건`
         : "";
+    case "phase4a_intel":
+      return ks.phase4a ? "광고 인텔" : "";
     case "phase4b_sample":
       return ks.phase4b_sample ? `샘플 ${ks.phase4b_sample.sample_content_ids?.length ?? 0}` : "";
     case "phase4b_asr":

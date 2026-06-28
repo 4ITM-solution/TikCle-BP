@@ -26,6 +26,7 @@ import {
   type Phase37BatchResult,
 } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
+import { runPhase4aIntel } from "@/lib/inngest/aggregators/phase4a-intel";
 import {
   runPhase4c,
   enrichIgAuthorFollowers,
@@ -786,6 +787,24 @@ export const runAnalysis = inngest.createFunction(
           .update({ key_stats: newStats })
           .eq("id", case_id);
         if (error) throw new Error(`save phase4a: ${error.message}`);
+      });
+    }
+
+    // ─── Phase 4a.6: 광고 크리에이티브 인텔리전스 (UTM 파싱 + Vision 태깅) ───
+    //   meta_ads 각 광고에 origin/format/hook/5축 신호 + 소스 크리에이터 핸들 적재.
+    //   4a가 새로 돌았을 때만(또는 force). 비전 호출은 thumbnail 있는 광고만.
+    if (phase4aNew || force("phase4a_intel")) {
+      await step.run("phase-4a-6-intel", async () => {
+        const intel = await runPhase4aIntel(supabase, case_id);
+        logger.info("[Phase 4a.6] ad intel", {
+          total_ads: intel.total_ads,
+          utm_handles: intel.utm_handles,
+          vision_tagged: intel.vision_tagged,
+          vision_failed: intel.vision_failed,
+          cost: intel.cost_usd,
+          skipped: intel.skipped_reason,
+        });
+        return sanitizeDeep(intel);
       });
     }
 

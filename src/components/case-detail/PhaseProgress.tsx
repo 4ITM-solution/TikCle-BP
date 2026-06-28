@@ -148,6 +148,13 @@ export function isPhaseDone(
           ),
         computed_at: keyStats.phase4a?.computed_at,
       };
+    case "phase4a_intel":
+      // ad_intel은 meta_ads 테이블에 적재되므로 key_stats엔 별도 플래그 없음.
+      // phase4a 완료 시 함께 돈 것으로 간주.
+      return {
+        done: !!keyStats.phase4a,
+        computed_at: keyStats.phase4a?.computed_at,
+      };
     case "phase4b_sample":
       return {
         done: !!keyStats.phase4b_sample,
