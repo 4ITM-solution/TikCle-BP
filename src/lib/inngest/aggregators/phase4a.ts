@@ -9,6 +9,7 @@ import {
   isRegionCode,
   type Region,
 } from "@/lib/case-detail/countries";
+import { rehostMetaAdAssets } from "@/lib/storage/meta-ad-assets";
 import type {
   LandingType,
   MetaAdEntry,
@@ -123,6 +124,23 @@ export async function runPhase4a(
     ...a,
     landing: classifyLanding(a.link_url, c.brand_keyword),
   }));
+
+  // 6.5 영상/썸네일을 Storage로 재호스트 (FB CDN 만료 방지). inserts in-place 교체.
+  //     이미 저장된 ad_archive_id는 스킵 → 재실행 멱등.
+  try {
+    const { stored_videos, stored_thumbs } = await rehostMetaAdAssets(
+      supabase,
+      inserts,
+      `meta-ads/${case_id}`,
+    );
+    console.log(
+      `[phase4a] rehosted ${stored_videos} videos / ${stored_thumbs} thumbs to storage`,
+    );
+  } catch (e) {
+    console.warn(
+      `[phase4a] rehost failed (keeping FB CDN urls): ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
 
   for (let i = 0; i < inserts.length; i += BATCH) {
     const batch = inserts.slice(i, i + BATCH);

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchMetaAdsCombined } from "@/lib/apify/meta-ads";
+import { rehostMetaAdAssets } from "@/lib/storage/meta-ad-assets";
 
 /**
  * 광고 모니터링 — 추적 브랜드 1개를 스크랩하고 diff(신규/킬)를 tracked_brand_ads에 적재.
@@ -91,6 +92,15 @@ export async function scrapeTrackedBrand(
       ended_at: ended ? (a.end_date ?? now) : null,
     };
   });
+  // 3.5 영상/썸네일 Storage 재호스트 (FB CDN 만료 방지). 이미 저장된 건 스킵 → 멱등.
+  try {
+    await rehostMetaAdAssets(db, rows, `meta-ads/tracked/${brand.id}`);
+  } catch (e) {
+    console.warn(
+      `[monitor] rehost failed (keeping FB CDN urls): ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
   for (let i = 0; i < rows.length; i += 500) {
     const batch = rows.slice(i, i + 500);
     const { error } = await db
