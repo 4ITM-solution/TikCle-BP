@@ -818,8 +818,9 @@ export const runAnalysis = inngest.createFunction(
         });
         if (r.skipped_reason) break;
         if (r.remaining === 0) break;
-        // 진전 없음(전부 실패로 sentinel 마킹돼 remaining 안 줄면) 무한루프 방지
-        if (r.vision_tagged === 0 && r.vision_failed === 0) break;
+        // 태깅 진전이 0이면(전부 실패=쿼터/레이트리밋) 중단 — 재트리거로 재시도.
+        // 실패분은 null로 남아 다음 트리거에서 다시 시도됨.
+        if (r.vision_tagged === 0) break;
       }
     }
 

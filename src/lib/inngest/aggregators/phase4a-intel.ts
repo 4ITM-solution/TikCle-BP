@@ -122,12 +122,9 @@ export async function runPhase4aVisionBatch(
       const ad = slice[j]!;
       const res = results[j];
       if (res?.status !== "fulfilled" || !res.value.intel) {
+        // 실패는 null로 남김(재시도 가능). sentinel 마킹하면 transient 실패가
+        // 영구 실패가 됨(쿼터/레이트리밋 등). run-analysis 루프가 진전 0이면 break.
         vision_failed += 1;
-        // 실패해도 sentinel로 마킹 → 다음 배치 재선택 방지(무한루프 차단)
-        await supabase
-          .from("meta_ads")
-          .update({ ad_intel: { failed: true } as never })
-          .eq("id", ad.id);
         if (res?.status === "fulfilled") {
           tIn += res.value.tokens_input;
           tOut += res.value.tokens_output;
