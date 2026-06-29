@@ -26,7 +26,10 @@ import {
   type Phase37BatchResult,
 } from "@/lib/inngest/aggregators/phase3-7-shop-creator";
 import { runPhase4a } from "@/lib/inngest/aggregators/phase4a";
-import { runPhase4aIntel } from "@/lib/inngest/aggregators/phase4a-intel";
+import {
+  runPhase4aUtm,
+  runPhase4aVisionBatch,
+} from "@/lib/inngest/aggregators/phase4a-intel";
 import {
   runPhase4c,
   enrichIgAuthorFollowers,
@@ -794,18 +797,30 @@ export const runAnalysis = inngest.createFunction(
     //   meta_ads 각 광고에 origin/format/hook/5축 신호 + 소스 크리에이터 핸들 적재.
     //   4a가 새로 돌았을 때만(또는 force). 비전 호출은 thumbnail 있는 광고만.
     if (phase4aNew || force("phase4a_intel")) {
-      await step.run("phase-4a-6-intel", async () => {
-        const intel = await runPhase4aIntel(supabase, case_id);
-        logger.info("[Phase 4a.6] ad intel", {
-          total_ads: intel.total_ads,
-          utm_handles: intel.utm_handles,
-          vision_tagged: intel.vision_tagged,
-          vision_failed: intel.vision_failed,
-          cost: intel.cost_usd,
-          skipped: intel.skipped_reason,
-        });
-        return sanitizeDeep(intel);
+      // UTM 파싱 (1회)
+      await step.run("phase-4a-6-utm", async () => {
+        const u = await runPhase4aUtm(supabase, case_id);
+        logger.info("[Phase 4a.6] UTM", u);
+        return sanitizeDeep(u);
       });
+      // 비전 태깅 — 미태깅분을 100개씩 배치로 (maxDuration 회피). remaining 0까지 루프.
+      for (let i = 0; i < 15; i += 1) {
+        const r = await step.run(`phase-4a-6-vision-${i}`, async () => {
+          const v = await runPhase4aVisionBatch(supabase, case_id, 100);
+          logger.info(`[Phase 4a.6] vision batch ${i}`, {
+            tagged: v.vision_tagged,
+            failed: v.vision_failed,
+            remaining: v.remaining,
+            cost: v.cost_usd,
+            skipped: v.skipped_reason,
+          });
+          return sanitizeDeep(v);
+        });
+        if (r.skipped_reason) break;
+        if (r.remaining === 0) break;
+        // 진전 없음(전부 실패로 sentinel 마킹돼 remaining 안 줄면) 무한루프 방지
+        if (r.vision_tagged === 0 && r.vision_failed === 0) break;
+      }
     }
 
     // ─── Phase 4b.1: 분석 샘플 선정 ───
