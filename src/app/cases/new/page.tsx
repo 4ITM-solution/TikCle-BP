@@ -14,8 +14,9 @@ import {
 } from "@/lib/case-detail/countries";
 
 // 드롭다운 구조:
-//   - 단일 (헤더 X): US/KR/JP/EU
-//   - 권역 통합 case (Hybrid): MENA/LATAM — 시딩 통합 + 매출 marketplace별 sub
+//   - 단일 (헤더 X): US/KR/JP
+//   - 권역 통합 case (Hybrid): EU/MENA/LATAM — 시딩 통합 + 매출 marketplace별 sub
+//   - 유럽 EU (국가별): GB(UK)/FR/DE/ES/PL — 단일 case
 //   - 동남아 SEA (국가별): SG/TH/MY/ID/PH/VN — 무조건 단일 case
 //   - MENA 안 단일 분석: SA/AE
 //   - LATAM 안 단일 분석: MX/AR/CO/CL/PE/BR (BR 포함 통합)
@@ -28,12 +29,18 @@ const COUNTRY_GROUPS: DropdownGroup[] = [
   {
     label: null,
     countries: COUNTRY_OPTIONS.filter((o) =>
-      ["US", "KR", "JP", "EU"].includes(o.code),
+      ["US", "KR", "JP"].includes(o.code),
     ),
   },
   {
     label: "권역 통합 case (Hybrid — 시딩 통합 + 매출 국가별)",
     countries: COUNTRY_OPTIONS.filter((o) => isRegionCode(o.code)),
+  },
+  {
+    label: "유럽 EU (국가별)",
+    countries: COUNTRY_OPTIONS.filter(
+      (o) => o.region === "EU" && !isRegionCode(o.code),
+    ),
   },
   {
     label: "동남아 SEA (국가별)",

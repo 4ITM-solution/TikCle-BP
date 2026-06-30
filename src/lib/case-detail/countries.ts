@@ -38,7 +38,15 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
   { code: "US", flag: "🇺🇸", label: "United States", region: "AMERICAS", currency: "USD" },
   { code: "KR", flag: "🇰🇷", label: "Korea", region: "APAC_KR", currency: "KRW" },
   { code: "JP", flag: "🇯🇵", label: "Japan", region: "APAC_JP", currency: "JPY" },
-  { code: "EU", flag: "🇪🇺", label: "Europe 통합", region: "EU", currency: "EUR" },
+
+  // EU (유럽) — MENA/LATAM처럼 Hybrid: 개별 국가 단일 case + "EU" 권역 통합 case 둘 다.
+  // 개별 국가는 ISO 3166 alpha-2 (Meta Ads Library / YouTube regionCode 인식 기준).
+  //   UK는 ISO상 GB — "UK"는 0건 반환되므로 GB 사용.
+  { code: "GB", flag: "🇬🇧", label: "United Kingdom", region: "EU", currency: "GBP" },
+  { code: "FR", flag: "🇫🇷", label: "France", region: "EU", currency: "EUR" },
+  { code: "DE", flag: "🇩🇪", label: "Germany", region: "EU", currency: "EUR" },
+  { code: "ES", flag: "🇪🇸", label: "Spain", region: "EU", currency: "EUR" },
+  { code: "PL", flag: "🇵🇱", label: "Poland", region: "EU", currency: "PLN" },
 
   // LATAM (스페인어권 + BR 통합 — Exolyt LATAM export에 BR 자연 포함)
   { code: "MX", flag: "🇲🇽", label: "Mexico", region: "LATAM", currency: "MXN" },
@@ -62,6 +70,7 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
 
   // 권역 통합 case (시딩=권역 통합, 매출=marketplace별 sub).
   // 자기 region이 자기 자신. currency=USD fallback (실 매출은 sub-row의 country별 currency).
+  { code: "EU", flag: "🇪🇺", label: "Europe 통합 (UK·FR·DE·ES·PL 시딩 통합)", region: "EU", currency: "EUR" },
   { code: "MENA", flag: "🌍", label: "중동·북아프리카 (시딩 통합)", region: "MENA", currency: "USD" },
   { code: "LATAM", flag: "🌎", label: "라틴아메리카 통합 (ES+BR 시딩 통합)", region: "LATAM", currency: "USD" },
 ];
@@ -71,7 +80,7 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
  * - 시딩(contents/meta_ads) = 통합 fetch (country=권역 코드 그대로)
  * - 매출(products/sales) = 자식 country = 진짜 marketplace 국가 (SA/AE/MX/.../BR)
  */
-export const REGION_CODES = ["MENA", "LATAM"] as const;
+export const REGION_CODES = ["EU", "MENA", "LATAM"] as const;
 export type RegionCode = typeof REGION_CODES[number];
 
 export function isRegionCode(code: string): boolean {
