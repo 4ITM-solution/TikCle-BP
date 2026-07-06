@@ -30,6 +30,65 @@ export type PhaseKey =
   | "phase4b_sku"
   | "phase5";
 
+/**
+ * WS2 (BP 재설계 v2 §3.1) — 스테이지 4단 phase 명명.
+ * 각 이름이 독립 Inngest 함수 1개 = phase_runs.phase 값.
+ */
+export type StagePhase =
+  // S1 수집 (병렬)
+  | "collect-ttshop" // 구 phase1_5
+  | "collect-meta" // 구 phase4a + 4a.5(assets)
+  | "collect-ig" // 구 phase4c
+  | "collect-yt" // 구 phase4d
+  // S2 보강
+  | "enrich-creators" // 구 phase3 + 3.5 + 3.7
+  | "enrich-ig-profiles" // 구 phase4c.5
+  // S3 해석 (순차)
+  | "interpret-asr" // 구 phase4b_sample + 4b.2
+  | "interpret-tag" // 구 phase4a.6 + 4b.3
+  | "interpret-cluster" // 구 phase4b.4 (pass별 step)
+  | "interpret-sku" // 구 phase4b.5
+  // S4 서빙 (phase2/phase5 집계 — WS4에서 뷰 전환 전까지 유지)
+  | "serve-stats";
+
+export const ALL_STAGE_PHASES: StagePhase[] = [
+  "collect-ttshop",
+  "collect-meta",
+  "collect-ig",
+  "collect-yt",
+  "enrich-creators",
+  "enrich-ig-profiles",
+  "interpret-asr",
+  "interpret-tag",
+  "interpret-cluster",
+  "interpret-sku",
+  "serve-stats",
+];
+
+/** 구 force_phases(PhaseKey) → 새 스테이지 phase 매핑 (shim/서버액션 호환용). */
+export const OLD_PHASE_TO_STAGE: Record<PhaseKey, StagePhase> = {
+  phase1_5: "collect-ttshop",
+  phase2: "serve-stats",
+  phase3: "enrich-creators",
+  phase35: "enrich-creators",
+  phase37: "enrich-creators",
+  phase4a: "collect-meta",
+  phase4a_assets: "collect-meta",
+  phase4a_intel: "interpret-tag",
+  phase4c: "collect-ig",
+  phase4d: "collect-yt",
+  phase4b_sample: "interpret-asr",
+  phase4b_asr: "interpret-asr",
+  phase4b_vision: "interpret-tag",
+  phase4b_clusters: "interpret-cluster",
+  phase4b_sku: "interpret-sku",
+  phase5: "serve-stats",
+};
+
+export function mapOldForceToStages(force: PhaseKey[] | undefined): StagePhase[] {
+  return Array.from(new Set((force ?? []).map((k) => OLD_PHASE_TO_STAGE[k])));
+}
+
 export type Events = {
   "case/data.uploaded": {
     data: { case_id: string };
@@ -47,6 +106,18 @@ export type Events = {
   };
   "case/phase.completed": {
     data: { case_id: string; phase: number };
+  };
+  // WS2 — 개별 phase 실행/재실행. 각 phase 함수가 if 필터로 자기 phase만 수신.
+  "case/phase.requested": {
+    data: { case_id: string; phase: StagePhase; force?: boolean };
+  };
+  // WS2 — 오케스트레이터 전용 (shim runAnalysis가 invoke, 직접 send도 가능).
+  "case/analysis.orchestrate": {
+    data: {
+      case_id: string;
+      forced?: StagePhase[]; // 캐시 무시하고 강제 재실행할 스테이지
+      phase15_only?: boolean;
+    };
   };
   // 광고 모니터링 — 수동 "지금 수집" 트리거
   "monitor/scrape.brand": {

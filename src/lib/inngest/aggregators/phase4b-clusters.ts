@@ -9,7 +9,9 @@ import {
   pass3Meta,
   platformPrefix,
   type ClusterPlatform,
+  type MetaCluster,
   type TokenUsage,
+  type ValidatedCluster,
   type VideoForClustering,
 } from "@/lib/anthropic/clusterer";
 import type {
@@ -43,7 +45,7 @@ export async function runPhase4bClusters(
   sample: Phase4bSampleStats,
 ): Promise<Phase4bClusterStats> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return empty("ANTHROPIC_API_KEY 미설정");
+    return emptyClusterStats("ANTHROPIC_API_KEY 미설정");
   }
   // sample.sample_content_ids는 TikTok 한정. 비어있어도 IG/YT가 있으면 진행 (다채널
   // 통합 클러스터 — TT/IG/YT 중 하나만 있어도 cluster 가능).
@@ -55,7 +57,7 @@ export async function runPhase4bClusters(
     sample.sample_content_ids,
   );
   if (videos.length === 0) {
-    return empty("입력 영상 0개 (TT vision_tags + IG/YT caption 모두 비어있음)");
+    return emptyClusterStats("입력 영상 0개 (TT vision_tags + IG/YT caption 모두 비어있음)");
   }
 
   const totalUsage: TokenUsage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
@@ -65,7 +67,7 @@ export async function runPhase4bClusters(
     await pass1FindCandidates(videos);
   addUsage(totalUsage, u1);
   if (candidates.length === 0) {
-    return empty("Pass 1 후보 0개", {
+    return emptyClusterStats("Pass 1 후보 0개", {
       total_input_videos: videos.length,
       usage: totalUsage,
       pass1_debug,
@@ -77,7 +79,7 @@ export async function runPhase4bClusters(
     await pass2Validate(candidates);
   addUsage(totalUsage, u2);
   if (validated.length === 0) {
-    return empty("Pass 2 validated 0개", {
+    return emptyClusterStats("Pass 2 validated 0개", {
       total_input_videos: videos.length,
       pass1_candidates: candidates.length,
       usage: totalUsage,
@@ -90,7 +92,7 @@ export async function runPhase4bClusters(
   const { metas, usage: u3 } = await pass3Meta(validated);
   addUsage(totalUsage, u3);
   if (metas.length === 0) {
-    return empty("Pass 3 meta 0개", {
+    return emptyClusterStats("Pass 3 meta 0개", {
       total_input_videos: videos.length,
       pass1_candidates: candidates.length,
       pass2_validated: validated.length,
@@ -100,9 +102,50 @@ export async function runPhase4bClusters(
     });
   }
 
-  // 5. swap 방식 (WS1, §3.3): 구버전 삭제를 먼저 하지 않는다.
-  //    새 run_tag로 insert → 전부 성공한 뒤에만 다른 run_tag(구버전·이전 부분실패 잔재) delete.
-  //    중간 실패 시 구버전 클러스터가 그대로 살아있어 C 섹션이 빈 화면이 되지 않음.
+  // 5~7. DB 저장 (swap) + stats — WS2에서 saveClusterResults로 분리
+  //      (interpret-cluster 함수가 pass별 step 실행 후 동일 저장 경로 재사용)
+  return saveClusterResults(supabase, case_id, {
+    videos,
+    pass1_candidates: candidates.length,
+    validated,
+    metas,
+    usage: totalUsage,
+    pass1_debug,
+    pass2_debug,
+  });
+}
+
+/** interpret-cluster(WS2) / runPhase4bClusters 공용 저장 입력. */
+export type ClusterSaveInput = {
+  videos: VideoForClustering[];
+  pass1_candidates: number;
+  validated: ValidatedCluster[];
+  metas: MetaCluster[];
+  usage: TokenUsage;
+  pass1_debug?: Phase4bClusterStats["pass1_debug"];
+  pass2_debug?: Phase4bClusterStats["pass2_debug"];
+};
+
+/**
+ * Pass 3까지 끝난 결과를 DB에 저장 (swap 방식, WS1 §3.3) + Phase4bClusterStats 생성.
+ * 구버전 삭제를 먼저 하지 않는다: 새 run_tag로 insert → 전부 성공한 뒤에만
+ * 다른 run_tag(구버전·이전 부분실패 잔재) delete. 중간 실패 시 구버전이 살아있어
+ * C 섹션이 빈 화면이 되지 않음.
+ */
+export async function saveClusterResults(
+  supabase: SupaClient,
+  case_id: string,
+  input: ClusterSaveInput,
+): Promise<Phase4bClusterStats> {
+  const {
+    videos,
+    pass1_candidates,
+    validated,
+    metas,
+    usage: totalUsage,
+    pass1_debug,
+    pass2_debug,
+  } = input;
   const runTag = randomUUID();
 
   // pass 라벨은 새 매핑을 쓰기 전에 리셋 (pass3_meta_id null 필터가 신규 업데이트 조건이므로)
@@ -248,7 +291,7 @@ export async function runPhase4bClusters(
 
   const stats = {
     total_input_videos: videos.length,
-    pass1_candidates: candidates.length,
+    pass1_candidates,
     pass2_validated: validated.length,
     pass3_meta: metas.length,
     total_memberships: totalMemberships,
@@ -291,7 +334,7 @@ export async function runPhase4bClusters(
 const IG_MAX = 600;
 const YT_MAX = 400;
 
-async function fetchClusteringInputs(
+export async function fetchClusteringInputs(
   supabase: SupaClient,
   case_id: string,
   contentIds: string[],
@@ -480,7 +523,7 @@ function addUsage(acc: TokenUsage, add: TokenUsage): void {
   acc.cache_write += add.cache_write;
 }
 
-function empty(
+export function emptyClusterStats(
   reason: string,
   partial?: {
     total_input_videos?: number;

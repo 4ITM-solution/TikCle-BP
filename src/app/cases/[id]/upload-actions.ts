@@ -18,7 +18,7 @@ import {
 import { parseTiktokShopUsAffiliate } from "@/lib/parsers/tt-shop-us";
 import { parseTiktokProductFinder } from "@/lib/parsers/tt-product-finder";
 import { extractAsinFromFilename } from "@/lib/parsers/utils";
-import { inngest } from "@/lib/inngest/client";
+import { inngest, mapOldForceToStages } from "@/lib/inngest/client";
 import { defaultCurrency, isRegionCode } from "@/lib/case-detail/countries";
 
 type Result =
@@ -739,6 +739,31 @@ export async function startAnalysis(
   opts?: { skipAutoForce?: boolean },
 ): Promise<Result> {
   const { supabase } = await getCase(case_id);
+
+  // ─── WS2: 단독 phase 재실행 (PhaseProgress 개별 버튼) → case/phase.requested ───
+  // 구 방식(force_phases로 전체 runAnalysis 재기동) 대신 해당 스테이지 함수만 직접 실행.
+  // status를 'running'으로 바꾸지 않음 — phase 함수가 phase_runs로 상태 추적.
+  if (opts?.skipAutoForce && force_phases && force_phases.length > 0) {
+    const stages = mapOldForceToStages(force_phases);
+    try {
+      for (const stage of stages) {
+        await inngest.send({
+          name: "case/phase.requested",
+          data: { case_id, phase: stage, force: true },
+        });
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        error: `Inngest send 실패: ${e instanceof Error ? e.message : e}`,
+      };
+    }
+    revalidatePath(`/cases/${case_id}`);
+    return {
+      ok: true,
+      message: `phase 재실행: ${force_phases.join(", ")} → ${stages.join(", ")}`,
+    };
+  }
 
   // skipped_reason 박힌 phase는 자동으로 force에 포함.
   // 이유: 옛 케이스 (brand_keyword 비어있어 phase4a skip, max_tokens 부족으로 phase4b_clusters
