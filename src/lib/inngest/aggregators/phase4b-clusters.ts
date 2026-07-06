@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import {
@@ -99,8 +100,13 @@ export async function runPhase4bClusters(
     });
   }
 
-  // 5. 기존 클러스터 정리 (재실행 시 중복 방지)
-  await cleanupExistingClusters(supabase, case_id);
+  // 5. swap 방식 (WS1, §3.3): 구버전 삭제를 먼저 하지 않는다.
+  //    새 run_tag로 insert → 전부 성공한 뒤에만 다른 run_tag(구버전·이전 부분실패 잔재) delete.
+  //    중간 실패 시 구버전 클러스터가 그대로 살아있어 C 섹션이 빈 화면이 되지 않음.
+  const runTag = randomUUID();
+
+  // pass 라벨은 새 매핑을 쓰기 전에 리셋 (pass3_meta_id null 필터가 신규 업데이트 조건이므로)
+  await resetPassLabels(supabase, case_id);
 
   // cluster_key → VideoForClustering 룩업 (insert 시 platform/refs 채우기 위함)
   const videoByKey = new Map<string, VideoForClustering>();
@@ -122,7 +128,8 @@ export async function runPhase4bClusters(
         description: meta.description,
         is_meta: true,
         display_order: metaOrder,
-      })
+        run_tag: runTag,
+      } as Database["public"]["Tables"]["content_clusters"]["Insert"])
       .select("id")
       .single();
     if (metaErr || !metaRow) {
@@ -150,7 +157,8 @@ export async function runPhase4bClusters(
           parent_cluster_id: metaDbId,
           is_meta: false,
           member_count: child.member_ids.length,
-        })
+          run_tag: runTag,
+        } as Database["public"]["Tables"]["content_clusters"]["Insert"])
         .select("id")
         .single();
       if (childErr || !childRow) {
@@ -233,6 +241,10 @@ export async function runPhase4bClusters(
       child_clusters: childInfos,
     });
   }
+
+  // 7. 신규 insert 전부 성공 → 이제 구버전(다른 run_tag + 과거 null run_tag) 삭제.
+  //    이전 부분 실패 런의 잔재도 여기서 함께 청소됨.
+  await deleteClustersExcept(supabase, case_id, runTag);
 
   const stats = {
     total_input_videos: videos.length,
@@ -416,14 +428,32 @@ async function fetchClusteringInputs(
   return inputs;
 }
 
-async function cleanupExistingClusters(
+/** case_video_analyses의 pass labels 리셋 — 새 run의 매핑 업데이트 전 1회. */
+async function resetPassLabels(
   supabase: SupaClient,
   case_id: string,
 ): Promise<void> {
+  await supabase
+    .from("case_video_analyses")
+    .update({ pass1_label: null, pass2_label: null, pass3_meta_id: null })
+    .eq("case_id", case_id);
+}
+
+/**
+ * swap 후반부 (WS1, §3.3): 현재 run_tag가 아닌 클러스터(구버전 + null run_tag 레거시 +
+ * 과거 부분 실패 잔재)를 삭제. 신규 insert가 전부 성공한 뒤에만 호출할 것.
+ */
+async function deleteClustersExcept(
+  supabase: SupaClient,
+  case_id: string,
+  runTag: string,
+): Promise<void> {
+  // run_tag는 generated types 미반영 (migration 017) → 문자열 or 필터 사용
   const { data: clusters } = await supabase
     .from("content_clusters")
     .select("id")
-    .eq("case_id", case_id);
+    .eq("case_id", case_id)
+    .or(`run_tag.is.null,run_tag.neq.${runTag}`);
   const ids = (clusters ?? []).map((c) => c.id);
   if (ids.length === 0) return;
 
@@ -435,13 +465,12 @@ async function cleanupExistingClusters(
       .delete()
       .in("cluster_id", slice);
   }
-  await supabase.from("content_clusters").delete().eq("case_id", case_id);
-
-  // case_video_analyses의 pass labels 리셋
+  // 클러스터는 단일 statement로 삭제 (parent_cluster_id FK — 자식/부모 동시 삭제)
   await supabase
-    .from("case_video_analyses")
-    .update({ pass1_label: null, pass2_label: null, pass3_meta_id: null })
-    .eq("case_id", case_id);
+    .from("content_clusters")
+    .delete()
+    .eq("case_id", case_id)
+    .or(`run_tag.is.null,run_tag.neq.${runTag}`);
 }
 
 function addUsage(acc: TokenUsage, add: TokenUsage): void {

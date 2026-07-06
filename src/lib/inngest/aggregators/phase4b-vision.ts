@@ -329,11 +329,13 @@ async function fetchVisionInputs(
     if (cErr) throw new Error(`contents fetch: ${cErr.message}`);
 
     // case_video_analyses의 cover_url + asr_text
+    // ★ WS1 (§3.3): vision_tags 이미 있는 행은 재태깅 제외 — 유료 결과 1회 원칙.
     const { data: analyses, error: aErr } = await supabase
       .from("case_video_analyses")
       .select("content_id, cover_url, asr_text")
       .eq("case_id", case_id)
-      .in("content_id", chunk);
+      .in("content_id", chunk)
+      .is("vision_tags", null);
     if (aErr) throw new Error(`analyses fetch: ${aErr.message}`);
 
     const captionById = new Map(
@@ -365,11 +367,46 @@ async function fetchVisionInputsIgYt(
   sampleItems: Array<{ platform: string; external_ref: string | null; cover_url: string | null }>,
 ): Promise<VisionInput[]> {
   const inputs: VisionInput[] = [];
+
+  // ★ WS1 (§3.3): 이미 vision_tags 박힌 IG/YT external_ref는 재태깅 제외.
+  //   (generated types에 platform/external_ref 미반영 — clusters와 같은 cast 우회)
+  const sbLoose = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, v: string) => {
+          neq: (col: string, v: string) => {
+            not: (col: string, op: string, v: null) => Promise<{
+              data: Array<{ platform: string; external_ref: string | null }> | null;
+            }>;
+          };
+        };
+      };
+    };
+  };
+  const { data: taggedRows } = await sbLoose
+    .from("case_video_analyses")
+    .select("platform, external_ref")
+    .eq("case_id", case_id)
+    .neq("platform", "tiktok")
+    .not("vision_tags", "is", null);
+  const taggedIg = new Set(
+    (taggedRows ?? [])
+      .filter((r) => r.platform === "instagram" && r.external_ref)
+      .map((r) => r.external_ref as string),
+  );
+  const taggedYt = new Set(
+    (taggedRows ?? [])
+      .filter((r) => r.platform === "youtube" && r.external_ref)
+      .map((r) => r.external_ref as string),
+  );
+
   const igRefs = sampleItems
     .filter((it) => it.platform === "instagram" && it.cover_url && it.external_ref)
+    .filter((it) => !taggedIg.has(it.external_ref as string))
     .map((it) => ({ ref: it.external_ref as string, cover: it.cover_url as string }));
   const ytRefs = sampleItems
     .filter((it) => it.platform === "youtube" && it.cover_url && it.external_ref)
+    .filter((it) => !taggedYt.has(it.external_ref as string))
     .map((it) => ({ ref: it.external_ref as string, cover: it.cover_url as string }));
 
   // IG caption fetch
