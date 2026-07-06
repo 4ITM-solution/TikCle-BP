@@ -27,6 +27,7 @@
 - 섹션 E: 최장 운영 광고 랭킹(v_case_ad_runtime — WS3 산출, 머지 전이면 뷰 정의만 가정하고 UI 준비) + source_channel/banner_style 노출 + 시딩∩광고 블록 (Q7).
 - PhaseProgress: pipeline_runs 추측 → phase_runs 직결 (phase별 상태·cost_usd·partial 잔여건 + 개별 재실행 버튼 = case/phase.requested 발행 — WS2의 upload-actions.ts 참고).
 - `status='ready'` 게이트 완화: S1(수집) 완료 시점부터 섹션 렌더, 미완 phase는 섹션 내 배지.
+- **케이스 완결성 게이지** (설계 문서 §1.0.2): 케이스 헤더에 6축(규모/구성/콘텐츠/성과/광고접합/시점) 충족 여부 표시 — 각 축의 판정은 해당 데이터 존재 여부 SQL로 (예: ④성과 = sales_snapshot 또는 kalodata 존재). 케이스 목록에도 게이지 요약 컬럼.
 
 ### 4. 검증
 - 기존 ready 케이스 3개에 대해 전환 전후 수치 비교 방법을 REPORT에 명시 (뷰 vs key_stats 비교 쿼리 — scripts/verify-ws4.sql).
