@@ -128,7 +128,7 @@ SELECT
   i.handle,
   regexp_replace(lower(i.handle), '[^a-z0-9]', '', 'g') AS norm_handle,
   i.follower_count::bigint AS follower_count,
-  COALESCE(i.tier, bp_tier(i.follower_count::bigint)) AS tier
+  COALESCE(i.tier::text, bp_tier(i.follower_count::bigint)) AS tier
 FROM tk
 JOIN influencers i ON i.id = tk.influencer_id
 UNION ALL
