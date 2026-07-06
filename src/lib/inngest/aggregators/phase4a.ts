@@ -77,9 +77,6 @@ export async function runPhase4a(
   // 3. 같은 검색 URL이 여러 개면 중복 ad가 옴 → ad_archive_id 기준 dedupe
   const dedupedAds = dedupeAds(result.ads);
 
-  // 4. 기존 meta_ads 정리 (이 케이스 한정) — 재실행 시 중복 방지
-  await supabase.from("meta_ads").delete().eq("case_id", case_id);
-
   // 5. 본사 페이지 매칭 정규화
   const officialPagesNormalized = (c.brand_meta_pages ?? [])
     .filter((p) => !/^\d+$/.test(p)) // 숫자 page_id는 이름매칭에서 제외
@@ -142,13 +139,50 @@ export async function runPhase4a(
     );
   }
 
-  for (let i = 0; i < inserts.length; i += BATCH) {
-    const batch = inserts.slice(i, i + BATCH);
-    const { error } = await supabase.from("meta_ads").insert(batch);
+  // ─── 멱등 upsert (WS1, §3.3) ─────────────────────────────────────────────
+  //   natural key = (case_id, ad_archive_id). delete-후-reinsert 금지 (P4):
+  //   payload에 ad_intel / inferred_creator_handle 을 포함하지 않으므로
+  //   ON CONFLICT UPDATE 시 기존 Vision 결과·UTM 핸들이 그대로 보존됨 (재과금 0).
+  //   ad_archive_id 없는 행은 upsert 키가 없어 → 이 케이스의 null-key 행만 교체.
+  const keyedMap = new Map<string, (typeof inserts)[number]>();
+  const unkeyed: typeof inserts = [];
+  for (const a of inserts) {
+    if (a.ad_archive_id) {
+      // collation dedupe 후에도 같은 ad_archive_id가 남을 수 있음 → 마지막 것만
+      keyedMap.set(a.ad_archive_id, a);
+    } else {
+      unkeyed.push(a);
+    }
+  }
+  const keyed = Array.from(keyedMap.values());
+
+  for (let i = 0; i < keyed.length; i += BATCH) {
+    const batch = keyed.slice(i, i + BATCH);
+    const { error } = await supabase
+      .from("meta_ads")
+      .upsert(batch, { onConflict: "case_id,ad_archive_id" });
     if (error) {
       throw new Error(
-        `meta_ads insert (batch ${i}): ${error.message || JSON.stringify(error)}`,
+        `meta_ads upsert (batch ${i}): ${error.message || JSON.stringify(error)}`,
       );
+    }
+  }
+
+  if (unkeyed.length > 0) {
+    // natural key 없는 행은 교체 (Vision 결과 매칭 불가 — 보존 대상 아님)
+    await supabase
+      .from("meta_ads")
+      .delete()
+      .eq("case_id", case_id)
+      .is("ad_archive_id", null);
+    for (let i = 0; i < unkeyed.length; i += BATCH) {
+      const batch = unkeyed.slice(i, i + BATCH);
+      const { error } = await supabase.from("meta_ads").insert(batch);
+      if (error) {
+        throw new Error(
+          `meta_ads insert null-key (batch ${i}): ${error.message || JSON.stringify(error)}`,
+        );
+      }
     }
   }
 
