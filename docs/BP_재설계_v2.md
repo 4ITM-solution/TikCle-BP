@@ -194,3 +194,4 @@ WS5 E2E 검증 + 구조 청소
 
 - 2026-07-07: 문서 작성 (v2 초안).
 - 2026-07-07: WS1 코드 완료 (worktree agent-ac4cddd9) — migration 017(phase_runs·cases.uploads·meta_ads unique·content_clusters.run_tag·bp_tier()+뷰 4개: v_unified_creators/v_case_monthly/v_case_creator_stats/v_case_tier_dist) + upsert 전환(phase4a meta_ads upsert·phase4b-vision 재태깅 skip·phase4b-clusters run_tag swap) + scripts/verify-ws1-views.sql. 마이그레이션 적용·배포는 미실행 (사람이 1건씩).
+- 2026-07-07: WS1 프로덕션 적용 — migration 017 Supabase 적용(중복 meta_ads 1,927행 정리·ad_intel 861건 보존 확인·뷰 4개 정상), main push→Vercel 배포. 잔여 검증: 배포 완료 후 케이스 1개 phase4a 재실행으로 upsert 동작 확인.
