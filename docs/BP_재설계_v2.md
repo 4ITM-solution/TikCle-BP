@@ -18,16 +18,39 @@
 
 ## 1. 산출물 계약 (변경 없음 — 수술 플랜 Part 2 상속)
 
-> 최상위 질문: **"이 브랜드는 인플루언서 시딩으로 어떻게 성공했는가? 따라 하려면 뭘 베껴야 하는가?"**
+> 최상위 산출물 (2026-07-07 사용자 확정): **"진입 플레이북"** — "미국 시장에 이 규모로 진입하려면 [티어 믹스] 유형의 사람 N명과, [타임라인] 몇 개월차에, [소재] 이 앵글을 돌려야 성과가 난다"는 성공 요인의 핵심. 케이스 대시보드는 그 원료다.
 
-| 섹션 | 질문 | 필요한 canonical 데이터 |
+### 1.1 3-레이어 모델
+
+```
+L1 케이스별 팩트      — 시계열·풀·앵글·광고의 관측 데이터 (섹션 A~E)
+L2 케이스별 인과 스토리 — 발행 변화 시점 ↔ BSR·매출·GMV 변화의 교차 (Q4·Q5)
+L3 횡단 플레이북      — 여러 케이스를 같은 축으로 정규화해 공통 패턴 추출 (진입 후 N개월차 기준)
+```
+
+### 1.2 답해야 할 질문 (Q1~Q7, 2026-07-07 확정)
+
+| # | 질문 | 필요한 데이터/교차 | 상태 |
+|---|---|---|---|
+| Q1 | 기간별 × 플랫폼별(YT/IG/TT/**TT샵 분리**) 발행량·발행 인원수·티어 구성 | v_case_monthly + tier + **contents.is_shop_content** (Kalodata 영상 xlsx url 매칭으로 플래그 — 사용자 확정) | 🟡 TT샵 플래그 신규 |
+| Q2 | 반복 협업자: 누구, 몇 회, 어느 채널에서 | v_case_creator_stats (video_count ≥2) | 🟢 뷰 완료, UI 노출 |
+| Q3 | 앵글 분포 + 티어별 앵글 차이 + **기간별 앵글 변화** (티어×앵글×월 3차원) | cluster_members × unified_creators.tier × month | 🟡 교차 뷰 신규 |
+| Q4 | 발행 변화 시점 ↔ Amazon 매출·BSR·**TT샵 GMV** 변화 | bsr_inflections + kalodata 시계열 확장 | 🟡 TT샵 확장 |
+| Q5 | 매출 기여 추정 콘텐츠의 특징 | 영상별 GMV(Kalodata) × vision_tags 조인 | 🟡 조인 신규 |
+| Q6 | **최장 운영 광고**(효율 proxy — 사용자 확정) 소재의 특징: origin(as-is/2차가공/브랜드제작)·파트너십·**소스 채널(IG/TT 판별)**·배너 방식 | meta_ads runtime 랭킹 + ad_intel 태깅 확장(source_channel·banner_style) | 🟡 태깅 확장 |
+| Q7 | **시딩∩광고 겹치는 인플루언서** + 그때의 앵글 | meta_ads.inferred_creator_handle × v_unified_creators.norm_handle | 🟡 교집합 뷰 신규 |
+
+### 1.3 섹션 매핑 (기존 A~G 유지, 질문 재배정)
+
+| 섹션 | 질문 | 담당 Q |
 |---|---|---|
-| A 타임라인 | *언제* 터졌나 | contents/ig_posts/yt_videos 월별 + tier + sales_snapshot(BSR) |
-| B 인플 풀 | *누구*를 썼나 | 크리에이터 × {tier, 채널 교집합, 반복협업, 언어, shop GMV} |
-| C 포맷 | *무엇*을 찍었나 | content_clusters + vision_tags + USP + paid 분류 |
-| D 매출 | 그래서 *팔렸나* | case_product_sales + sales_snapshot + creator×SKU |
-| E 광고 | *유료*는 어떻게 | meta_ads 3분류 + 랜딩 + partnership + promo code |
-| G 종합 | 뭘 베낄까 | 위 전부의 top 값 (뷰 조합) |
+| A 타임라인 | *언제* 무엇을 얼마나 | Q1, Q4 |
+| B 인플 풀 | *누구*를 썼나 | Q2, Q7 |
+| C 포맷 | *무엇*을 찍었나 | Q3, Q5 |
+| D 매출 | 그래서 *팔렸나* | Q4, Q5 |
+| E 광고 | *유료*는 어떻게 | Q6, Q7 |
+| G 종합 | 뭘 베낄까 (L2 스토리) | 전체 |
+| compare | 횡단 플레이북 (L3) | 정규화 축: 진입 후 N개월차·예산 티어·티어 믹스·앵글 시퀀스 |
 
 각 phase의 존재 이유는 이 표의 셀 하나를 채우는 것. 셀에 없는 산출물을 만드는 phase 로직은 제거한다.
 
@@ -186,9 +209,12 @@ WS5 E2E 검증 + 구조 청소
 |---|---|---|
 | WS1 | migration SQL + upsert 패치 | 마이그레이션 dry-run 통과 + phase4a 재실행 ad_intel 보존 |
 | WS2 | `src/lib/inngest/functions/phases/*.ts` + orchestrator | 대형 케이스 완주, 개별 phase 재실행 동작 |
-| WS3 | 모델 스위치 + 게이트 스크립트 + dedup | 일치율 ≥90% 리포트, 비용 로그 |
-| WS4 | UI diff 패치 | ready 케이스 3개 수치 동일 |
+| WS3 | 모델 스위치 + 게이트 스크립트 + dedup + **광고 태깅 확장(source_channel·banner_style·runtime 랭킹)** | 일치율 ≥90% 리포트, 비용 로그 |
+| WS4 | **Q1~Q7 교차 뷰**(TT샵 플래그·티어×앵글×월·GMV×vision_tags·시딩∩광고) + UI 읽기 경로 전환 | ready 케이스 3개 수치 동일 + Q1~Q7 각각 화면에서 답 확인 |
 | WS5 | E2E 리포트 + 청소 PR | v1 대비 비용·안정성 표 |
+| WS6 | L3 플레이북 합성 — compare 페이지에 정규화 축(진입 N개월차·예산 티어·티어믹스·앵글 시퀀스) + 횡단 패턴 리포트 | 케이스 2개 이상으로 플레이북 초안 1개 생성 |
+
+**운영 방식 (2026-07-07 확정)**: 실행 세션은 별도 터미널 창 + 지정 모델로 사용자가 직접 띄운다. 지시서는 `docs/ws/WSn_지시서.md`, 실행 세션은 브랜치 `ws-n-*`에 커밋 + `docs/ws/WSn_REPORT.md` 작성. 오케스트레이터(메인 세션)가 검수→머지→마이그레이션→배포.
 
 ## 6. 진행 로그
 
