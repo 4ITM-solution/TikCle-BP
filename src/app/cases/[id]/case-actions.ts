@@ -124,6 +124,58 @@ export async function mergeCases(
     if ((count ?? 0) > 0) reasons.push(`${t}=${count}`);
   }
 
+  // 2.5) phase_runs (WS5 §5 — migration 017 이후 신설, 위 목록에 없어 source 삭제 시
+  // CASCADE로 비용·이력 기록이 증발했음). unique(case_id,phase)라 target에 이미 있는
+  // phase는 두고(중복 이력이므로 CASCADE 소멸 수용) 없는 phase만 이동한다.
+  {
+    const sbq = supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (k: string, v: string) => PromiseLike<{
+            data: Array<{ phase: string }> | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+    };
+    const { data: tgtRuns } = await sbq
+      .from("phase_runs")
+      .select("phase")
+      .eq("case_id", targetId);
+    const { data: srcRuns } = await sbq
+      .from("phase_runs")
+      .select("phase")
+      .eq("case_id", sourceId);
+    const taken = new Set((tgtRuns ?? []).map((r) => r.phase));
+    const movable = (srcRuns ?? []).map((r) => r.phase).filter((p) => !taken.has(p));
+    let moved = 0;
+    const sbu = supabase as unknown as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>, opts?: { count?: "exact" }) => {
+          eq: (k: string, v: string) => {
+            in: (k: string, v: string[]) => Promise<{
+              error: { message: string } | null;
+              count: number | null;
+            }>;
+          };
+        };
+      };
+    };
+    if (movable.length > 0) {
+      const { error: prErr, count } = await sbu
+        .from("phase_runs")
+        .update({ case_id: targetId }, { count: "exact" })
+        .eq("case_id", sourceId)
+        .in("phase", movable);
+      if (prErr) {
+        console.warn(`[merge] phase_runs 이동 실패(이력만 소실, 계속): ${prErr.message}`);
+      } else {
+        moved = count ?? 0;
+      }
+    }
+    if (moved > 0) reasons.push(`phase_runs=${moved}`);
+  }
+
   // 3) source case 삭제
   const { error: delCaseErr } = await supabase
     .from("cases")

@@ -538,14 +538,10 @@ export async function uploadBsr(
   }
   const dedupedRows = Array.from(deduped.values());
 
-  // 3.5 재업로드 reset — Keepa는 lifetime 시계열을 통째로 export하는 게 정상이라
-  // incremental append보다 기존 데이터 통째 교체가 깔끔. 잘못된 파일 올린 경우도 자동 정리.
-  const { error: resetErr } = await supabase
-    .from("sales_snapshot")
-    .delete()
-    .eq("product_id", prod.id)
-    .eq("channel", "amazon");
-  if (resetErr) return { ok: false, error: `bsr reset: ${resetErr.message}` };
+  // 3.5 (WS5 §5) delete-후-재삽입 손실 창 제거 — 기존엔 통째 delete 후 upsert라
+  // upsert 실패 시 시계열 전체가 사라졌음. upsert가 멱등 키(product_id,channel,collected_at)를
+  // 가지므로 순서를 뒤집는다: ①upsert 먼저 → ②새 파일에 없는 stale 행만 명시적 삭제(R12).
+  // stale 삭제로 "잘못된 파일 잔재 자동 정리"라는 기존 reset 목적은 유지.
 
   // 4. sales_snapshot 업서트 — product의 country/currency 그대로 박음 (권역 case 분리)
   const bsrCountry = prod.country ?? c.country;
@@ -573,6 +569,37 @@ export async function uploadBsr(
         ok: false,
         error: `bsr upsert (batch ${i}, asin ${asin}): ${error.message || JSON.stringify(error)}`,
       };
+    }
+  }
+
+  // 5. stale 정리 — 새 export에 없는 collected_at만 골라 명시적 id 목록으로 삭제 (R12).
+  // upsert가 이미 성공했으므로 이 단계가 실패해도 데이터 손실은 없다 (잔재만 남음).
+  {
+    // 컬럼 타입 date → "YYYY-MM-DD"로 반환되지만, 타입이 바뀌어도 오판으로 전량 삭제되지
+    // 않게 양쪽 다 날짜부(10자)로 정규화해 비교한다.
+    const newDates = new Set(dedupedRows.map((r) => r.collected_at.slice(0, 10)));
+    const { data: existing, error: exErr } = await supabase
+      .from("sales_snapshot")
+      .select("id, collected_at")
+      .eq("product_id", prod.id)
+      .eq("channel", "amazon")
+      .limit(10000);
+    if (!exErr && existing) {
+      const staleIds = existing
+        .filter(
+          (r) => r.collected_at && !newDates.has(String(r.collected_at).slice(0, 10)),
+        )
+        .map((r) => r.id);
+      for (let i = 0; i < staleIds.length; i += BATCH) {
+        const { error: delErr } = await supabase
+          .from("sales_snapshot")
+          .delete()
+          .in("id", staleIds.slice(i, i + BATCH));
+        if (delErr) {
+          console.warn(`[bsr] stale 정리 실패(데이터 손실 아님): ${delErr.message}`);
+          break;
+        }
+      }
     }
   }
 
