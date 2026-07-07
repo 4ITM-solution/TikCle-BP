@@ -1,0 +1,69 @@
+---
+status: canonical
+owner: tikcle-bp
+updated: 2026-07-07
+source: ORCH 세션 (멀티 세션 오케스트레이션 관제 문서 — tikcle-core docs/sales/ORCHESTRATION.md 체계 이식)
+---
+
+# TikCle BP 오케스트레이션 관제 문서
+
+이 문서 하나로 "누가(어느 세션이) 무엇을 하고 있고, 다음 지시를 어떻게 주는지"를 파악한다.
+**분해 → 배차(TODO.md) → 세션 실행 → ORCH 실측 검증 → 머지·기록. DB apply와 위험 작업은 ORCH 게이트.**
+
+## 운영 구조
+
+- **ORCH (오케스트레이터 세션)**: 작업 분해 / TODO.md 배차 / 산출물 직접 검증(build·DB실측) / 머지·기록 / **마이그레이션 apply·배포·삭제·비용성 배치 게이트**. 직접 구현은 소규모·운영 배치(웨이브 트리거)만.
+- **상주 세션(워커)**: 역할별 별도 Claude Code 세션, 사용자가 직접 띄우고 대화. TODO.md에서 자기 레인 작업을 잡아 산출물(브랜치 커밋+보고 md)로 제출.
+- 프로덕션 Supabase(`dxjodlxkynjirldpumxr`)는 워커 **SELECT만 허용**. write·마이그레이션·Inngest 트리거는 ORCH.
+- 설계 정본: `docs/BP_재설계_v2.md` (+ `docs/spec/` 01~06). 규칙: spec/06 R1~R12.
+
+## 상주 세션 체제
+
+| 세션 | 모델 | 역할 |
+|---|---|---|
+| ORCH | (이 창, Fable) | 배차·검증·머지·apply/배포 게이트·보드 관리·운영 배치 |
+| BE | opus | 파이프라인·뷰·마이그레이션 **코드** 전담 (apply는 ORCH) |
+| FE | sonnet | 화면/컴포넌트 전담 (DB 변경 금지) — 사용자 화면 기획 확정 후 가동 |
+| QA | sonnet | **데이터 대사** — 케이스 샘플링→REST 실경로 추적→원인층(원천/적재/뷰/화면) 판정. 수정 안 함, 보고만 |
+
+배차판 = **`TODO.md`** (repo 루트). 세션은 완료 보고, ORCH가 검증·머지·보드 갱신.
+
+## 세션 발사 프롬프트 (사용자용)
+
+새 터미널 → `cd ~/티클/TikCle-BP && claude` → 모델 선택 후:
+
+**BE:**
+```
+너는 BE 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽고 BE 레인의 최상단 작업을 잡아라.
+공통 가드레일(아래 §) 준수: 자기 워크트리에서 작업, push·배포·마이그레이션 적용·프로덕션 write 금지.
+작업 단위마다 로컬 커밋 + TODO.md 해당 행에 상태·커밋해시 갱신 + 완료 보고.
+```
+
+**QA:**
+```
+너는 QA 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽고 QA 레인 작업을 잡아라.
+프로덕션 DB는 SELECT만. 수정하지 말고 원인층 판정 보고서(docs/ws/QA_*.md)로 제출하라.
+```
+
+## 공통 가드레일 (모든 워커 세션)
+
+- **repo 루트 체크아웃(`~/티클/TikCle-BP`)은 ORCH 전용.** 워커는 자기 워크트리에서만:
+  `git -C ~/티클/TikCle-BP worktree add .claude/worktrees/<레인명> -b <브랜치> origin/main`
+  (기존 배정 워크트리가 TODO.md에 명시돼 있으면 그걸 사용. 종료·머지 후 정리는 ORCH)
+- push·Vercel 배포·Supabase 마이그레이션 적용·`case/*` Inngest 이벤트 발행 금지 (전부 ORCH 게이트)
+- 케이스 데이터 삭제 코드 금지. 삭제성 작업은 R12(dry-run+백업+명시 목록) 설계까지만
+- 유료 API(Anthropic·Apify) 직접 호출 금지 — 테스트 필요하면 ORCH에 요청
+- tsc 통과 없이 완료 보고 금지
+
+## 문서 지도
+
+| 문서 | 용도 |
+|---|---|
+| `docs/BP_재설계_v2.md` ⭐ | 설계 정본 — 제품 정의(§1.0)·Q1~Q7·문제 P/G·WS 정의·진행 로그(§6) |
+| `docs/spec/01~06` | 데이터·파이프라인·화면·아웃풋·프로토콜·재발방지 명세 |
+| `TODO.md` | **배차판** — 레인별 작업·상태 |
+| `docs/ORCHESTRATION.md` (이 문서) | 세션 관제·가드레일 |
+| `docs/BP_로드맵_6개월.md` | 단계 계획 (오늘 스프린트 포함) |
+| `docs/ws/파일럿_리프레시_SharkNinja.md` | 파일럿 D1~D5 결정 설계 |
+| `docs/ws/*_지시서.md / *_REPORT.md` | 트랙별 지시·보고 |
+| `docs/gtm-assets/` | GTM 발행 소재 (tikcle-letter 스킬·플레이북 기획 md) |
