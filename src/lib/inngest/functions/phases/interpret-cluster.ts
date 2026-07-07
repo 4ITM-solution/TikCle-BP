@@ -152,7 +152,14 @@ export const interpretCluster = inngest.createFunction(
     }
 
     // ─── Pass 1 — 400영상 단위 step 열거 ───
-    const totalUsage: TokenUsage = {
+    // WS3 §3.4: pass1=Haiku / pass2·3=Sonnet → 단가 다르므로 usage 분리 누산.
+    const usagePass1: TokenUsage = {
+      input: 0,
+      output: 0,
+      cache_read: 0,
+      cache_write: 0,
+    };
+    const usagePass23: TokenUsage = {
       input: 0,
       output: 0,
       cache_read: 0,
@@ -178,7 +185,7 @@ export const interpretCluster = inngest.createFunction(
         sanitizeDeep(await pass1FindCandidates(slice)),
       );
       candidates.push(...(r.candidates as ClusterCandidate[]));
-      addUsage(totalUsage, r.usage as TokenUsage);
+      addUsage(usagePass1, r.usage as TokenUsage);
       mergeDiag(pass1Diag, r.diagnostics as Pass1Diagnostics);
       logger.info(`[interpret-cluster] pass1 step ${i}`, {
         videos: slice.length,
@@ -189,7 +196,8 @@ export const interpretCluster = inngest.createFunction(
       return finish(
         emptyClusterStats("Pass 1 후보 0개", {
           total_input_videos: videos.length,
-          usage: totalUsage,
+          usagePass1,
+          usagePass23,
           pass1_debug: pass1Diag,
         }),
       );
@@ -200,13 +208,14 @@ export const interpretCluster = inngest.createFunction(
       sanitizeDeep(await pass2Validate(candidates)),
     );
     const validated = pass2.validated as ValidatedCluster[];
-    addUsage(totalUsage, pass2.usage as TokenUsage);
+    addUsage(usagePass23, pass2.usage as TokenUsage);
     if (validated.length === 0) {
       return finish(
         emptyClusterStats("Pass 2 validated 0개", {
           total_input_videos: videos.length,
           pass1_candidates: candidates.length,
-          usage: totalUsage,
+          usagePass1,
+          usagePass23,
           pass1_debug: pass1Diag,
           pass2_debug: pass2.diagnostics,
         }),
@@ -218,14 +227,15 @@ export const interpretCluster = inngest.createFunction(
       sanitizeDeep(await pass3Meta(validated)),
     );
     const metas = pass3.metas as MetaCluster[];
-    addUsage(totalUsage, pass3.usage as TokenUsage);
+    addUsage(usagePass23, pass3.usage as TokenUsage);
     if (metas.length === 0) {
       return finish(
         emptyClusterStats("Pass 3 meta 0개", {
           total_input_videos: videos.length,
           pass1_candidates: candidates.length,
           pass2_validated: validated.length,
-          usage: totalUsage,
+          usagePass1,
+          usagePass23,
           pass1_debug: pass1Diag,
           pass2_debug: pass2.diagnostics,
         }),
@@ -240,7 +250,8 @@ export const interpretCluster = inngest.createFunction(
           pass1_candidates: candidates.length,
           validated,
           metas,
-          usage: totalUsage,
+          usagePass1,
+          usagePass23,
           pass1_debug: pass1Diag,
           pass2_debug: pass2.diagnostics,
         }),

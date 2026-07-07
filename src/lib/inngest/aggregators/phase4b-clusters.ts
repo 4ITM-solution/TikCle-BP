@@ -60,16 +60,19 @@ export async function runPhase4bClusters(
     return emptyClusterStats("입력 영상 0개 (TT vision_tags + IG/YT caption 모두 비어있음)");
   }
 
-  const totalUsage: TokenUsage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  // WS3 §3.4: pass1은 Haiku, pass2/3은 Sonnet이라 단가가 달라 usage를 분리 누산.
+  const usagePass1: TokenUsage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  const usagePass23: TokenUsage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 
   // 2. Pass 1
   const { candidates, usage: u1, diagnostics: pass1_debug } =
     await pass1FindCandidates(videos);
-  addUsage(totalUsage, u1);
+  addUsage(usagePass1, u1);
   if (candidates.length === 0) {
     return emptyClusterStats("Pass 1 후보 0개", {
       total_input_videos: videos.length,
-      usage: totalUsage,
+      usagePass1,
+      usagePass23,
       pass1_debug,
     });
   }
@@ -77,12 +80,13 @@ export async function runPhase4bClusters(
   // 3. Pass 2
   const { validated, usage: u2, diagnostics: pass2_debug } =
     await pass2Validate(candidates);
-  addUsage(totalUsage, u2);
+  addUsage(usagePass23, u2);
   if (validated.length === 0) {
     return emptyClusterStats("Pass 2 validated 0개", {
       total_input_videos: videos.length,
       pass1_candidates: candidates.length,
-      usage: totalUsage,
+      usagePass1,
+      usagePass23,
       pass1_debug,
       pass2_debug,
     });
@@ -90,13 +94,14 @@ export async function runPhase4bClusters(
 
   // 4. Pass 3
   const { metas, usage: u3 } = await pass3Meta(validated);
-  addUsage(totalUsage, u3);
+  addUsage(usagePass23, u3);
   if (metas.length === 0) {
     return emptyClusterStats("Pass 3 meta 0개", {
       total_input_videos: videos.length,
       pass1_candidates: candidates.length,
       pass2_validated: validated.length,
-      usage: totalUsage,
+      usagePass1,
+      usagePass23,
       pass1_debug,
       pass2_debug,
     });
@@ -109,7 +114,8 @@ export async function runPhase4bClusters(
     pass1_candidates: candidates.length,
     validated,
     metas,
-    usage: totalUsage,
+    usagePass1,
+    usagePass23,
     pass1_debug,
     pass2_debug,
   });
@@ -121,7 +127,9 @@ export type ClusterSaveInput = {
   pass1_candidates: number;
   validated: ValidatedCluster[];
   metas: MetaCluster[];
-  usage: TokenUsage;
+  // WS3 §3.4: pass1(Haiku) / pass2·3(Sonnet) 단가 분리 위해 usage를 나눠 받는다.
+  usagePass1: TokenUsage;
+  usagePass23: TokenUsage;
   pass1_debug?: Phase4bClusterStats["pass1_debug"];
   pass2_debug?: Phase4bClusterStats["pass2_debug"];
 };
@@ -142,10 +150,18 @@ export async function saveClusterResults(
     pass1_candidates,
     validated,
     metas,
-    usage: totalUsage,
+    usagePass1,
+    usagePass23,
     pass1_debug,
     pass2_debug,
   } = input;
+  // 토큰 통계(합계)는 두 pass 누산기 합. 비용은 pass별 단가로 분리 계산.
+  const totalUsage: TokenUsage = {
+    input: usagePass1.input + usagePass23.input,
+    output: usagePass1.output + usagePass23.output,
+    cache_read: usagePass1.cache_read + usagePass23.cache_read,
+    cache_write: usagePass1.cache_write + usagePass23.cache_write,
+  };
   const runTag = randomUUID();
 
   // pass 라벨은 새 매핑을 쓰기 전에 리셋 (pass3_meta_id null 필터가 신규 업데이트 조건이므로)
@@ -295,7 +311,7 @@ export async function saveClusterResults(
     pass2_validated: validated.length,
     pass3_meta: metas.length,
     total_memberships: totalMemberships,
-    cost_actual_usd: calcClusterCost(totalUsage),
+    cost_actual_usd: calcClusterCost(usagePass1, usagePass23),
     tokens_input: totalUsage.input,
     tokens_output: totalUsage.output,
     tokens_cache_read: totalUsage.cache_read,
@@ -530,21 +546,30 @@ export function emptyClusterStats(
     pass1_candidates?: number;
     pass2_validated?: number;
     pass3_meta?: number;
-    usage?: TokenUsage;
+    usagePass1?: TokenUsage;
+    usagePass23?: TokenUsage;
     pass1_debug?: Phase4bClusterStats["pass1_debug"];
     pass2_debug?: Phase4bClusterStats["pass2_debug"];
   },
 ): Phase4bClusterStats {
+  const u1 = partial?.usagePass1;
+  const u23 = partial?.usagePass23;
+  const cost = u1 || u23
+    ? calcClusterCost(
+        u1 ?? { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+        u23 ?? { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+      )
+    : 0;
   return {
     total_input_videos: partial?.total_input_videos ?? 0,
     pass1_candidates: partial?.pass1_candidates ?? 0,
     pass2_validated: partial?.pass2_validated ?? 0,
     pass3_meta: partial?.pass3_meta ?? 0,
     total_memberships: 0,
-    cost_actual_usd: partial?.usage ? calcClusterCost(partial.usage) : 0,
-    tokens_input: partial?.usage?.input ?? 0,
-    tokens_output: partial?.usage?.output ?? 0,
-    tokens_cache_read: partial?.usage?.cache_read ?? 0,
+    cost_actual_usd: cost,
+    tokens_input: (u1?.input ?? 0) + (u23?.input ?? 0),
+    tokens_output: (u1?.output ?? 0) + (u23?.output ?? 0),
+    tokens_cache_read: (u1?.cache_read ?? 0) + (u23?.cache_read ?? 0),
     meta_clusters: [],
     pass1_debug: partial?.pass1_debug,
     pass2_debug: partial?.pass2_debug,
