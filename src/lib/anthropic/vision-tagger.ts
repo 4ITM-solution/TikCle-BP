@@ -5,9 +5,12 @@ import { TAGGING_MODEL, calcTaggingCost } from "./pricing";
 const MODEL = TAGGING_MODEL;
 const MAX_TOKENS = 800;
 
+// 결정성(자기일치) 최우선: 모든 라벨은 CLOSED enum, 다중 후보 시 명시적 tie-break 규칙으로
+// 항상 같은 값이 나오게 한다. "or similar" 자유토큰을 제거하고 열거 밖 토큰을 금지.
+// (BE-6: Sonnet 자기일치 56%→목표 ≥85%. cta_type·purchase_intent·products_visible 집중.)
 const SYSTEM_PROMPT = `You analyze TikTok content videos for brand performance benchmarking.
 Given a video cover image, caption text, and ASR transcript, return structured analysis tags
-that will be used for clustering similar content patterns.
+used for clustering similar content patterns.
 
 Output ONLY valid JSON matching this schema (no markdown, no commentary):
 {
@@ -21,24 +24,48 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
   "products_visible": [string]
 }
 
-Vocabulary guidance (pick from these or similar tokens):
-- hook_tags (multiple): "shock_value" | "question" | "transformation_promise" | "problem_statement"
-                        | "curiosity_gap" | "social_proof" | "list_preview" | "personal_story"
-                        | "countdown" | "duet_reaction" | "trending_audio_lipsync"
-- content_angle (one): "tutorial" | "review" | "lifestyle" | "comparison" | "before_after"
-                       | "unboxing" | "expert_education" | "humor_skit" | "testimonial"
-                       | "list_curation" | "ingredient_breakdown"
-- body_format (one): "list" | "demonstration" | "narrative" | "comparison" | "talking_head"
-                     | "voiceover_pov" | "split_screen" | "transition_montage"
-- visual_style (one): "ugc" | "polished_branded" | "vlog" | "asmr" | "voiceover_text"
-                      | "duet" | "stitch"
-- cta_type: "save" | "shop_link" | "follow" | "comment" | "share" | "tag_friend"
-            | "watch_more" | null
-- products_visible: short product nouns (e.g., "lip oil bottle", "PDRN cream tube")
-- purchase_intent: 강한 구매 유도 = "high", 정보형/일반 = "mid", 순수 엔터테인 = "low"
+CRITICAL — determinism: Use ONLY the exact tokens listed below (never invent or pluralize them).
+When more than one token could fit, apply the stated tie-break so the SAME video always yields
+the SAME value. Judge from evidence actually present (spoken/on-screen/caption), never from vibe.
 
-If the input is empty or unclear (no caption, no ASR, ambiguous image), pick the most reasonable
-defaults and use empty arrays where applicable.`;
+- hook_tags (0-3, choose ALL that clearly apply, strongest first; [] if none clearly apply).
+  Allowed ONLY: "shock_value" | "question" | "transformation_promise" | "problem_statement"
+   | "curiosity_gap" | "social_proof" | "list_preview" | "personal_story" | "countdown"
+   | "duet_reaction" | "trending_audio_lipsync"
+
+- content_angle (EXACTLY ONE). If several apply, pick the one dominating most of the video;
+  tie-break: EARLIEST in this list. Allowed ONLY:
+   "tutorial" | "review" | "lifestyle" | "comparison" | "before_after" | "unboxing"
+   | "expert_education" | "humor_skit" | "testimonial" | "list_curation" | "ingredient_breakdown"
+
+- body_format (EXACTLY ONE, dominant; tie-break EARLIEST). Allowed ONLY:
+   "list" | "demonstration" | "narrative" | "comparison" | "talking_head" | "voiceover_pov"
+   | "split_screen" | "transition_montage"
+
+- visual_style (EXACTLY ONE, dominant; tie-break EARLIEST). Allowed ONLY:
+   "ugc" | "polished_branded" | "vlog" | "asmr" | "voiceover_text" | "duet" | "stitch"
+
+- cta_type (EXACTLY ONE token or null). Only count an EXPLICIT call to action that directs the
+  viewer (imperative in speech, on-screen text, or caption — e.g. "link in bio", "save this",
+  "follow for more"). If none is explicit, use null (do NOT infer from vibe). When several CTAs
+  are present, pick the one HIGHEST in this priority order:
+   "shop_link" > "save" > "follow" > "tag_friend" > "share" > "comment" > "watch_more"
+
+- purchase_intent (EXACTLY ONE). Choose the HIGHEST tier whose condition is met:
+   "high" = explicit shopping push: shop link/"link in bio to buy", price/discount/coupon,
+            urgency/limited-time, or "buy/get yours" imperative.
+   "mid"  = product is demonstrated, reviewed, or recommended but with NO explicit purchase push.
+   "low"  = product is incidental or absent; pure entertainment/lifestyle.
+
+- products_visible (0-3 generic product-TYPE nouns, prominence order; [] if none clearly shown).
+  Rules for reproducibility: lowercase, singular, GENERIC category noun ONLY — no brand names,
+  no colors/adjectives, no packaging words ("bottle"/"tube"/"jar"). Dedupe.
+  e.g. ["serum", "cleanser"] — NOT ["blue Vitamin C serum bottle", "cleanser tube"].
+
+- overlay_text: the single most prominent on-screen text, verbatim; null if none.
+
+If input is empty or ambiguous (no caption, no ASR, unclear image), still pick the single best-fit
+token per the rules above and use [] where nothing clearly applies.`;
 
 let client: Anthropic | null = null;
 
@@ -167,8 +194,8 @@ export async function visionTagOne(opts: {
       typeof p.overlay_text === "string" && p.overlay_text.trim()
         ? p.overlay_text
         : null,
-    cta_type:
-      typeof p.cta_type === "string" && p.cta_type.trim() ? p.cta_type : null,
+    // cta_type: 소문자·트림 정규화(대소문자 흔들림 제거). 빈 문자열/"null"/"none"은 null.
+    cta_type: normalizeCta(p.cta_type),
     purchase_intent:
       p.purchase_intent === "high" ||
       p.purchase_intent === "mid" ||
@@ -177,9 +204,9 @@ export async function visionTagOne(opts: {
         : "mid",
     visual_style:
       typeof p.visual_style === "string" ? p.visual_style : "unknown",
-    products_visible: Array.isArray(p.products_visible)
-      ? p.products_visible.filter((x): x is string => typeof x === "string")
-      : [],
+    // products_visible: 소문자·트림·중복제거·최대 3개. 표현 흔들림(대소문자/공백/중복)을
+    //   코드에서 못박아 자기일치(Jaccard)를 프롬프트만으로 얻는 것 이상으로 안정화(BE-6).
+    products_visible: normalizeProducts(p.products_visible),
   };
 
   return {
@@ -189,6 +216,30 @@ export async function visionTagOne(opts: {
     tokens_cache_read,
     tokens_cache_write,
   };
+}
+
+// BE-6 정규화: 모델 출력의 표면 흔들림(대소문자·공백·중복·null 표기)을 제거해 자기일치 안정화.
+const CTA_NULL_TOKENS = new Set(["", "null", "none", "n/a", "na"]);
+
+function normalizeCta(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim().toLowerCase().replace(/\s+/g, "_");
+  return CTA_NULL_TOKENS.has(t) ? null : t;
+}
+
+function normalizeProducts(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of v) {
+    if (typeof x !== "string") continue;
+    const t = x.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 3) break; // 프롬프트 상한과 일치 — 초과 시 앞 3개(프롬프트: 두드러진 순)
+  }
+  return out;
 }
 
 /**

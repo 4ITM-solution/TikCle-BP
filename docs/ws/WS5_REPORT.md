@@ -114,3 +114,39 @@ key_stats에 `kalodata_*_xlsx`·`tt_shop_us_*` 원본 스냅샷이 적재되어 
 tsc: ✅ 통과. 3be66bbd 실검증(force 재실행)은 ORCH.
 
 변경 파일: `interpret-cluster.ts`(+로그) · `interpret-asr/sku/tag.ts` · `collect-meta/ttshop/ig/yt.ts`.
+
+---
+
+## BE-6 — 영상 태깅 재현성 fix ✅ (코드 / 재게이트 실측은 ORCH)
+
+근거: 게이트 실측(2026-07-07) Sonnet 자기일치 56%, cta_type 27%. WS9 §3.6 연계. Haiku 재도전의 선결.
+
+### 원인
+`vision-tagger.ts` SYSTEM_PROMPT가 라벨을 느슨하게 정의("pick from these **or similar** tokens"),
+다중 후보 시 tie-break 부재 → 같은 영상도 실행마다 다른 값. 특히:
+- **cta_type(27%)**: 한 영상에 CTA 여러 개(follow+shop+save)일 때 매번 다른 것 선택, "or similar"로 자유토큰.
+- **purchase_intent**: high/mid 경계 모호.
+- **products_visible**: 자유 명사구("blue serum bottle" vs "serum") → 표현 흔들림.
+
+### 수정 (프롬프트 결정성 + 코드 정규화)
+1. 프롬프트 전면 개정:
+   - 모든 라벨 CLOSED enum, "or similar"·자유토큰 금지. vibe 금지, evidence-only.
+   - 단일 선택(content_angle·body_format·visual_style): **EXACTLY ONE, dominant, tie-break=목록 EARLIEST**.
+   - hook_tags: 목록 내에서만, 0-3개 강한 순, 없으면 [].
+   - **cta_type**: explicit CTA만(암시 금지), 여러 개면 우선순위 `shop_link > save > follow > tag_friend > share > comment > watch_more`, 없으면 null.
+   - **purchase_intent**: 조건 충족 최상위 티어(high=쇼핑 푸시/가격·할인·긴급, mid=시연·리뷰 무푸시, low=부수적·무제품).
+   - **products_visible**: 제네릭 카테고리 명사만(브랜드·색·포장어 금지), 소문자·단수, 중복제거, max 3, 두드러진 순.
+2. 코드 정규화(모델 표면 흔들림 제거): `normalizeCta`(소문자·트림·null표기 처리), `normalizeProducts`(소문자·트림·공백정규화·중복제거·max3).
+3. 게이트에 **자기일치 모드** 추가: `--self`면 baseline 대신 같은 모델로 **2회 재태깅→run1 vs run2** 비교. `npm run gate:self`(= `BP_TAGGING_MODEL=claude-sonnet-4-6 … --self`).
+
+변경 파일: `src/lib/anthropic/vision-tagger.ts`, `scripts/gate-tagging-model.ts`, `package.json`.
+
+### 재게이트 (ORCH — 유료 Anthropic API, 워커 직접 호출 금지)
+```
+npm run gate:self -- --videos 40     # Sonnet run1 vs run2 자기일치, 목표 필드별·종합 ≥85%
+```
+- 표본 40건 × 2콜 = ~80 vision 호출(캡 $1). cta_type·purchase_intent·products_visible 개선 확인.
+- ≥85% 미달 필드가 남으면 해당 라벨 정의 추가 조임 → 재게이트 반복.
+- 통과 시 WS9 §3.6 Haiku 재도전(동일 프롬프트로 Sonnet baseline vs Haiku) 진행.
+
+tsc: ✅ 통과.

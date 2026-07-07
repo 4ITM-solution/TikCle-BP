@@ -117,8 +117,11 @@ async function main() {
     const i = args.indexOf(flag);
     return i >= 0 && args[i + 1] ? parseInt(args[i + 1]!, 10) : dflt;
   };
+  // --self: 저장된 baseline 대신 같은 모델로 2회 재태깅해 run1 vs run2 자기일치를 측정(BE-6).
+  //   프롬프트 개정 후 결정성 검증용. 광고는 self 모드에서 기본 제외(--ads 명시 시 포함).
+  const selfMode = args.includes("--self");
   const videoN = num("--videos", 30);
-  const adN = num("--ads", 30);
+  const adN = selfMode && args.indexOf("--ads") < 0 ? 0 : num("--ads", 30);
 
   const url =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -134,6 +137,7 @@ async function main() {
     process.exit(2);
   }
   console.log(`재태깅 모델: ${TAGGING_MODEL}`);
+  console.log(`모드: ${selfMode ? "자기일치(run1 vs run2, 2회 호출)" : "baseline vs 재태깅"}`);
   console.log(`비용 캡: $${COST_CAP_USD}\n`);
 
   const supabase = createClient(url, key);
@@ -194,23 +198,27 @@ async function main() {
         if (!row.cover_url || !row.vision_tags) continue;
         const caption = row.content_id ? capById.get(row.content_id) ?? null : null;
         try {
-          const res = await visionTagOne({
-            cover_url: row.cover_url,
-            caption,
-            asr_text: row.asr_text,
-          });
-          costUsd += calcVisionCost({
-            tokens_input: res.tokens_input,
-            tokens_output: res.tokens_output,
-            tokens_cache_read: res.tokens_cache_read,
-            tokens_cache_write: res.tokens_cache_write,
-          });
-          if (!res.tags) {
+          const tagOnce = async () => {
+            const res = await visionTagOne({
+              cover_url: row.cover_url!,
+              caption,
+              asr_text: row.asr_text,
+            });
+            costUsd += calcVisionCost({
+              tokens_input: res.tokens_input,
+              tokens_output: res.tokens_output,
+              tokens_cache_read: res.tokens_cache_read,
+              tokens_cache_write: res.tokens_cache_write,
+            });
+            return res.tags;
+          };
+          // self 모드: 같은 모델로 2회 → run1 vs run2. 기본: baseline(저장 Sonnet) vs 재태깅.
+          const sonnet = selfMode ? await tagOnce() : row.vision_tags;
+          const haiku = await tagOnce();
+          if (!sonnet || !haiku) {
             videoFailed += 1;
             continue;
           }
-          const sonnet = row.vision_tags;
-          const haiku = res.tags;
           for (const f of VISION_SCALAR_FIELDS) {
             const a = visionAgg[f as string]!;
             a.total += 1;
@@ -326,7 +334,10 @@ async function main() {
     console.log(`  ${label.padEnd(20)} ${rate}   (n=${agg.total})`);
   };
 
-  console.log("\n═══════════ 영상 vision_tags (Sonnet vs Haiku) ═══════════");
+  const cmpLabel = selfMode
+    ? `자기일치 run1 vs run2 · ${TAGGING_MODEL}`
+    : "Sonnet vs Haiku";
+  console.log(`\n═══════════ 영상 vision_tags (${cmpLabel}) ═══════════`);
   console.log(`비교 ${videoCompared}건 · 실패 ${videoFailed}건`);
   let vScalarMatch = 0,
     vScalarTotal = 0;
@@ -339,7 +350,7 @@ async function main() {
     line(`${f as string} (Jaccard)`, visionAgg[f as string]!, true);
   console.log(`  ${"— scalar 종합".padEnd(20)} ${pct(vScalarMatch, vScalarTotal)}`);
 
-  console.log("\n═══════════ 광고 ad_intel (Sonnet vs Haiku) ═══════════");
+  console.log(`\n═══════════ 광고 ad_intel (${cmpLabel}) ═══════════`);
   console.log(`비교 ${adCompared}건 · 실패 ${adFailed}건`);
   let aMatch = 0,
     aTotal = 0;
@@ -366,7 +377,9 @@ async function main() {
     `  scalar 종합 일치  ${pct(vScalarMatch + aMatch, vScalarTotal + aTotal)}`,
   );
   console.log(
-    "\n판정 기준: 필드별·종합 ≥90% → Haiku 전환 확정 (최종 승인은 오케스트레이터).",
+    selfMode
+      ? "\n판정 기준(BE-6): 필드별·종합 자기일치 ≥85% → 프롬프트 결정성 확보 (최종 판정은 오케스트레이터)."
+      : "\n판정 기준: 필드별·종합 ≥90% → Haiku 전환 확정 (최종 승인은 오케스트레이터).",
   );
 }
 
