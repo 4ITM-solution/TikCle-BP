@@ -532,6 +532,103 @@ async function deleteClustersExcept(
     .or(`run_tag.is.null,run_tag.neq.${runTag}`);
 }
 
+/**
+ * force 재실행에서 새 클러스터를 만들지 못했을 때(입력/후보/검증/메타 0), 케이스의
+ * 기존 클러스터를 통째로 비운다 (BE-2, WS5 §2 / U2: 결론 못 만드는 블록은 "데이터 없음").
+ * content_cluster_members → content_clusters 순으로 지우고 pass 라벨도 리셋해
+ * 화면이 옛 미스정렬 클러스터를 계속 노출하지 않게 한다.
+ *   - 삭제한 cluster id 목록을 반환 (감사 로그·dry-run 대조용, R12 명시 목록).
+ *   - **자연(비-force) 실행에서는 호출하지 않는다** — 기존 결과 보존(호출부 책임).
+ * saveClusterResults의 deleteClustersExcept와 달리 run_tag 무관 전량 삭제인데, 새로 쓸
+ * 클러스터가 없는 경우에만 호출되므로 안전하다(살아남아야 할 신규 run이 없음).
+ */
+export async function clearCaseClusters(
+  supabase: SupaClient,
+  case_id: string,
+): Promise<{ cleared_cluster_ids: string[]; cleared_members: number }> {
+  const { data: clusters } = await supabase
+    .from("content_clusters")
+    .select("id")
+    .eq("case_id", case_id);
+  const ids = (clusters ?? []).map((c) => c.id);
+  if (ids.length === 0) return { cleared_cluster_ids: [], cleared_members: 0 };
+
+  let cleared_members = 0;
+  for (let i = 0; i < ids.length; i += FETCH_CHUNK) {
+    const slice = ids.slice(i, i + FETCH_CHUNK);
+    const { count } = await supabase
+      .from("content_cluster_members")
+      .select("cluster_id", { count: "exact", head: true })
+      .in("cluster_id", slice);
+    cleared_members += count ?? 0;
+    const { error } = await supabase
+      .from("content_cluster_members")
+      .delete()
+      .in("cluster_id", slice);
+    if (error) throw new Error(`clearCaseClusters members: ${error.message}`);
+  }
+  const { error: cErr } = await supabase
+    .from("content_clusters")
+    .delete()
+    .eq("case_id", case_id);
+  if (cErr) throw new Error(`clearCaseClusters clusters: ${cErr.message}`);
+  await resetPassLabels(supabase, case_id);
+  return { cleared_cluster_ids: ids, cleared_members };
+}
+
+/**
+ * clearCaseClusters의 dry-run (SELECT만, 삭제 없음) — 삭제 대상 클러스터/멤버를 집계.
+ * R12 dry-run 리포트용. 워커 세션이 프로덕션 SELECT 권한으로 영향 범위를 미리 뽑는다.
+ */
+export async function previewCaseClusters(
+  supabase: SupaClient,
+  case_id: string,
+): Promise<{
+  cluster_count: number;
+  member_count: number;
+  clusters: { id: string; name: string; is_meta: boolean; run_tag: string | null; member_count: number }[];
+}> {
+  // run_tag는 generated types 미반영(migration 017) → 언타입 접근자로 select
+  // (deleteClustersExcept 주석·파일 상단 sbAny와 동일 사유).
+  type ClusterRow = {
+    id: string;
+    name: string;
+    is_meta: boolean;
+    run_tag: string | null;
+    member_count: number;
+  };
+  const sbLoose = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (c: string, v: string) => {
+          order: (
+            c: string,
+            o: { ascending: boolean },
+          ) => Promise<{ data: ClusterRow[] | null }>;
+        };
+      };
+    };
+  };
+  const { data: rows } = await sbLoose
+    .from("content_clusters")
+    .select("id, name, is_meta, run_tag, member_count")
+    .eq("case_id", case_id)
+    .order("is_meta", { ascending: false });
+  const clusters = rows ?? [];
+  const ids = clusters.map((c) => c.id);
+  let member_count = 0;
+  for (let i = 0; i < ids.length; i += FETCH_CHUNK) {
+    const slice = ids.slice(i, i + FETCH_CHUNK);
+    if (slice.length === 0) break;
+    const { count } = await supabase
+      .from("content_cluster_members")
+      .select("cluster_id", { count: "exact", head: true })
+      .in("cluster_id", slice);
+    member_count += count ?? 0;
+  }
+  return { cluster_count: clusters.length, member_count, clusters };
+}
+
 function addUsage(acc: TokenUsage, add: TokenUsage): void {
   acc.input += add.input;
   acc.output += add.output;

@@ -377,6 +377,13 @@ export type Phase4bClusterStats = {
   meta_clusters: MetaClusterEntry[]; // UI 표시용
   computed_at: string;
   skipped_reason?: string;
+  // force 재실행인데 새 클러스터를 못 만든 경우(입력/후보/검증/메타 0), 옛 미스정렬
+  // 클러스터를 정직하게 비운 감사 로그 (BE-2, WS5 §2 / U2). 자연 실행에선 미설정.
+  legacy_cleared?: {
+    cluster_count: number;
+    member_count: number;
+    cluster_ids: string[];
+  };
   pass1_debug?: {
     batches: number;
     raw_clusters_total: number; // LLM이 만든 cluster 합계 (필터 전)

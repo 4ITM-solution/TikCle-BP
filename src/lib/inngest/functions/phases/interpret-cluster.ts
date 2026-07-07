@@ -1,6 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { inngestSupabase } from "@/lib/inngest/supabase";
 import {
+  clearCaseClusters,
   emptyClusterStats,
   fetchClusteringInputs,
   saveClusterResults,
@@ -129,7 +130,32 @@ export const interpretCluster = inngest.createFunction(
       };
     };
 
+    // 빈 결과(입력/후보/검증/메타 0) 종료 경로. force 재실행이면 옛 미스정렬 클러스터를
+    // 정직하게 비운다 (BE-2, WS5 §2 / U2). saveClusterResults의 run_tag swap이 이 경로에선
+    // 일어나지 않아 legacy 클러스터가 잔존하던 버그(실측 4케이스)를 여기서 청소.
+    // 자연(비-force) 실행은 기존 결과 보존 — 삭제하지 않는다.
+    const finishEmpty = async (stats: Phase4bClusterStats) => {
+      if (force) {
+        const cleared = await step.run("clear-legacy-clusters", async () =>
+          clearCaseClusters(supabase, case_id),
+        );
+        if (cleared.cleared_cluster_ids.length > 0) {
+          stats.legacy_cleared = {
+            cluster_count: cleared.cleared_cluster_ids.length,
+            member_count: cleared.cleared_members,
+            cluster_ids: cleared.cleared_cluster_ids,
+          };
+          logger.info("[interpret-cluster] legacy cleared (force+empty)", {
+            clusters: cleared.cleared_cluster_ids.length,
+            members: cleared.cleared_members,
+          });
+        }
+      }
+      return finish(stats);
+    };
+
     if (!process.env.ANTHROPIC_API_KEY) {
+      // 환경 실패(키 미설정)는 "진짜 클러스터 없음"이 아니므로 기존 결과를 지우지 않는다.
       return finish(emptyClusterStats("ANTHROPIC_API_KEY 미설정"));
     }
 
@@ -144,7 +170,7 @@ export const interpretCluster = inngest.createFunction(
       ),
     )) as VideoForClustering[];
     if (videos.length === 0) {
-      return finish(
+      return finishEmpty(
         emptyClusterStats(
           "입력 영상 0개 (TT vision_tags + IG/YT caption 모두 비어있음)",
         ),
@@ -193,7 +219,7 @@ export const interpretCluster = inngest.createFunction(
       });
     }
     if (candidates.length === 0) {
-      return finish(
+      return finishEmpty(
         emptyClusterStats("Pass 1 후보 0개", {
           total_input_videos: videos.length,
           usagePass1,
@@ -210,7 +236,7 @@ export const interpretCluster = inngest.createFunction(
     const validated = pass2.validated as ValidatedCluster[];
     addUsage(usagePass23, pass2.usage as TokenUsage);
     if (validated.length === 0) {
-      return finish(
+      return finishEmpty(
         emptyClusterStats("Pass 2 validated 0개", {
           total_input_videos: videos.length,
           pass1_candidates: candidates.length,
@@ -229,7 +255,7 @@ export const interpretCluster = inngest.createFunction(
     const metas = pass3.metas as MetaCluster[];
     addUsage(usagePass23, pass3.usage as TokenUsage);
     if (metas.length === 0) {
-      return finish(
+      return finishEmpty(
         emptyClusterStats("Pass 3 meta 0개", {
           total_input_videos: videos.length,
           pass1_candidates: candidates.length,
