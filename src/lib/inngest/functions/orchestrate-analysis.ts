@@ -87,7 +87,7 @@ export const orchestrateAnalysis = inngest.createFunction(
       const { data, error } = await supabase
         .from("cases")
         .select(
-          "channel, country, data_channels, ig_config, yt_config, brand_keyword, brand_meta_pages, tiktok_shop_store_url",
+          "brand_id, channel, country, data_channels, ig_config, yt_config, brand_keyword, brand_meta_pages, tiktok_shop_store_url",
         )
         .eq("id", case_id)
         .single();
@@ -277,8 +277,24 @@ export const orchestrateAnalysis = inngest.createFunction(
       }
     });
 
-    // ─── Final: status=ready + 직전 last_error 클리어 (구 동작 유지) ───
+    // ─── Final: 완결성 게이트 후 status 승격 + 직전 last_error 클리어 ───
+    // BE-7 (QA-2 F1 근본원인): "파이프라인이 안 죽고 리턴했다"만으로 무조건 ready로 올리던 것을
+    //   수정. 전 채널 실데이터 0건이면 status='data_ready'(빈 분석 — 이미 존재하는 enum)로
+    //   정직하게 표기하고, 실측 카운트를 key_stats.completeness에 남긴다. R8: 데이터 존재로 판단.
     await step.run("mark-ready", async () => {
+      const counts = await countCaseData(
+        supabase,
+        case_id,
+        caseRow.brand_id as string,
+        caseRow.country as string | null,
+      );
+      const hasData =
+        counts.contents > 0 ||
+        counts.meta_ads > 0 ||
+        counts.ig_posts > 0 ||
+        counts.yt_videos > 0 ||
+        counts.products > 0;
+
       const { data: row } = await supabase
         .from("cases")
         .select("key_stats")
@@ -286,15 +302,24 @@ export const orchestrateAnalysis = inngest.createFunction(
         .single();
       const ks = (row?.key_stats ?? {}) as Record<string, unknown>;
       if ("last_error" in ks) delete ks.last_error;
+      ks.completeness = {
+        has_data: hasData,
+        counts,
+        checked_at: new Date().toISOString(),
+      };
       const { error } = await supabase
         .from("cases")
         .update({
-          status: "ready",
+          status: hasData ? "ready" : "data_ready",
           analyzed_at: new Date().toISOString(),
           key_stats: ks as never,
         })
         .eq("id", case_id);
       if (error) throw new Error(`mark-ready: ${error.message}`);
+      logger.info("[orchestrate] mark-ready", {
+        status: hasData ? "ready" : "data_ready",
+        counts,
+      });
     });
 
     return {
@@ -305,3 +330,71 @@ export const orchestrateAnalysis = inngest.createFunction(
     };
   },
 );
+
+/**
+ * BE-7 완결성 게이트용 실측 카운트. 실테이블 직접 count(head) — key_stats 캐시는 실테이블과
+ * 어긋날 수 있어(QA-2 F3: 캐시 789 vs 테이블 0) 신뢰 근거로 쓰지 않는다.
+ *   - contents: 브랜드+국가 스코프(케이스 직속 FK 아님, spec/01 §1)
+ *   - meta_ads/ig_posts/yt_videos/products: case_id 스코프
+ */
+async function countCaseData(
+  supabase: ReturnType<typeof inngestSupabase>,
+  case_id: string,
+  brand_id: string,
+  country: string | null,
+): Promise<{
+  contents: number;
+  meta_ads: number;
+  ig_posts: number;
+  yt_videos: number;
+  products: number;
+}> {
+  const countHead = async (
+    run: () => PromiseLike<{ count: number | null }>,
+  ): Promise<number> => {
+    try {
+      const { count } = await run();
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  let contentsQ = supabase
+    .from("contents")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", brand_id);
+  contentsQ = country
+    ? contentsQ.eq("country", country)
+    : contentsQ.is("country", null);
+
+  const [contents, meta_ads, ig_posts, yt_videos, products] = await Promise.all([
+    countHead(() => contentsQ),
+    countHead(() =>
+      supabase
+        .from("meta_ads")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", case_id),
+    ),
+    countHead(() =>
+      supabase
+        .from("ig_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", case_id),
+    ),
+    countHead(() =>
+      supabase
+        .from("yt_videos")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", case_id),
+    ),
+    countHead(() =>
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", case_id),
+    ),
+  ]);
+
+  return { contents, meta_ads, ig_posts, yt_videos, products };
+}
