@@ -648,13 +648,12 @@ export async function deleteCase(case_id: string): Promise<Result> {
     if (error) return { ok: false, error: `cluster_members: ${error.message}` };
   }
 
+  // migration 020에서 case_video_assets·pipeline_runs drop → 리셋 목록에서 제거.
   for (const t of [
     "case_video_analyses",
-    "case_video_assets",
     "case_product_sales",
     "content_clusters",
     "meta_ads",
-    "pipeline_runs",
   ] as const) {
     const { error } = await supabase.from(t).delete().eq("case_id", case_id);
     if (error) return { ok: false, error: `${t}: ${error.message}` };

@@ -29,10 +29,10 @@ export async function updateRevenueTier(
  * Unique 충돌:
  *   - products(case_id,country,asin): source 의 충돌 row 삭제 (target 우선)
  *
- * case_id 박힌 17 테이블: products, case_product_sales, case_rejections,
- *   case_video_analyses, case_video_assets, content_clusters, ig_authors,
- *   ig_posts, ig_runs, meta_ads, pipeline_runs, promotion_events,
- *   viral_bsr_impacts, viral_clusters, yt_channels, yt_runs, yt_videos.
+ * case_id 박힌 테이블: products, case_product_sales, case_video_analyses,
+ *   content_clusters, ig_authors, ig_posts, ig_runs, meta_ads, promotion_events,
+ *   viral_bsr_impacts, yt_channels, yt_runs, yt_videos.
+ *   (migration 020에서 case_rejections·case_video_assets·pipeline_runs·viral_clusters drop)
  */
 export async function mergeCases(
   sourceId: string,
@@ -75,22 +75,20 @@ export async function mergeCases(
   });
   if (delErr) return { ok: false, error: `products 충돌 정리 실패: ${delErr.message}` };
 
-  // 2) 17 테이블 case_id UPDATE
+  // 2) case_id 박힌 테이블 case_id UPDATE
+  // (migration 020에서 case_rejections·case_video_assets·pipeline_runs·viral_clusters drop → 목록에서 제거.
+  //  viral_bsr_impacts는 실측 742행 존재로 유지.)
   const tables = [
     "products",
     "case_product_sales",
-    "case_rejections",
     "case_video_analyses",
-    "case_video_assets",
     "content_clusters",
     "ig_authors",
     "ig_posts",
     "ig_runs",
     "meta_ads",
-    "pipeline_runs",
     "promotion_events",
     "viral_bsr_impacts",
-    "viral_clusters",
     "yt_channels",
     "yt_runs",
     "yt_videos",

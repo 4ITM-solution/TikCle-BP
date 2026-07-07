@@ -150,3 +150,50 @@ npm run gate:self -- --videos 40     # Sonnet run1 vs run2 자기일치, 목표 
 - 통과 시 WS9 §3.6 Haiku 재도전(동일 프롬프트로 Sonnet baseline vs Haiku) 진행.
 
 tsc: ✅ 통과.
+
+---
+
+## BE-3 — migration 020 구조 청소 (작성만, 적용 금지) ✅
+
+근거: WS5 §4 · spec/01 §3 · R12. 파일: `supabase/migrations/020_ws5_structural_cleanup.sql`.
+
+### grep+dry-run 선행이 spec 가정을 반증 (R12의 핵심 가치)
+spec/01 §3은 대상 10개를 "전부 0행"으로 기재했으나 2026-07-07 프로덕션 실측(SELECT):
+
+| 테이블 | 실측 행 | 코드 참조 | 판정 |
+|---|---|---|---|
+| internal_notes | 0 | 없음 | **DROP** |
+| campaign_executions | 0 | 없음 | **DROP** |
+| pipeline_runs | 0 | 병합/리셋 목록만 | **DROP** (delist) |
+| viral_clusters | 0 | 병합 목록만 | **DROP** (delist) |
+| case_rejections | 0 | 병합 목록만 | **DROP** (delist) |
+| case_video_assets | 0 | 병합/리셋 목록만 | **DROP** (delist) |
+| sales_monthly | **650** | 없음 | ⚠️ 제외 (spec 0행 반증 — 원인 조사) |
+| viral_bsr_impacts | **742** | 병합 목록 | ⚠️ 제외 (BSR 변곡점 이관은 별건) |
+| app_settings | **1** | settings/diagnose pricing·exchange **라이브** | ⚠️ 제외 |
+| seeding_packages | **13** | settings/packages **라이브 CRUD** | ⚠️ 제외 |
+| promotion_events | 54 | — | 제외(설계상 유지) |
+
+→ **비어있다던 4개가 실제로 데이터/라이브 코드 보유.** 무비판 drop 시 sales_monthly 650·
+viral_bsr_impacts 742행 소실 + settings/diagnose 페이지 런타임 파손. grep 없이 진행했으면
+#47류 재발. spec/01 §3의 "전부 0행" 문장은 정정 필요(ORCH).
+
+### 마이그레이션 내용
+1. **DROP 6개**(위 0행) — 적용 시점 `count(*)` 0행 가드(DO 블록, 0행 아니면 RAISE 중단).
+2. **status 통일**: `completed`(4) → `ready` (R8: 게이트는 데이터 존재로 판단).
+3. **RLS 통일**: 전 public 테이블 RLS enable + 멱등 `anon_all_<table>` 정책(DO 루프) — advisor
+   "RLS disabled" 경고 소거. service_role은 RLS 우회라 파이프라인 무영향.
+4. **R12 체크리스트 + 적용 전 dry-run 쿼리 블록** 주석 포함. drop 대상 전부 0행이라 백업 무의미.
+
+### 동반 코드 delist (drop 안전화)
+drop 대상이 case 병합/리셋 목록에 있어 그대로 두면 apply 후 런타임 에러 → 제거:
+- `case-actions.ts` 병합 목록: case_rejections·case_video_assets·pipeline_runs·viral_clusters 제거(viral_bsr_impacts 유지).
+- `upload-actions.ts` 리셋 목록: case_video_assets·pipeline_runs 제거.
+
+### ⚠️ 적용 순서 (ORCH)
+(1) delist 코드 배포 → (2) 020 apply → (3) `npm run db:types` 재생성. 순서 어기면 배포된
+구코드가 drop된 테이블 조회로 에러. tsc: ✅ 통과.
+
+### 미이관 (WS5 §4 잔여 — 별도 항목 권고)
+bsr 컬럼 이원화 제거·BSR 변곡점 case_insights 이관·cases.options 디버그키·key_stats
+xlsx→cases.uploads(BE-5 근본청소)는 본 020 범위 밖. 데이터 이동/백업 동반이라 별도 마이그레이션.
