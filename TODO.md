@@ -6,11 +6,11 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
-| BE-1 | ~~게이트 스크립트 수정 (커버 재호스트 이미지 사용 + 유효 표본 30+·실패율 경고·캡 $1)~~ | ✅ a3c1a41 (검증 대기 — ORCH) | spec/06 R9, WS3_REPORT §3 | tsc + ORCH 재게이트 실행 |
+| BE-1 | 게이트 스크립트 R9 수정 | ✅ a3c1a41 — 재게이트 2회 실전 사용으로 검증 완료 | spec/06 R9 | 완료 |
 | BE-2 | ✅ 2e7f0de (재작업) — `clearCaseClusters`에서 content_clusters 삭제 **전** `resetPassLabels`로 pass3_meta_id FK 끊음(순서 재배치). tsc 통과. 재검증은 ORCH(4케이스 force) | WS5_지시서 §2 | 수정 후 tsc, 재검증은 ORCH(4케이스 force) |
 | BE-3 | ✅ f8e87c8 — `020_ws5_structural_cleanup.sql`(적용 금지). **grep+dry-run이 spec 반증**: sales_monthly=650·viral_bsr_impacts=742·app_settings=1(라이브)·seeding_packages=13(라이브) → drop 제외. DROP은 0행 6개(internal_notes·campaign_executions·pipeline_runs·viral_clusters·case_rejections·case_video_assets)+0행 가드. status completed→ready(4). RLS 전테이블 통일 DO블록. R12 체크리스트+dry-run 블록 주석. 코드 delist(case-actions·upload-actions). tsc 통과. apply·db:types는 ORCH | WS5_지시서 §4, spec/01 §3 | 파일 + dry-run 쿼리 블록 |
 | BE-5 | ✅ 31d35e3 — 원인은 pass1 아님: **`read-key-stats` 스텝이 key_stats 전체(3be66bbd 6.96MB, kalodata_*_xlsx 4+2.6MB)를 반환** → Inngest step output >4MB 초과. interpret-cluster + 동일 패턴 7개 phase(interpret-asr/sku/tag, collect-meta/ttshop/ig/yt)의 read-key-stats를 캐시 판정에 쓰는 단일 필드만 반환하도록 슬림화. 페이로드 크기 로그 추가. 근본청소(xlsx→cases.uploads)는 WS5 §4/020. tsc 통과. 3be66bbd 검증은 ORCH | phase_runs error 실측 2026-07-07 | tsc + 반환 페이로드 크기 로그 |
-| BE-6 | ✅ 1b8abd4 (코드) — vision-tagger 프롬프트 전면 개정: 모든 라벨 CLOSED enum·"or similar" 제거, EXACTLY ONE+dominant+earliest tie-break, cta_type 우선순위(shop_link>save>…)·explicit-only·null 규칙, purchase_intent 티어 조건, products_visible 제네릭명사·소문자·중복제거·max3. 코드 정규화(normalizeCta/normalizeProducts) 추가. gate에 `--self`(run1 vs run2 자기일치) 모드 + `npm run gate:self`. **재게이트 실측은 ORCH(유료 API): `npm run gate:self -- --videos 40`, 목표 ≥85%** | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
+| BE-6 | ✅ 1b8abd4 — **ORCH 재게이트 실측: 자기일치 96.5% (목표 85% 초과 통과)**. vision-tagger 프롬프트 전면 개정: 모든 라벨 CLOSED enum·"or similar" 제거, EXACTLY ONE+dominant+earliest tie-break, cta_type 우선순위(shop_link>save>…)·explicit-only·null 규칙, purchase_intent 티어 조건, products_visible 제네릭명사·소문자·중복제거·max3. 코드 정규화(normalizeCta/normalizeProducts) 추가. gate에 `--self`(run1 vs run2 자기일치) 모드 + `npm run gate:self`. **재게이트 실측은 ORCH(유료 API): `npm run gate:self -- --videos 40`, 목표 ≥85%** | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
 | BE-7 | ✅ 146b3e0 (QA-2 F1 후속, 신규 정의) — mark-ready 완결성 게이트: orchestrate-analysis.ts가 예외없이 끝나면 무조건 ready로 올리던 것을 수정. 전 채널 실데이터 0건(contents 브랜드+국가·meta_ads·ig_posts·yt_videos·products 실테이블 count)이면 `status='data_ready'`(기존 enum, FE status-pill 존재)로 표기 + key_stats.completeness 기록. tsc 통과. ⚠️ run-analysis onFailure의 force-ready는 별건 플래그(보고서). 소급 재판정은 ORCH | QA_케이스위생 F1 | tsc + 게이트 코드 |
 | BE-8 | ✅ 146b3e0 (QA-2 F5 후속, 신규 정의) — `021_cases_channel_not_null.sql`(적용 금지): channel NULL 3건(biodance·torriden·equalberry US, config 신호 전무) → 'other' 백필 + 잔존 NULL 가드 + `ALTER … SET NOT NULL`. dry-run 블록 포함. apply는 ORCH | QA_케이스위생 F5 | 파일 + dry-run |
 | BE-9 | ✅ 판정: **파서 결함 아님**(수정 불필요) — SharkNinja 81/221 UTM 있으나 utm_campaign=캠페인택소노미(Brand_Awareness_NinjaKitchen_Espresso), utm_term=`{{ad.id}}` 미렌더 매크로 → 핸들 미포함이라 null이 정상. 진짜 크리에이터는 `creator_page_name`에 43/221 존재(PlantYou·Eatwitzo…). **권고: Q7은 inferred_creator_handle 단독 말고 creator_page_name 우선**(FE/QA). 상세 WS5_REPORT BE-9 | QA_파일럿_매트릭스.md §1 Q7·§5-2 | 판정 보고+필요시 fix |
@@ -43,9 +43,9 @@
 | # | 작업 | 상태 |
 |---|---|---|
 | O-1 | 파일럿 P3 체인 (SharkNinja tag→cluster→sku→stats) | ✅ 완주 (2026-07-07) — QA-1 착수 가능 |
-| O-2 | F1 잔여 웨이브 | 🔄 W1 처리 중·W2~3 자동 발송 예정 (러너 버그 수정 후 재개) |
+| O-2 | F1 잔여 웨이브 | 🔄 마지막 3케이스(구코드로 돌아 legacy 잔존) 신코드 재실행 중 — 완료 시 legacy=0 종결 |
 | O-3 | BE-1 검증 → 재게이트 → Haiku 재판정 | ✅ **판정: 티어링 전면 보류, Sonnet 유지** — 영상: Haiku가 핵심필드(앵글 43%·훅 26%·제품 7%)에서 베이스라인(60/56/32%) 대비 붕괴. 광고: origin_class 80→50%. 재도전은 BE-6 후 |
-| O-4 | BE-2·3 검증→머지→apply→배포 | ⬜ |
+| O-4 | BE 산출물 게이트 | ✅ 전부 머지·배포 + **migration 020/021 프로덕션 적용·검증**(테이블 6 drop·RLS 전체·status 통일·channel NOT NULL) |
 | O-5 | 파일럿 D1~D5 종합 | ✅ 파일럿 문서 §결정 기록 — 무차별 재실행 NO. F8 미실행 collect 백필은 **철회(2026-07-07 사용자)** — 케이스를 실제로 쓸 때 + BE 트리거 원인 규명 후 케이스 단위로만 |
 
 ## 결정 대기 (사용자)
