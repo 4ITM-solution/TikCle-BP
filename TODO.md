@@ -16,7 +16,7 @@
 | BE-9 | ✅ 판정: **파서 결함 아님**(수정 불필요) — SharkNinja 81/221 UTM 있으나 utm_campaign=캠페인택소노미(Brand_Awareness_NinjaKitchen_Espresso), utm_term=`{{ad.id}}` 미렌더 매크로 → 핸들 미포함이라 null이 정상. 진짜 크리에이터는 `creator_page_name`에 43/221 존재(PlantYou·Eatwitzo…). **권고: Q7은 inferred_creator_handle 단독 말고 creator_page_name 우선**(FE/QA). 상세 WS5_REPORT BE-9 | QA_파일럿_매트릭스.md §1 Q7·§5-2 | 판정 보고+필요시 fix |
 | BE-10 | [CX1-F1] startAnalysis 이벤트 발행 실패 성공 위장 fix — inngest.send 실패 시 status 원복+ok:false+last_error='event_dispatch_failed' (upload-actions.ts:834-864) | ⬜ 🔴 | CX_파이프라인_재감사 F1 | tsc + 실패 시뮬 |
 | BE-11 | [CX1-F4·F5] fail-open 2건 정책 수정 — ①비용 가드: 조회 실패 시 emergency cap $5 적용(완전 통과 금지) ②vision dedup: reuse 조회 error 무시 금지 → 해당 배치 partial 처리 (shared.ts·phase4b-vision.ts) | ⬜ | CX 재감사 F4·F5 | tsc |
-| BE-12 | [CX1-F2] phase 의존 DAG 설계+구현 — 단독 재실행 시 downstream stale 방지. 설계 1문단(어디까지 자동 동반?) ORCH 승인 후 구현 | ⬜ | CX 재감사 F2, spec/02 §2 | 설계 승인+tsc |
+| BE-12 | [CX1-F2] phase 의존 DAG 구현 — **설계 확정본 docs/ws/BE12_DAG_설계.md 그대로** (cascade 기본 true, PHASE_DOWNSTREAM 상수, spec/02 갱신 동반) | ⬜ | BE12_DAG_설계.md | tsc + 소형 케이스 cascade 검증(ORCH) |
 
 ## QA 레인
 
