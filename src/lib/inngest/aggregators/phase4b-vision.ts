@@ -4,8 +4,13 @@ import {
   calcVisionCost,
   visionTagOne,
 } from "@/lib/anthropic/vision-tagger";
+import { stableUrlKey, tagInputHash } from "@/lib/anthropic/dedup";
 import { downloadAndStore } from "@/lib/storage/asset-downloader";
-import type { Phase4bVisionStats, Phase4bSampleStats } from "../types";
+import type {
+  Phase4bVisionStats,
+  Phase4bSampleStats,
+  VisionTags,
+} from "../types";
 
 type SupaClient = SupabaseClient<Database>;
 
@@ -46,6 +51,7 @@ export type Phase4bVisionBatchResult = {
   attempted: number;
   with_tags: number;
   failed: number;
+  reused: number; // 동일 입력 해시 재사용(LLM 미호출)으로 채운 수 — WS3 §3
   tokens_input: number;
   tokens_output: number;
   tokens_cache_read: number;
@@ -98,11 +104,28 @@ export async function processPhase4bVisionBatch(
   case_id: string,
   inputs: VisionInput[],
 ): Promise<Phase4bVisionBatchResult> {
+  // ── 0. 태깅 입력 해시 (재호스트 前 원본 cover url 기준) — 동일 입력 재태깅 방지(WS3 §3) ──
+  const hashByInput = new Map<VisionInput, string>();
+  for (const it of inputs) {
+    hashByInput.set(
+      it,
+      tagInputHash([stableUrlKey(it.cover_url), it.caption, it.asr_text]),
+    );
+  }
+  // 이미 같은 입력으로 태깅된 결과(타 케이스 포함) 조회 → LLM 없이 복사.
+  const reuseMap = await fetchReusableVisionTags(
+    supabase,
+    Array.from(new Set(hashByInput.values())),
+  );
+
   // IG cover는 cdninstagram.com 호스트 → Anthropic Vision의 URL fetch가
   // 인스타 robots.txt에 막혀 400 ("disallowed by robots.txt"). TikTok처럼
   // URL source 직행 불가. → 우리 서버가 다운로드해서 Supabase storage(case-assets,
   // public)에 re-host 후 그 URL을 Anthropic에 넘긴다. re-host 실패 시 원본 폴백.
-  const igItems = inputs.filter((it) => it.platform === "instagram");
+  // ★ 재사용 hit인 IG 항목은 LLM에 안 넘기므로 재호스트도 생략 (불필요한 다운로드 방지).
+  const igItems = inputs.filter(
+    (it) => it.platform === "instagram" && !reuseMap.has(hashByInput.get(it)!),
+  );
   for (let i = 0; i < igItems.length; i += REHOST_CONCURRENCY) {
     const slice = igItems.slice(i, i + REHOST_CONCURRENCY);
     await Promise.all(
@@ -123,14 +146,97 @@ export async function processPhase4bVisionBatch(
   let attempted = 0;
   let with_tags = 0;
   let failed = 0;
+  let reused = 0;
   let tokens_in = 0;
   let tokens_out = 0;
   let tokens_cache_r = 0;
   let tokens_cache_w = 0;
   const failure_reasons: Array<{ reason: string; cover_url?: string }> = [];
 
-  for (let i = 0; i < inputs.length; i += VISION_CONCURRENCY) {
-    const slice = inputs.slice(i, i + VISION_CONCURRENCY);
+  // platform 별 upsert (해시 포함): TK 는 content_id 기반, IG/YT 는 platform+external_ref.
+  // generated types 안 multi-platform·tag_input_hash 미반영이라 cast 우회.
+  const sb = supabase as unknown as {
+    from: (t: string) => {
+      upsert: (
+        v: Record<string, unknown>,
+        opts: { onConflict: string },
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const upsertTags = async (
+    item: VisionInput,
+    tags: VisionTags,
+  ): Promise<boolean> => {
+    const isTk = item.platform === "tiktok";
+    const hash = hashByInput.get(item);
+    const { error } = isTk
+      ? await sb.from("case_video_analyses").upsert(
+          {
+            case_id,
+            content_id: item.content_id,
+            platform: "tiktok",
+            cover_url: item.cover_url,
+            vision_tags: tags,
+            tag_input_hash: hash,
+          },
+          { onConflict: "case_id,content_id" },
+        )
+      : await sb.from("case_video_analyses").upsert(
+          {
+            case_id,
+            platform: item.platform,
+            external_ref: item.external_ref,
+            cover_url: item.cover_url,
+            vision_tags: tags,
+            tag_input_hash: hash,
+          },
+          { onConflict: "case_id,platform,external_ref" },
+        );
+    if (error) {
+      console.error("[vision] upsert fail", {
+        platform: item.platform,
+        ref: item.external_ref ?? item.content_id,
+        err: error.message,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  // ── 1. 재사용 pass: reuseMap hit → LLM 없이 태그 복사 ──
+  const toTag: VisionInput[] = [];
+  for (const it of inputs) {
+    const cached = reuseMap.get(hashByInput.get(it)!);
+    if (!cached) {
+      toTag.push(it);
+      continue;
+    }
+    attempted += 1;
+    if (await upsertTags(it, cached)) {
+      with_tags += 1;
+      reused += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  // ── 2. batch 내 동일 해시 dedup: hash별 대표 1건만 LLM 호출, 나머지는 결과 공유 ──
+  const repByHash = new Map<string, VisionInput>();
+  const sharersByHash = new Map<string, VisionInput[]>();
+  for (const it of toTag) {
+    const h = hashByInput.get(it)!;
+    const rep = repByHash.get(h);
+    if (!rep) {
+      repByHash.set(h, it);
+      sharersByHash.set(h, []);
+    } else {
+      sharersByHash.get(h)!.push(it);
+    }
+  }
+  const reps = Array.from(repByHash.values());
+
+  for (let i = 0; i < reps.length; i += VISION_CONCURRENCY) {
+    const slice = reps.slice(i, i + VISION_CONCURRENCY);
     const results = await Promise.allSettled(
       slice.map((it) =>
         visionTagOne({
@@ -142,11 +248,13 @@ export async function processPhase4bVisionBatch(
     );
 
     for (let j = 0; j < results.length; j += 1) {
-      attempted += 1;
       const item = slice[j]!;
+      const h = hashByInput.get(item)!;
+      const group = [item, ...(sharersByHash.get(h) ?? [])];
       const res = results[j];
       if (res?.status !== "fulfilled") {
-        failed += 1;
+        attempted += group.length;
+        failed += group.length;
         const err = res?.reason as unknown;
         const reason =
           err instanceof Error
@@ -170,51 +278,21 @@ export async function processPhase4bVisionBatch(
       tokens_cache_w += res.value.tokens_cache_write;
 
       if (!res.value.tags) {
-        failed += 1;
+        attempted += group.length;
+        failed += group.length;
         continue;
       }
 
-      // platform 별 upsert: TK 는 content_id 기반, IG/YT 는 platform+external_ref 기반.
-      // generated types 안 multi-platform 미반영 (옛 schema)이라 cast 우회.
-      const isTk = item.platform === "tiktok";
-      const sb = supabase as unknown as {
-        from: (t: string) => {
-          upsert: (
-            v: Record<string, unknown>,
-            opts: { onConflict: string },
-          ) => Promise<{ error: { message: string } | null }>;
-        };
-      };
-      const { error } = isTk
-        ? await sb.from("case_video_analyses").upsert(
-            {
-              case_id,
-              content_id: item.content_id,
-              platform: "tiktok",
-              cover_url: item.cover_url,
-              vision_tags: res.value.tags,
-            },
-            { onConflict: "case_id,content_id" },
-          )
-        : await sb.from("case_video_analyses").upsert(
-            {
-              case_id,
-              platform: item.platform,
-              external_ref: item.external_ref,
-              cover_url: item.cover_url,
-              vision_tags: res.value.tags,
-            },
-            { onConflict: "case_id,platform,external_ref" },
-          );
-      if (error) {
-        failed += 1;
-        console.error("[vision] upsert fail", {
-          platform: item.platform,
-          ref: item.external_ref ?? item.content_id,
-          err: error.message,
-        });
-      } else {
-        with_tags += 1;
+      const tags = res.value.tags;
+      // 대표 1건 태깅 결과를 그룹(동일 입력) 전원에 upsert. 2건째부터는 재사용 카운트.
+      for (let g = 0; g < group.length; g += 1) {
+        attempted += 1;
+        if (await upsertTags(group[g]!, tags)) {
+          with_tags += 1;
+          if (g > 0) reused += 1;
+        } else {
+          failed += 1;
+        }
       }
     }
   }
@@ -223,12 +301,60 @@ export async function processPhase4bVisionBatch(
     attempted,
     with_tags,
     failed,
+    reused,
     tokens_input: tokens_in,
     tokens_output: tokens_out,
     tokens_cache_read: tokens_cache_r,
     tokens_cache_write: tokens_cache_w,
     failure_reasons,
   };
+}
+
+/**
+ * 동일 태깅 입력 해시로 이미 vision_tags가 있는 행을 케이스 무관 조회 → hash→tags 맵.
+ * PostgREST 1000행/in() 한도(R2) 회피 위해 청크로 나눠 조회.
+ */
+async function fetchReusableVisionTags(
+  supabase: SupaClient,
+  hashes: string[],
+): Promise<Map<string, VisionTags>> {
+  const out = new Map<string, VisionTags>();
+  if (hashes.length === 0) return out;
+  const sb = supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        in: (
+          col: string,
+          vals: string[],
+        ) => {
+          not: (
+            col: string,
+            op: string,
+            v: null,
+          ) => Promise<{
+            data:
+              | Array<{ tag_input_hash: string | null; vision_tags: VisionTags | null }>
+              | null;
+          }>;
+        };
+      };
+    };
+  };
+  const CHUNK = 300;
+  for (let i = 0; i < hashes.length; i += CHUNK) {
+    const chunk = hashes.slice(i, i + CHUNK);
+    const { data } = await sb
+      .from("case_video_analyses")
+      .select("tag_input_hash, vision_tags")
+      .in("tag_input_hash", chunk)
+      .not("vision_tags", "is", null);
+    for (const r of data ?? []) {
+      if (r.tag_input_hash && r.vision_tags && !out.has(r.tag_input_hash)) {
+        out.set(r.tag_input_hash, r.vision_tags);
+      }
+    }
+  }
+  return out;
 }
 
 export function finalizePhase4bVision(
@@ -241,6 +367,7 @@ export function finalizePhase4bVision(
   let total_attempted = 0;
   let total_with_tags = 0;
   let total_failed = 0;
+  let total_reused = 0;
   let tokens_in = 0;
   let tokens_out = 0;
   let tokens_cache_r = 0;
@@ -251,6 +378,7 @@ export function finalizePhase4bVision(
     total_attempted += r.attempted;
     total_with_tags += r.with_tags;
     total_failed += r.failed;
+    total_reused += r.reused;
     tokens_in += r.tokens_input;
     tokens_out += r.tokens_output;
     tokens_cache_r += r.tokens_cache_read;
@@ -278,6 +406,7 @@ export function finalizePhase4bVision(
     total_attempted,
     total_with_tags,
     total_failed,
+    total_reused,
     total_no_cover: Math.max(0, totalSampleContentIds - total_attempted),
     cost_actual_usd: cost,
     tokens_input: tokens_in,

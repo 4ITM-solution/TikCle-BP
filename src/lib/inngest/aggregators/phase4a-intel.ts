@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { tagAdCreative } from "@/lib/anthropic/ad-creative-tagger";
+import { tagAdCreative, type AdIntel } from "@/lib/anthropic/ad-creative-tagger";
 import { calcVisionCost } from "@/lib/anthropic/vision-tagger";
+import { stableUrlKey, tagInputHash } from "@/lib/anthropic/dedup";
 import { parseCreatorFromUtm } from "../meta-utm";
 
 /**
@@ -27,12 +28,48 @@ export type Phase4aUtmStats = {
 export type Phase4aVisionBatchStats = {
   vision_tagged: number;
   vision_failed: number;
+  vision_reused: number; // 동일 입력 해시 재사용(LLM 미호출) — WS3 §3
   remaining: number; // 아직 태깅 안 된 thumbnail 광고 수 (이번 배치 후)
   cost_usd: number;
   tokens_input: number;
   tokens_output: number;
   skipped_reason?: string;
 };
+
+/** thumbnail+body 기반 광고 태깅 입력 해시. */
+function adInputHash(thumbnail_url: string, body_text: string | null): string {
+  return tagInputHash([stableUrlKey(thumbnail_url), body_text]);
+}
+
+/**
+ * 동일 태깅 입력 해시로 이미 ad_intel이 있는 meta_ads 행을 케이스 무관 조회 → hash→intel.
+ * PostgREST 1000행/in() 한도(R2) 회피 위해 청크 조회.
+ */
+async function fetchReusableAdIntel(
+  supabase: SupaClient,
+  hashes: string[],
+): Promise<Map<string, AdIntel>> {
+  const out = new Map<string, AdIntel>();
+  if (hashes.length === 0) return out;
+  const CHUNK = 300;
+  for (let i = 0; i < hashes.length; i += CHUNK) {
+    const chunk = hashes.slice(i, i + CHUNK);
+    const { data } = await supabase
+      .from("meta_ads")
+      .select("tag_input_hash, ad_intel")
+      .in("tag_input_hash", chunk)
+      .not("ad_intel", "is", null);
+    for (const r of (data ?? []) as Array<{
+      tag_input_hash: string | null;
+      ad_intel: AdIntel | null;
+    }>) {
+      if (r.tag_input_hash && r.ad_intel && !out.has(r.tag_input_hash)) {
+        out.set(r.tag_input_hash, r.ad_intel);
+      }
+    }
+  }
+  return out;
+}
 
 /** UTM에서 소스 크리에이터 핸들 파싱 (전체 1회). 이미 채워진 건 스킵. */
 export async function runPhase4aUtm(
@@ -73,6 +110,7 @@ export async function runPhase4aVisionBatch(
   const base = {
     vision_tagged: 0,
     vision_failed: 0,
+    vision_reused: 0,
     remaining: 0,
     cost_usd: 0,
     tokens_input: 0,
@@ -101,13 +139,63 @@ export async function runPhase4aVisionBatch(
 
   let vision_tagged = 0;
   let vision_failed = 0;
+  let vision_reused = 0;
   let tIn = 0,
     tOut = 0,
     tCacheR = 0,
     tCacheW = 0;
 
-  for (let i = 0; i < ads.length; i += VISION_CONCURRENCY) {
-    const slice = ads.slice(i, i + VISION_CONCURRENCY);
+  // ── 0. 태깅 입력 해시 + 재사용 맵 (WS3 §3: 동일 입력 재태깅 방지) ──
+  const hashById = new Map<string, string>();
+  for (const ad of ads) {
+    hashById.set(ad.id, adInputHash(ad.thumbnail_url as string, ad.body_text));
+  }
+  const reuseMap = await fetchReusableAdIntel(
+    supabase,
+    Array.from(new Set(hashById.values())),
+  );
+
+  // meta_ads.ad_intel + tag_input_hash 저장 (untyped 클라이언트라 캐스트 불필요).
+  const saveIntel = async (adId: string, intel: AdIntel): Promise<boolean> => {
+    const { error: uErr } = await supabase
+      .from("meta_ads")
+      .update({ ad_intel: intel as never, tag_input_hash: hashById.get(adId) } as never)
+      .eq("id", adId);
+    return !uErr;
+  };
+
+  // ── 1. 재사용 pass ──
+  const toTag: typeof ads = [];
+  for (const ad of ads) {
+    const cached = reuseMap.get(hashById.get(ad.id)!);
+    if (!cached) {
+      toTag.push(ad);
+      continue;
+    }
+    if (await saveIntel(ad.id, cached)) {
+      vision_tagged += 1;
+      vision_reused += 1;
+    } else {
+      vision_failed += 1;
+    }
+  }
+
+  // ── 2. batch 내 동일 해시 dedup: 대표 1건만 LLM 호출 ──
+  const repByHash = new Map<string, (typeof ads)[number]>();
+  const sharersByHash = new Map<string, typeof ads>();
+  for (const ad of toTag) {
+    const h = hashById.get(ad.id)!;
+    if (!repByHash.has(h)) {
+      repByHash.set(h, ad);
+      sharersByHash.set(h, []);
+    } else {
+      sharersByHash.get(h)!.push(ad);
+    }
+  }
+  const reps = Array.from(repByHash.values());
+
+  for (let i = 0; i < reps.length; i += VISION_CONCURRENCY) {
+    const slice = reps.slice(i, i + VISION_CONCURRENCY);
     const results = await Promise.allSettled(
       slice.map((ad) =>
         tagAdCreative({
@@ -120,11 +208,13 @@ export async function runPhase4aVisionBatch(
     );
     for (let j = 0; j < results.length; j += 1) {
       const ad = slice[j]!;
+      const h = hashById.get(ad.id)!;
+      const group = [ad, ...(sharersByHash.get(h) ?? [])];
       const res = results[j];
       if (res?.status !== "fulfilled" || !res.value.intel) {
         // 실패는 null로 남김(재시도 가능). sentinel 마킹하면 transient 실패가
         // 영구 실패가 됨(쿼터/레이트리밋 등). run-analysis 루프가 진전 0이면 break.
-        vision_failed += 1;
+        vision_failed += group.length;
         if (res?.status === "fulfilled") {
           tIn += res.value.tokens_input;
           tOut += res.value.tokens_output;
@@ -137,12 +227,15 @@ export async function runPhase4aVisionBatch(
       tOut += res.value.tokens_output;
       tCacheR += res.value.tokens_cache_read;
       tCacheW += res.value.tokens_cache_write;
-      const { error: uErr } = await supabase
-        .from("meta_ads")
-        .update({ ad_intel: res.value.intel as never })
-        .eq("id", ad.id);
-      if (uErr) vision_failed += 1;
-      else vision_tagged += 1;
+      const intel = res.value.intel;
+      for (let g = 0; g < group.length; g += 1) {
+        if (await saveIntel(group[g]!.id, intel)) {
+          vision_tagged += 1;
+          if (g > 0) vision_reused += 1;
+        } else {
+          vision_failed += 1;
+        }
+      }
     }
   }
 
@@ -157,6 +250,7 @@ export async function runPhase4aVisionBatch(
   return {
     vision_tagged,
     vision_failed,
+    vision_reused,
     remaining: remaining ?? 0,
     cost_usd: calcVisionCost({
       tokens_input: tIn,

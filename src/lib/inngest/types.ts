@@ -334,6 +334,7 @@ export type Phase4bVisionStats = {
   total_with_tags: number;
   total_failed: number;
   total_no_cover: number; // cover URL 없어서 skip된 수
+  total_reused?: number; // WS3 §3 dedup: 동일 입력 해시 재사용으로 LLM 없이 채운 수
   cost_actual_usd: number;
   tokens_input: number;
   tokens_output: number;

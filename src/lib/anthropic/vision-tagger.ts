@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { VisionTags } from "@/lib/inngest/types";
+import { TAGGING_MODEL, calcTaggingCost } from "./pricing";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = TAGGING_MODEL;
 const MAX_TOKENS = 800;
 
 const SYSTEM_PROMPT = `You analyze TikTok content videos for brand performance benchmarking.
@@ -191,8 +192,9 @@ export async function visionTagOne(opts: {
 }
 
 /**
- * Sonnet 4.6 가격 (USD).
- * Input: $3/M, Cached read: $0.30/M, Cache write: $3.75/M, Output: $15/M
+ * 태깅 모델(WS3 §3.4: 기본 Haiku 4.5, BP_TAGGING_MODEL로 override) 가격.
+ * 모델명 기반으로 단가 자동 선택 (haiku → $1/$5, 그 외 Sonnet → $3/$15).
+ * input_tokens는 Anthropic API에서 cache 처리 분 빼고 카운트되어 옴.
  */
 export function calcVisionCost(opts: {
   tokens_input: number;
@@ -200,12 +202,5 @@ export function calcVisionCost(opts: {
   tokens_cache_read: number;
   tokens_cache_write: number;
 }): number {
-  // input_tokens는 Anthropic API에서 cache 처리 분 빼고 카운트되어 옴
-  const M = 1_000_000;
-  return (
-    (opts.tokens_input * 3) / M +
-    (opts.tokens_cache_read * 0.3) / M +
-    (opts.tokens_cache_write * 3.75) / M +
-    (opts.tokens_output * 15) / M
-  );
+  return calcTaggingCost(opts, MODEL);
 }

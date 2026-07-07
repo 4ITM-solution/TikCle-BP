@@ -18,10 +18,12 @@ const PHASE15_MAX_PRODUCTS = 1000;
 // Phase 3.7 (Shop Creator 판별) — lemur ~$0.005/check (mockup 기준)
 const PHASE37_MAX_HANDLES = 500;
 const PHASE37_COST_PER_CHECK = 0.005;
-// Sonnet Vision 평균 비용 (캐싱 포함, 1 cover image + 캡션 + ASR 기준)
-const VISION_COST_PER_VIDEO = 0.012;
-// 3-pass 클러스터링 (Sonnet) — 케이스당 고정 비용
-const CLUSTER_COST_PER_CASE = 0.6;
+// Vision 평균 비용 (캐싱 포함, 1 cover image + 캡션 + ASR 기준).
+// WS3 §3.4: Sonnet($0.012) → Haiku 4.5로 전환해 ~1/3 (게이트 통과 전제).
+const VISION_COST_PER_VIDEO = 0.004;
+// 3-pass 클러스터링 — 케이스당 고정 비용.
+// WS3 §3.4: pass1=Haiku, pass2/3=Sonnet → Sonnet 단일($0.6) 대비 절감.
+const CLUSTER_COST_PER_CASE = 0.3;
 // SKU 매칭 — 화면 노출 영상 한정 (샘플 top 12 + 메타 클러스터별 top 3, ≈ 30 영상)
 // 영상당 ~$0.013 (caption + ASR + cover + vision tags + 카탈로그)
 const SKU_MATCH_VIDEOS_AVG = 30;
@@ -391,8 +393,8 @@ function buildPreview(opts: {
 
   if (opts.p4bVisionEnabled) {
     lines.push(
-      `  Phase 4b.3 (Vision · Sonnet)  약 $${opts.p4bVisionCost.toFixed(2)}`,
-      `    └ 샘플 300영상 × ~$0.012 (cover frame + caption + ASR, 캐싱 적용)`,
+      `  Phase 4b.3 (Vision · Haiku)   약 $${opts.p4bVisionCost.toFixed(2)}`,
+      `    └ 샘플 300영상 × ~$0.004 (cover frame + caption + ASR, 캐싱 적용)`,
     );
   } else {
     lines.push(
@@ -403,7 +405,7 @@ function buildPreview(opts: {
   if (opts.p4bClusterEnabled) {
     lines.push(
       `  Phase 4b.4 (3-pass Clustering) 약 $${opts.p4bClusterCost.toFixed(2)}`,
-      `    └ Pass 1 batch + Pass 2 merge + Pass 3 meta (Sonnet)`,
+      `    └ Pass 1 batch (Haiku) + Pass 2 merge + Pass 3 meta (Sonnet)`,
     );
   } else {
     lines.push(

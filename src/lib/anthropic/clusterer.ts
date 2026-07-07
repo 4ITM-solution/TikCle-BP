@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { VisionTags } from "@/lib/inngest/types";
+import { SONNET_MODEL, TAGGING_MODEL, calcCost } from "./pricing";
 
-const MODEL = "claude-sonnet-4-6";
+// WS3 §3.4: pass1(후보 추출)=Haiku(닫힌 나열), pass2/3(통합·명명)=Sonnet(개방형 판단).
+const PASS1_MODEL = TAGGING_MODEL;
+const PASS23_MODEL = SONNET_MODEL;
 
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -238,7 +241,12 @@ export async function pass1FindCandidates(
       wave.map(async (b) => ({
         batchIdx: b.batchIdx,
         // 80영상 × 8자리 ID × 4-10클러스터 → 출력 2K+ 토큰. 여유있게 5K.
-        result: await callAnthropicJson(PASS1_SYSTEM, `Videos:\n${b.userText}`, 5000),
+        result: await callAnthropicJson(
+          PASS1_SYSTEM,
+          `Videos:\n${b.userText}`,
+          5000,
+          PASS1_MODEL,
+        ),
       })),
     );
     llmResults.push(...settled);
@@ -371,7 +379,7 @@ export async function pass2Validate(
   // Pass 2 — 최대 15개 cluster × ~400 tokens(이름+description+hook+body+merged_from)
   // = ~6K. Claude verbose 시 8K+. truncation 안 일어나게 16K 박음 (Dr. Reju-all 케이스에서
   // 5,276/6000 거의 max라 JSON 끊겨 parse 실패한 사례 — 5/6).
-  const result = await callAnthropicJson(PASS2_SYSTEM, userText, 16000);
+  const result = await callAnthropicJson(PASS2_SYSTEM, userText, 16000, PASS23_MODEL);
   addUsage(usage, result.usage);
   diag.output_tokens = result.usage.output;
   diag.stop_reason = result.stop_reason;
@@ -469,7 +477,7 @@ export async function pass3Meta(
 
   // Pass 3 — 4-8 meta × ~300 tok(name+description+child_indexes) = ~2.4K.
   // Pass 2가 truncation으로 fail한 전례 있어서 여유 있게 4K.
-  const result = await callAnthropicJson(PASS3_SYSTEM, userText, 4000);
+  const result = await callAnthropicJson(PASS3_SYSTEM, userText, 4000, PASS23_MODEL);
   addUsage(usage, result.usage);
   if (!result.json) {
     console.warn(
@@ -523,6 +531,7 @@ async function callAnthropicJson(
   systemPrompt: string,
   userText: string,
   maxTokens: number,
+  model: string,
 ): Promise<{
   json: unknown;
   usage: TokenUsage;
@@ -531,7 +540,7 @@ async function callAnthropicJson(
 }> {
   const { sanitizeUtf16 } = await import("./sanitize");
   const response = await getClient().messages.create({
-    model: MODEL,
+    model,
     max_tokens: maxTokens,
     system: [
       {
@@ -608,12 +617,14 @@ function addUsage(acc: TokenUsage, add: TokenUsage): void {
   acc.cache_write += add.cache_write;
 }
 
-export function calcClusterCost(usage: TokenUsage): number {
-  const M = 1_000_000;
-  return (
-    (usage.input * 3) / M +
-    (usage.cache_read * 0.3) / M +
-    (usage.cache_write * 3.75) / M +
-    (usage.output * 15) / M
-  );
+/**
+ * 3-pass 클러스터 비용 (WS3 §3.4 티어링 반영).
+ * pass1(후보 추출)은 Haiku 단가, pass2/3(통합·명명)은 Sonnet 단가.
+ * 두 usage 누산기를 분리해서 받아 각 단가로 합산한다.
+ */
+export function calcClusterCost(
+  pass1Usage: TokenUsage,
+  pass23Usage: TokenUsage,
+): number {
+  return calcCost(pass1Usage, PASS1_MODEL) + calcCost(pass23Usage, PASS23_MODEL);
 }

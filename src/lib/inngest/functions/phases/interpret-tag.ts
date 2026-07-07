@@ -79,6 +79,7 @@ export const interpretTag = inngest.createFunction(
     );
     let adCost = 0;
     let adTagged = 0;
+    let adReused = 0;
     for (let i = 0; i < adBatches; i += 1) {
       const r = await step.run(`ad-vision-${i}`, async () => {
         const v = await runPhase4aVisionBatch(
@@ -88,6 +89,7 @@ export const interpretTag = inngest.createFunction(
         );
         logger.info(`[interpret-tag] ad vision batch ${i}`, {
           tagged: v.vision_tagged,
+          reused: v.vision_reused,
           failed: v.vision_failed,
           remaining: v.remaining,
           cost: v.cost_usd,
@@ -97,6 +99,7 @@ export const interpretTag = inngest.createFunction(
       });
       adCost += r.cost_usd ?? 0;
       adTagged += r.vision_tagged ?? 0;
+      adReused += r.vision_reused ?? 0;
       if (r.skipped_reason) break;
       if (r.remaining === 0) break;
     }
@@ -184,8 +187,10 @@ export const interpretTag = inngest.createFunction(
         stats: {
           ad_untagged_initial: adUntaggedCount,
           ad_tagged: adTagged,
+          ad_reused: adReused,
           ad_vision_remaining: adRemaining,
           video_with_tags: phase4bVision.total_with_tags,
+          video_reused: phase4bVision.total_reused ?? 0,
           video_vision_failed: videoFailed,
           video_cached: !!videoCacheHit,
         },
