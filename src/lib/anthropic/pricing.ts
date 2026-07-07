@@ -9,9 +9,12 @@
  * override해도 비용 로그가 맞는다.
  */
 
-/** 닫힌 라벨 분류용 태깅 모델 (기본 Haiku 4.5). */
+/** 닫힌 라벨 분류용 태깅 모델.
+ * ⚠️ 2026-07-07 게이트 결과 Haiku 전환 보류 — 광고 85%(<90%), 영상은 커버 URL 만료로
+ * 비교 오염(n=8). 기본값 Sonnet 유지, Haiku 재도전은 게이트 스크립트 수정
+ * (재호스트 이미지 + 표본 30+) 후 BP_TAGGING_MODEL env로. */
 export const TAGGING_MODEL =
-  process.env.BP_TAGGING_MODEL || "claude-haiku-4-5-20251001";
+  process.env.BP_TAGGING_MODEL || "claude-sonnet-4-6";
 
 /** 개방형 통합·명명용 모델 (Sonnet 유지). */
 export const SONNET_MODEL = "claude-sonnet-4-6";
