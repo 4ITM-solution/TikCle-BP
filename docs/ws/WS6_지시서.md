@@ -29,15 +29,15 @@
 ## §2. Q0 채택 판정 — `case_adoption(case_id, filter)` 판정 함수 (뷰 아님, 서버 함수)
 
 입력: country·channel·budget_band(수동 필드 §3-2)·stage. 출력: `adopt | hold | reject` + 사유 배열.
-- adopt: 필터 일치 && completeness_score ≥ 0.7 && core_factor 확정됨 && freshness ok(§5)
-- hold: 필터 일치 && (score 0.4~0.7 or core_factor 미확정 or stale)
+- adopt: 필터 일치 && completeness_score ≥ 0.7 && core_factor 존재(자동값 포함) && freshness ok(§5)
+- hold: 필터 일치 && (score 0.4~0.7 or stale)
 - reject: 필터 불일치 or score <0.4 or 빈 케이스(data_ready)
 - 사유는 사용자 언어로 ("성과 축 데이터 없음 — Keepa 업로드 필요") — U2/U3 원칙.
 
 ## §3. Q6 core_factor
 
 1. `cases.core_factor text` + `core_factor_confirmed_at timestamptz` + `core_factor_candidates jsonb` (migration 022).
-2. **LLM 초안 생성 phase는 만들지 않는다** — serve-stats 뒤 실행되는 경량 스텝이 아니라, **compare/케이스 화면의 "초안 생성" 버튼**(서버 액션, Sonnet 1콜)으로. 근거: 자동 생성은 케이스마다 비용이고, 확정은 어차피 사람 — 버튼이면 필요한 케이스만 쓴다.
+2. **자동 생성이 기본** (2026-07-08 사용자 확정 — 사람 개입 불필요): serve-stats 완료 시 core_factor 후보가 없으면 자동 생성(Sonnet 1콜, ~$0.02). 화면에는 "AI 판정" 라벨로 상시 표시. **사람 확정은 WS8(진단-매칭 상품)에 그 케이스가 쓰일 때만** 요구 — 고객에게 나가는 가능/불가 판정의 근거가 될 때만 사인. Q0 게이트도 자동값으로 통과 가능(미확정은 감점 없음, "AI 판정" 라벨만).
 3. 초안 프롬프트 입력: Q1~Q5 결과 요약(뷰에서 수치 주입 — LLM이 수치 생성 금지) + BSR 변곡·클러스터 상위. 출력: `core_factor_candidate`·`must_have[]`·`not_transferable[]` (CX-2 F4 스키마).
 4. 확정 UI: 후보 표시 → 사람이 수정·확정 → confirmed_at 기록. 미확정이면 Q0에서 hold.
 

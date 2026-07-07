@@ -1,49 +1,46 @@
-# WS4(b) 지시서 — Q1~Q7 교차 뷰 + UI 읽기 경로 전환
+# FE-1 (WS4b) 지시서 — 현행 화면 유지 + 갭 17항목 결선 (확정판 2026-07-08)
 
-> ⚠️ **선행: WS4a 화면 목업 검수 (2026-07-07 사용자 결정 — 화면 기획 먼저 확정).** 이 문서의 UI 항목(§3, §3.6)은 사용자가 WS4a 목업을 검수·확정한 버전을 기준으로 결선한다. 교차 뷰(§1·§2)는 WS4a와 무관하므로 먼저 착수 가능.
-> 실행 세션용. 시작하면 이 문서와 `docs/BP_재설계_v2.md` 전체(특히 §1.2 Q1~Q7, §3.2, §3.5, §4 WS4), `docs/ws/WS4A_REPORT.md`(확정된 화면)를 먼저 읽을 것. `docs/데이터_구조_설명.md`, `docs/IG_파이프라인_수술_플랜.md` Part 2도 참고.
+> **대원칙 (사용자 확정): 리디자인 금지. 지금 배포된 화면이 기준이고, 아래 항목을 "추가"만 한다.**
+> 레이아웃·기존 토글·기존 차트 구조는 건드리지 않는다. 우선순위 **A(기능) → C(UX) → B(신뢰)** — 사용자 확정 순서. 각 그룹 안에서는 표 순서대로.
+> 근거: 갭 분석(ORCH 2026-07-08, QA_파일럿_매트릭스·QA_케이스위생 실측 기반). 이전 rev(목업 v4 기반 재설계)는 폐기.
+> 가드레일: ORCHESTRATION.md 공통 규칙. 스키마 변경은 migration 019 작성만(적용 ORCH).
 
-## 공통 규칙
-- 브랜치 `ws-4-serving-ui`에서 작업, 논리 단위 로컬 커밋. **push·배포·Supabase 마이그레이션 적용 금지.**
-- 케이스 데이터 삭제 코드 금지. 스키마 변경은 `supabase/migrations/019_*.sql` 작성만.
-- 완료 시 `docs/ws/WS4_REPORT.md` 보고서 + 설계 문서 §6 로그 한 줄.
-- WS1 뷰 4개(v_unified_creators, v_case_monthly, v_case_creator_stats, v_case_tier_dist)는 프로덕션에 이미 존재. WS2 phase 함수·phase_runs도 배포됨.
+## A. 기능 부재 (먼저)
 
-## 작업 항목
+| # | 작업 | 재료 (이미 있음/만들 것) |
+|---|---|---|
+| A1 | **TT샵 영상 분리** — `contents.is_shop_content` 컬럼(migration 019) + Kalodata 영상 xlsx 업로드 시 url 매칭 플래그 + 기존 데이터 백필 SQL + A섹션 월별 차트에 tiktok_shop 채널 분리 | v_case_monthly 확장 |
+| A2 | **티어×앵글×월 교차** — `v_case_angle_tier_month` 뷰(019) + C섹션에 히트맵 블록(형태는 현행 시즈널리티 heatmap 패턴 재사용 — 새 UI 패턴 발명 금지) | cluster_members × v_unified_creators |
+| A3 | **시딩∩광고 블록** — `v_case_seeding_ad_overlap` 뷰(019): **meta_ads.creator_page_name(1순위) + inferred_creator_handle(보조)** × v_unified_creators.norm_handle. E섹션에 블록 추가 | BE-9 판정 반영 |
+| A4 | **크로스채널 인플 3채널화** — page.tsx `crossPlatformAuthors`를 IG×YT → v_unified_creators 기반 TK 포함 3채널로 교체 (뷰 신규 작업 없음 — 코드만) | QA-1 §2 |
+| A5 | **Q0 채택 배지 + 대표 케이스** — 케이스 헤더에 채택/보류/폐기 배지. 판정은 간이 버전(완결성 존재 카운트 + data_ready 여부)으로 먼저, WS6 정식 판정으로 나중에 교체. 목록 화면에 완결성 게이지 요약 컬럼 | WS6 §2와 인터페이스만 맞춤 |
+| A6 | **프로모션 캘린더** — promotion_events 시드(미국 프라임데이·블프 등 — 사실 확인된 날짜만, 추정 금지) + A섹션 차트에 이벤트 마커 | WS6 §1과 공유 |
+| A7 | GMV×태그 조인 뷰 `v_case_content_gmv_tags`(019) — 화면 블록은 표본 수 표시와 함께 (SharkNinja류는 10건뿐 — B9 라벨 규칙 적용) | Q3·Q4 렌즈 |
 
-### 1. TT샵 콘텐츠 플래그 (Q1)
-- `contents.is_shop_content boolean` 추가 (migration 019).
-- Kalodata 영상 xlsx 파서(업로드 액션)가 contents에 url 매칭으로 플래그 세팅 + 기존 데이터 백필 SQL (key_stats.kalodata_videos_xlsx의 url 목록 기준) 포함.
-- v_case_monthly에 채널 'tiktok_shop' 분리 (is_shop_content=true는 tiktok에서 빼고 tiktok_shop으로).
+## C. UX (다음)
 
-### 2. 교차 뷰 3개 (migration 019)
-- `v_case_angle_tier_month` (Q3): content_cluster_members × v_unified_creators(tier) × month — 클러스터별·티어별·월별 영상 수/조회수.
-- `v_case_content_gmv_tags` (Q5): 영상별 GMV(contents에 매칭된 kalodata 매출) × case_video_analyses.vision_tags — "매출 기여 콘텐츠의 특징" 원료.
-- `v_case_seeding_ad_overlap` (Q7): meta_ads.inferred_creator_handle(norm) ∩ v_unified_creators.norm_handle — 시딩과 광고 양쪽에 쓰인 인플 + 해당 광고 운영일수 + 그 인플의 시딩 영상 클러스터.
+| # | 작업 |
+|---|---|
+| C1 | **섹션 상단 1줄 결론** — 각 섹션(G/A/B/C/D/E) 최상단에 데이터에서 조립한 결론 한 문장 (서버 계산, LLM 아님 — 템플릿+수치). 결론 못 만들면 회색 "데이터 없음" |
+| C2 | **영상 인라인 임베드** — 클러스터 예시·top 작성자·변곡점 전후 (TikTok embed v2, WS4a rev2 목업의 TikTokEmbed 컴포넌트 재사용 가능 — ws-4a-screens 브랜치) |
+| C3 | **BSR 변곡점 한 문장 우선** — "★ 3/12 순위 급등 ← 직전 2주 나노 영상 47개" 서술 먼저, 상세 접기. 문장 못 만드는 변곡점은 숨김. A·D 중복은 D로 일원화 |
+| C4 | **적재 위저드** — 케이스 country×channel 기반 수동 재료 체크리스트(출처 링크·예상 소요·업로드 즉시 "n행 적재됨") + 자동 수집 시작 배너 (WS4a rev2의 /mockup/intake 구현 이식 가능) |
+| C5 | **PhaseProgress phase_runs 직결** — 신 11 phase × {상태·비용·partial 잔여·재실행 버튼(cascade 기본 — BE-12 배포 후)}. 사용자 언어 라벨(코드 노출 금지), 라벨 매핑은 WS4a REPORT §4-1 초안 재사용 |
+| C6 | IG 국가 근사 필터 — ig_posts.country_signal 휴리스틱(019) + 집계 토글 + "글로벌 혼입 추정 N% 제외" 라벨 (LLM 금지) |
 
-### 3. UI 읽기 경로 전환 (§3.5)
-- 섹션 A/B: key_stats.phase2/phase3 참조를 WS1/이번 뷰로 교체 (이미 라이브인 부분은 유지). A에 TT샵 분리 토글.
-- 섹션 B: 반복 협업(video_count≥2) 블록을 v_case_creator_stats 기반으로 항상 노출 (Q2).
-- 섹션 C: key_stats.phase4b_clusters 폴백 제거(content_clusters 단일 소스) + 티어×앵글×월 히트맵(월 슬라이더 또는 기간 분할) 추가 (Q3).
-- 섹션 E: 최장 운영 광고 랭킹(v_case_ad_runtime — WS3 산출, 머지 전이면 뷰 정의만 가정하고 UI 준비) + source_channel/banner_style 노출 + 시딩∩광고 블록 (Q7).
-- PhaseProgress: pipeline_runs 추측 → phase_runs 직결 (phase별 상태·cost_usd·partial 잔여건 + 개별 재실행 버튼 = case/phase.requested 발행 — WS2의 upload-actions.ts 참고).
-- `status='ready'` 게이트 완화: S1(수집) 완료 시점부터 섹션 렌더, 미완 phase는 섹션 내 배지.
-- **케이스 완결성 게이지** (설계 문서 §1.0.2): 케이스 헤더에 6축(규모/구성/콘텐츠/성과/광고접합/시점) 충족 여부 표시 — 각 축의 판정은 해당 데이터 존재 여부 SQL로 (예: ④성과 = sales_snapshot 또는 kalodata 존재). 케이스 목록에도 게이지 요약 컬럼.
+## B. 신뢰 라벨 (마지막 — 구현은 제일 쌈)
 
-### 3.5 IG 국가 근사 필터 (신규 — 2026-07-07 사용자 문제 제기)
-IG 해시태그 수집은 국가 필터가 없어 글로벌 포스트가 섞임. 완전 해결 불가 — **근사 필터**로 대응:
-- ig_posts에 `country_signal` 판정 컬럼 추가 (migration 019): 캡션 언어 감지 + ig_authors.bio 언어 + 케이스 country와 대조 → `match` | `mismatch` | `unknown`.
-- 섹션 A/B의 IG 집계에 "국가 근사 필터" 토글 (기본 ON = match+unknown만). 필터된 비율을 라벨로 정직하게 표시 ("글로벌 혼입 추정 N% 제외").
-- 판정은 무료 휴리스틱 우선 (언어 감지 라이브러리), LLM 사용 금지.
+| # | 작업 |
+|---|---|
+| B1 | **완결성 게이지 헤더** — 6축 충족 표시 (판정 SQL은 WS6 §1 기준, 간이 버전 먼저 가능). "커머스 ready vs 모니터링 ready" 구분 표시 (QA F7) |
+| B2 | **salesDone 수정** — products만이 아니라 case_product_sales 실존재로 판정 + "매출 미업로드" 배지 (QA F2) |
+| B3 | **표본 크기 라벨** — Vision 기반 블록(C섹션 전체)에 "표본 N건/전체 M건" 상시 표기 |
+| B4 | **freshness 배지** — source별 최신성(간이: max created_at/collected_at). 헤더 + 광고 섹션 필수 ("광고 데이터 N일 경과") |
+| B5 | **추정 표기** — 추정치 `~` 접두, 캐시/라이브 배지, 스냅샷 날짜. "paid" 라벨 전면 "광고 집행(스파크애즈)" 교체 (G1) |
+| B6 | **광고 생존편향 라벨** — 운영일수 랭킹에 "관측 시작일 이후 기준" (G3) |
+| B7 | **읽기 경로 뷰 전환** — 섹션 A/B의 key_stats 참조를 WS1 뷰 + 019 뷰로 교체 (캐시 stale 근본 해소). ready 케이스 3개 전환 전후 수치 비교를 REPORT에 |
 
-### 3.6 UX 원칙 적용 (docs/spec/03 §0 — 2026-07-07 추가)
-- U1~U8 원칙 준수: 섹션별 프리셋 디폴트 + "자세히" 뒤 토글, 블록 상단 1줄 결론, 내부 용어 제거(용어 사전), TOC 질문 문장화, 추정치 `~` 표기, "paid"→"광고 집행" 라벨 전면 교체(유가 논의는 티어 축), **영상 인라인 임베드 기본(U7)**, **BSR 변곡점 한 문장 우선 + D 일원화(U8)**.
-- 적재 위저드 (03 §0.1): 케이스 country×channel 기반 수동 재료 체크리스트 + 출처 안내 + 업로드 즉시 "n행 적재" 피드백 + 완결성 게이지 연동 + 자동 수집 시작 배너.
-
-### 4. 검증
-- 기존 ready 케이스 3개에 대해 전환 전후 수치 비교 방법을 REPORT에 명시 (뷰 vs key_stats 비교 쿼리 — scripts/verify-ws4.sql).
-- 수치가 다르면 원인 규명해서 REPORT에 기록 (뷰가 라이브라 더 정확한 경우 "정상 차이"로 표기).
-
-## 완료 기준
-- tsc 통과, migration 019 작성, Q1~Q7 각각 "어느 화면 어느 블록에서 답이 보이는지" 표를 REPORT에 포함.
-- **실화면 QA**: 로컬 dev 서버에서 ready 케이스 3개를 열어 섹션별 스크린샷 촬영(Playwright 가능) → REPORT에 첨부 + U1~U8 위반 잔여 목록. 코드 diff만으로 완료 처리 금지 — "렌더된 화면" 기준으로 검증.
+## 검증·완료 기준
+- tsc + migration 019 작성 + **실화면 QA**: ready 케이스 3개 스크린샷 (diff만으로 완료 처리 금지).
+- REPORT에 "갭 17개 각각 어느 화면 어디서 해소됐는지" 표 + 미해소 항목과 사유.
+- 항목 단위 커밋 (A1, A2… 커밋 메시지에 번호) — ORCH가 그룹 단위로 검증·머지.

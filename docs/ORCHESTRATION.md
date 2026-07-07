@@ -50,6 +50,14 @@ source: ORCH 세션 (멀티 세션 오케스트레이션 관제 문서 — tikcl
 수정하지 말고 원인층 판정 보고서(docs/ws/QA_*.md)로 제출 + TODO.md 갱신. 레인이 비면 대기 보고.
 ```
 
+**FE (루프 모드):**
+```
+너는 FE 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽고 FE 레인을 잡아라.
+지시서는 docs/ws/WS4_지시서.md (확정판) — 대원칙: 리디자인 금지, 현행 화면에 추가만.
+우선순위 A→C→B, 항목 단위 커밋(번호 포함). 자기 워크트리, push·apply·프로덕션 write 금지.
+실화면 QA(스크린샷) 없이 완료 보고 금지.
+```
+
 **CODEX (루프 모드):**
 ```
 codex 실행 후: 너는 CODEX 상주 세션(세컨드 오피니언)이다. ~/티클/TikCle-BP 의
