@@ -42,9 +42,12 @@ export const collectIg = inngest.createFunction(
       }),
     );
 
-    const existing = await step.run("read-key-stats", async () =>
-      readKeyStats(supabase, case_id),
-    );
+    // BE-5: key_stats 전체를 step 출력으로 반환하면 대형 케이스(kalodata_*_xlsx 등 적재)에서
+    //   Inngest step output 상한(>4MB) 초과. 캐시 판정에 쓰는 phase4c만 반환해 슬림화.
+    const existing = await step.run("read-key-stats", async () => {
+      const ks = await readKeyStats(supabase, case_id);
+      return { phase4c: ks.phase4c ?? null };
+    });
 
     let phase4c: Phase4cStats;
     let cached = false;

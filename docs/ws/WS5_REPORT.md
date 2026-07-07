@@ -61,3 +61,56 @@ member row가 0 → 화면이 "클러스터는 보이는데 내용 없음"으로
 ### 후속 (ORCH 게이트)
 - 검증→머지→(원하면) 대상 케이스 `force` 재발행으로 실청소 → dry-run과 사후 대조.
 - 설계문서 §6 진행 로그 1줄 기록은 ORCH 머지 시.
+
+**재작업(반려 대응, 2e7f0de)**: 실검증(542e7625)에서 `case_video_analyses_pass3_meta_id_fkey`
+위반. `clearCaseClusters`가 content_clusters를 지우기 전에 `resetPassLabels`로
+pass3_meta_id(FK 참조)를 먼저 null 처리하도록 순서 재배치. tsc 통과.
+
+---
+
+## BE-5 — interpret-cluster step 출력 상한 초과 fix ✅
+
+근거: 케이스 3be66bbd `interpret-cluster` phase_runs error "step output size is greater than
+the limit"(Inngest step output 캡 >4MB) 실측.
+
+### 진단 (ORCH 추정과 다름 — pass1 아님)
+SELECT 실측:
+- `fetch-inputs` 반환(videos 163개, 전부 TikTok, vision_tags 포함) = **84KB** → 상한과 무관.
+- 단일 pass1 스텝(163<400) → 후보 페이로드도 소형.
+- **진짜 원인**: `read-key-stats` 스텝이 `readKeyStats`(= key_stats 전체)를 반환. 3be66bbd의
+  key_stats는 **6.96MB**:
+
+  | 키 | 크기 |
+  |---|---|
+  | kalodata_creators_xlsx | 3.97 MB |
+  | kalodata_videos_xlsx | 2.65 MB |
+  | tt_shop_us_affiliates | 169 KB |
+  | phase4b_sample | 48 KB |
+  | phase4b_sku | 40 KB |
+  | (나머지) | ~0.1 MB |
+
+  → 스텝 출력 6.96MB > 4MB 상한에서 opcode validation 실패.
+
+### 수정
+- interpret-cluster의 `read-key-stats` 스텝을 **필요 필드(phase4b_clusters)만 반환**하도록 슬림화
+  (6.96MB → ~4KB). 반환 페이로드 크기를 `logger.info`로 기록(완료 기준).
+- **동일 패턴 7개 phase 확장**(같은 결함): 각자 캐시 판정에 쓰는 단일 필드만 반환.
+  | phase | 반환 필드 |
+  |---|---|
+  | interpret-asr | phase4b_asr |
+  | interpret-sku | phase4b_sku |
+  | interpret-tag | phase4b_vision |
+  | collect-meta | phase4a |
+  | collect-ttshop | phase1_5 |
+  | collect-ig | phase4c |
+  | collect-yt | phase4d |
+  - 각 phase는 `existing.<단일필드>`만 소비함을 grep으로 확인(wholesale 사용 없음) → 무해.
+
+### 근본 원인 (별건, WS5 §4 / migration 020)
+key_stats에 `kalodata_*_xlsx`·`tt_shop_us_*` 원본 스냅샷이 적재되어 6.9MB로 비대. 이를
+`cases.uploads`로 이전하면 read-key-stats 슬림화 없이도 해소됨. 본 fix는 즉시 방어(모든 phase),
+비대 청소는 020에서.
+
+tsc: ✅ 통과. 3be66bbd 실검증(force 재실행)은 ORCH.
+
+변경 파일: `interpret-cluster.ts`(+로그) · `interpret-asr/sku/tag.ts` · `collect-meta/ttshop/ig/yt.ts`.

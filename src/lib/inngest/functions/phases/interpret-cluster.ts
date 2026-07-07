@@ -67,9 +67,19 @@ export const interpretCluster = inngest.createFunction(
       }),
     );
 
-    const existing = await step.run("read-key-stats", async () =>
-      readKeyStats(supabase, case_id),
-    );
+    // BE-5: key_stats 전체를 step 출력으로 반환하면 Inngest step output 상한(>4MB)을 넘는다.
+    //   대형 케이스(3be66bbd 6.9MB — kalodata_*_xlsx 원본 스냅샷 등이 key_stats에 적재됨)에서
+    //   "step output size is greater than the limit"로 실패. 이 함수는 캐시 판정에 phase4b_clusters
+    //   하나만 쓰므로 그 필드만 반환해 출력을 KB 단위로 슬림화한다. (근본 청소는 WS5 §4 / 020)
+    const existing = await step.run("read-key-stats", async () => {
+      const ks = await readKeyStats(supabase, case_id);
+      return { phase4b_clusters: ks.phase4b_clusters ?? null };
+    });
+    logger.info("[interpret-cluster] read-key-stats slim", {
+      clusters_bytes: existing.phase4b_clusters
+        ? JSON.stringify(existing.phase4b_clusters).length
+        : 0,
+    });
     const sampled = await step.run("sample", async () =>
       ensurePhase4bSample(supabase, case_id, false),
     );

@@ -40,9 +40,12 @@ export const collectMeta = inngest.createFunction(
       }),
     );
 
-    const existing = await step.run("read-key-stats", async () =>
-      readKeyStats(supabase, case_id),
-    );
+    // BE-5: key_stats 전체를 step 출력으로 반환하면 대형 케이스(kalodata_*_xlsx 등 적재)에서
+    //   Inngest step output 상한(>4MB) 초과. 캐시 판정에 쓰는 phase4a만 반환해 슬림화.
+    const existing = await step.run("read-key-stats", async () => {
+      const ks = await readKeyStats(supabase, case_id);
+      return { phase4a: ks.phase4a ?? null };
+    });
 
     const scrapedNew = !existing.phase4a || force;
     const phase4a = (await step.run("meta-ads-scrape", async () => {
