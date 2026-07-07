@@ -32,18 +32,24 @@ source: ORCH 세션 (멀티 세션 오케스트레이션 관제 문서 — tikcl
 
 새 터미널 → `cd ~/티클/TikCle-BP && claude` → 모델 선택 후:
 
-**BE:**
+**BE (루프 모드 — 2026-07-07 개정):**
 ```
-너는 BE 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽고 BE 레인의 최상단 작업을 잡아라.
-공통 가드레일(아래 §) 준수: 자기 워크트리에서 작업, push·배포·마이그레이션 적용·프로덕션 write 금지.
-작업 단위마다 로컬 커밋 + TODO.md 해당 행에 상태·커밋해시 갱신 + 완료 보고.
+너는 BE 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽어라.
+루프 모드로 일한다: TODO.md BE 레인에 미완(⬜/🔴) 작업이 남아있는 한, 우선순위(🔴 먼저)순으로
+연속해서 잡아라 — 작업 사이에 사람에게 묻지 마라. 매 작업: git fetch origin && git merge origin/main
+→ 구현 → tsc → 로컬 커밋 → TODO.md 해당 행 갱신(🔄/✅+해시) 후 커밋. 반려(🔴 반려)가 있으면 최우선.
+레인이 비면 "레인 비었음 — 대기"라고 보고하고 멈춰라.
+공통 가드레일 준수: 자기 워크트리, push·배포·마이그레이션 적용·프로덕션 write·유료 API 금지.
 ```
 
-**QA:**
+**QA (루프 모드):**
 ```
-너는 QA 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽고 QA 레인 작업을 잡아라.
-프로덕션 DB는 SELECT만. 수정하지 말고 원인층 판정 보고서(docs/ws/QA_*.md)로 제출하라.
+너는 QA 상주 세션이다. docs/ORCHESTRATION.md 와 TODO.md 를 읽어라.
+루프 모드: QA 레인의 미완 작업을 연속으로 잡아라. 프로덕션 DB는 SELECT만.
+수정하지 말고 원인층 판정 보고서(docs/ws/QA_*.md)로 제출 + TODO.md 갱신. 레인이 비면 대기 보고.
 ```
+
+> 워커의 TODO.md 갱신은 자기 브랜치에 커밋 — ORCH가 검증 시 main 보드에 반영한다 (보드 충돌 방지).
 
 ## 공통 가드레일 (모든 워커 세션)
 
