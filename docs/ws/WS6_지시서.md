@@ -39,7 +39,7 @@
 1. `cases.core_factor text` + `core_factor_confirmed_at timestamptz` + `core_factor_candidates jsonb` (migration 022).
 2. **자동 생성이 기본** (2026-07-08 사용자 확정 — 사람 개입 불필요): serve-stats 완료 시 core_factor 후보가 없으면 자동 생성(Sonnet 1콜, ~$0.02). 화면에는 "AI 판정" 라벨로 상시 표시. **사람 확정은 WS8(진단-매칭 상품)에 그 케이스가 쓰일 때만** 요구 — 고객에게 나가는 가능/불가 판정의 근거가 될 때만 사인. Q0 게이트도 자동값으로 통과 가능(미확정은 감점 없음, "AI 판정" 라벨만).
 3. 초안 프롬프트 입력: Q1~Q5 결과 요약(뷰에서 수치 주입 — LLM이 수치 생성 금지) + BSR 변곡·클러스터 상위. 출력: `core_factor_candidate`·`must_have[]`·`not_transferable[]` (CX-2 F4 스키마).
-4. 확정 UI: 후보 표시 → 사람이 수정·확정 → confirmed_at 기록. 미확정이면 Q0에서 hold.
+4. 확정 UI(선택 사용): 후보 표시 → 사람이 수정·확정 → confirmed_at 기록. 확정 여부는 Q0에 영향 없음 — WS8 상품 경로에서만 필수.
 
 ## §4. Q7 대표 케이스 top-N — `v_case_ranking`
 
