@@ -12,6 +12,9 @@
 | BE-5 | interpret-cluster step 출력 상한 초과 fix — 케이스 3be66bbd "step output size is greater than the limit" (Inngest 스텝 출력 캡). pass1 스텝 반환을 슬림화(필요 필드만)하거나 step당 영상 수 축소. 수정 후 3be66bbd로 검증은 ORCH | ⬜ 🔴 | phase_runs error 실측 2026-07-07 | tsc + 반환 페이로드 크기 로그 |
 | BE-6 | 🔴(우선순위 상향 — Haiku 재도전의 선결) 영상 태깅 재현성 fix — Sonnet 자기일치 56%(cta_type 27%) 실측. vision-tagger 프롬프트의 닫힌 라벨 정의를 상호배타적으로 조이고(특히 cta_type·purchase_intent·products_visible), 재게이트로 자기일치 ≥85% 달성 | ⬜ | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
 | BE-9 | [QA-1 Q7] meta_ads.inferred_creator_handle 파싱 검증 — SharkNinja 221건 중 0건. raw body_text/link_url 샘플 20건 육안 대조로 "파싱 결함 vs 진짜 브랜드 자체제작" 판정. 결함이면 파서 수정 | ⬜ | QA_파일럿_매트릭스.md §1 Q7·§5-2 | 판정 보고+필요시 fix |
+| BE-10 | [CX1-F1] startAnalysis 이벤트 발행 실패 성공 위장 fix — inngest.send 실패 시 status 원복+ok:false+last_error='event_dispatch_failed' (upload-actions.ts:834-864) | ⬜ 🔴 | CX_파이프라인_재감사 F1 | tsc + 실패 시뮬 |
+| BE-11 | [CX1-F4·F5] fail-open 2건 정책 수정 — ①비용 가드: 조회 실패 시 emergency cap $5 적용(완전 통과 금지) ②vision dedup: reuse 조회 error 무시 금지 → 해당 배치 partial 처리 (shared.ts·phase4b-vision.ts) | ⬜ | CX 재감사 F4·F5 | tsc |
+| BE-12 | [CX1-F2] phase 의존 DAG 설계+구현 — 단독 재실행 시 downstream stale 방지. 설계 1문단(어디까지 자동 동반?) ORCH 승인 후 구현 | ⬜ | CX 재감사 F2, spec/02 §2 | 설계 승인+tsc |
 | BE-4 | Keepa API 인입 phase 설계·구현 (`collect-bsr`) — uploadBsr 대체, sales_snapshot upsert 재사용, spec/02 §7 체크리스트 준수. env `KEEPA_API_KEY` | ⬜ (D4 결정 후 착수 가능) | D4 리서치 결과(TODO 하단), spec/02 §7 | tsc + 명세 행 추가 |
 
 ## QA 레인
@@ -25,8 +28,8 @@
 
 | # | 작업 | 상태 | 산출물 |
 |---|---|---|---|
-| CX-1 | 파이프라인 전면 재감사 (신선한 눈) — src/lib/inngest/ 전체를 기존 결론(BP_재설계_v2 P1~P10·G1~G8, spec/06 R1~R12, QA_케이스위생 F1~F8)과 **중복되지 않는** 신규 리스크·설계 냄새 관점으로. 특히: 동시성/레이스, 멱등성 구멍, 비용 누수, 에러 삼킴(silent catch) | ⬜ | docs/ws/CX_파이프라인_재감사.md |
-| CX-2 | Q1~Q7 산출물 계약 자체에 대한 비판적 검토 — "이 7개 질문이 §1.0 제품 정의(온전한 케이스 참조 체계)를 정말 커버하나? 빠진 질문·불필요한 질문은?" 설계 문서 §1 기준 | ⬜ | docs/ws/CX_질문계약_리뷰.md |
+| CX-1 | 파이프라인 재감사 | ✅ 신규 발견 6건(F1~F6) — 전부 비중복 확인, BE-10~12 배차 변환 | docs/ws/CX_파이프라인_재감사.md |
+| CX-2 | Q계약 비판 검토 | ✅ 계약 v2(9문항) 제안 — 채택 여부는 U-6 사용자 결정 | docs/ws/CX_질문계약_리뷰.md |
 
 ## FE 레인 (사용자 화면 기획 확정 대기 — 가동 보류)
 
@@ -53,6 +56,10 @@
 | U-3 | 슬랙 웹훅 URL → 파이프라인 실패 알림 실전화 | 가드 배포됨 |
 
 ---
+
+### 백로그 (당장 배차 안 함)
+- [CX1-F6] syncCaseBpBrands 실패 관측성 — WS8(진단-매칭) 연결 시점에 승격
+- [QA-2 F8] 미실행 collect 백필 — 케이스 사용 시점 + 트리거 원인 규명 후 케이스 단위
 
 ### 참고: D4 자동 인입 리서치 요약 (2026-07-07)
 
