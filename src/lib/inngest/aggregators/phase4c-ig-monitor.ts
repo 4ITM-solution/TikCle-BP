@@ -600,7 +600,7 @@ export async function enrichIgAuthorFollowers(
   const { data: rows } = opts?.rescrape_all
     ? await baseQuery
     : await baseQuery.is("followers", null);
-  const usernames = [
+  let usernames = [
     ...new Set(
       (rows ?? []).map((r) => r.username).filter((u): u is string => !!u),
     ),
@@ -613,6 +613,47 @@ export async function enrichIgAuthorFollowers(
       apify_run_id: null,
       skipped_reason: "대상 author 0명 (이미 follower 박힘)",
     };
+  }
+
+  // WS5 §3 (DATA_감사 F2) — 대형 풀(기본 300명 초과)에서는 포스트 N개(기본 3) 이상
+  // author만 조회 (조회당 ~$0.005 과금, 단발 author는 티어 답 기여 대비 비용 큼).
+  // 소형 풀·rescrape_all은 전수 유지. env: BP_ENRICH_MIN_VIDEOS / BP_ENRICH_ALL_UNDER.
+  const minPosts = Math.max(1, Number(process.env.BP_ENRICH_MIN_VIDEOS || 3));
+  const allUnder = Math.max(0, Number(process.env.BP_ENRICH_ALL_UNDER || 300));
+  if (!opts?.rescrape_all && usernames.length > allUnder && minPosts > 1) {
+    const postCounts = new Map<string, number>();
+    for (let i = 0; i < usernames.length; i += 200) {
+      const slice = usernames.slice(i, i + 200);
+      const { data: posts } = await supabase
+        .from("ig_posts")
+        .select("owner_username")
+        .eq("case_id", case_id)
+        .in("owner_username", slice)
+        .limit(5000);
+      for (const p of posts ?? []) {
+        if (!p.owner_username) continue;
+        postCounts.set(
+          p.owner_username,
+          (postCounts.get(p.owner_username) ?? 0) + 1,
+        );
+      }
+    }
+    const before = usernames.length;
+    usernames = usernames.filter((u) => (postCounts.get(u) ?? 0) >= minPosts);
+    if (before !== usernames.length) {
+      console.log(
+        `[ig-enrich] 조건부 enrich: 포스트 ${minPosts}개 미만 ${before - usernames.length}명 제외 (대상 ${usernames.length}명)`,
+      );
+    }
+    if (usernames.length === 0) {
+      return {
+        updated: 0,
+        targeted: 0,
+        cost_estimate_usd: 0,
+        apify_run_id: null,
+        skipped_reason: `조건부 enrich — 포스트 ${minPosts}+ author 없음 (원래 ${before}명 전부 미만)`,
+      };
+    }
   }
 
   const { runIgProfileScraper, extractCrossChannelHandles } = await import(

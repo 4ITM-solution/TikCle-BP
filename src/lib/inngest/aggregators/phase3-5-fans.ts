@@ -18,6 +18,16 @@ type SupaClient = SupabaseClient<Database>;
 const CLOCKWORKS_BATCH = 50;
 const CONTENTS_FETCH_CHUNK = 200;
 
+// WS5 §3 (DATA_감사 F2) — unknown 풀이 클 때만 "영상 N개 이상" 크리에이터로 enrich를
+// 좁힌다 (전수 대비 소액으로 티어 분포 답 품질 대부분 확보). 소형 풀은 전수 유지.
+const ENRICH_MIN_VIDEOS = Math.max(1, Number(process.env.BP_ENRICH_MIN_VIDEOS || 3));
+const ENRICH_ALL_UNDER = Math.max(0, Number(process.env.BP_ENRICH_ALL_UNDER || 300));
+
+/** unknown 풀 크기에 따른 이번 실행의 최소 영상 수 조건. */
+function minVideosFor(unknownCount: number): number {
+  return unknownCount <= ENRICH_ALL_UNDER ? 1 : ENRICH_MIN_VIDEOS;
+}
+
 /**
  * Phase 3.5 — Clockworks 폴백으로 unknown 인플 fans 채우기
  *
@@ -412,7 +422,11 @@ async function fetchOneUrlPerInfluencer(
   country: string,
   inflIds: string[],
 ): Promise<Map<string, string>> {
+  // WS5 §3: 대형 unknown 풀에서는 영상 minVideos개 미만 크리에이터를 enrich 대상에서
+  // 제외 (조회당 과금이라 1~2편 단발 크리에이터는 티어 답 기여 대비 비용이 큼).
+  const minVideos = minVideosFor(inflIds.length);
   const out = new Map<string, string>();
+  const counts = new Map<string, number>();
   for (let i = 0; i < inflIds.length; i += CONTENTS_FETCH_CHUNK) {
     const slice = inflIds.slice(i, i + CONTENTS_FETCH_CHUNK);
     const { data, error } = await supabase
@@ -426,8 +440,20 @@ async function fetchOneUrlPerInfluencer(
     if (error) throw new Error(`contents fetch: ${error.message}`);
     for (const r of data ?? []) {
       if (!r.influencer_id || !r.url) continue;
+      counts.set(r.influencer_id, (counts.get(r.influencer_id) ?? 0) + 1);
       if (out.has(r.influencer_id)) continue; // 첫 번째(최신)만
       out.set(r.influencer_id, r.url);
+    }
+  }
+  if (minVideos > 1) {
+    let dropped = 0;
+    for (const [inflId, n] of counts.entries()) {
+      if (n < minVideos && out.delete(inflId)) dropped += 1;
+    }
+    if (dropped > 0) {
+      console.log(
+        `[phase3.5] 조건부 enrich: 영상 ${minVideos}개 미만 ${dropped}명 제외 (대상 ${out.size}명 유지)`,
+      );
     }
   }
   return out;
