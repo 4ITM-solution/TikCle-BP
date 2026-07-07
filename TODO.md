@@ -10,7 +10,7 @@
 | BE-2 | interpret-cluster "validated 0" fix — force 재실행 && validated 0이면 legacy(run_tag null/타 tag) 클러스터+멤버 삭제, stats에 legacy_cleared. 자연 실행은 현행 유지 | ⬜ | WS5_지시서 §2, phase4b-clusters.ts swap 로직 참고 | tsc + 대상 4케이스 dry-run 목록 |
 | BE-3 | migration 020 작성(적용 금지) — 죽은 테이블 drop(promotion_events 제외)·RLS 통일·status 통일·R12 체크리스트 주석. pipeline_runs 참조 코드 grep 선행 | ⬜ | WS5_지시서 §4, spec/01 §3 | 파일 + dry-run 쿼리 블록 |
 | BE-5 | interpret-cluster step 출력 상한 초과 fix — 케이스 3be66bbd "step output size is greater than the limit" (Inngest 스텝 출력 캡). pass1 스텝 반환을 슬림화(필요 필드만)하거나 step당 영상 수 축소. 수정 후 3be66bbd로 검증은 ORCH | ⬜ 🔴 | phase_runs error 실측 2026-07-07 | tsc + 반환 페이로드 크기 로그 |
-| BE-6 | 영상 태깅 재현성 fix — Sonnet 자기일치 56%(cta_type 27%) 실측. vision-tagger 프롬프트의 닫힌 라벨 정의를 상호배타적으로 조이고(특히 cta_type·purchase_intent·products_visible), 재게이트로 자기일치 ≥85% 달성 | ⬜ | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
+| BE-6 | 🔴(우선순위 상향 — Haiku 재도전의 선결) 영상 태깅 재현성 fix — Sonnet 자기일치 56%(cta_type 27%) 실측. vision-tagger 프롬프트의 닫힌 라벨 정의를 상호배타적으로 조이고(특히 cta_type·purchase_intent·products_visible), 재게이트로 자기일치 ≥85% 달성 | ⬜ | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
 | BE-4 | Keepa API 인입 phase 설계·구현 (`collect-bsr`) — uploadBsr 대체, sales_snapshot upsert 재사용, spec/02 §7 체크리스트 준수. env `KEEPA_API_KEY` | ⬜ (D4 결정 후 착수 가능) | D4 리서치 결과(TODO 하단), spec/02 §7 | tsc + 명세 행 추가 |
 
 ## QA 레인
@@ -32,7 +32,7 @@
 |---|---|---|
 | O-1 | 파일럿 P3 체인 (SharkNinja tag→cluster→sku→stats) | ✅ 완주 (2026-07-07) — QA-1 착수 가능 |
 | O-2 | F1 잔여 웨이브 | 🔄 W1 처리 중·W2~3 자동 발송 예정 (러너 버그 수정 후 재개) |
-| O-3 | BE-1 검증 → 재게이트 → Haiku 재판정 | 🔄 재게이트 실행 중 (tsc·R9 수정 확인 완료) |
+| O-3 | BE-1 검증 → 재게이트 → Haiku 재판정 | ✅ **판정: 티어링 전면 보류, Sonnet 유지** — 영상: Haiku가 핵심필드(앵글 43%·훅 26%·제품 7%)에서 베이스라인(60/56/32%) 대비 붕괴. 광고: origin_class 80→50%. 재도전은 BE-6 후 |
 | O-4 | BE-2·3 검증→머지→apply→배포 | ⬜ |
 | O-5 | 파일럿 D1~D5 종합 → 전 함대 리프레시 GO/NO-GO 상신 | ⬜ (QA-1 후) |
 
