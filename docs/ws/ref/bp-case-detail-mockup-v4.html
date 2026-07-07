@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BP 케이스 상세 UI 목업 v4 (완전판)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    background: #f9fafb; margin: 0; color: #111827; font-size: 13px; line-height: 1.5;
+  }
+  .scenario-bar {
+    background: #1f2937; color: white; padding: 10px 16px;
+    display: flex; gap: 8px; align-items: center;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .scenario-bar > b { font-size: 12px; margin-right: 8px; }
+  .scenario-btn {
+    background: #374151; color: white; border: none;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 11px;
+  }
+  .scenario-btn.active { background: #fcd34d; color: #1f2937; font-weight: 700; }
+
+  .status-strip {
+    background: white; border-bottom: 1px solid #e5e7eb;
+    padding: 10px 24px;
+    position: sticky; top: 38px; z-index: 50;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .strip-inner {
+    max-width: 1320px; margin: 0 auto;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .strip-brand { font-weight: 700; font-size: 14px; }
+  .strip-brand .ch-name { color: #6b7280; font-weight: 400; margin-left: 4px; font-size: 11px; }
+  .strip-divider { width: 1px; height: 16px; background: #e5e7eb; }
+  .strip-channel { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #4b5563; }
+  .strip-channel .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-ok { background: #10b981; }
+  .dot-off { background: #d1d5db; }
+  .strip-channel .ch-count { color: #111827; font-weight: 600; font-family: "JetBrains Mono", monospace; }
+  .strip-actions { margin-left: auto; display: flex; gap: 6px; }
+  .btn-sm {
+    border: 1px solid #d1d5db; background: white;
+    border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  }
+  .btn-sm.primary { background: #1f2937; color: white; border-color: #1f2937; }
+
+  /* 좌측 sticky TOC ★ 신규 */
+  .layout {
+    max-width: 1440px; margin: 0 auto; padding: 16px 24px 60px;
+    display: grid; grid-template-columns: 160px 1fr; gap: 18px;
+  }
+  .toc {
+    position: sticky; top: 100px; align-self: start;
+    font-size: 11px;
+  }
+  .toc a {
+    display: block; padding: 5px 8px; color: #6b7280;
+    border-left: 2px solid transparent; text-decoration: none;
+    cursor: pointer;
+  }
+  .toc a:hover { color: #1f2937; background: #f9fafb; }
+  .toc a.active { color: #1f2937; font-weight: 700; border-left-color: #1f2937; }
+  .toc .toc-h { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin: 10px 8px 4px; }
+
+  main { max-width: 100%; }
+
+  /* 케이스 메타 헤더 ★ 신규 */
+  .case-header {
+    background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 22px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .case-header .brand-name {
+    font-size: 24px; font-weight: 800; color: #111827;
+  }
+  .case-header .meta-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .meta-pill {
+    background: #f3f4f6; padding: 3px 9px; border-radius: 10px;
+    font-size: 11px; color: #4b5563; font-weight: 600;
+  }
+  .meta-pill.ready { background: #d1fae5; color: #065f46; }
+  .case-header .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .case-header .rev-tier {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid #d1d5db; padding: 5px 10px; border-radius: 6px;
+    font-size: 11px; cursor: pointer;
+  }
+  .case-header .region-toggle {
+    display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
+  }
+  .case-header .region-toggle button {
+    background: white; border: none; padding: 5px 9px; font-size: 10px; cursor: pointer;
+  }
+  .case-header .region-toggle button.active { background: #1f2937; color: white; }
+  .case-header .danger {
+    background: white; border: 1px solid #fecaca; color: #991b1b;
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  }
+
+  /* KpiStrip */
+  .kpi-strip {
+    background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 22px; margin-bottom: 14px;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+  }
+  .kpi-strip .ks-item { border-right: 1px solid #f3f4f6; padding-right: 12px; }
+  .kpi-strip .ks-item:last-child { border-right: none; }
+  .ks-label { font-size: 9.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ks-val { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .ks-sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
+  .ks-trend.up { color: #10b981; }
+  .ks-trend.down { color: #ef4444; }
+
+  /* G 종합 */
+  .insight-card {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: white; border-radius: 10px;
+    padding: 22px 26px; margin-bottom: 14px;
+  }
+  .insight-card .ic-label { font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.06em; }
+  .insight-card .ic-title { font-size: 22px; font-weight: 700; line-height: 1.4; margin-top: 6px; margin-bottom: 10px; }
+  .insight-card .ic-tagline { font-size: 14px; color: #cbd5e1; line-height: 1.5; }
+  .insight-card .ic-meta {
+    margin-top: 10px; font-size: 11px; color: #94a3b8;
+  }
+  .axis-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 18px; }
+  .axis-card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 10px 12px; }
+  .axis-card .ax-h { font-size: 10px; color: #fcd34d; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 4px; }
+  .axis-card .ax-val { font-size: 12px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .axis-card .ax-sub { font-size: 10.5px; color: #cbd5e1; line-height: 1.4; }
+  .insight-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-top: 18px; }
+  .insight-block { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 12px 14px; }
+  .insight-block .ib-h { font-size: 10px; color: #fcd34d; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 6px; }
+  .insight-block .ib-li { font-size: 11px; color: white; line-height: 1.55; padding-left: 12px; position: relative; }
+  .insight-block .ib-li::before { content: "▸"; position: absolute; left: 0; color: #fcd34d; }
+  .insight-block table { font-size: 11px; width: 100%; }
+  .insight-block table td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); color: white; }
+  .insight-block table th { color: #cbd5e1; font-size: 9.5px; padding: 4px 6px; }
+  .related-cases { margin-top: 14px; padding: 10px 14px; background: rgba(252, 211, 77, 0.1); border: 1px dashed rgba(252, 211, 77, 0.3); border-radius: 6px; font-size: 11px; color: #fde68a; }
+  .related-cases a { color: #fcd34d; text-decoration: underline; margin-right: 8px; }
+
+  .section { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 22px; margin-bottom: 14px; scroll-margin-top: 120px; }
+  .section-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .section-h .letter { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #1f2937; color: white; border-radius: 50%; font-size: 11px; font-weight: 700; }
+  .section-h .title { font-size: 16px; font-weight: 700; }
+  .section-h .sub { font-size: 11px; color: #6b7280; margin-left: auto; }
+
+  /* 데이터 채널 */
+  .channels-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ch-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; cursor: pointer; transition: 0.15s; background: white; }
+  .ch-card.active { border-color: #10b981; background: #ecfdf5; }
+  .ch-card.off { background: #f9fafb; opacity: 0.5; }
+  .ch-card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .ch-card-h .ic { font-size: 18px; }
+  .ch-card-h .nm { font-weight: 700; font-size: 13px; margin-left: 6px; flex: 1; }
+  .ch-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ch-badge.ok { background: #10b981; color: white; }
+  .ch-badge.off { background: #d1d5db; color: #4b5563; }
+  .ch-stat { font-size: 11px; color: #1f2937; font-weight: 600; font-family: "JetBrains Mono", monospace; margin-top: 4px; }
+  .ch-sub { font-size: 10px; color: #6b7280; margin-top: 2px; line-height: 1.4; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .kpi { background: #f9fafb; border-radius: 6px; padding: 10px 12px; }
+  .kpi-label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .kpi-val { font-size: 18px; font-weight: 700; color: #111827; }
+  .kpi-sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
+
+  /* ★ MonthlyTrendChart 풍부판 — 티어 stack + 광고/BSR line */
+  .trend-chart {
+    position: relative; height: 280px;
+    padding: 16px 0; background: #fafafa; border-radius: 8px;
+  }
+  .trend-toggles {
+    position: absolute; top: 12px; right: 12px;
+    display: flex; gap: 4px;
+    z-index: 5;
+  }
+  .trend-toggles button {
+    background: white; border: 1px solid #d1d5db; border-radius: 6px;
+    padding: 4px 10px; font-size: 10px; cursor: pointer;
+  }
+  .trend-toggles button.active { background: #1f2937; color: white; border-color: #1f2937; }
+  .trend-toggles button.active-line.ad { background: #f59e0b; border-color: #f59e0b; color: white; }
+  .trend-toggles button.active-line.bsr { background: #ef4444; border-color: #ef4444; color: white; }
+
+  .stack-bars {
+    display: flex; align-items: flex-end; gap: 4px;
+    height: 100%; padding: 30px 12px 28px; position: relative;
+  }
+  .stack-bar {
+    flex: 1; display: flex; flex-direction: column-reverse;
+    border-radius: 2px; overflow: hidden; position: relative;
+    cursor: pointer; min-height: 100%;
+  }
+  .sb-mega { background: #7f1d1d; }
+  .sb-macro { background: #ea580c; }
+  .sb-mid { background: #fcd34d; }
+  .sb-micro { background: #84cc16; }
+  .sb-nano { background: #06b6d4; }
+  .sb-subnano { background: #8b5cf6; }
+  .sb-unknown { background: #d1d5db; }
+  .stack-bar:hover { box-shadow: 0 0 0 2px #1f2937; z-index: 4; }
+  .sb-label {
+    position: absolute; bottom: -22px; left: 0; right: 0;
+    text-align: center; font-size: 9px; color: #6b7280; font-family: monospace;
+  }
+
+  /* 오버레이 line */
+  .overlay-svg {
+    position: absolute; inset: 30px 12px 28px;
+    pointer-events: none;
+  }
+
+  .trend-tooltip {
+    position: absolute; top: 60px; right: 80px;
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 10px 14px; font-size: 11px; min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 10;
+  }
+  .trend-tooltip .tt-h { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .trend-tooltip table { font-size: 11px; width: 100%; }
+  .trend-tooltip td { padding: 2px 0; }
+  .trend-tooltip .tt-color { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .trend-tooltip .tt-stat { color: #6b7280; font-size: 10px; padding-top: 6px; border-top: 1px solid #f3f4f6; margin-top: 6px; }
+
+  .trend-legend {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-top: 14px; font-size: 11px; color: #4b5563;
+  }
+  .trend-legend .lg-item { display: inline-flex; align-items: center; gap: 5px; }
+  .trend-legend .lg-sw { width: 12px; height: 12px; border-radius: 2px; }
+
+  /* 채널 toggle */
+  .ch-toggle { display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; font-size: 11px; }
+  .ch-toggle button { background: white; border: none; padding: 5px 12px; cursor: pointer; color: #4b5563; }
+  .ch-toggle button:not(:last-child) { border-right: 1px solid #d1d5db; }
+  .ch-toggle button.active { background: #1f2937; color: white; }
+
+  /* 1인당 분포 */
+  .dist-row { display: grid; grid-template-columns: 80px 1fr 60px 50px; gap: 10px; align-items: center; margin-bottom: 4px; font-size: 11px; }
+  .dist-bar { height: 14px; background: #e5e7eb; border-radius: 2px; overflow: hidden; }
+  .dist-fill { height: 100%; background: #ec4899; }
+  .dist-fill.ig { background: #8b5cf6; }
+  .dist-fill.yt { background: #ef4444; }
+  .dist-fill.amazon { background: #f97316; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #f3f4f6; }
+  th { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  .ch-pill { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; margin-right: 3px; }
+  .pill-tk { background: #fce7f3; color: #831843; }
+  .pill-ig { background: #ede9fe; color: #5b21b6; }
+  .pill-yt { background: #fee2e2; color: #991b1b; }
+  .thumb { width: 36px; height: 36px; background: linear-gradient(135deg, #d1d5db, #9ca3af); border-radius: 4px; display: inline-block; vertical-align: middle; }
+  .thumb-lg { width: 60px; height: 60px; background: linear-gradient(135deg, #d1d5db, #9ca3af); border-radius: 6px; display: inline-block; vertical-align: middle; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 600; margin-right: 3px; }
+  .tag-pos { background: #d1fae5; color: #065f46; }
+  .tag-warn { background: #fef3c7; color: #92400e; }
+  .tag-info { background: #dbeafe; color: #1e3a8a; }
+
+  /* tier */
+  .tier-row { display: grid; grid-template-columns: 60px 1fr 50px; gap: 10px; align-items: center; margin-bottom: 6px; font-size: 11px; }
+  .tier-bar { height: 10px; background: #e5e7eb; border-radius: 2px; overflow: hidden; }
+  .tier-fill { height: 100%; background: linear-gradient(90deg, #ec4899, #8b5cf6); }
+
+  /* SKU 헬스 KPI ★ 신규 */
+  .sku-health-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px;
+  }
+  .sku-health-card {
+    background: #f9fafb; border: 1px solid #f3f4f6;
+    border-radius: 8px; padding: 16px 18px;
+  }
+  .sh-label { font-size: 10.5px; color: #6b7280; }
+  .sh-val { font-size: 32px; font-weight: 800; color: #111827; line-height: 1.1; margin-top: 4px; }
+  .sh-desc { font-size: 11px; color: #4b5563; margin-top: 4px; }
+  .sh-bar { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+  .sh-segment {
+    height: 8px; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: white; font-weight: 700;
+  }
+  .sh-foot { font-size: 10px; color: #9ca3af; margin-top: 6px; }
+
+  /* HeroSkuMegaVideos ★ 신규 */
+  .hero-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .hero-card {
+    border: 1px solid #fde68a; background: #fffbeb;
+    border-radius: 8px; padding: 14px;
+  }
+  .hero-card .hc-rank {
+    font-size: 10px; font-weight: 700; color: #92400e;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .hero-card .hc-sku { font-weight: 700; font-size: 13px; margin: 4px 0 2px; }
+  .hero-card .hc-rev { font-size: 11px; color: #65a30d; font-family: monospace; margin-bottom: 8px; }
+  .hero-videos { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .hero-vid {
+    width: 60px; height: 80px;
+    background: linear-gradient(180deg, #fbbf24, #d97706);
+    border-radius: 4px; position: relative; cursor: pointer;
+  }
+  .hero-vid::after {
+    content: "▶"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 16px; opacity: 0.7;
+  }
+  .hero-vid-meta {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.7); color: white;
+    font-size: 8px; padding: 2px; text-align: center;
+  }
+
+  /* spark */
+  .spark { display: inline-block; width: 80px; height: 24px; vertical-align: middle; background: linear-gradient(90deg, transparent 0%, #d1fae5 30%, #10b981 60%, transparent 100%); border-radius: 2px; }
+  .spark.down { background: linear-gradient(90deg, transparent 0%, #fee2e2 30%, #ef4444 60%, transparent 100%); }
+  .bsr-chart { height: 100px; padding: 10px; background: #fef3c7; border-radius: 6px; position: relative; margin-top: 8px; }
+
+  /* Meta 광고 */
+  .ad-toolbar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .ad-toolbar .ad-search {
+    flex: 1; min-width: 180px; max-width: 240px;
+    border: 1px solid #d1d5db; border-radius: 6px;
+    padding: 5px 10px; font-size: 11px;
+  }
+  .ad-toolbar select {
+    border: 1px solid #d1d5db; border-radius: 6px;
+    padding: 5px 10px; font-size: 11px; background: white;
+  }
+  .ad-toolbar .ad-check {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #4b5563;
+  }
+  .ad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ad-card { border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; background: white; }
+  .ad-thumb { width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #9ca3af, #4b5563); position: relative; }
+  .ad-badges { position: absolute; top: 6px; left: 6px; display: flex; gap: 3px; flex-wrap: wrap; }
+  .ad-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px; color: white; }
+  .ad-badge.active { background: #10b981; }
+  .ad-badge.brand { background: #2563eb; }
+  .ad-badge.partner { background: #ec4899; }
+  .ad-info { padding: 8px 10px; }
+  .ad-info .ad-page { font-weight: 700; font-size: 12px; }
+  .ad-info .ad-partner { color: #ec4899; font-size: 10px; margin-top: 1px; }
+  .ad-info .ad-date { color: #9ca3af; font-size: 9.5px; font-family: monospace; margin-top: 3px; }
+  .ad-info .ad-body { font-size: 10px; color: #6b7280; margin-top: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .load-more {
+    width: 100%; padding: 10px; margin-top: 12px;
+    background: #f9fafb; border: 1px dashed #d1d5db;
+    border-radius: 6px; cursor: pointer; font-size: 12px; color: #4b5563;
+  }
+
+  /* Cluster (unified C) */
+  .unified-cluster {
+    border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 8px; background: white;
+  }
+  .uc-h { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: pointer; }
+  .uc-h .uc-rank { background: #1f2937; color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .uc-h .uc-name { font-weight: 700; font-size: 13px; flex: 1; }
+  .uc-channels { display: flex; gap: 4px; font-size: 10px; }
+  .uc-ch-stat { padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: 600; }
+  .uc-ch-stat.tk { background: #fce7f3; color: #831843; }
+  .uc-ch-stat.ig { background: #ede9fe; color: #5b21b6; }
+  .uc-ch-stat.yt { background: #fee2e2; color: #991b1b; }
+  .uc-ch-stat.off { background: #f3f4f6; color: #d1d5db; }
+  .uc-desc { font-size: 11px; color: #4b5563; line-height: 1.5; }
+  .uc-metrics { display: flex; gap: 14px; font-size: 10px; color: #6b7280; margin-top: 6px; font-family: monospace; }
+
+  /* USP 키워드 인터랙티브 */
+  .usp-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+  .usp-keyword {
+    display: inline-block; padding: 4px 10px; margin: 3px;
+    border-radius: 4px; font-size: 11px; cursor: pointer;
+    border: 1px solid #d1d5db; background: white;
+  }
+  .usp-keyword:hover { background: #fef3c7; }
+  .usp-keyword.active { background: #fcd34d; border-color: #d97706; font-weight: 700; }
+  .usp-keyword .uk-count { color: #9ca3af; font-size: 10px; margin-left: 4px; }
+  .usp-detail {
+    background: #f9fafb; border-radius: 6px; padding: 12px 14px;
+    font-size: 11px;
+  }
+  .usp-detail .ud-h { font-weight: 700; margin-bottom: 6px; }
+  .usp-detail .ud-vid {
+    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .usp-detail .ud-vid-thumb {
+    width: 40px; height: 40px; background: linear-gradient(135deg, #d1d5db, #9ca3af);
+    border-radius: 4px;
+  }
+
+  /* heatmap with measure */
+  .heat-toolbar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .heatmap { display: grid; grid-template-columns: 110px repeat(12, 1fr); gap: 2px; font-size: 10px; }
+  .heatmap .cell { padding: 4px; text-align: center; border-radius: 2px; color: #fff; font-family: monospace; font-size: 9.5px; }
+  .heatmap .lbl { padding: 4px; color: #6b7280; }
+
+  /* GMV 히스토그램 */
+  .histogram { display: flex; align-items: flex-end; gap: 4px; height: 80px; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 12px; }
+  .hg-bar { flex: 1; background: #06b6d4; border-radius: 2px 2px 0 0; min-height: 4px; }
+  .hg-labels { display: flex; gap: 4px; font-size: 9px; color: #6b7280; font-family: monospace; margin-top: 2px; }
+  .hg-labels span { flex: 1; text-align: center; }
+
+  /* cross-channel matrix */
+  .matrix-table td { padding: 6px 8px; text-align: center; font-size: 11px; }
+  .matrix-table .mt-cell { display: inline-block; width: 28px; height: 28px; line-height: 28px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .mt-on { background: #10b981; color: white; }
+  .mt-off { background: #f3f4f6; color: #d1d5db; }
+
+  /* sub-tabs */
+  .sub-tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 14px; }
+  .sub-tabs button { border: none; background: transparent; padding: 8px 14px; font-size: 12px; cursor: pointer; color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .sub-tabs button.active { color: #1f2937; font-weight: 700; border-bottom-color: #1f2937; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .scenario { display: none; }
+  .scenario.active { display: block; }
+
+  .scenario-note { background: #fef3c7; border: 1px dashed #d97706; border-radius: 6px; padding: 10px 14px; font-size: 11px; color: #92400e; margin: 0 24px 14px; max-width: 1272px; }
+
+  /* Phase Progress toggle */
+  .phase-progress {
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 14px;
+  }
+  .phase-progress summary {
+    cursor: pointer; font-weight: 600; font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .phase-progress[open] summary { margin-bottom: 10px; }
+  .pp-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    font-size: 11px;
+  }
+  .pp-item {
+    border: 1px solid #f3f4f6; border-radius: 4px; padding: 6px 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pp-item.ok { background: #ecfdf5; border-color: #d1fae5; }
+  .pp-item.skip { background: #fef3c7; border-color: #fde68a; }
+  .pp-item.err { background: #fef2f2; border-color: #fecaca; }
+  .pp-rerun {
+    background: white; border: 1px solid #d1d5db; border-radius: 3px;
+    padding: 1px 6px; font-size: 9px; cursor: pointer; color: #4b5563;
+  }
+
+  /* footer dev */
+  .footer-dev { margin-top: 32px; padding: 14px 22px; background: #f3f4f6; border-radius: 8px; font-size: 11px; color: #6b7280; }
+  .footer-dev summary { cursor: pointer; font-weight: 700; color: #4b5563; }
+  .dev-btn { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="scenario-bar">
+  <b>📋 시나리오:</b>
+  <button class="scenario-btn active" onclick="showScenario(event, 'full')">SharkNinja (풀 데이터)</button>
+  <button class="scenario-btn" onclick="showScenario(event, 'igyt')">Dyson (IG·YT)</button>
+  <button class="scenario-btn" onclick="showScenario(event, 'tk')">닥터리쥬올 (TK+Amazon+Meta)</button>
+  <span style="margin-left: auto; font-size: 10px; color: #9ca3af;">v4 — TOC + 케이스 헤더 + Trend 풍부판 + SKU 헬스 + Hero × Mega + 통합 클러스터 + USP 인터랙티브</span>
+</div>
+
+<div class="scenario active" id="scenario-full">
+
+  <div class="status-strip">
+    <div class="strip-inner">
+      <div class="strip-brand">SharkNinja <span class="ch-name">US · TT Shop · ready · 5/29 11:42</span></div>
+      <div class="strip-divider"></div>
+      <div class="strip-channel"><div class="dot dot-ok"></div>TK<span class="ch-count">1.2K</span></div>
+      <div class="strip-channel"><div class="dot dot-ok"></div>Meta<span class="ch-count">179</span></div>
+      <div class="strip-channel"><div class="dot dot-ok"></div>IG<span class="ch-count">450</span></div>
+      <div class="strip-channel"><div class="dot dot-ok"></div>YT<span class="ch-count">250</span></div>
+      <div class="strip-channel"><div class="dot dot-ok"></div>TT Shop<span class="ch-count">$1.2M</span></div>
+      <div class="strip-channel"><div class="dot dot-off"></div>Amazon<span class="ch-count">—</span></div>
+      <div class="strip-actions">
+        <button class="btn-sm">phase 재실행</button>
+        <button class="btn-sm primary">분석 시작</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- ★ 좌측 sticky TOC -->
+    <nav class="toc">
+      <div class="toc-h">목차</div>
+      <a href="#sec-header" class="active">📋 케이스 메타</a>
+      <a href="#sec-kpi">📊 KPI 요약</a>
+      <a href="#sec-channels">📥 데이터 채널</a>
+      <a href="#sec-phase">🔧 Phase 진행</a>
+      <a href="#sec-g">🎯 G. 종합 인사이트</a>
+      <a href="#sec-a">A. 콘텐츠 활동</a>
+      <a href="#sec-b">B. 인플루언서 풀</a>
+      <a href="#sec-c">C. 콘텐츠 포맷</a>
+      <a href="#sec-d">D. 매출 & BSR</a>
+      <a href="#sec-e">E. Meta 광고</a>
+      <div class="toc-h">DEV</div>
+      <a href="#sec-dev">⚙️ 액션</a>
+    </nav>
+
+    <main>
+
+    <!-- ★ 케이스 메타 헤더 -->
+    <div class="case-header" id="sec-header">
+      <div class="brand-name">SharkNinja</div>
+      <div class="meta-pills">
+        <span class="meta-pill ready">ready</span>
+        <span class="meta-pill">🇺🇸 US</span>
+        <span class="meta-pill">TT Shop</span>
+        <span class="meta-pill">매출 tier: ★★★★</span>
+      </div>
+      <div class="actions">
+        <div class="rev-tier">💰 매출 tier 수정 ▾</div>
+        <div class="region-toggle">
+          <button class="active">US 전체</button>
+          <button>SEA</button>
+          <button>MENA</button>
+        </div>
+        <button class="danger">🗑 케이스 삭제</button>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip" id="sec-kpi">
+      <div class="ks-item"><div class="ks-label">총 영상</div><div class="ks-val">1,934</div><div class="ks-sub">TK 1.2K · IG 450 · YT 250</div></div>
+      <div class="ks-item"><div class="ks-label">총 인플 풀</div><div class="ks-val">650명</div><div class="ks-sub">메가 52 · 마이크로 247</div></div>
+      <div class="ks-item"><div class="ks-label">총 view</div><div class="ks-val">486M</div><div class="ks-sub">YT 91% · IG 8%</div></div>
+      <div class="ks-item"><div class="ks-label">TT Shop GMV (30d)</div><div class="ks-val">$1.2M</div><div class="ks-sub ks-trend up">▲ 285% vs 4월</div></div>
+      <div class="ks-item"><div class="ks-label">Meta 광고</div><div class="ks-val">179</div><div class="ks-sub">brand 156 · partner 23</div></div>
+      <div class="ks-item"><div class="ks-label">분석 비용</div><div class="ks-val">$5.04</div><div class="ks-sub">Apify $4.1 + Anthropic $0.94</div></div>
+    </div>
+
+    <!-- 데이터 채널 -->
+    <div class="section" id="sec-channels">
+      <div class="section-h">
+        <span class="letter">📥</span>
+        <span class="title">데이터 채널</span>
+        <span class="sub">7개 중 5개 활성</span>
+      </div>
+      <div class="channels-grid">
+        <div class="ch-card active"><div class="ch-card-h"><span class="ic">🎬</span><span class="nm">TikTok 영상</span><span class="ch-badge ok">적재</span></div><div class="ch-stat">1,234 영상 · 22.1M views</div><div class="ch-sub">Exolyt CSV · 5/27</div></div>
+        <div class="ch-card active"><div class="ch-card-h"><span class="ic">📱</span><span class="nm">TT Shop</span><span class="ch-badge ok">적재</span></div><div class="ch-stat">8 제품 · $1.2M GMV</div><div class="ch-sub">store URL · Helium10</div></div>
+        <div class="ch-card active"><div class="ch-card-h"><span class="ic">📢</span><span class="nm">Meta 광고</span><span class="ch-badge ok">적재</span></div><div class="ch-stat">179 광고 · 16 partnership</div><div class="ch-sub">하이브리드 $1.43</div></div>
+        <div class="ch-card active"><div class="ch-card-h"><span class="ic">📷</span><span class="nm">Instagram</span><span class="ch-badge ok">적재</span></div><div class="ch-stat">450 posts · 87 authors</div><div class="ch-sub">Phase 4c</div></div>
+        <div class="ch-card active"><div class="ch-card-h"><span class="ic">📺</span><span class="nm">YouTube</span><span class="ch-badge ok">적재</span></div><div class="ch-stat">250 영상 · 163 채널</div><div class="ch-sub">Phase 4d</div></div>
+        <div class="ch-card off"><div class="ch-card-h"><span class="ic">🛒</span><span class="nm">Amazon</span><span class="ch-badge off">사용안함</span></div></div>
+        <div class="ch-card off"><div class="ch-card-h"><span class="ic">🛍️</span><span class="nm">Shopee</span><span class="ch-badge off">사용안함</span></div></div>
+        <div class="ch-card" style="background:#f9fafb;"><div class="ch-card-h"><span class="ic">＋</span><span class="nm" style="color:#6b7280;">채널 추가</span></div></div>
+      </div>
+    </div>
+
+    <!-- ★ Phase Progress toggle -->
+    <details class="phase-progress" id="sec-phase">
+      <summary>🔧 Phase 진행 상태 (12 phase · cache cascade · 펼치기)</summary>
+      <div class="pp-grid">
+        <div class="pp-item ok">Phase 1.5 ✓ 8 제품<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 2 ✓ SQL 집계<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 3 ✓ 650명<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 3.5 ✓ 폴백 88명<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 3.7 ✓ Shop 124명<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4a ✓ 179 광고<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4a.5 ✓ Storage 184<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4b.1 ✓ 샘플 287<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4b.2 ✓ ASR 287<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4b.3 ✓ Vision 285 · fail 2<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4b.4 ✓ Cluster 8<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4b.5 ✓ SKU 매칭 156<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4c ✓ IG 450 posts<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item ok">Phase 4d ✓ YT 250 영상<button class="pp-rerun">재실행</button></div>
+        <div class="pp-item skip">Phase 5 ⏭ WIP (수동만)<button class="pp-rerun">실행</button></div>
+      </div>
+    </details>
+
+    <!-- 🎯 G 종합 인사이트 -->
+    <div class="insight-card" id="sec-g">
+      <div class="ic-label">🎯 SECTION G · 종합 인사이트</div>
+      <div class="ic-title">SharkNinja = micro-army × 인플 portfolio × BBQ·Slushi 듀얼 시즈널리티</div>
+      <div class="ic-tagline">한 인플당 1-2건만 amplify (long-tail 72%) · 메가/셀럽도 같은 cycle · BBQ는 06-08 · Slushi는 5월 launch 후 지수 폭발</div>
+      <div class="ic-meta">주력 언어: 영어 78% · 스페인어 9% · UK 6% (채널 무관 일관)</div>
+
+      <div class="axis-grid">
+        <div class="axis-card"><div class="ax-h">제품</div><div class="ax-val">Slushi Max + FlexFlame</div><div class="ax-sub">2 SKU가 GMV 60%</div></div>
+        <div class="axis-card"><div class="ax-h">인플</div><div class="ax-val">마이크로 38% · 16 partner</div><div class="ax-sub">portfolio 분산 · David Beckham 셀럽 1건</div></div>
+        <div class="axis-card"><div class="ax-h">콘텐츠</div><div class="ax-val">리스트형 + BBQ 데모형</div><div class="ax-sub">2 클러스터가 viral 60%</div></div>
+        <div class="axis-card"><div class="ax-h">채널</div><div class="ax-val">YT-heavy (view 91%)</div><div class="ax-sub">TK 콘텐츠↓ GMV↑ · YT review view 폭발</div></div>
+        <div class="axis-card"><div class="ax-h">시즈널리티</div><div class="ax-val">BBQ Q2-Q3 + Slushi 5월</div><div class="ax-sub">5/3 BSR 1,243 → 87 변곡점</div></div>
+      </div>
+
+      <div class="insight-row">
+        <div class="insight-block">
+          <div class="ib-h">📊 핵심 발견 (4)</div>
+          <div class="ib-li">인플 portfolio — 한 인플당 1-2건 (1편 72%)</div>
+          <div class="ib-li">cross-channel 인플 12명 (TK·IG·YT 모두)</div>
+          <div class="ib-li">Slushi 5월 launch viral — 0 → 42건/월</div>
+          <div class="ib-li">광고 23% · organic 68% · 시딩 9%</div>
+        </div>
+        <div class="insight-block">
+          <div class="ib-h">⭐ cross-platform 인플 (Top 4 / 12명)</div>
+          <table>
+            <thead><tr><th>이름</th><th>채널</th><th>영상</th></tr></thead>
+            <tbody>
+              <tr><td>Justin Flom</td><td>TK·IG·YT</td><td>24</td></tr>
+              <tr><td>Cooking with Darryl</td><td>TK·YT</td><td>18</td></tr>
+              <tr><td>Justahumblecook</td><td>TK·IG</td><td>13</td></tr>
+              <tr><td>Amanda Stanton</td><td>IG·YT</td><td>6</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="related-cases">
+        <b>🔗 비교 가능 케이스:</b>
+        <a>Dyson US (가전)</a> <a>Vitamix US (블렌더)</a> <a>SodaStream US</a> <a>→ /cases/compare?ids=...</a>
+      </div>
+    </div>
+
+    <!-- A. 콘텐츠 활동 — ★ MonthlyTrendChart 풍부판 -->
+    <div class="section" id="sec-a">
+      <div class="section-h">
+        <span class="letter">A</span>
+        <span class="title">콘텐츠 활동</span>
+        <span class="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <div class="ch-toggle">
+          <button class="active">전체 합산 (1,934)</button>
+          <button>TikTok (1,234)</button>
+          <button>Instagram (450)</button>
+          <button>YouTube (250)</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" style="margin-bottom: 16px;">
+        <div class="kpi"><div class="kpi-label">총 영상</div><div class="kpi-val">1,934</div><div class="kpi-sub">TK 1.2K · IG 450 · YT 250</div></div>
+        <div class="kpi"><div class="kpi-label">paid 비중</div><div class="kpi-val">23%</div><div class="kpi-sub">446건</div></div>
+        <div class="kpi"><div class="kpi-label">organic</div><div class="kpi-val">68%</div><div class="kpi-sub">1,316건</div></div>
+        <div class="kpi"><div class="kpi-label">gifted (시딩)</div><div class="kpi-val">9%</div><div class="kpi-sub">172건</div></div>
+        <div class="kpi"><div class="kpi-label">총 view</div><div class="kpi-val">486M</div><div class="kpi-sub">YT 91%</div></div>
+      </div>
+
+      <!-- ★ 풍부판 트렌드 차트 — 절대 수 mode + toggle + 영상 수 line (볼륨↑↔BSR↑ 시각 상관) -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size: 12px; font-weight: 700;">월간 인플 · 광고 · BSR 통합 트렌드 (12개월)</div>
+        <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#6b7280;">
+          <span>막대 단위:</span>
+          <div class="ch-toggle" style="font-size:10px;">
+            <button class="active" onclick="switchTrendMode(this,'abs')">절대 영상 수</button>
+            <button onclick="switchTrendMode(this,'pct')">비중 (%)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="trend-chart" id="trend-chart">
+        <div class="trend-toggles">
+          <button class="active">인플 티어 stack</button>
+          <button class="active-line ad">광고 비중 line</button>
+          <button class="active-line bsr">BSR line</button>
+          <button class="active-line" style="background:#06b6d4;border-color:#06b6d4;color:white;">★ 영상 수 line</button>
+        </div>
+
+        <!-- ★ 절대 수 모드: 막대 높이 = 영상 수 / max(287) (5월이 100%) -->
+        <div class="stack-bars" id="trend-bars">
+          <div class="stack-bar" style="height: 30%;" title="25-06 · 87영상"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 3%;"></div><div class="sb-mid" style="height: 11%;"></div><div class="sb-micro" style="height: 37%;"></div><div class="sb-nano" style="height: 38%;"></div><div class="sb-subnano" style="height: 7%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-06<br>87</div></div>
+          <div class="stack-bar" style="height: 38%;" title="25-07 · 110영상"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 12%;"></div><div class="sb-micro" style="height: 38%;"></div><div class="sb-nano" style="height: 36%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-07<br>110</div></div>
+          <div class="stack-bar" style="height: 37%;" title="25-08 · 105영상"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 3%;"></div><div class="sb-mid" style="height: 10%;"></div><div class="sb-micro" style="height: 36%;"></div><div class="sb-nano" style="height: 39%;"></div><div class="sb-subnano" style="height: 8%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-08<br>105</div></div>
+          <div class="stack-bar" style="height: 33%;" title="25-09 · 95영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 12%;"></div><div class="sb-micro" style="height: 39%;"></div><div class="sb-nano" style="height: 35%;"></div><div class="sb-subnano" style="height: 5%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-09<br>95</div></div>
+          <div class="stack-bar" style="height: 45%;" title="25-10 · 130영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 11%;"></div><div class="sb-micro" style="height: 40%;"></div><div class="sb-nano" style="height: 34%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-10<br>130</div></div>
+          <div class="stack-bar" style="height: 49%;" title="25-11 · 142영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 5%;"></div><div class="sb-mid" style="height: 13%;"></div><div class="sb-micro" style="height: 38%;"></div><div class="sb-nano" style="height: 33%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-11<br>142</div></div>
+          <div class="stack-bar" style="height: 41%;" title="25-12 · 118영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 12%;"></div><div class="sb-micro" style="height: 37%;"></div><div class="sb-nano" style="height: 35%;"></div><div class="sb-subnano" style="height: 7%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'25-12<br>118</div></div>
+          <div class="stack-bar" style="height: 44%;" title="26-01 · 125영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 12%;"></div><div class="sb-micro" style="height: 38%;"></div><div class="sb-nano" style="height: 35%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'26-01<br>125</div></div>
+          <div class="stack-bar" style="height: 48%;" title="26-02 · 138영상"><div class="sb-mega" style="height: 3%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 11%;"></div><div class="sb-micro" style="height: 37%;"></div><div class="sb-nano" style="height: 37%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'26-02<br>138</div></div>
+          <div class="stack-bar" style="height: 53%;" title="26-03 · 152영상"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 4%;"></div><div class="sb-mid" style="height: 11%;"></div><div class="sb-micro" style="height: 39%;"></div><div class="sb-nano" style="height: 36%;"></div><div class="sb-subnano" style="height: 6%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label">'26-03<br>152</div></div>
+          <div class="stack-bar" style="height: 69%; box-shadow: 0 0 0 2px #1f2937; z-index: 4;" title="26-04 · 198영상 · BSR 1,628"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 3%;"></div><div class="sb-mid" style="height: 11%;"></div><div class="sb-micro" style="height: 37%;"></div><div class="sb-nano" style="height: 38%;"></div><div class="sb-subnano" style="height: 7%;"></div><div class="sb-unknown" style="height: 1%;"></div><div class="sb-label" style="color:#1f2937;font-weight:700;">'26-04<br>198</div></div>
+          <div class="stack-bar" style="height: 100%;" title="26-05 · 287영상 · BSR 87"><div class="sb-mega" style="height: 2%;"></div><div class="sb-macro" style="height: 3%;"></div><div class="sb-mid" style="height: 10%;"></div><div class="sb-micro" style="height: 36%;"></div><div class="sb-nano" style="height: 40%;"></div><div class="sb-subnano" style="height: 7%;"></div><div class="sb-unknown" style="height: 2%;"></div><div class="sb-label" style="color:#ec4899;font-weight:700;">'26-05<br>287 ★</div></div>
+        </div>
+
+        <!-- 영상 수 + 광고 + BSR overlay -->
+        <svg class="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">
+          <!-- ★ 영상 수 line (cyan 굵게) — stack 상단을 따라감 -->
+          <polyline points="50,155 150,138 250,140 350,148 450,122 550,113 650,131 750,124 850,116 950,103 1000,70 1050,0"
+                    stroke="#06b6d4" stroke-width="3" fill="none"/>
+          <!-- 광고 비중 line (점선) -->
+          <polyline points="50,100 150,90 250,95 350,85 450,80 550,75 650,72 750,68 850,65 950,55 1000,50 1050,45"
+                    stroke="#f59e0b" stroke-width="2" fill="none" stroke-dasharray="4 3"/>
+          <!-- BSR line (위로 갈수록 좋음) — 역수 매핑 -->
+          <polyline points="50,200 150,195 250,190 350,185 450,180 550,170 650,160 750,140 850,90 950,30 1000,15 1050,5"
+                    stroke="#ef4444" stroke-width="2" fill="none" stroke-dasharray="2 2"/>
+          <!-- 호버 vertical line (5월) -->
+          <line x1="1050" y1="0" x2="1050" y2="222" stroke="#1f2937" stroke-width="1" stroke-dasharray="2"/>
+          <!-- ★ 5월 변곡점 marker (영상 수 + BSR 동시) -->
+          <circle cx="1050" cy="0" r="5" fill="#06b6d4" stroke="white" stroke-width="2"/>
+          <circle cx="1050" cy="5" r="5" fill="#ef4444" stroke="white" stroke-width="2"/>
+        </svg>
+
+        <!-- 호버 툴팁 (2026-05 — 변곡점) -->
+        <div class="trend-tooltip" style="right:30px;">
+          <div class="tt-h">2026-05 ★ 변곡점</div>
+          <table>
+            <tr><td><span class="tt-color" style="background:#06b6d4;"></span>총 영상</td><td style="text-align:right;font-family:monospace;color:#06b6d4;"><b>287개 ▲</b></td></tr>
+            <tr><td colspan="2" style="font-size:9px;color:#9ca3af;">vs 26-04: 198 → +45%</td></tr>
+            <tr><td><span class="tt-color" style="background:#7f1d1d;"></span>메가</td><td style="text-align:right;font-family:monospace;">5명 (2%)</td></tr>
+            <tr><td><span class="tt-color" style="background:#ea580c;"></span>매크로</td><td style="text-align:right;font-family:monospace;">9명 (3%)</td></tr>
+            <tr><td><span class="tt-color" style="background:#fcd34d;"></span>미드</td><td style="text-align:right;font-family:monospace;">29명 (10%)</td></tr>
+            <tr><td><span class="tt-color" style="background:#84cc16;"></span>마이크로</td><td style="text-align:right;font-family:monospace;">103명 (36%)</td></tr>
+            <tr><td><span class="tt-color" style="background:#06b6d4;"></span>나노</td><td style="text-align:right;font-family:monospace;">115명 (40%)</td></tr>
+          </table>
+          <div class="tt-stat">
+            <span style="color:#f59e0b;">광고 비중 78% ▲</span><br>
+            <span style="color:#ef4444;"><b>BSR #87 ▼</b></span> (4월 #1,628)<br>
+            <span style="color:#10b981;font-size:10px;">→ 영상 수+45% & BSR↓94% 동조</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="trend-legend">
+        <div class="lg-item"><div class="lg-sw" style="background:#7f1d1d;"></div>메가</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#ea580c;"></div>매크로</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#fcd34d;"></div>미드</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#84cc16;"></div>마이크로</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#06b6d4;"></div>나노</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#8b5cf6;"></div>서브나노</div>
+        <div class="lg-item"><div class="lg-sw" style="background:#d1d5db;"></div>미상</div>
+        <div class="lg-item" style="margin-left:auto;"><span style="color:#06b6d4;font-weight:700;">━</span> ★ 총 영상 수</div>
+        <div class="lg-item"><span style="color:#f59e0b;">─ ─</span> 광고 비중 0~100%</div>
+        <div class="lg-item"><span style="color:#ef4444;">─ ─</span> BSR #87 ~ #16,527 (낮을수록 좋음)</div>
+      </div>
+
+      <!-- ★ 상관 인사이트 박스 -->
+      <div style="margin-top: 12px; padding: 10px 14px; background: #ecfdf5; border-left: 3px solid #10b981; border-radius: 4px; font-size: 11px; color: #065f46;">
+        💡 <b>볼륨 ↔ BSR 상관:</b> 영상 수 198(4월) → 287(5월) +45% 증가 시점에 BSR 1,628 → 87 (94% 개선). Slushi launch + Memorial Day pre-buy 시즈널리티가 정확히 동조.
+      </div>
+
+      <!-- 1인당 분포 -->
+      <div style="margin-top: 24px; font-size: 12px; font-weight: 700; margin-bottom: 8px;">1인당 영상 분포 (인플 기준)</div>
+      <div class="dist-row"><span>1편</span><div class="dist-bar"><div class="dist-fill" style="width: 72%;"></div></div><span style="text-align:right;">468명</span><span style="color:#9ca3af;text-align:right;">72%</span></div>
+      <div class="dist-row"><span>2-4편</span><div class="dist-bar"><div class="dist-fill" style="width: 18%;"></div></div><span style="text-align:right;">117명</span><span style="color:#9ca3af;text-align:right;">18%</span></div>
+      <div class="dist-row"><span>5-9편</span><div class="dist-bar"><div class="dist-fill" style="width: 6%;"></div></div><span style="text-align:right;">39명</span><span style="color:#9ca3af;text-align:right;">6%</span></div>
+      <div class="dist-row"><span>10-19편</span><div class="dist-bar"><div class="dist-fill" style="width: 3%;"></div></div><span style="text-align:right;">17명</span><span style="color:#9ca3af;text-align:right;">3%</span></div>
+      <div class="dist-row"><span>20+편</span><div class="dist-bar"><div class="dist-fill" style="width: 1%;"></div></div><span style="text-align:right;">9명</span><span style="color:#9ca3af;text-align:right;">1%</span></div>
+      <div style="font-size: 10px; color: #6b7280; margin-top: 6px;">★ long-tail 1편 72% — portfolio 전략 일치</div>
+    </div>
+
+    <!-- B 인플 풀 -->
+    <div class="section" id="sec-b">
+      <div class="section-h">
+        <span class="letter">B</span>
+        <span class="title">인플루언서 풀</span>
+        <span class="sub">★ 채널 toggle + 월 필터 + cross-channel matrix + Shop creator + GMV 분포</span>
+      </div>
+
+      <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;">
+        <div><span style="font-size: 11px; color: #6b7280; margin-right: 8px;">채널:</span>
+          <div class="ch-toggle">
+            <button class="active">전체 (650명)</button><button>TikTok (513)</button><button>IG (87)</button><button>YT (163)</button>
+          </div>
+        </div>
+        <div><span style="font-size: 11px; color: #6b7280; margin-right: 8px;">월:</span>
+          <select style="padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 11px;">
+            <option>전체 기간 (12개월)</option><option>2026-05</option><option>2026-04</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 24px;">
+        <div>
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">티어 분포 (전 채널)</div>
+          <div class="tier-row"><span>Mega</span><div class="tier-bar"><div class="tier-fill" style="width: 8%;"></div></div><span style="text-align:right;">52</span></div>
+          <div class="tier-row"><span>Macro</span><div class="tier-bar"><div class="tier-fill" style="width: 18%;"></div></div><span style="text-align:right;">117</span></div>
+          <div class="tier-row"><span>Mid</span><div class="tier-bar"><div class="tier-fill" style="width: 22%;"></div></div><span style="text-align:right;">143</span></div>
+          <div class="tier-row"><span>Micro</span><div class="tier-bar"><div class="tier-fill" style="width: 38%;"></div></div><span style="text-align:right;">247</span></div>
+          <div class="tier-row"><span>Nano</span><div class="tier-bar"><div class="tier-fill" style="width: 14%;"></div></div><span style="text-align:right;">91</span></div>
+
+          <div style="font-size: 12px; font-weight: 700; margin-top: 18px; margin-bottom: 6px;">★ cross-channel matrix (Top 인플)</div>
+          <table class="matrix-table">
+            <thead><tr><th></th><th>TK</th><th>IG</th><th>YT</th></tr></thead>
+            <tbody>
+              <tr><td style="text-align:left;">Justin Flom</td><td><span class="mt-cell mt-on">4</span></td><td><span class="mt-cell mt-on">8</span></td><td><span class="mt-cell mt-on">12</span></td></tr>
+              <tr><td style="text-align:left;">Cooking w/ Darryl</td><td><span class="mt-cell mt-on">12</span></td><td><span class="mt-cell mt-off">·</span></td><td><span class="mt-cell mt-on">6</span></td></tr>
+              <tr><td style="text-align:left;">Amanda Stanton</td><td><span class="mt-cell mt-off">·</span></td><td><span class="mt-cell mt-on">4</span></td><td><span class="mt-cell mt-on">2</span></td></tr>
+              <tr><td style="text-align:left;">David Beckham</td><td><span class="mt-cell mt-off">·</span></td><td><span class="mt-cell mt-on">1</span></td><td><span class="mt-cell mt-off">·</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">Top 작성자 (20+ 영상)</div>
+          <table>
+            <thead><tr><th></th><th>이름</th><th>팔로워</th><th>채널 활동</th><th style="text-align:right;">영상</th><th style="text-align:right;">총조회</th></tr></thead>
+            <tbody>
+              <tr><td><span class="thumb"></span></td><td><b>Justin Flom</b></td><td>42M</td><td><span class="ch-pill pill-tk">TK4</span><span class="ch-pill pill-ig">IG8</span><span class="ch-pill pill-yt">YT12</span></td><td style="text-align:right;font-family:monospace;">24</td><td style="text-align:right;font-family:monospace;">32.4M</td></tr>
+              <tr><td><span class="thumb"></span></td><td>Cooking with Darryl</td><td>3.8M</td><td><span class="ch-pill pill-tk">TK12</span><span class="ch-pill pill-yt">YT6</span></td><td style="text-align:right;font-family:monospace;">18</td><td style="text-align:right;font-family:monospace;">14.1M</td></tr>
+              <tr><td><span class="thumb"></span></td><td>Justahumblecook</td><td>1.2M</td><td><span class="ch-pill pill-tk">TK8</span><span class="ch-pill pill-ig">IG5</span></td><td style="text-align:right;font-family:monospace;">13</td><td style="text-align:right;font-family:monospace;">9.8M</td></tr>
+              <tr><td><span class="thumb"></span></td><td>Amanda Stanton</td><td>2.1M</td><td><span class="ch-pill pill-ig">IG4</span><span class="ch-pill pill-yt">YT2</span></td><td style="text-align:right;font-family:monospace;">6</td><td style="text-align:right;font-family:monospace;">18.2M</td></tr>
+              <tr><td><span class="thumb"></span></td><td><b>David Beckham</b> <span class="tag tag-warn">⭐셀럽</span></td><td>88M</td><td><span class="ch-pill pill-ig">IG1</span></td><td style="text-align:right;font-family:monospace;">1</td><td style="text-align:right;font-family:monospace;">5.2M</td></tr>
+              <tr style="color:#9ca3af;"><td colspan="6" style="text-align:center;padding:8px;">+ 45명 더보기</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Shop creator -->
+      <div style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed #e5e7eb;">
+        <div style="font-size: 12px; font-weight: 700; margin-bottom: 10px;">🛒 TT Shop Creator GMV (TT Shop 활성 시)</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <div>
+            <div style="font-size: 11px; color: #6b7280; margin-bottom: 6px;">Top GMV 5명</div>
+            <table>
+              <thead><tr><th>핸들</th><th style="text-align:right;">GMV</th><th style="text-align:right;">영상</th><th style="text-align:right;">GPM</th></tr></thead>
+              <tbody>
+                <tr><td>@cookinghacks_us</td><td style="text-align:right;font-family:monospace;">$48K</td><td style="text-align:right;font-family:monospace;">23</td><td style="text-align:right;font-family:monospace;">$2.1K</td></tr>
+                <tr><td>@kitchen.luv</td><td style="text-align:right;font-family:monospace;">$31K</td><td style="text-align:right;font-family:monospace;">18</td><td style="text-align:right;font-family:monospace;">$1.7K</td></tr>
+                <tr><td>@momdailylife</td><td style="text-align:right;font-family:monospace;">$22K</td><td style="text-align:right;font-family:monospace;">14</td><td style="text-align:right;font-family:monospace;">$1.6K</td></tr>
+                <tr><td>@homechef.us</td><td style="text-align:right;font-family:monospace;">$18K</td><td style="text-align:right;font-family:monospace;">12</td><td style="text-align:right;font-family:monospace;">$1.5K</td></tr>
+                <tr><td>@gadgetqueen</td><td style="text-align:right;font-family:monospace;">$14K</td><td style="text-align:right;font-family:monospace;">9</td><td style="text-align:right;font-family:monospace;">$1.6K</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: #6b7280; margin-bottom: 6px;">Shop Creator GMV 분포 (124명)</div>
+            <div class="histogram">
+              <div class="hg-bar" style="height: 88%;"></div><div class="hg-bar" style="height: 65%;"></div><div class="hg-bar" style="height: 42%;"></div><div class="hg-bar" style="height: 28%;"></div><div class="hg-bar" style="height: 18%;"></div><div class="hg-bar" style="height: 12%;"></div><div class="hg-bar" style="height: 8%;"></div><div class="hg-bar" style="height: 5%;"></div><div class="hg-bar" style="height: 3%;"></div><div class="hg-bar" style="height: 2%;"></div>
+            </div>
+            <div class="hg-labels"><span>0-1K</span><span>1-5K</span><span>5-10K</span><span>10-20K</span><span>20-50K</span><span>50K+</span></div>
+            <div style="font-size: 10px; color: #6b7280; margin-top: 6px;">long-tail · GMV $20K+ 5명 (4%)</div>
+          </div>
+        </div>
+      </div>
+
+      <details style="margin-top: 16px;">
+        <summary style="cursor: pointer; font-size: 11px; color: #6b7280; font-weight: 600;">▶ 원본 raw 보기 (영상 list · 전체 인플 list · IG/YT raw)</summary>
+        <div style="margin-top: 8px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 11px; color: #6b7280;">IG 87 authors · YT 163 channels · TikTok 513 작성자 raw + 각 채널 source / hashtag 통계</div>
+      </details>
+    </div>
+
+    <!-- C. 콘텐츠 포맷 — ★ 통합 클러스터 + 채널 필터 + USP 인터랙티브 -->
+    <div class="section" id="sec-c">
+      <div class="section-h">
+        <span class="letter">C</span>
+        <span class="title">콘텐츠 포맷 분석</span>
+        <span class="sub">★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택</span>
+      </div>
+
+      <div class="sub-tabs">
+        <button class="active" onclick="switchTab(this, 'sec-c-clu')">통합 클러스터 (8)</button>
+        <button onclick="switchTab(this, 'sec-c-usp')">USP 키워드 (24)</button>
+        <button onclick="switchTab(this, 'sec-c-heat')">시즈널리티 heatmap</button>
+        <button onclick="switchTab(this, 'sec-c-paid')">paid/seeded/organic 분류</button>
+      </div>
+
+      <!-- 통합 클러스터 panel -->
+      <div class="panel active" id="sec-c-clu">
+        <div style="margin-bottom: 12px;">
+          <span style="font-size: 11px; color: #6b7280; margin-right: 8px;">채널 필터:</span>
+          <div class="ch-toggle">
+            <button class="active">전 채널 (1,934 영상)</button><button>TikTok만</button><button>IG만</button><button>YT만</button>
+          </div>
+        </div>
+
+        <div class="unified-cluster">
+          <div class="uc-h">
+            <span class="uc-rank">1</span>
+            <span class="uc-name">리스트·큐레이션형</span>
+            <div class="uc-channels">
+              <span class="uc-ch-stat tk">TK 142</span>
+              <span class="uc-ch-stat ig">IG 38</span>
+              <span class="uc-ch-stat yt">YT 22</span>
+              <span style="color:#9ca3af;font-size:10px;">→ 전체 202 영상</span>
+            </div>
+          </div>
+          <div class="uc-desc">"Top 5 Ninja 가전" 리스트 포맷 — save rate 압도적 (4.2%, 평균 5배). 신제품 launch 직후 viral 주력.</div>
+          <div class="uc-metrics">avg views 1.8M · save 4.2% · paid 18% · 메가 인플 12명 참여</div>
+        </div>
+        <div class="unified-cluster">
+          <div class="uc-h">
+            <span class="uc-rank">2</span>
+            <span class="uc-name">BBQ/그릴 데모형</span>
+            <div class="uc-channels">
+              <span class="uc-ch-stat tk">TK 98</span>
+              <span class="uc-ch-stat ig">IG 24</span>
+              <span class="uc-ch-stat yt">YT 18</span>
+              <span style="color:#9ca3af;font-size:10px;">→ 140 영상</span>
+            </div>
+          </div>
+          <div class="uc-desc">FlexFlame 시연. Memorial Day · 7/4 시즌 폭발. 통합 매출 기여 $74K (Kalodata 영상매출).</div>
+          <div class="uc-metrics">avg views 2.4M · save 2.1% · paid 28%</div>
+        </div>
+        <div class="unified-cluster">
+          <div class="uc-h">
+            <span class="uc-rank">3</span>
+            <span class="uc-name">Slushi DIY 트렌드형</span>
+            <div class="uc-channels">
+              <span class="uc-ch-stat tk">TK 87</span>
+              <span class="uc-ch-stat ig">IG 15</span>
+              <span class="uc-ch-stat yt off">YT 0</span>
+              <span style="color:#9ca3af;font-size:10px;">→ 102 영상</span>
+            </div>
+          </div>
+          <div class="uc-desc">5월 launch 후 폭발. @ninjakitchen #ninjapartner 표준 형식. YT에는 아직 거의 없음.</div>
+          <div class="uc-metrics">avg views 1.9M · save 3.5% · paid 32%</div>
+        </div>
+        <div class="unified-cluster">
+          <div class="uc-h">
+            <span class="uc-rank">4</span>
+            <span class="uc-name">CREAMi 디저트형</span>
+            <div class="uc-channels">
+              <span class="uc-ch-stat tk">TK 76</span>
+              <span class="uc-ch-stat ig">IG 28</span>
+              <span class="uc-ch-stat yt">YT 14</span>
+              <span style="color:#9ca3af;font-size:10px;">→ 118 영상</span>
+            </div>
+          </div>
+          <div class="uc-desc">아이스크림 메이커. Justin Flom · Cooking with Darryl 메가 인플 시연.</div>
+          <div class="uc-metrics">avg views 980K · save 1.8% · paid 22%</div>
+        </div>
+        <div class="unified-cluster">
+          <div class="uc-h">
+            <span class="uc-rank">5</span>
+            <span class="uc-name">long-form review·비교형</span>
+            <div class="uc-channels">
+              <span class="uc-ch-stat tk off">TK 12</span>
+              <span class="uc-ch-stat ig off">IG 8</span>
+              <span class="uc-ch-stat yt">YT 105</span>
+              <span style="color:#9ca3af;font-size:10px;">→ 125 영상</span>
+            </div>
+          </div>
+          <div class="uc-desc">YT 위주 long-form review (avg 8:42). vs Vitamix/Breville 비교. YT view 폭발 핵심.</div>
+          <div class="uc-metrics">avg views 1.77M (YT) · save 0.9% · paid 8%</div>
+        </div>
+        <div style="font-size: 10px; color: #6b7280; margin-top: 12px;">★ 통합 클러스터링 (Phase 4b.4 통합 input) — 채널 무관 hook 패턴 . 매출 기여는 Section D Kalodata 영상매출 sub-tab</div>
+      </div>
+
+      <!-- USP 인터랙티브 panel -->
+      <div class="panel" id="sec-c-usp">
+        <div class="usp-grid">
+          <div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;">USP 키워드 (클릭 시 →)</div>
+            <div>
+              <span class="usp-keyword active">NinjaSlushi <span class="uk-count">87</span></span>
+              <span class="usp-keyword">NinjaFlexFlame <span class="uk-count">76</span></span>
+              <span class="usp-keyword">CREAMi <span class="uk-count">62</span></span>
+              <span class="usp-keyword">5-in-1 versatility <span class="uk-count">48</span></span>
+              <span class="usp-keyword">no dye <span class="uk-count">38</span></span>
+              <span class="usp-keyword">expandable rack <span class="uk-count">32</span></span>
+              <span class="usp-keyword">smoke-less <span class="uk-count">28</span></span>
+              <span class="usp-keyword">cordless <span class="uk-count">22</span></span>
+              <span class="usp-keyword">Slushi on Tap <span class="uk-count">19</span></span>
+              <span class="usp-keyword" style="background:#fef3c7;border-color:#d97706;">link in bio <span class="uk-count">165 CTA</span></span>
+              <span class="usp-keyword" style="background:#fef3c7;border-color:#d97706;">code NINJA20 <span class="uk-count">78 CTA</span></span>
+            </div>
+          </div>
+          <div class="usp-detail">
+            <div class="ud-h">★ "NinjaSlushi" 등장 영상 87건</div>
+            <div style="font-size:10px;color:#6b7280;margin-bottom:8px;">클러스터: ③ Slushi DIY 76건 · ④ CREAMi 3건 · 기타 8건</div>
+            <div class="ud-vid">
+              <div class="ud-vid-thumb"></div>
+              <div style="flex:1;">
+                <div style="font-size:11px;font-weight:600;">"Slushi on Tap 🍹"</div>
+                <div style="font-size:10px;color:#6b7280;">@cookinghacks_us · 2.4M views</div>
+              </div>
+            </div>
+            <div class="ud-vid">
+              <div class="ud-vid-thumb"></div>
+              <div style="flex:1;">
+                <div style="font-size:11px;font-weight:600;">"Movie night slushis"</div>
+                <div style="font-size:10px;color:#6b7280;">@justinflom (IG) · 1.8M likes</div>
+              </div>
+            </div>
+            <div class="ud-vid">
+              <div class="ud-vid-thumb"></div>
+              <div style="flex:1;">
+                <div style="font-size:11px;font-weight:600;">"Ninja Slushi Max Review"</div>
+                <div style="font-size:10px;color:#6b7280;">@cookingwithdarryl (YT) · 1.2M views</div>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#9ca3af;text-align:center;padding-top:6px;">+ 84개 영상 더보기</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- heatmap measure dropdown -->
+      <div class="panel" id="sec-c-heat">
+        <div class="heat-toolbar">
+          <span style="font-size:11px;color:#6b7280;">measure:</span>
+          <select style="padding:4px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;">
+            <option>영상 수</option><option>view 합산</option><option>paid 비중</option><option>★ GMV 기여 (Kalodata)</option>
+          </select>
+          <span style="font-size:10px;color:#9ca3af;">★ GMV 선택 시 — D 섹션의 Kalodata 영상매출과 연결</span>
+        </div>
+        <div class="heatmap">
+          <div class="lbl"></div>
+          <div class="lbl">06</div><div class="lbl">07</div><div class="lbl">08</div><div class="lbl">09</div><div class="lbl">10</div><div class="lbl">11</div><div class="lbl">12</div><div class="lbl">01</div><div class="lbl">02</div><div class="lbl">03</div><div class="lbl">04</div><div class="lbl">05</div>
+          <div class="lbl">리스트형</div>
+          <div class="cell" style="background:#fcd34d;">5</div><div class="cell" style="background:#f59e0b;">8</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#fcd34d;">6</div><div class="cell" style="background:#f59e0b;">12</div><div class="cell" style="background:#d97706;">18</div><div class="cell" style="background:#fcd34d;">7</div><div class="cell" style="background:#fcd34d;">8</div><div class="cell" style="background:#f59e0b;">11</div><div class="cell" style="background:#d97706;">15</div><div class="cell" style="background:#d97706;">19</div><div class="cell" style="background:#ea580c;">24</div>
+          <div class="lbl">BBQ/그릴</div>
+          <div class="cell" style="background:#d97706;">19</div><div class="cell" style="background:#dc2626;">28</div><div class="cell" style="background:#d97706;">14</div><div class="cell" style="background:#fcd34d;">5</div><div class="cell" style="background:#fde68a;">2</div><div class="cell" style="background:#fde68a;">1</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">1</div><div class="cell" style="background:#fcd34d;">4</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#d97706;">16</div><div class="cell" style="background:#ea580c;">22</div>
+          <div class="lbl">Slushi DIY</div>
+          <div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fde68a;">0</div><div class="cell" style="background:#fcd34d;">2</div><div class="cell" style="background:#f59e0b;">11</div><div class="cell" style="background:#dc2626;">32</div><div class="cell" style="background:#7f1d1d;">42</div>
+          <div class="lbl">CREAMi</div>
+          <div class="cell" style="background:#fcd34d;">6</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#fcd34d;">5</div><div class="cell" style="background:#fcd34d;">4</div><div class="cell" style="background:#fcd34d;">7</div><div class="cell" style="background:#fcd34d;">8</div><div class="cell" style="background:#fcd34d;">5</div><div class="cell" style="background:#fcd34d;">6</div><div class="cell" style="background:#fcd34d;">7</div><div class="cell" style="background:#fcd34d;">8</div><div class="cell" style="background:#fcd34d;">6</div><div class="cell" style="background:#f59e0b;">5</div>
+          <div class="lbl">YT review</div>
+          <div class="cell" style="background:#f59e0b;">8</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#f59e0b;">10</div><div class="cell" style="background:#d97706;">12</div><div class="cell" style="background:#d97706;">14</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#f59e0b;">8</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#f59e0b;">10</div><div class="cell" style="background:#f59e0b;">9</div><div class="cell" style="background:#f59e0b;">8</div>
+        </div>
+      </div>
+
+      <!-- paid/seeded/organic -->
+      <div class="panel" id="sec-c-paid">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">전 채널 콘텐츠 FTC 자동 분류</div>
+        <div class="dist-row"><span style="color:#ec4899;">●ad</span><div class="dist-bar"><div class="dist-fill ig" style="width: 23%;"></div></div><span style="text-align:right;">446</span><span style="color:#9ca3af;text-align:right;">23%</span></div>
+        <div class="dist-row"><span style="color:#f59e0b;">●seeded</span><div class="dist-bar"><div class="dist-fill" style="background:#f59e0b;width: 9%;"></div></div><span style="text-align:right;">172</span><span style="color:#9ca3af;text-align:right;">9%</span></div>
+        <div class="dist-row"><span style="color:#10b981;">●organic</span><div class="dist-bar"><div class="dist-fill" style="background:#10b981;width: 68%;"></div></div><span style="text-align:right;">1,316</span><span style="color:#9ca3af;text-align:right;">68%</span></div>
+        <div style="margin-top:12px;font-size:11px;color:#6b7280;">채널별 ad 비중: TK 18% · IG 26% · YT 3% — YT가 organic 강함 (시딩 disclosure 누락 가능성)</div>
+      </div>
+    </div>
+
+    <!-- D 매출 — ★ SKU selector + SKU 헬스 + HeroSkuMegaVideos + Kalodata 풍부판 -->
+    <div class="section" id="sec-d">
+      <div class="section-h">
+        <span class="letter">D</span>
+        <span class="title">매출 & BSR</span>
+        <span class="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
+      </div>
+
+      <!-- 채널 + 기간 -->
+      <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px;">
+        <div><span style="font-size: 11px; color: #6b7280; margin-right: 8px;">채널:</span>
+          <div class="ch-toggle"><button class="active">TT Shop ($1.2M)</button><button style="opacity:0.4;cursor:not-allowed;">Amazon</button></div>
+        </div>
+        <div><span style="font-size: 11px; color: #6b7280; margin-right: 8px;">기간:</span>
+          <div class="ch-toggle"><button>7일</button><button>14일</button><button class="active">30일</button></div>
+        </div>
+      </div>
+
+      <!-- ★ SKU selector sticky — 한 SKU 선택 시 D 안 모든 모듈 갱신 -->
+      <div style="background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%); border: 1.5px solid #d97706; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+          <span style="font-size: 11px; color: #92400e; font-weight: 700;">🎯 SKU 필터:</span>
+          <span style="font-size: 10px; color: #b45309;">선택한 SKU 기준으로 아래 모든 차트/표가 갱신</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px;">
+          <button onclick="selectSku(this, 'all')" class="sku-pick active" style="padding:6px 4px;font-size:10px;border:1px solid #d97706;background:#1f2937;color:white;border-radius:4px;cursor:pointer;font-weight:700;">전체 (8 SKU)</button>
+          <button onclick="selectSku(this, 'slushi')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Slushi Max ⭐</button>
+          <button onclick="selectSku(this, 'flexflame')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">FlexFlame</button>
+          <button onclick="selectSku(this, 'creami')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">CREAMi</button>
+          <button onclick="selectSku(this, 'crispi')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Crispi</button>
+          <button onclick="selectSku(this, 'fireside')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Fireside360</button>
+          <button onclick="selectSku(this, 'oven')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Double Oven</button>
+          <button onclick="selectSku(this, 'grill')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Elec. Grill</button>
+          <button onclick="selectSku(this, 'espresso')" class="sku-pick" style="padding:6px 4px;font-size:10px;border:1px solid #fde68a;background:white;color:#92400e;border-radius:4px;cursor:pointer;">Espresso</button>
+        </div>
+        <div id="sku-selected-info" style="font-size:10px;color:#92400e;margin-top:6px;font-weight:600;">현재 선택: <b>전체 8 SKU</b> · 30일 GMV $1.2M · 159,149 단위 판매</div>
+      </div>
+
+      <!-- ★ SKU 헬스 KPI 3개 (이미지2 기반) -->
+      <div class="sku-health-grid">
+        <div class="sku-health-card">
+          <div class="sh-label">매출 집중도</div>
+          <div class="sh-val">75%</div>
+          <div class="sh-desc">Top 3 SKU가 매출 합계 차지</div>
+          <div class="sh-bar">
+            <div class="sh-segment" style="background:#3b82f6;flex:35;">Top1 35%</div>
+            <div class="sh-segment" style="background:#60a5fa;flex:26;">Top2 26%</div>
+            <div class="sh-segment" style="background:#93c5fd;flex:14;">Top3 14%</div>
+            <div style="font-size:9px;color:#9ca3af;margin-left:6px;">기타 25%</div>
+          </div>
+          <div class="sh-foot">★ 집중 → 2 SKU 마케팅 주력</div>
+        </div>
+        <div class="sku-health-card">
+          <div class="sh-label">카테고리</div>
+          <div class="sh-val">5개</div>
+          <div class="sh-desc">8 SKU 5 카테고리</div>
+          <div style="margin-top:10px;font-size:10px;color:#4b5563;">
+            BBQ Grill 38% · Frozen Drink 35% · Ice Cream 15% · Air Fryer 8% · 기타 4%
+          </div>
+          <div class="sh-foot">카테고리 다양 (가전 전반)</div>
+        </div>
+        <div class="sku-health-card">
+          <div class="sh-label">신상 매출 비중</div>
+          <div class="sh-val">63%</div>
+          <div class="sh-desc">출시 1년 내 SKU 4개</div>
+          <div style="margin-top:10px;font-size:10px;color:#4b5563;">
+            <span style="color:#10b981;">●신상 63%</span> · <span style="color:#f59e0b;">1~3년 28%</span> · <span style="color:#9ca3af;">3년+ 9%</span>
+          </div>
+          <div class="sh-foot">신상 위주 매출 (launch 폭발형)</div>
+        </div>
+      </div>
+
+      <!-- ★ Hero SKU × Mega Videos -->
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;margin-top:8px;">⭐ 히어로 SKU × 메가 viral 영상 (1M+ views 매칭)</div>
+      <div class="hero-grid">
+        <div class="hero-card">
+          <div class="hc-rank">Top 1 매출</div>
+          <div class="hc-sku">Ninja Slushi Max</div>
+          <div class="hc-rev">$420K · 35%</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:4px;">메가 매칭 5개 영상 (high confidence)</div>
+          <div class="hero-videos">
+            <div class="hero-vid"><div class="hero-vid-meta">2.4M · TK</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.8M · IG</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.5M · TK</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.2M · YT</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.0M · TK</div></div>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="hc-rank">Top 2 매출</div>
+          <div class="hc-sku">Ninja FlexFlame Grill</div>
+          <div class="hc-rev">$310K · 26%</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:4px;">메가 매칭 4개</div>
+          <div class="hero-videos">
+            <div class="hero-vid"><div class="hero-vid-meta">1.8M · TK</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.4M · IG</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.1M · YT</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.0M · TK</div></div>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="hc-rank">Top 3 매출</div>
+          <div class="hc-sku">Ninja CREAMi Scoop & Swirl</div>
+          <div class="hc-rev">$185K · 14%</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:4px;">메가 매칭 3개</div>
+          <div class="hero-videos">
+            <div class="hero-vid"><div class="hero-vid-meta">980K · TK</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">1.1M · YT</div></div>
+            <div class="hero-vid"><div class="hero-vid-meta">800K · IG</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:6px;">★ 매출 Top 3 × 1M+ views 영상으로 마케팅 주력 판정 (Phase 4b.5 SKU 매칭, high confidence만)</div>
+
+      <!-- sub-tabs — TT Shop 깊은 데이터 3개 추가 -->
+      <div class="sub-tabs" style="margin-top:20px;">
+        <button class="active" onclick="switchTab(this, 'sec-d-sku')">SKU 매출 표 (8)</button>
+        <button onclick="switchTab(this, 'sec-d-rank')">★ 카테고리 ranking 시계열</button>
+        <button onclick="switchTab(this, 'sec-d-matrix')">★ Creator × SKU GMV matrix</button>
+        <button onclick="switchTab(this, 'sec-d-affiliate')">★ Affiliate code conversion</button>
+        <button onclick="switchTab(this, 'sec-d-vid')">영상별 매출 (Kalodata)</button>
+        <button onclick="switchTab(this, 'sec-d-live')">Live 매출 (Kalodata)</button>
+      </div>
+
+      <div class="panel active" id="sec-d-sku">
+        <table>
+          <thead><tr><th>제품</th><th>카테고리</th><th>출시</th><th style="text-align:right;">30d GMV</th><th style="text-align:right;">판매</th><th style="text-align:right;">가격</th><th>spark</th><th>동반 영상</th></tr></thead>
+          <tbody>
+            <tr><td><b>Ninja Slushi Max</b></td><td>Frozen Drink</td><td>2026-04</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$420K</b></td><td style="text-align:right;font-family:monospace;">2,143</td><td style="text-align:right;font-family:monospace;">$199</td><td><div class="spark"></div></td><td>42 / 8 paid</td></tr>
+            <tr><td><b>Ninja FlexFlame</b></td><td>BBQ Grill</td><td>2025-09</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$310K</b></td><td style="text-align:right;font-family:monospace;">1,053</td><td style="text-align:right;font-family:monospace;">$299</td><td><div class="spark"></div></td><td>28 / 12 paid</td></tr>
+            <tr><td><b>Ninja CREAMi</b></td><td>Ice Cream</td><td>2026-03</td><td style="text-align:right;font-family:monospace;">$185K</td><td style="text-align:right;font-family:monospace;">923</td><td style="text-align:right;font-family:monospace;">$199</td><td><div class="spark"></div></td><td>34 / 6 paid</td></tr>
+            <tr><td><b>Ninja Crispi</b></td><td>Air Fryer</td><td>2025-11</td><td style="text-align:right;font-family:monospace;">$148K</td><td style="text-align:right;font-family:monospace;">1,232</td><td style="text-align:right;font-family:monospace;">$119</td><td><div class="spark"></div></td><td>18 / 3 paid</td></tr>
+            <tr><td><b>Ninja Fireside360</b></td><td>Heater</td><td>2025-09</td><td style="text-align:right;font-family:monospace;">$92K</td><td style="text-align:right;font-family:monospace;">308</td><td style="text-align:right;font-family:monospace;">$299</td><td><div class="spark down"></div></td><td>14 / 2 paid</td></tr>
+            <tr><td><b>Ninja Double Oven</b></td><td>Kitchen</td><td>2026-02</td><td style="text-align:right;font-family:monospace;">$68K</td><td style="text-align:right;font-family:monospace;">114</td><td style="text-align:right;font-family:monospace;">$599</td><td><div class="spark"></div></td><td>9 / 1 paid</td></tr>
+            <tr><td><b>Ninja Electric Grill</b></td><td>BBQ</td><td>2025-05</td><td style="text-align:right;font-family:monospace;">$42K</td><td style="text-align:right;font-family:monospace;">140</td><td style="text-align:right;font-family:monospace;">$299</td><td><div class="spark down"></div></td><td>6 / 0 paid</td></tr>
+            <tr><td><b>Ninja Espresso</b></td><td>Coffee</td><td>2025-03</td><td style="text-align:right;font-family:monospace;">$28K</td><td style="text-align:right;font-family:monospace;">156</td><td style="text-align:right;font-family:monospace;">$179</td><td><div class="spark down"></div></td><td>3 / 0 paid</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 18px;">
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">★ Slushi Max GMV 시계열 (선택 SKU + 동반 영상 lazy)</div>
+          <div class="bsr-chart">
+            <svg width="100%" height="100%" viewBox="0 0 500 80" preserveAspectRatio="none">
+              <polyline points="0,70 40,65 80,60 120,55 160,50 200,45 240,40 280,35 320,28 360,18 400,10 440,5 480,3" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="320" cy="28" r="4" fill="#ef4444"/>
+              <text x="325" y="22" font-size="10" fill="#ef4444">5/3 viral 변곡점</text>
+            </svg>
+          </div>
+          <div style="font-size:10px;color:#6b7280;margin-top:6px;">동반 영상 lazy iframe — 변곡점 클릭 시 그 시점 viral 영상 미리보기</div>
+        </div>
+      </div>
+
+      <!-- ★ TT Shop 카테고리 ranking 시계열 (BSR 대용) -->
+      <div class="panel" id="sec-d-rank">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">TT Shop "Kitchen Appliances" 카테고리 내 ranking 변화 (낮을수록 좋음 · Kalodata 제공)</div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+          <div class="kpi"><div class="kpi-label">현재 카테고리 #위</div><div class="kpi-val">#3</div><div class="kpi-sub ks-trend up">▲ 30일 전 #28</div></div>
+          <div class="kpi"><div class="kpi-label">최고 순위</div><div class="kpi-val">#1</div><div class="kpi-sub">5/15 (Slushi 효과)</div></div>
+          <div class="kpi"><div class="kpi-label">평균 순위</div><div class="kpi-val">#12</div><div class="kpi-sub">30일</div></div>
+          <div class="kpi"><div class="kpi-label">상위 10위 유지일</div><div class="kpi-val">18일</div><div class="kpi-sub">60%</div></div>
+        </div>
+        <div style="height:140px;background:#f9fafb;border-radius:6px;padding:14px;position:relative;">
+          <svg width="100%" height="100%" viewBox="0 0 500 110" preserveAspectRatio="none">
+            <!-- y축 라벨 — 위가 1위, 아래가 30위 -->
+            <text x="2" y="10" font-size="8" fill="#9ca3af">#1</text>
+            <text x="2" y="60" font-size="8" fill="#9ca3af">#15</text>
+            <text x="2" y="105" font-size="8" fill="#9ca3af">#30</text>
+            <!-- ranking line — 낮을수록 좋음 -->
+            <polyline points="20,95 60,90 100,88 140,85 180,72 220,65 260,55 300,40 340,18 380,3 420,5 460,15 490,8"
+                      stroke="#10b981" stroke-width="3" fill="none"/>
+            <!-- top 10 한계선 -->
+            <line x1="20" y1="33" x2="490" y2="33" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3"/>
+            <text x="370" y="30" font-size="8" fill="#fbbf24">Top 10 한계선</text>
+            <!-- 5/15 #1 마커 -->
+            <circle cx="380" cy="3" r="4" fill="#ef4444"/>
+            <text x="350" y="-2" font-size="9" fill="#ef4444" font-weight="bold">5/15 #1 등극</text>
+          </svg>
+        </div>
+        <div style="font-size:10px;color:#6b7280;margin-top:6px;">★ Kalodata Live commerce에서 SharkNinja 4-5월 카테고리 점유율 폭발. Slushi launch + Memorial Day pre-buy 영향.</div>
+      </div>
+
+      <!-- ★ Creator × SKU GMV matrix -->
+      <div class="panel" id="sec-d-matrix">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">Shop Creator × SKU별 GMV 기여 — 누가 어떤 SKU 잘 팔았나</div>
+        <table style="font-size:11px;">
+          <thead><tr><th style="width:130px;">Creator</th><th style="text-align:right;">Slushi Max</th><th style="text-align:right;">FlexFlame</th><th style="text-align:right;">CREAMi</th><th style="text-align:right;">Crispi</th><th style="text-align:right;">기타</th><th style="text-align:right;">합계</th></tr></thead>
+          <tbody>
+            <tr><td><b>@cookinghacks_us</b></td><td style="text-align:right;font-family:monospace;background:#fef3c7;"><b>$28K</b></td><td style="text-align:right;font-family:monospace;">$8K</td><td style="text-align:right;font-family:monospace;">$5K</td><td style="text-align:right;font-family:monospace;">$3K</td><td style="text-align:right;font-family:monospace;">$4K</td><td style="text-align:right;font-family:monospace;font-weight:700;">$48K</td></tr>
+            <tr><td><b>@kitchen.luv</b></td><td style="text-align:right;font-family:monospace;">$6K</td><td style="text-align:right;font-family:monospace;background:#fef3c7;"><b>$18K</b></td><td style="text-align:right;font-family:monospace;">$4K</td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;">$1K</td><td style="text-align:right;font-family:monospace;font-weight:700;">$31K</td></tr>
+            <tr><td><b>@momdailylife</b></td><td style="text-align:right;font-family:monospace;">$3K</td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;background:#fef3c7;"><b>$14K</b></td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;">$1K</td><td style="text-align:right;font-family:monospace;font-weight:700;">$22K</td></tr>
+            <tr><td><b>@homechef.us</b></td><td style="text-align:right;font-family:monospace;">$5K</td><td style="text-align:right;font-family:monospace;">$7K</td><td style="text-align:right;font-family:monospace;">$3K</td><td style="text-align:right;font-family:monospace;background:#fef3c7;"><b>$3K</b></td><td style="text-align:right;font-family:monospace;">$0</td><td style="text-align:right;font-family:monospace;font-weight:700;">$18K</td></tr>
+            <tr><td><b>@gadgetqueen</b></td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;">$3K</td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;">$2K</td><td style="text-align:right;font-family:monospace;background:#fef3c7;"><b>$5K</b></td><td style="text-align:right;font-family:monospace;font-weight:700;">$14K</td></tr>
+            <tr style="background:#f9fafb;font-weight:700;"><td>SKU 합계</td><td style="text-align:right;font-family:monospace;">$420K</td><td style="text-align:right;font-family:monospace;">$310K</td><td style="text-align:right;font-family:monospace;">$185K</td><td style="text-align:right;font-family:monospace;">$148K</td><td style="text-align:right;font-family:monospace;">$137K</td><td style="text-align:right;font-family:monospace;">$1.2M</td></tr>
+            <tr style="color:#9ca3af;"><td colspan="7" style="text-align:center;padding:8px;">+ 119명 더보기</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px;color:#6b7280;margin-top:8px;">💡 ★ <b>Creator 전문화 패턴</b> — @cookinghacks가 Slushi 58% 점유 · @kitchen.luv는 FlexFlame 58% · 각자 한 SKU 위주로 시딩 (cross-sell 적음)</div>
+      </div>
+
+      <!-- ★ Affiliate code conversion -->
+      <div class="panel" id="sec-d-affiliate">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">광고/콘텐츠에 사용된 Affiliate code별 conversion · GMV 기여</div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+          <div class="kpi"><div class="kpi-label">사용된 code</div><div class="kpi-val">8개</div></div>
+          <div class="kpi"><div class="kpi-label">code 발생 GMV</div><div class="kpi-val">$364K</div><div class="kpi-sub">전체 30% (long-tail)</div></div>
+          <div class="kpi"><div class="kpi-label">Top code GMV</div><div class="kpi-val">$148K</div><div class="kpi-sub">NINJA20</div></div>
+          <div class="kpi"><div class="kpi-label">평균 CVR</div><div class="kpi-val">1.4%</div></div>
+        </div>
+        <table style="font-size:11px;">
+          <thead><tr><th>Code</th><th>사용 영상</th><th>주력 SKU</th><th style="text-align:right;">click</th><th style="text-align:right;">conversion</th><th style="text-align:right;">CVR</th><th style="text-align:right;">GMV</th></tr></thead>
+          <tbody>
+            <tr><td><b>NINJA20</b> <span class="tag tag-pos">메인</span></td><td>34</td><td>Slushi Max</td><td style="text-align:right;font-family:monospace;">12.4K</td><td style="text-align:right;font-family:monospace;">186</td><td style="text-align:right;font-family:monospace;">1.5%</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$148K</b></td></tr>
+            <tr><td><b>BBQDEAL</b></td><td>18</td><td>FlexFlame</td><td style="text-align:right;font-family:monospace;">5.2K</td><td style="text-align:right;font-family:monospace;">94</td><td style="text-align:right;font-family:monospace;">1.8%</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$82K</b></td></tr>
+            <tr><td><b>SUMMER25</b></td><td>12</td><td>여러 SKU</td><td style="text-align:right;font-family:monospace;">3.8K</td><td style="text-align:right;font-family:monospace;">42</td><td style="text-align:right;font-family:monospace;">1.1%</td><td style="text-align:right;font-family:monospace;">$58K</td></tr>
+            <tr><td><b>CREAMI15</b></td><td>9</td><td>CREAMi</td><td style="text-align:right;font-family:monospace;">2.1K</td><td style="text-align:right;font-family:monospace;">35</td><td style="text-align:right;font-family:monospace;">1.7%</td><td style="text-align:right;font-family:monospace;">$42K</td></tr>
+            <tr><td>COSTCO10 <span class="tag tag-info">파트너</span></td><td>4</td><td>FlexFlame</td><td style="text-align:right;font-family:monospace;">1.4K</td><td style="text-align:right;font-family:monospace;">22</td><td style="text-align:right;font-family:monospace;">1.6%</td><td style="text-align:right;font-family:monospace;">$22K</td></tr>
+            <tr style="color:#9ca3af;"><td colspan="7" style="text-align:center;padding:8px;">+ 3개 code 더보기</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px;color:#6b7280;margin-top:8px;">💡 <b>NINJA20 메인 code</b>가 GMV 41% 차지. BBQDEAL은 CVR 1.8%로 효율 가장 높음 (시즈널 타겟팅).</div>
+      </div>
+
+      <!-- Kalodata 영상매출 풍부판 -->
+      <div class="panel" id="sec-d-vid">
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;">
+          <div class="kpi"><div class="kpi-label">매출 발생 영상</div><div class="kpi-val">237</div><div class="kpi-sub">총 1,234 영상 중 19%</div></div>
+          <div class="kpi"><div class="kpi-label">영상당 평균 GMV</div><div class="kpi-val">$5.1K</div><div class="kpi-sub">paid 영상 $12K</div></div>
+          <div class="kpi"><div class="kpi-label">Top 영상 1건 GMV</div><div class="kpi-val">$28K</div><div class="kpi-sub">@cookinghacks_us Slushi</div></div>
+          <div class="kpi"><div class="kpi-label">Top 10 영상 GMV 비중</div><div class="kpi-val">42%</div><div class="kpi-sub">long-tail</div></div>
+        </div>
+        <table>
+          <thead><tr><th>영상</th><th>작성자</th><th>제품</th><th style="text-align:right;">조회</th><th style="text-align:right;">GMV 기여</th><th style="text-align:right;">CVR</th></tr></thead>
+          <tbody>
+            <tr><td><span class="thumb"></span> "Slushi on Tap 🍹"</td><td>@cookinghacks_us</td><td>Slushi Max</td><td style="text-align:right;font-family:monospace;">2.4M</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$28K</b></td><td style="text-align:right;font-family:monospace;">1.2%</td></tr>
+            <tr><td><span class="thumb"></span> "FlexFlame BBQ test"</td><td>@kitchen.luv</td><td>FlexFlame</td><td style="text-align:right;font-family:monospace;">1.8M</td><td style="text-align:right;font-family:monospace;color:#10b981;"><b>$22K</b></td><td style="text-align:right;font-family:monospace;">1.0%</td></tr>
+            <tr><td><span class="thumb"></span> "CREAMi 사용기 30일"</td><td>@momdailylife</td><td>CREAMi</td><td style="text-align:right;font-family:monospace;">980K</td><td style="text-align:right;font-family:monospace;">$14K</td><td style="text-align:right;font-family:monospace;">1.4%</td></tr>
+            <tr><td><span class="thumb"></span> "Top 5 Ninja 가전"</td><td>@gadgetqueen</td><td>여러 SKU</td><td style="text-align:right;font-family:monospace;">1.2M</td><td style="text-align:right;font-family:monospace;">$11K</td><td style="text-align:right;font-family:monospace;">0.9%</td></tr>
+            <tr style="color:#9ca3af;"><td colspan="6" style="text-align:center;padding:8px;">+ 233 영상 더보기</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel" id="sec-d-live">
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;">
+          <div class="kpi"><div class="kpi-label">총 Live</div><div class="kpi-val">21</div><div class="kpi-sub">30일 누적</div></div>
+          <div class="kpi"><div class="kpi-label">Live GMV</div><div class="kpi-val">$184K</div><div class="kpi-sub">전체 매출 15%</div></div>
+          <div class="kpi"><div class="kpi-label">평균 viewer</div><div class="kpi-val">38K</div></div>
+          <div class="kpi"><div class="kpi-label">Live당 GMV</div><div class="kpi-val">$8.8K</div></div>
+        </div>
+        <table>
+          <thead><tr><th>날짜</th><th>호스트</th><th style="text-align:right;">duration</th><th style="text-align:right;">viewer</th><th style="text-align:right;">GMV</th></tr></thead>
+          <tbody>
+            <tr><td>2026-05-26</td><td>SharkNinja Official</td><td style="text-align:right;font-family:monospace;">2h 14m</td><td style="text-align:right;font-family:monospace;">42K</td><td style="text-align:right;font-family:monospace;color:#10b981;">$18K</td></tr>
+            <tr><td>2026-05-24</td><td>@cookinghacks_us</td><td style="text-align:right;font-family:monospace;">1h 45m</td><td style="text-align:right;font-family:monospace;">28K</td><td style="text-align:right;font-family:monospace;color:#10b981;">$12K</td></tr>
+            <tr><td>2026-05-21</td><td>SharkNinja Official</td><td style="text-align:right;font-family:monospace;">3h 02m</td><td style="text-align:right;font-family:monospace;">61K</td><td style="text-align:right;font-family:monospace;color:#10b981;">$24K</td></tr>
+            <tr style="color:#9ca3af;"><td colspan="5" style="text-align:center;padding:8px;">+ 18 라이브 더보기</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- E Meta 광고 + 필터 + 더보기 -->
+    <div class="section" id="sec-e">
+      <div class="section-h">
+        <span class="letter">E</span>
+        <span class="title">Meta 광고 + Partnership</span>
+        <span class="sub">★ 필터 + 더보기 + partnership cross-channel</span>
+      </div>
+
+      <div class="kpi-grid" style="margin-bottom: 16px; grid-template-columns:repeat(5,1fr);">
+        <div class="kpi"><div class="kpi-label">총 광고</div><div class="kpi-val">179</div><div class="kpi-sub">active 154</div></div>
+        <div class="kpi"><div class="kpi-label">brand 직접</div><div class="kpi-val">156</div><div class="kpi-sub">87%</div></div>
+        <div class="kpi"><div class="kpi-label">partnership ★</div><div class="kpi-val">23</div><div class="kpi-sub">16명 인플</div></div>
+        <div class="kpi"><div class="kpi-label">landing → Amazon</div><div class="kpi-val">68%</div><div class="kpi-sub">DTC 25%</div></div>
+        <div class="kpi"><div class="kpi-label">분석 비용</div><div class="kpi-val">$1.43</div><div class="kpi-sub">하이브리드</div></div>
+      </div>
+
+      <!-- ★ 광고 필터 toolbar -->
+      <div class="ad-toolbar">
+        <input class="ad-search" placeholder="🔍 광고 body / page name 검색…"/>
+        <select><option>전체 기간</option><option>2026-05 (124건)</option><option>2026-04</option></select>
+        <select><option>전체 landing</option><option>Amazon (122)</option><option>DTC (45)</option><option>IG (9)</option></select>
+        <select><option>전체 format</option><option>VIDEO (140)</option><option>IMAGE (32)</option></select>
+        <label class="ad-check"><input type="checkbox" checked> 본사만</label>
+        <label class="ad-check"><input type="checkbox"> active만</label>
+        <label class="ad-check"><input type="checkbox"> partnership만</label>
+        <span style="margin-left:auto;font-size:10px;color:#6b7280;">156 / 179 표시</span>
+      </div>
+
+      <div class="ad-grid">
+        <div class="ad-card"><div class="ad-thumb"><div class="ad-badges"><span class="ad-badge active">active</span><span class="ad-badge brand">본사</span></div></div><div class="ad-info"><div class="ad-page">Ninja Kitchen</div><div class="ad-date">2026-04-27 ~</div><div class="ad-body">Meet your new favorite appliance with 2x the speed...</div></div></div>
+        <div class="ad-card"><div class="ad-thumb"><div class="ad-badges"><span class="ad-badge active">active</span><span class="ad-badge partner">partnership</span></div></div><div class="ad-info"><div class="ad-page">Justin Flom</div><div class="ad-partner">× Ninja Kitchen</div><div class="ad-date">2026-05-21 ~</div><div class="ad-body">Slushi on Tap. Every kitchen needs this! @ninjakitchen #ninjapartner...</div></div></div>
+        <div class="ad-card"><div class="ad-thumb"><div class="ad-badges"><span class="ad-badge active">active</span><span class="ad-badge partner">partnership</span></div></div><div class="ad-info"><div class="ad-page">Amanda Stanton</div><div class="ad-partner">× Ninja Kitchen</div><div class="ad-date">2026-05-21 ~</div><div class="ad-body">Roasting with it tonight! @NinjaKitchen FlexFlame Costco bundle...</div></div></div>
+        <div class="ad-card"><div class="ad-thumb"><div class="ad-badges"><span class="ad-badge active">active</span><span class="ad-badge brand">본사</span></div></div><div class="ad-info"><div class="ad-page">Ninja Kitchen</div><div class="ad-date">2026-05-26 ~</div><div class="ad-body">Vegan Soft Serve Parfaits made with Ninja CREAMi...</div></div></div>
+      </div>
+      <button class="load-more">+ 152개 광고 더보기 (페이지네이션)</button>
+
+      <!-- landing + format 분포 -->
+      <div style="margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+        <div>
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">광고 landing 분포</div>
+          <div class="dist-row"><span>Amazon</span><div class="dist-bar"><div class="dist-fill amazon" style="width: 68%;"></div></div><span style="text-align:right;">122</span><span style="color:#9ca3af;text-align:right;">68%</span></div>
+          <div class="dist-row"><span>DTC</span><div class="dist-bar"><div class="dist-fill" style="width: 25%;"></div></div><span style="text-align:right;">45</span><span style="color:#9ca3af;text-align:right;">25%</span></div>
+          <div class="dist-row"><span>Instagram</span><div class="dist-bar"><div class="dist-fill ig" style="width: 5%;"></div></div><span style="text-align:right;">9</span><span style="color:#9ca3af;text-align:right;">5%</span></div>
+          <div class="dist-row"><span>기타 도메인 (Top 3)</span><div class="dist-bar"><div class="dist-fill" style="width: 2%;"></div></div><span style="text-align:right;">3</span><span style="color:#9ca3af;text-align:right;">costco · target · walmart</span></div>
+        </div>
+        <div>
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">광고 format</div>
+          <div class="dist-row"><span>VIDEO</span><div class="dist-bar"><div class="dist-fill" style="width: 78%;"></div></div><span style="text-align:right;">140</span><span style="color:#9ca3af;text-align:right;">78%</span></div>
+          <div class="dist-row"><span>IMAGE</span><div class="dist-bar"><div class="dist-fill" style="width: 18%;"></div></div><span style="text-align:right;">32</span><span style="color:#9ca3af;text-align:right;">18%</span></div>
+          <div class="dist-row"><span>CAROUSEL</span><div class="dist-bar"><div class="dist-fill" style="width: 4%;"></div></div><span style="text-align:right;">7</span><span style="color:#9ca3af;text-align:right;">4%</span></div>
+        </div>
+      </div>
+
+      <!-- partnership 인플 -->
+      <div style="font-size: 12px; font-weight: 700; margin-top: 18px; margin-bottom: 8px;">파트너 인플 16명 — cross-channel ★</div>
+      <table>
+        <thead><tr><th></th><th>인플</th><th>팔로워</th><th>광고</th><th>다른 채널 활동</th><th>활동 기간</th></tr></thead>
+        <tbody>
+          <tr><td><span class="thumb"></span></td><td><b>Justin Flom</b></td><td>42M</td><td>2</td><td><span class="ch-pill pill-tk">TK4</span><span class="ch-pill pill-ig">IG8</span><span class="ch-pill pill-yt">YT12</span></td><td>2025-04 ~ 05-21</td></tr>
+          <tr><td><span class="thumb"></span></td><td><b>Amanda Stanton</b></td><td>2.1M</td><td>2</td><td><span class="ch-pill pill-ig">IG4</span><span class="ch-pill pill-yt">YT2</span></td><td>05-21</td></tr>
+          <tr><td><span class="thumb"></span></td><td>Emily Welch Style</td><td>340K</td><td>2</td><td><span class="ch-pill pill-ig">IG3</span></td><td>05-21</td></tr>
+          <tr><td><span class="thumb"></span></td><td>Cooking with Darryl</td><td>3.8M</td><td>2</td><td><span class="ch-pill pill-tk">TK12</span><span class="ch-pill pill-yt">YT6</span></td><td>05-18 ~ 19</td></tr>
+          <tr><td><span class="thumb"></span></td><td><b>David Beckham</b> <span class="tag tag-warn">⭐셀럽</span></td><td>88M</td><td>1</td><td><span class="ch-pill pill-ig">IG1</span></td><td>2025-10-06</td></tr>
+          <tr style="color:#9ca3af;"><td colspan="6" style="text-align:center;padding:8px;">+ 11명 더보기</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- footer dev -->
+    <details class="footer-dev" id="sec-dev">
+      <summary>⚙️ DEV / QA 액션 (펼치기)</summary>
+      <div style="margin-top:10px;">
+        <button class="dev-btn">status: ready ↔ running 토글</button>
+        <button class="dev-btn">key_stats dump (JSON)</button>
+        <button class="dev-btn">last_error 강제 박기 (test alert)</button>
+        <button class="dev-btn">cost 추정 보기 ($5.04)</button>
+        <button class="dev-btn">phase raw 보기</button>
+      </div>
+      <div style="margin-top:8px;color:#9ca3af;font-size:10px;">평소엔 접힘 · 개발/QA 액션만</div>
+    </details>
+
+    </main>
+  </div>
+</div>
+
+<!-- 시나리오 2/3 — 간략 유지 -->
+<div class="scenario" id="scenario-igyt">
+  <div class="scenario-note">💡 Dyson — IG/YT 활성 · TikTok/Amazon/Meta 비활성. Section A 채널 toggle 2개 · D/E 자동 숨김 · C 통합 클러스터에 TK column 자동 hide</div>
+</div>
+<div class="scenario" id="scenario-tk">
+  <div class="scenario-note">💡 닥터리쥬올 — TK+Amazon+Meta 활성 · IG/YT 비활성. Section A 단일 막대 · C 통합 클러스터에 IG/YT column 자동 hide · D는 Amazon BSR + SKU</div>
+</div>
+
+<script>
+  function showScenario(e, name) {
+    document.querySelectorAll('.scenario').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.scenario-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('scenario-' + name).classList.add('active');
+    e.target.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  function switchTab(btn, panelId) {
+    const tabs = btn.parentElement;
+    tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const section = tabs.parentElement;
+    section.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    section.querySelector('#' + panelId).classList.add('active');
+  }
+  // USP keyword 클릭
+  document.querySelectorAll('.usp-keyword').forEach(el => {
+    el.addEventListener('click', function() {
+      document.querySelectorAll('.usp-keyword').forEach(e => e.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+  // TOC active 따라가기
+  document.querySelectorAll('.toc a').forEach(a => {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.getElementById(this.getAttribute('href').slice(1));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+      document.querySelectorAll('.toc a').forEach(x => x.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // ★ 트렌드 차트 mode toggle (절대 수 ↔ 비중 %)
+  function switchTrendMode(btn, mode) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const bars = document.querySelectorAll('#trend-bars .stack-bar');
+    if (mode === 'pct') {
+      // 비중 모드 — 모든 막대 동일 높이 100%
+      bars.forEach(b => b.style.height = '100%');
+    } else {
+      // 절대 수 모드 — 영상 수 기준 (5월 = 100%)
+      const heights = ['30%','38%','37%','33%','45%','49%','41%','44%','48%','53%','69%','100%'];
+      bars.forEach((b, i) => b.style.height = heights[i]);
+    }
+  }
+
+  // ★ SKU selector — 선택 SKU 정보 갱신
+  const SKU_INFO = {
+    all: { name: '전체 8 SKU', gmv: '$1.2M', units: '159,149' },
+    slushi: { name: 'Ninja Slushi Max', gmv: '$420K', units: '2,143' },
+    flexflame: { name: 'Ninja FlexFlame', gmv: '$310K', units: '1,053' },
+    creami: { name: 'Ninja CREAMi', gmv: '$185K', units: '923' },
+    crispi: { name: 'Ninja Crispi', gmv: '$148K', units: '1,232' },
+    fireside: { name: 'Ninja Fireside360', gmv: '$92K', units: '308' },
+    oven: { name: 'Ninja Double Oven Pro', gmv: '$68K', units: '114' },
+    grill: { name: 'Ninja Electric Grill', gmv: '$42K', units: '140' },
+    espresso: { name: 'Ninja Espresso', gmv: '$28K', units: '156' },
+  };
+  function selectSku(btn, sku) {
+    document.querySelectorAll('.sku-pick').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = 'white';
+      b.style.color = '#92400e';
+      b.style.fontWeight = 'normal';
+    });
+    btn.classList.add('active');
+    btn.style.background = '#1f2937';
+    btn.style.color = 'white';
+    btn.style.fontWeight = '700';
+    const info = SKU_INFO[sku];
+    document.getElementById('sku-selected-info').innerHTML =
+      `현재 선택: <b>${info.name}</b> · 30일 GMV ${info.gmv} · ${info.units} 단위 판매` +
+      (sku !== 'all' ? ' · <span style="color:#dc2626;">↓ 아래 모든 차트/표가 이 SKU 기준으로 갱신됨</span>' : '');
+  }
+</script>
+</body>
+</html>
