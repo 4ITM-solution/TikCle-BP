@@ -15,7 +15,6 @@
 | BE-10 | [CX1-F1] startAnalysis 이벤트 발행 실패 성공 위장 fix — inngest.send 실패 시 status 원복+ok:false+last_error='event_dispatch_failed' (upload-actions.ts:834-864) | ⬜ 🔴 | CX_파이프라인_재감사 F1 | tsc + 실패 시뮬 |
 | BE-11 | [CX1-F4·F5] fail-open 2건 정책 수정 — ①비용 가드: 조회 실패 시 emergency cap $5 적용(완전 통과 금지) ②vision dedup: reuse 조회 error 무시 금지 → 해당 배치 partial 처리 (shared.ts·phase4b-vision.ts) | ⬜ | CX 재감사 F4·F5 | tsc |
 | BE-12 | [CX1-F2] phase 의존 DAG 설계+구현 — 단독 재실행 시 downstream stale 방지. 설계 1문단(어디까지 자동 동반?) ORCH 승인 후 구현 | ⬜ | CX 재감사 F2, spec/02 §2 | 설계 승인+tsc |
-| BE-4 | Keepa API 인입 phase 설계·구현 (`collect-bsr`) — uploadBsr 대체, sales_snapshot upsert 재사용, spec/02 §7 체크리스트 준수. env `KEEPA_API_KEY` | ⬜ (D4 결정 후 착수 가능) | D4 리서치 결과(TODO 하단), spec/02 §7 | tsc + 명세 행 추가 |
 
 ## QA 레인
 
@@ -51,13 +50,14 @@
 
 | # | 결정 | 근거 |
 |---|---|---|
-| U-1 | D4 자동 인입 구독: **Keepa €49/월 + Jungle Scout API $29~49/월 ≈ 월 $85~110으로 수동 4종 중 2종(Keepa·Helium10) 자동화.** Exolyt·Kalodata는 엔터프라이즈 문의 필요 (영업 컨택은 사용자 몫) | 리서치 2026-07-07 (아래 요약) |
 | U-2 | 화면 기획 확정본 → FE 레인 가동 | — |
 | U-3 | 슬랙 웹훅 URL → 파이프라인 실패 알림 실전화 | 가드 배포됨 |
 
 ---
 
 ### 백로그 (당장 배차 안 함)
+- [BE-4] Keepa API 인입 phase — **D4 확정: 수동 유지**(사용자, 비용). 수동이 병목 되면 재상신 — 설계 근거는 D4 리서치 요약 그대로 보존
+- [계약 v2] Q0·Q6~Q8 구현은 WS6~8 착수 시 (지금은 계약 문서만 개정됨)
 - [CX1-F6] syncCaseBpBrands 실패 관측성 — WS8(진단-매칭) 연결 시점에 승격
 - [QA-2 F8] 미실행 collect 백필 — 케이스 사용 시점 + 트리거 원인 규명 후 케이스 단위
 
