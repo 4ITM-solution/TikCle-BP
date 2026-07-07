@@ -7,7 +7,7 @@
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
 | BE-1 | ~~게이트 스크립트 수정 (커버 재호스트 이미지 사용 + 유효 표본 30+·실패율 경고·캡 $1)~~ | ✅ a3c1a41 (검증 대기 — ORCH) | spec/06 R9, WS3_REPORT §3 | tsc + ORCH 재게이트 실행 |
-| BE-2 | interpret-cluster "validated 0" fix | ✅ f549e1b — ORCH 검증·머지·배포(8ea3530). 검증 실행(4케이스 force)은 F1 종료 후 ORCH | WS5_지시서 §2 | 완료 |
+| BE-2 | 🔴 **반려 — 재작업** interpret-cluster validated-0 fix: 실검증에서 FK 위반 — `clearCaseClusters`가 클러스터 삭제 전에 `case_video_analyses`의 pass1_label/pass2_label/pass3_meta_id를 null 리셋해야 함 (기존 swap의 resetPassLabels 순서 참고, phase4b-clusters.ts:497). 케이스 542e7625 실측 에러: case_video_analyses_pass3_meta_id_fkey 위반 | WS5_지시서 §2 | 수정 후 tsc, 재검증은 ORCH(4케이스 force) |
 | BE-3 | migration 020 작성(적용 금지) — 죽은 테이블 drop(promotion_events 제외)·RLS 통일·status 통일·R12 체크리스트 주석. pipeline_runs 참조 코드 grep 선행 | ⬜ | WS5_지시서 §4, spec/01 §3 | 파일 + dry-run 쿼리 블록 |
 | BE-5 | interpret-cluster step 출력 상한 초과 fix — 케이스 3be66bbd "step output size is greater than the limit" (Inngest 스텝 출력 캡). pass1 스텝 반환을 슬림화(필요 필드만)하거나 step당 영상 수 축소. 수정 후 3be66bbd로 검증은 ORCH | ⬜ 🔴 | phase_runs error 실측 2026-07-07 | tsc + 반환 페이로드 크기 로그 |
 | BE-6 | 🔴(우선순위 상향 — Haiku 재도전의 선결) 영상 태깅 재현성 fix — Sonnet 자기일치 56%(cta_type 27%) 실측. vision-tagger 프롬프트의 닫힌 라벨 정의를 상호배타적으로 조이고(특히 cta_type·purchase_intent·products_visible), 재게이트로 자기일치 ≥85% 달성 | ⬜ | 게이트 실측 2026-07-07, WS9 §3.6 연계 | 재게이트 자기일치 표 |
