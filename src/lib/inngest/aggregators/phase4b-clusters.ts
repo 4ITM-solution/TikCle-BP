@@ -553,6 +553,12 @@ export async function clearCaseClusters(
   const ids = (clusters ?? []).map((c) => c.id);
   if (ids.length === 0) return { cleared_cluster_ids: [], cleared_members: 0 };
 
+  // ★ FK 순서(실측 542e7625 case_video_analyses_pass3_meta_id_fkey 위반): content_clusters를
+  //   지우기 전에 case_video_analyses.pass3_meta_id(FK 참조)를 먼저 null로 끊어야 한다.
+  //   pass1_label/pass2_label도 함께 리셋(정직하게 "없음"). members FK는 cluster_id라
+  //   members를 clusters보다 먼저 지우면 되므로 순서 무관.
+  await resetPassLabels(supabase, case_id);
+
   let cleared_members = 0;
   for (let i = 0; i < ids.length; i += FETCH_CHUNK) {
     const slice = ids.slice(i, i + FETCH_CHUNK);
@@ -572,7 +578,6 @@ export async function clearCaseClusters(
     .delete()
     .eq("case_id", case_id);
   if (cErr) throw new Error(`clearCaseClusters clusters: ${cErr.message}`);
-  await resetPassLabels(supabase, case_id);
   return { cleared_cluster_ids: ids, cleared_members };
 }
 
