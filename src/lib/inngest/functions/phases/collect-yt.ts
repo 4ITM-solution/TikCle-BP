@@ -9,6 +9,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 /** S1 collect-yt — 구 Phase 4d (YouTube Brand Monitoring). */
@@ -84,6 +85,9 @@ export const collectYt = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("collect-yt", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "collect-yt",

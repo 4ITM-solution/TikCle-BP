@@ -23,6 +23,7 @@ import {
   readKeyStats,
   type PhaseEventData,
   type SupaClient,
+  enqueueDownstream,
 } from "./shared";
 
 const AD_VISION_BATCH_SIZE = 100;
@@ -200,6 +201,13 @@ export const interpretTag = inngest.createFunction(
       }),
     );
 
+    // BE-12: partial(비전 배치 미완)이면 downstream 동반 보류 — 태그 미완성 상태로
+    //   cluster/sku를 돌리면 안 됨. 완주(!isPartial) 시에만 cascade.
+    if (!isPartial) {
+      await step.run("enqueue-downstream", () =>
+        enqueueDownstream("interpret-tag", case_id, event.data as PhaseEventData),
+      );
+    }
     return {
       ok: true,
       phase: "interpret-tag",

@@ -335,6 +335,7 @@ async function fetchReusableVisionTags(
             data:
               | Array<{ tag_input_hash: string | null; vision_tags: VisionTags | null }>
               | null;
+            error: unknown;
           }>;
         };
       };
@@ -343,11 +344,21 @@ async function fetchReusableVisionTags(
   const CHUNK = 300;
   for (let i = 0; i < hashes.length; i += CHUNK) {
     const chunk = hashes.slice(i, i + CHUNK);
-    const { data } = await sb
+    const { data, error } = await sb
       .from("case_video_analyses")
       .select("tag_input_hash, vision_tags")
       .in("tag_input_hash", chunk)
       .not("vision_tags", "is", null);
+    // BE-11 (CX1-F5): dedup 조회 실패를 무시(빈 맵→전량 재태깅=조용한 과금)하지 않는다.
+    //   error면 throw → 배치가 실패로 종료되어 Inngest 재시도(partial). 비용 절감 캐시가
+    //   실패했을 때 곧바로 새 LLM 호출로 넘어가지 않는 게 안전(CX F5 정책).
+    if (error) {
+      const m =
+        typeof error === "object" && error && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      throw new Error(`vision dedup 재사용 조회 실패(재시도): ${m}`);
+    }
     for (const r of data ?? []) {
       if (r.tag_input_hash && r.vision_tags && !out.has(r.tag_input_hash)) {
         out.set(r.tag_input_hash, r.vision_tags);

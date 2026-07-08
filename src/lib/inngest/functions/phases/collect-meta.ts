@@ -10,6 +10,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 /**
@@ -135,6 +136,9 @@ export const collectMeta = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("collect-meta", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "collect-meta",

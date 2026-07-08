@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { inngestSupabase } from "@/lib/inngest/supabase";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
-import type { StagePhase } from "@/lib/inngest/client";
+import { inngest, type StagePhase } from "@/lib/inngest/client";
 import type { KeyStats, Phase4bSampleStats } from "@/lib/inngest/types";
 
 /**
@@ -27,11 +27,91 @@ export type PhaseRunStatus =
   | "failed"
   | "skipped";
 
+export type CascadeStep = { phase: StagePhase; force: boolean };
+
 export type PhaseEventData = {
   case_id: string;
   phase?: string;
   force?: boolean;
+  // BE-12(CX1-F2): 자동 동반 실행. cascade 기본 true(미설정=true). 오케스트레이터만 false.
+  cascade?: boolean;
+  cascade_chain?: CascadeStep[];
 };
+
+/**
+ * BE-12 (CX1-F2, 설계 확정본 docs/ws/BE12_DAG_설계.md) — phase 재실행 시 자동 동반할
+ * downstream 체인(순차). 표 그대로. force 규칙: tag=no-force(멱등, null만 — R3/R4 재과금 방지),
+ * cluster·sku=force(입력이 바뀌었으니 재계산), serve-stats=항상 fresh라 무관(false).
+ */
+export const PHASE_DOWNSTREAM: Record<StagePhase, CascadeStep[]> = {
+  "collect-ttshop": [
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-meta": [
+    { phase: "interpret-tag", force: false },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-ig": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-yt": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "enrich-creators": [{ phase: "serve-stats", force: false }],
+  "enrich-ig-profiles": [{ phase: "serve-stats", force: false }],
+  "interpret-asr": [
+    { phase: "interpret-tag", force: false },
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-tag": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-cluster": [
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-sku": [{ phase: "serve-stats", force: false }],
+  "serve-stats": [],
+};
+
+/**
+ * phase 완료 후 downstream 자동 동반 발행. cascade=false(오케스트레이터)면 no-op.
+ * 체인 threading: 원본 phase는 PHASE_DOWNSTREAM[자기]를 따르고, 체인 중간 phase는
+ * event.data.cascade_chain(원본 체인의 남은 단계)을 이어받는다 → collect-meta처럼 tag 뒤에
+ * cluster/sku를 건너뛰고 serve-stats로 가는 표의 뉘앙스를 정확히 재현. "다음 이벤트" 하나만 발행.
+ * ⚠️ 각 phase 함수는 실작업 성공 return 직전에만 호출(캐시/빈 결과 조기종료는 downstream 무효화
+ *    필요 없음 — stale 아님). Inngest 멱등 위해 step.run 안에서 호출할 것.
+ */
+export async function enqueueDownstream(
+  currentPhase: StagePhase,
+  case_id: string,
+  eventData: PhaseEventData,
+): Promise<{ enqueued: StagePhase | null }> {
+  if (eventData.cascade === false) return { enqueued: null };
+  const chain = eventData.cascade_chain ?? PHASE_DOWNSTREAM[currentPhase] ?? [];
+  if (chain.length === 0) return { enqueued: null };
+  const [next, ...rest] = chain;
+  await inngest.send({
+    name: "case/phase.requested",
+    data: {
+      case_id,
+      phase: next!.phase,
+      force: next!.force,
+      cascade: true,
+      cascade_chain: rest,
+    },
+  });
+  return { enqueued: next!.phase };
+}
 
 type PhaseRunsTable = {
   from: (table: string) => {
@@ -51,6 +131,9 @@ const FREE_PHASES: ReadonlySet<string> = new Set(["serve-stats"]);
 
 const CASE_COST_CAP_USD = Number(process.env.BP_CASE_COST_CAP_USD || 25);
 const MONTHLY_COST_CAP_USD = Number(process.env.BP_MONTHLY_COST_CAP_USD || 300);
+// BE-11 (CX1-F4): 비용 조회 실패 시 무제한 통과 대신 적용할 emergency cap(기본 $5).
+//   조회 실패=상한 확인 불가 → fail-closed(유료 phase 중단). dev는 BP_BUDGET_FAILOPEN=1로 통과.
+const EMERGENCY_COST_CAP_USD = Number(process.env.BP_EMERGENCY_COST_CAP_USD || 5);
 
 /**
  * 파이프라인 슬랙 알림 — SLACK_PIPELINE_WEBHOOK 미설정이면 조용히 skip (로컬 개발).
@@ -124,7 +207,15 @@ async function assertBudget(
       let total = 0;
       for (let off = 0; off < 10_000; off += 1000) {
         const { data, error } = await q(off, off + 999);
-        if (error || !data) break;
+        // BE-11: 쿼리 에러를 조용히 break(부분합 0 → fail-open)하지 않고 throw로 표면화.
+        if (error) {
+          const m =
+            typeof error === "object" && error && "message" in error
+              ? (error as { message: string }).message
+              : String(error);
+          throw new Error(`phase_runs 조회 실패: ${m}`);
+        }
+        if (!data) break;
         total += data.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
         if (data.length < 1000) break;
       }
@@ -137,8 +228,18 @@ async function assertBudget(
       sb.from("phase_runs").select("cost_usd").gte("started_at", monthStart.toISOString()).range(a, b),
     );
   } catch (e) {
-    console.warn("[budget] 조회 실패 — 가드 통과:", e instanceof Error ? e.message : e);
-    return;
+    // BE-11 (CX1-F4): 비용 조회 실패를 무제한 통과로 처리하지 않는다(완전 통과 금지).
+    //   phase_runs 장애·권한·마이그레이션 미적용이 곧 상한 무력화가 되면 "가드가 있다"는
+    //   착시로 폭주 과금. 프로덕션은 fail-closed(emergency cap 정책상 유료 phase 중단).
+    //   로컬/dev는 BP_BUDGET_FAILOPEN=1로 종전처럼 통과(파이프라인 개발 배려, CX F4 대안).
+    const msg = e instanceof Error ? e.message : String(e);
+    if (process.env.BP_BUDGET_FAILOPEN === "1") {
+      console.warn("[budget] 조회 실패 — FAILOPEN(dev)로 통과:", msg);
+      return;
+    }
+    throw new BudgetExceededError(
+      `budget_guard_unavailable: 비용 조회 실패로 상한 확인 불가 — emergency cap $${EMERGENCY_COST_CAP_USD} 정책상 ${phase} 중단 (조회오류: ${msg}). dev는 BP_BUDGET_FAILOPEN=1`,
+    );
   }
   if (caseSum >= CASE_COST_CAP_USD || monthSum >= MONTHLY_COST_CAP_USD) {
     const which =

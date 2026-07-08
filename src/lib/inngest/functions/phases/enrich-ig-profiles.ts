@@ -6,6 +6,7 @@ import {
   markPhaseFailedFromEvent,
   markPhaseRun,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 /**
@@ -70,6 +71,9 @@ export const enrichIgProfiles = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("enrich-ig-profiles", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "enrich-ig-profiles",

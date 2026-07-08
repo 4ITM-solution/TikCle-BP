@@ -833,9 +833,10 @@ export async function startAnalysis(
   // status=running + 동시에 옛 last_error clear (직전 실패 흔적이 ready 시점까지 남아있던 버그 fix)
   const { data: caseRowForClear } = await supabase
     .from("cases")
-    .select("key_stats")
+    .select("status, key_stats")
     .eq("id", case_id)
     .single();
+  const priorStatus = caseRowForClear?.status ?? "draft";
   const ksClear = (caseRowForClear?.key_stats ?? {}) as Record<string, unknown>;
   if ("last_error" in ksClear) delete ksClear.last_error;
   const { error } = await supabase
@@ -854,10 +855,28 @@ export async function startAnalysis(
       },
     });
   } catch (e) {
-    console.warn(
-      "[startAnalysis] Inngest send 실패:",
-      e instanceof Error ? e.message : e,
-    );
+    // BE-10 (CX1-F1): 이벤트 발행 실패를 성공으로 위장하지 않는다. 발행이 실패하면
+    //   오케스트레이터가 영원히 안 도는데 status만 running으로 박제되므로 →
+    //   직전 status로 원복 + last_error 기록 + ok:false 반환(호출부/화면이 실패를 인지).
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[startAnalysis] Inngest send 실패:", msg);
+    await supabase
+      .from("cases")
+      .update({
+        status: priorStatus,
+        key_stats: {
+          ...ksClear,
+          last_error: {
+            message: `event_dispatch_failed: ${msg}`.slice(0, 500),
+            at: new Date().toISOString(),
+          },
+        } as never,
+      })
+      .eq("id", case_id);
+    return {
+      ok: false,
+      error: `분석 시작 이벤트 발행 실패(재시도 필요): ${msg}`,
+    };
   }
 
   revalidatePath(`/cases/${case_id}`);

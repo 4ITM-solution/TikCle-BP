@@ -23,6 +23,7 @@ import type {
   Phase4bSampleStats,
 } from "@/lib/inngest/types";
 import {
+  enqueueDownstream,
   ensurePhase4bSample,
   markPhaseFailedFromEvent,
   markPhaseRun,
@@ -303,6 +304,10 @@ export const interpretCluster = inngest.createFunction(
       cost: stats.cost_actual_usd,
     });
 
+    // BE-12: 실작업 성공 → downstream 자동 동반(cascade). 캐시/빈결과 조기종료는 무효화 불필요.
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("interpret-cluster", case_id, event.data as PhaseEventData),
+    );
     return finish(stats);
   },
 );
