@@ -38,7 +38,7 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
-| FE-1 | **현행 화면 유지 + 갭 17항목 결선** — 우선순위 A(기능7)→C(UX6)→B(신뢰7), 리디자인 금지. migration 019 작성 포함 | ⬜ | docs/ws/WS4_지시서.md 확정판 | 항목별 커밋 + 실화면 QA 3케이스 |
+| FE-1 | **현행 화면 유지 + 갭 17항목 결선** — 우선순위 A(기능7)→C(UX6)→B(신뢰7), 리디자인 금지. migration 019 작성 포함 | ✅ 브랜치 `ws-4b-screens` — 17항목 전부 항목별 커밋(A1~A7·C1~C6·B1~B7) + REPORT(6e2ebc9). tsc 전부 통과. 실화면 QA 3케이스(medicube·Foodology·Nature Republic) 스크린샷 확인 — 크래시·콘솔에러 없음, 019 미적용 그레이스풀 폴백 확인. **검증·머지는 ORCH.** ⚠️ ORCH 조치: ①migration 019 apply+A1백필+재QA ②로컬 main 쓰레기 커밋 48faa29 정리(git reset --hard 70cffac) | docs/ws/WS4_지시서.md 확정판 | 항목별 커밋 + 실화면 QA 3케이스 |
 
 ## ORCH 직영 (운영 배치·게이트)
 

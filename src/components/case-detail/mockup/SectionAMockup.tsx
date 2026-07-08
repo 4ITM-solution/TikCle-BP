@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { TikTokEmbed } from "@/components/case-detail/TikTokEmbed";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -33,7 +34,7 @@ const TIERS: { key: TierBucket; label: string; color: string }[] = [
   { key: "unknown", label: "미상", color: "#d1d5db" },
 ];
 
-type ChannelMode = "all" | "tk" | "ig" | "yt";
+type ChannelMode = "all" | "tk" | "ig" | "yt" | "shop";
 type BarMode = "abs" | "pct";
 
 export function SectionAMockup({
@@ -42,6 +43,7 @@ export function SectionAMockup({
   phase5,
   monthlyTierByChannel,
   hasAmazon,
+  promotionEvents,
 }: {
   phase2: Phase2Stats;
   phase3?: {
@@ -49,10 +51,13 @@ export function SectionAMockup({
     tier_distribution?: TierDistribution; // 전체 (월별 없을 때 fallback)
   };
   phase5?: Phase5Stats;
-  /** 채널별 월별 티어 분포 — Section A 티어 stack 이 채널 토글에 반응하게 (page.tsx server) */
-  monthlyTierByChannel?: Record<ChannelMode, Record<string, TierDistribution>>;
+  /** 채널별 월별 티어 분포 — Section A 티어 stack 이 채널 토글에 반응하게 (page.tsx server).
+   *  Partial — shop 등 일부 채널은 티어 분포가 없어 fallback(TK phase3)으로 렌더. */
+  monthlyTierByChannel?: Partial<Record<ChannelMode, Record<string, TierDistribution>>>;
   /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
   hasAmazon?: boolean;
+  /** ★ A6(WS4b): 프로모션 이벤트(월별) — 차트 상단 마커. 추정 금지, 사실 확인된 날짜만(019 시드). */
+  promotionEvents?: Array<{ name: string; month: string; start_date: string; importance?: number | null }>;
 }) {
   // Hydration 안전 — SSR HTML 박힌 placeholder, mount 후 chart 렌더.
   // SVG chart 박힌 SSR/CSR 다른 결과 가능성 (어떤 컴포넌트가 #418 일으키는지 진단 어려움).
@@ -75,12 +80,18 @@ export function SectionAMockup({
   const igVids = phase2.ig_total_videos ?? 0;
   const ytVids = phase2.yt_total_videos ?? 0;
   const allVids = tkVids + igVids + ytVids;
+  // ★ A1(WS4b): TT샵 콘텐츠 수 — tk 안의 샵분(is_shop_content). 오버레이 채널.
+  const tkShopVids = (phase2.monthly_by_channel?.tk_shop ?? []).reduce(
+    (s, r) => s + r.total,
+    0,
+  );
 
   // 채널 mode에 맞는 monthly (paid/organic) 추출.
   // "all" = TK + IG + YT 합산 (각 월별 paid/organic/total).
   const monthlyForMode = useMemo<MonthlyVideoCount[]>(() => {
     const ch = phase2.monthly_by_channel;
     if (channelMode === "tk") return ch?.tk ?? phase2.monthly_video_counts;
+    if (channelMode === "shop") return ch?.tk_shop ?? [];
     if (channelMode === "ig") return ch?.ig ?? [];
     if (channelMode === "yt") return ch?.yt ?? [];
     // all = 합산
@@ -100,6 +111,17 @@ export function SectionAMockup({
     return [...merged.values()].sort((a, b) => (a.month < b.month ? -1 : 1));
   }, [channelMode, phase2]);
 
+  // ★ A6(WS4b): 프로모션 이벤트 월별 버킷 (마커용)
+  const promoByMonth = useMemo(() => {
+    const m = new Map<string, Array<{ name: string; start_date: string }>>();
+    for (const e of promotionEvents ?? []) {
+      const arr = m.get(e.month) ?? [];
+      arr.push({ name: e.name, start_date: e.start_date });
+      m.set(e.month, arr);
+    }
+    return m;
+  }, [promotionEvents]);
+
   const totalPaid = monthlyForMode.reduce((s, m) => s + m.paid, 0);
   const totalOrganic = monthlyForMode.reduce((s, m) => s + m.organic, 0);
   const totalView = (phase2.top_creators ?? []).reduce((s, c) => s + (c.max_views ?? 0), 0);
@@ -107,6 +129,7 @@ export function SectionAMockup({
   const totalForMode =
     channelMode === "all" ? allVids :
     channelMode === "tk" ? tkVids :
+    channelMode === "shop" ? tkShopVids :
     channelMode === "ig" ? igVids :
     ytVids;
 
@@ -280,6 +303,10 @@ export function SectionAMockup({
           {([
             { k: "all", label: `전체 합산 (${allVids.toLocaleString()})`, n: allVids },
             { k: "tk", label: `TikTok (${tkVids.toLocaleString()})`, n: tkVids },
+            // ★ A1(WS4b): 샵 콘텐츠 있을 때만 노출 — 없으면 토글 자체 숨김(add-only).
+            ...(tkShopVids > 0
+              ? [{ k: "shop", label: `틱톡샵 (${tkShopVids.toLocaleString()})`, n: tkShopVids }]
+              : []),
             { k: "ig", label: `Instagram (${igVids.toLocaleString()})`, n: igVids },
             { k: "yt", label: `YouTube (${ytVids.toLocaleString()})`, n: ytVids },
           ] as const).map((b) => (
@@ -306,7 +333,7 @@ export function SectionAMockup({
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">paid 비중</div>
+          <div className="kpi-label" title="스파크애즈 등 유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style={{ color: "#9ca3af", fontWeight: 400 }}>(스파크애즈)</span></div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalPaid / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalPaid.toLocaleString()}건</div>
         </div>
@@ -395,7 +422,11 @@ export function SectionAMockup({
                 }}
                 onMouseEnter={() => setHoverIdx(i)}
                 onMouseLeave={() => setHoverIdx(null)}
-                title={`${mo} · ${total} 영상`}
+                title={
+                  promoByMonth.has(mo)
+                    ? `${mo} · ${total} 영상 · 📅 ${promoByMonth.get(mo)!.map((e) => e.name).join(", ")}`
+                    : `${mo} · ${total} 영상`
+                }
               >
                 {/* 티어 데이터 있을 때 stack. 월별 없으면 전체 phase3.tier_distribution 비율로 fallback. */}
                 {show.tier && hasTierData && TIERS.map((t) => {
@@ -420,6 +451,9 @@ export function SectionAMockup({
                   />
                 )}
                 <div className="sb-label" style={isPeak ? { color: "#ec4899", fontWeight: 700 } : {}}>
+                  {promoByMonth.has(mo) && (
+                    <span title={promoByMonth.get(mo)!.map((e) => `${e.name} (${e.start_date})`).join(" · ")}>📅</span>
+                  )}
                   {`'${mo.slice(2)}`}
                   <br />
                   {total}
@@ -667,17 +701,18 @@ export function SectionAMockup({
 
       {/* 1인당 영상 분포 → B(인플 풀)의 활동 3축 분포로 이관 (Part2 A) */}
 
-      {/* ★ 변곡점 timeline 카드 — phase5.bsr_inflections (Amazon BSR 급등 시점, day 단위 정확) */}
+      {/* ★ C3(WS4b): 서술(topInflection 콜아웃) 먼저, 상세 timeline 은 접어둠(기본 닫힘).
+          A·D 중복은 D 섹션이 주(主) — 여기선 요약 서술 + 접힌 상세만. */}
       {hasAmazon &&
         phase5?.bsr_inflections &&
         phase5.bsr_inflections.some((inf) => inf.top_videos.length > 0) && (
-        <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            ✨ 변곡점 timeline (주요{" "}
-            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개 ·{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 급등 ±7일에 콘텐츠가 잡힌 급등 중 개선폭 상위</span>)
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <details style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
+          <summary style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, cursor: "pointer" }}>
+            ✨ 변곡점 상세 timeline 펼치기 (주요{" "}
+            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개){" "}
+            <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 매출 급등 상세는 D(매출·SKU) 섹션과 동일</span>
+          </summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
               .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
               .slice(0, 15) // 줄줄이 방지 — 개선폭 큰 주요 급등 15개만
@@ -716,19 +751,16 @@ export function SectionAMockup({
                       ({inf.views_window.toLocaleString()} vs {inf.views_compare.toLocaleString()})
                     </div>
                     {inf.top_videos.length > 0 && (
-                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
                         <span style={{ color: "#9ca3af" }}>동반 viral:</span>
+                        {/* ★ C2(WS4b): 변곡점 전후 대표 영상 인라인 임베드(클릭 로드) */}
                         {inf.top_videos.slice(0, 3).map((v, vi) => (
-                          <a
-                            key={vi}
-                            href={v.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={v.caption ?? ""}
-                            style={{ color: "#1d4ed8", textDecoration: "none", fontFamily: "monospace" }}
-                          >
-                            #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`} ↗
-                          </a>
+                          <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
+                              #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`}
+                            </span>
+                            <TikTokEmbed url={v.url} title={v.caption ?? undefined} compact />
+                          </span>
                         ))}
                       </div>
                     )}
@@ -736,7 +768,7 @@ export function SectionAMockup({
                 </div>
               ))}
           </div>
-        </div>
+        </details>
       )}
     </div>
   );

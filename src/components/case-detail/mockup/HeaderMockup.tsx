@@ -8,6 +8,7 @@ import type { PhaseKey } from "@/lib/inngest/client";
 import { PHASES, isPhaseDone } from "../PhaseProgress";
 import { startAnalysis } from "@/app/cases/[id]/upload-actions";
 import { fmtKstDateTime } from "@/lib/date-format";
+import { adoptionColors, type AdoptionVerdict } from "@/lib/case-detail/completeness";
 
 /**
  * Header 영역 mockup 1:1 — mockup line 491-624 + footer 1354-1364
@@ -46,6 +47,7 @@ export function CaseStatusStripMockup({
   channelStats,
   analyzedAt,
   actions,
+  adoption,
 }: {
   brand: string;
   country: string;
@@ -57,6 +59,14 @@ export function CaseStatusStripMockup({
   analyzedAt: string | null;
   /** 우측 actions (CSV / tier 수정 / region toggle / phase 재실행 / 분석 시작 / 삭제) */
   actions?: React.ReactNode;
+  /** ★ A5(WS4b): Q0 채택 판정 배지 — 채택/보류/폐기 + 완결성 요약 */
+  adoption?: {
+    verdict: AdoptionVerdict;
+    filledCount: number;
+    total: number;
+    commerceReady: boolean;
+    monitoringReady: boolean;
+  };
 }) {
   const isActive = (c: DataChannel) => dataChannels.includes(c);
   return (
@@ -76,6 +86,25 @@ export function CaseStatusStripMockup({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 18, fontWeight: 800, color: "white" }}>{brand}</span>
+          {adoption && (() => {
+            const col = adoptionColors(adoption.verdict);
+            const readyKind =
+              adoption.commerceReady && adoption.monitoringReady ? "커머스+모니터링"
+              : adoption.commerceReady ? "커머스"
+              : adoption.monitoringReady ? "모니터링"
+              : "미충족";
+            return (
+              <span
+                title={`Q0 채택 판정(간이) · 완결성 ${adoption.filledCount}/${adoption.total}축 · ${readyKind} ready`}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+                  background: col.bg, color: col.fg, border: `1px solid ${col.border}`,
+                }}
+              >
+                {adoption.verdict} · {adoption.filledCount}/{adoption.total}
+              </span>
+            );
+          })()}
           {revenueTier && (
             <span style={{ fontSize: 11, color: "#9ca3af" }}>매출 tier: {revenueTier}</span>
           )}

@@ -128,6 +128,8 @@ export type Phase2Stats = {
     tk: MonthlyVideoCount[];
     ig: MonthlyVideoCount[];
     yt: MonthlyVideoCount[];
+    // ★ A1(WS4b): TT샵 콘텐츠(is_shop_content) 월별 분리 — tk 안의 샵분 오버레이.
+    tk_shop?: MonthlyVideoCount[];
   };
   computed_at: string;
 };

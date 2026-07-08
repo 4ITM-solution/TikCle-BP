@@ -60,6 +60,7 @@ export function SectionBMockup({
   monthlyTierByChannel,
   igTopAuthors,
   ytTopChannels,
+  igCountrySignal,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -84,8 +85,12 @@ export function SectionBMockup({
   igTopAuthors?: Phase4cAuthorPreview[];
   /** YT Top 채널 list (phase4d.top_channels_preview) — channelMode='yt' 일 때 표시 */
   ytTopChannels?: Phase4dChannelPreview[];
+  /** ★ C6(WS4b): IG 국가 근사 신호 — v_case_ig_country_signal(019). 언어 기반 근사(추정). */
+  igCountrySignal?: { total: number; nonLatin: number; latin: number; nonLatinPct: number } | null;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
+  // ★ C6: IG 국가 근사 필터 토글 (US 근사 = 비라틴 게시물 제외 추정)
+  const [igUsApprox, setIgUsApprox] = useState(false);
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
   const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
@@ -321,6 +326,23 @@ export function SectionBMockup({
             })}
           </div>
         </div>
+        {/* ★ C6(WS4b): IG 국가 근사 필터 — channelMode='ig' 일 때만. 언어 기반 근사(추정) 명시. */}
+        {channelMode === "ig" && igCountrySignal && igCountrySignal.total > 0 && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, padding: "4px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 6 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+              <input type="checkbox" checked={igUsApprox} onChange={(e) => setIgUsApprox(e.target.checked)} />
+              US 근사
+            </label>
+            <span style={{ color: "#92400e" }}>
+              {igUsApprox
+                ? `비라틴 게시물 ${igCountrySignal.nonLatinPct}% 제외 → US 근사 ${igCountrySignal.latin.toLocaleString()}건`
+                : `전체 ${igCountrySignal.total.toLocaleString()}건 · 글로벌 혼입 추정 ${igCountrySignal.nonLatinPct}%`}
+            </span>
+            <span style={{ color: "#9ca3af", fontSize: 10 }} title="캡션의 비라틴 문자(한글/태국어/일본어 등) 유무로 판정한 언어 기반 근사이며, 실제 국가가 아닙니다.">
+              ⓘ 언어 기반 추정
+            </span>
+          </div>
+        )}
         <div>
           <span style={{ fontSize: 11, color: "#6b7280", marginRight: 8 }}>월:</span>
           <select

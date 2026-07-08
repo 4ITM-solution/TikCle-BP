@@ -36,12 +36,25 @@ export function SectionEMockup({
   phase4a,
   metaAdsList,
   partnerChannelMap,
+  seedingAdOverlap,
+  obsStartDate,
 }: {
   phase4a: Phase4aStats;
   metaAdsList?: AdLike[];
+  /** ★ B6(WS4b): 관측 시작일 — 운영/활동 기간 생존편향 라벨용(G3). */
+  obsStartDate?: string | null;
   /** creator_page_name 정규화 → 다른 채널 활동 (TK/IG/YT count + 팔로워).
    * page.tsx 에서 crossPlatformMatches + top_creators handle 매칭으로 만듦. */
   partnerChannelMap?: Record<string, { tk: number; ig: number; yt: number; follower?: number | null }>;
+  /** ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019, SQL norm_handle 조인).
+   *  광고 등장 크리에이터가 오가닉 시딩(TK/IG/YT)도 한 사례. 미적용/무매칭 시 빈 배열. */
+  seedingAdOverlap?: Array<{
+    creator_handle: string;
+    seeding_channel: string;
+    tier: string | null;
+    follower_count: number | null;
+    ad_count: number;
+  }>;
 }) {
   const [search, setSearch] = useState("");
   const [landingFilter, setLandingFilter] = useState<string>("all");
@@ -196,6 +209,12 @@ export function SectionEMockup({
         <span className="letter">E</span>
         <span className="title">Meta 광고 + Partnership</span>
         <span className="sub">★ 필터 + 더보기 + partnership cross-channel</span>
+      </div>
+
+      {/* ★ B6(WS4b): 생존편향 라벨 — 운영/활동 기간은 관측 시작일 이후만 집계됨(G3) */}
+      <div style={{ fontSize: 10.5, color: "#92400e", marginBottom: 10, padding: "5px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 4 }}>
+        ⚠ 운영·활동 기간은 <b>관측 시작일{obsStartDate ? ` (${obsStartDate})` : ""} 이후 기준</b>입니다.
+        그 이전에 이미 집행 중이던 광고는 실제보다 짧게 보일 수 있습니다(생존편향).
       </div>
 
       <div
@@ -546,6 +565,58 @@ export function SectionEMockup({
           </table>
         </>
       )}
+
+      {/* ★ A3(WS4b): 시딩∩광고 교집합 — SQL(v_case_seeding_ad_overlap) norm_handle 조인 결과 */}
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+          시딩 ∩ 광고 교집합
+        </div>
+        <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 8 }}>
+          광고(Meta)에 등장하면서 오가닉 시딩(TK/IG/YT)도 한 크리에이터 — 핸들 정규화 매칭
+        </div>
+        {!seedingAdOverlap || seedingAdOverlap.length === 0 ? (
+          <div style={{ padding: 12, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+            데이터 없음 — 광고 크리에이터 핸들(creator_page_name)과 시딩 인플 핸들이 겹치지 않거나,
+            광고에 크리에이터 핸들이 파싱되지 않은 케이스(예: 브랜드 자체제작 위주).
+          </div>
+        ) : (
+          <table className="partner-table" style={{ width: "100%", fontSize: 11 }}>
+            <thead>
+              <tr style={{ color: "#6b7280", textAlign: "left" }}>
+                <th>크리에이터</th>
+                <th>시딩 채널</th>
+                <th>티어</th>
+                <th style={{ textAlign: "right" }}>팔로워</th>
+                <th style={{ textAlign: "right" }}>광고 수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seedingAdOverlap.slice(0, 10).map((o, i) => (
+                <tr key={`${o.creator_handle}-${o.seeding_channel}-${i}`}>
+                  <td><b>{o.creator_handle}</b></td>
+                  <td>
+                    <span className={`ch-pill pill-${o.seeding_channel === "tiktok" ? "tk" : o.seeding_channel === "instagram" ? "ig" : "yt"}`}>
+                      {o.seeding_channel === "tiktok" ? "TK" : o.seeding_channel === "instagram" ? "IG" : "YT"}
+                    </span>
+                  </td>
+                  <td style={{ color: "#6b7280" }}>{o.tier ?? "—"}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace", color: "#6b7280" }}>
+                    {formatFollowers(o.follower_count)}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>{o.ad_count}</td>
+                </tr>
+              ))}
+              {seedingAdOverlap.length > 10 && (
+                <tr style={{ color: "#9ca3af" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                    + {seedingAdOverlap.length - 10}명 더
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,15 @@ import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 import { SectionBoundary } from "@/components/case-detail/SectionBoundary";
 import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
+import { safeViewRows } from "@/lib/case-detail/safe-view";
+import { computeCompleteness } from "@/lib/case-detail/completeness";
+import { SectionConclusion } from "@/components/case-detail/SectionConclusion";
+import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
+import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
+import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
+import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
+import { CompletenessGauge } from "@/components/case-detail/CompletenessGauge";
+import { FreshnessBadge, daysSince } from "@/components/case-detail/FreshnessBadge";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -955,6 +964,33 @@ export default async function CaseDetailPage({
   const ready =
     (commerceReady || ownedChannelDone) && c.status === "draft";
 
+  // ★ A5/B1/B2(WS4b): 실매출 존재(case_product_sales 행) + 프로모션(시점) 존재.
+  //   F2 근거: products 있어도 case_product_sales 0행이면 "매출 미업로드". row 존재로 판정.
+  const caseSalesExists = await (async () => {
+    const { count } = await supabase
+      .from("case_product_sales")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", c.id);
+    return (count ?? 0) > 0;
+  })();
+  const hasPromotions = await (async () => {
+    const { count } = await supabase
+      .from("promotion_events")
+      .select("id", { count: "exact", head: true })
+      .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`);
+    return (count ?? 0) > 0;
+  })();
+
+  // ★ C5(WS4b): phase_runs 직결 — 신 11-phase 상태·비용·partial. 없으면 빈 배열(패널 대기 표시).
+  const phaseRuns = await (async () => {
+    type Row = { phase: string; status: string; cost_usd: number | null; error: string | null; stats: Record<string, unknown> | null; finished_at: string | null };
+    const resp = await supabase
+      .from("phase_runs")
+      .select("phase, status, cost_usd, error, stats, finished_at")
+      .eq("case_id", c.id);
+    return (resp.data as unknown as Row[] | null) ?? [];
+  })();
+
   let reason = "";
   if (c.status !== "draft") reason = `현재 상태: ${c.status}`;
   else if (!exolytDone && !ownedChannelDone) {
@@ -1613,6 +1649,125 @@ export default async function CaseDetailPage({
   const clusterChannelBreakdown = clusterBundle.clusterChannelBreakdown;
   const clusterChannelData = clusterBundle.channelData;
 
+  // ★ A2(WS4b): 티어×앵글×월 교차 — v_case_angle_tier_month(019). 미적용 시 빈 상태.
+  const angleTierMonth = await (async () => {
+    type Row = {
+      angle: string | null;
+      tier: string | null;
+      month: string | null;
+      video_count: number | null;
+    };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_angle_tier_month",
+      (q) => q.eq("case_id", c.id),
+    );
+    if (rows.length === 0) return null;
+    const TIER_ORDER = ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"];
+    const angleTotals = new Map<string, number>();
+    const monthSet = new Set<string>();
+    const tierSet = new Set<string>();
+    // cells[tier][angle][month] = count
+    const cells: Record<string, Record<string, Record<string, number>>> = {};
+    let sampleTagged = 0;
+    for (const r of rows) {
+      const angle = r.angle ?? "미분류";
+      const tier = r.tier ?? "unknown";
+      const month = r.month ?? "";
+      const cnt = r.video_count ?? 0;
+      if (!month) continue;
+      sampleTagged += cnt;
+      angleTotals.set(angle, (angleTotals.get(angle) ?? 0) + cnt);
+      monthSet.add(month);
+      tierSet.add(tier);
+      ((cells[tier] ??= {})[angle] ??= {})[month] = cnt;
+    }
+    const angles = [...angleTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([a]) => a)
+      .slice(0, 12);
+    const tiers = TIER_ORDER.filter((t) => tierSet.has(t));
+    const months = [...monthSet].sort();
+    return { angles, tiers, months, cells, sampleTagged };
+  })();
+
+  // ★ C6(WS4b): IG 국가 근사 신호 — v_case_ig_country_signal(019). 미적용/무데이터 시 null.
+  const igCountrySignal = await (async () => {
+    type Row = { total: number | null; non_latin: number | null; latin: number | null; non_latin_pct: number | null };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_ig_country_signal",
+      (q) => q.eq("case_id", c.id),
+    );
+    const r = rows[0];
+    if (!r || !(r.total ?? 0)) return null;
+    return {
+      total: r.total ?? 0,
+      nonLatin: r.non_latin ?? 0,
+      latin: r.latin ?? 0,
+      nonLatinPct: r.non_latin_pct ?? 0,
+    };
+  })();
+
+  // ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null.
+  const gmvTags = await (async () => {
+    type Row = { tag: string | null; video_count: number | null; gmv_sum: number | null };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_content_gmv_tags",
+      (q) => q.eq("case_id", c.id),
+    );
+    if (rows.length === 0) return null;
+    return rows
+      .filter((r) => r.tag)
+      .map((r) => ({ tag: r.tag as string, video_count: r.video_count ?? 0, gmv_sum: Number(r.gmv_sum) || 0 }));
+  })();
+
+  // ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019). 미적용/무매칭 시 [].
+  const seedingAdOverlap = await (async () => {
+    type Row = {
+      creator_handle: string | null;
+      seeding_channel: string | null;
+      tier: string | null;
+      follower_count: number | null;
+      ad_count: number | null;
+    };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_seeding_ad_overlap",
+      (q) => q.eq("case_id", c.id),
+    );
+    return rows
+      .map((r) => ({
+        creator_handle: r.creator_handle ?? "?",
+        seeding_channel: r.seeding_channel ?? "tiktok",
+        tier: r.tier,
+        follower_count: r.follower_count,
+        ad_count: r.ad_count ?? 0,
+      }))
+      .sort((a, b) => b.ad_count - a.ad_count || (b.follower_count ?? 0) - (a.follower_count ?? 0));
+  })();
+
+  // ★ A6(WS4b): 프로모션 이벤트 — case별 + 국가 프리셋(is_preset·country). A섹션 차트 마커용.
+  //   월별 버킷(start_date YYYY-MM). 019 시드 적용 후 US 프리셋이 채워짐.
+  const promotionEvents = await (async () => {
+    type PromoRow = { name: string; start_date: string | null; end_date: string | null; importance: number | null };
+    const resp = await supabase
+      .from("promotion_events")
+      .select("name, start_date, end_date, importance, is_preset, country, case_id")
+      .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`)
+      .order("start_date", { ascending: true });
+    const data = resp.data as unknown as PromoRow[] | null;
+    return (data ?? [])
+      .filter((e) => e.start_date)
+      .map((e) => ({
+        name: e.name,
+        month: String(e.start_date).slice(0, 7),
+        start_date: String(e.start_date),
+        importance: e.importance ?? null,
+      }));
+  })();
+
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
   const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
     // 1) dataRanges — 각 채널 min/max date
@@ -1838,46 +1993,97 @@ export default async function CaseDetailPage({
   //   스냅샷이라 이후 스크랩분(엑솔릿/카로 추가)을 누락하는 stale undercount.
   //   contents에서 distinct video id 기준으로 다시 세어 Section A/C·KPI를 정확화.
   //   (organic=비광고 / paid=is_ad). live가 캐시보다 클 때만 덮음(절대 악화 X).
-  const { liveTkMonthly, liveTkTotal } = await (async () => {
+  const { liveTkMonthly, liveTkTotal, liveTkShopMonthly } = await (async () => {
+    type MB = { month: string; organic: number; paid: number; total: number };
     if (!brand_id)
       return {
-        liveTkMonthly: null as
-          | null
-          | Array<{ month: string; organic: number; paid: number; total: number }>,
+        liveTkMonthly: null as null | MB[],
         liveTkTotal: null as number | null,
+        liveTkShopMonthly: null as null | MB[],
       };
     const seen = new Set<string>();
     const byMonth = new Map<string, { organic: number; paid: number }>();
+    // ★ A1(WS4b): 샵 콘텐츠(is_shop_content) 월별 별도 집계 — Section A '틱톡샵' 토글용.
+    const shopByMonth = new Map<string, { organic: number; paid: number }>();
     let total = 0;
     const PAGE = 1000;
+    // ★ A1(WS4b): is_shop_content 컬럼은 migration 019 적용 후 존재. 적용 전(현행 DB)엔
+    //   해당 컬럼 select가 에러 → base 컬럼으로 폴백(샵 집계 skip). apply 후 자동 활성.
+    //   (typed 클라이언트가 동적 select 문자열을 못 파싱해 row 타입은 명시 캐스팅.)
+    type TkRow = { url: string | null; uploaded_at: string | null; is_ad: boolean | null; is_shop_content?: boolean | null };
+    let shopCol = true;
     for (let off = 0; off < 200000; off += PAGE) {
-      const { data } = await supabase
-        .from("contents")
-        .select("url, uploaded_at, is_ad")
-        .eq("brand_id", brand_id)
-        .eq("country", c.country)
-        .ilike("url", "%tiktok.com%")
-        .not("uploaded_at", "is", null)
-        .range(off, off + PAGE - 1);
+      const runQuery = (withShop: boolean) =>
+        supabase
+          .from("contents")
+          .select(withShop ? "url, uploaded_at, is_ad, is_shop_content" : "url, uploaded_at, is_ad")
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .ilike("url", "%tiktok.com%")
+          .not("uploaded_at", "is", null)
+          .range(off, off + PAGE - 1);
+      let resp = await runQuery(shopCol);
+      if (resp.error && shopCol) {
+        // 컬럼 미존재(019 미적용) — 폴백 후 같은 offset 재시도.
+        shopCol = false;
+        resp = await runQuery(false);
+      }
+      const data = resp.data as unknown as TkRow[] | null;
       if (!data || data.length === 0) break;
       for (const r of data) {
         const vid = (r.url as string | null)?.match(/\/(?:video|photo)\/(\d+)/)?.[1];
         if (!vid || seen.has(vid)) continue;
         seen.add(vid);
         const month = String(r.uploaded_at).slice(0, 7);
+        const isPaid = r.is_ad === true;
         const e = byMonth.get(month) ?? { organic: 0, paid: 0 };
-        if (r.is_ad === true) e.paid += 1;
+        if (isPaid) e.paid += 1;
         else e.organic += 1;
         byMonth.set(month, e);
+        if (r.is_shop_content === true) {
+          const se = shopByMonth.get(month) ?? { organic: 0, paid: 0 };
+          if (isPaid) se.paid += 1;
+          else se.organic += 1;
+          shopByMonth.set(month, se);
+        }
         total += 1;
       }
       if (data.length < PAGE) break;
     }
-    if (total === 0) return { liveTkMonthly: null, liveTkTotal: null };
-    const arr = [...byMonth.entries()]
-      .map(([month, v]) => ({ month, organic: v.organic, paid: v.paid, total: v.organic + v.paid }))
-      .sort((a, b) => (a.month < b.month ? -1 : 1));
-    return { liveTkMonthly: arr, liveTkTotal: total };
+    if (total === 0)
+      return { liveTkMonthly: null, liveTkTotal: null, liveTkShopMonthly: null };
+    const toArr = (m: Map<string, { organic: number; paid: number }>): MB[] =>
+      [...m.entries()]
+        .map(([month, v]) => ({ month, organic: v.organic, paid: v.paid, total: v.organic + v.paid }))
+        .sort((a, b) => (a.month < b.month ? -1 : 1));
+    const shopArr = toArr(shopByMonth);
+    return {
+      liveTkMonthly: toArr(byMonth),
+      liveTkTotal: total,
+      liveTkShopMonthly: shopArr.length > 0 ? shopArr : null,
+    };
+  })();
+
+  // ★ B7(WS4b): 읽기 경로 뷰 전환 — v_case_monthly(WS1 live 뷰)로 IG/YT/샵 월별을 캐시 대신 조회.
+  //   캐시(key_stats.phase2.monthly_by_channel) stale 근본 해소. 뷰 무데이터/미접근 시 캐시 폴백.
+  const viewMonthlyByChannel = await (async () => {
+    type Row = { channel: string | null; month: string | null; paid: number | null; organic: number | null; total: number | null };
+    const rows = await safeViewRows<Row>(supabase, "v_case_monthly", (q) => q.eq("case_id", c.id));
+    if (rows.length === 0) return null;
+    const byChan: Record<string, Array<{ month: string; paid: number; organic: number; total: number }>> = {};
+    for (const r of rows) {
+      if (!r.channel || !r.month) continue;
+      (byChan[r.channel] ??= []).push({
+        month: r.month, paid: r.paid ?? 0, organic: r.organic ?? 0, total: r.total ?? 0,
+      });
+    }
+    for (const k of Object.keys(byChan)) byChan[k]!.sort((a, b) => (a.month < b.month ? -1 : 1));
+    return {
+      tk: byChan["tiktok"] ?? null,
+      ig: byChan["instagram"] ?? null,
+      yt: byChan["youtube"] ?? null,
+      tk_shop: byChan["tiktok_shop"] ?? null,
+    };
   })();
 
   // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
@@ -1915,6 +2121,68 @@ export default async function CaseDetailPage({
       if (data.length < 1000) break;
     }
     return list;
+  })();
+
+  // ★ A4(WS4b): 크로스채널 인플 3채널화 — 기존 crossPlatformMatches 는 IG∩YT 앵커라
+  //   TK+IG / TK+YT 조합 인플이 누락됐음(QA-1 §2). v_unified_creators(TK/IG/YT 통합, live)로
+  //   채널 소속을 잡고, 영상수는 기존 채널별 full 리스트에서 join. 뷰 신규 없음(017 기존 뷰 사용).
+  //   결과 {name, tk, ig, yt} 는 sharedMatrix(Section B) + G 인사이트 union 양쪽에 사용.
+  const crossChannelRows = await (async () => {
+    const normH = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    // 채널별 영상수 map (norm_handle → count)
+    const tkCount = new Map<string, number>();
+    for (const tc of allTkCreators) {
+      const k = normH(tc.handle);
+      if (k.length >= 4) tkCount.set(k, Math.max(tkCount.get(k) ?? 0, tc.video_count));
+    }
+    const igCount = new Map<string, number>();
+    for (const ic of allIgCreators) {
+      const k = normH(ic.handle);
+      if (k.length >= 4) igCount.set(k, Math.max(igCount.get(k) ?? 0, ic.video_count));
+    }
+    const ytCount = new Map<string, number>();
+    for (const yc of ytTopChannels) {
+      const k = normH(yc.channel_name);
+      if (k.length >= 4) ytCount.set(k, Math.max(ytCount.get(k) ?? 0, yc.total_videos ?? 0));
+    }
+    // 보조: 기존 IG∩YT 매칭(crossPlatformMatches)의 IG/YT 카운트도 흡수 — preview 밖 보강.
+    for (const m of crossPlatformMatches) {
+      const k = normH(m.name);
+      if (k.length < 4) continue;
+      if (m.ig_posts > 0) igCount.set(k, Math.max(igCount.get(k) ?? 0, m.ig_posts));
+      if (m.yt_videos > 0) ytCount.set(k, Math.max(ytCount.get(k) ?? 0, m.yt_videos));
+    }
+    // v_unified_creators 로 채널 소속(preview 밖 YT 포함) + 대표 핸들 + 팔로워.
+    type UC = { channel: string | null; handle: string | null; norm_handle: string | null; follower_count: number | null };
+    const uc = await safeViewRows<UC>(supabase, "v_unified_creators", (q) => q.eq("case_id", c.id));
+    const byHandle = new Map<string, { name: string; chans: Set<string>; follower: number | null }>();
+    for (const r of uc) {
+      const k = r.norm_handle ?? (r.handle ? normH(r.handle) : "");
+      if (!k || k.length < 4 || !r.channel) continue;
+      const cur = byHandle.get(k) ?? { name: r.handle ?? k, chans: new Set<string>(), follower: null };
+      cur.chans.add(r.channel);
+      if (r.handle && r.handle.length > cur.name.length) cur.name = r.handle;
+      cur.follower = Math.max(cur.follower ?? 0, r.follower_count ?? 0) || cur.follower;
+      byHandle.set(k, cur);
+    }
+    // v_unified_creators 가 비어있으면(뷰 접근 실패 등) 기존 count map 합집합으로라도 구성.
+    const keys = new Set<string>([...byHandle.keys(), ...tkCount.keys(), ...igCount.keys(), ...ytCount.keys()]);
+    const rows: Array<{ name: string; tk: number; ig: number; yt: number; follower: number | null }> = [];
+    for (const k of keys) {
+      const meta = byHandle.get(k);
+      const chans = meta?.chans ?? new Set<string>();
+      // 채널 소속: v_unified_creators 소속 OR count>0. YT 소속인데 preview(25) 밖이면 floor 1로 존재 표시.
+      const tk = tkCount.get(k) ?? (chans.has("tiktok") ? 1 : 0);
+      const ig = igCount.get(k) ?? (chans.has("instagram") ? 1 : 0);
+      const yt = ytCount.get(k) ?? (chans.has("youtube") ? 1 : 0);
+      const present = [tk, ig, yt].filter((n) => n > 0).length;
+      if (present < 2) continue; // 크로스채널만
+      rows.push({ name: meta?.name ?? k, tk, ig, yt, follower: meta?.follower ?? null });
+    }
+    return rows.sort(
+      (a, b) => [b.tk, b.ig, b.yt].filter((n) => n > 0).length - [a.tk, a.ig, a.yt].filter((n) => n > 0).length
+        || (b.follower ?? 0) - (a.follower ?? 0),
+    );
   })();
 
   // ★ 채널별 월별 티어 분포(명수) — Section A 티어 stack / Section B 월필터가 채널에 반응하도록.
@@ -2114,6 +2382,13 @@ export default async function CaseDetailPage({
     }
   }
 
+  // ★ A5(WS4b): Q0 채택 판정(간이) — 헤더 배지 + (B1 게이지 공용)
+  const caseCompleteness = computeCompleteness(keyStats, {
+    status: c.status,
+    salesExists: caseSalesExists,
+    hasPromotions,
+  });
+
   return (
     <>
       <div className="bp-mockup">
@@ -2128,6 +2403,13 @@ export default async function CaseDetailPage({
           dataChannels={dataChannels}
           channelStats={channelStats}
           analyzedAt={c.analyzed_at}
+          adoption={{
+            verdict: caseCompleteness.verdict,
+            filledCount: caseCompleteness.filledCount,
+            total: caseCompleteness.total,
+            commerceReady: caseCompleteness.commerceReady,
+            monitoringReady: caseCompleteness.monitoringReady,
+          }}
           actions={
             <CaseHeader
               case_id={c.id}
@@ -2143,6 +2425,36 @@ export default async function CaseDetailPage({
             />
           }
         />
+        {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
+        <CompletenessGauge c={caseCompleteness} />
+        {/* ★ B4(WS4b): freshness 배지 — source별 최신성(경과일) */}
+        {(() => {
+          const now = new Date();
+          const sources: Array<{ label: string; key: string }> = [
+            { label: "TikTok", key: "tiktok_video" },
+            { label: "광고", key: "meta_ads" },
+            { label: "IG", key: "instagram" },
+            { label: "YT", key: "youtube" },
+          ];
+          const present = sources.filter((s) => dataRanges[s.key]?.max);
+          if (present.length === 0) return null;
+          return (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #e5e7eb" }}>
+              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>데이터 최신성:</span>
+              {present.map((s) => {
+                const mx = dataRanges[s.key]?.max ?? null;
+                return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
+              })}
+              {/* ★ B5(WS4b): 캐시/스냅샷 표기 — 수치는 분석 시점 스냅샷(라이브 아님) */}
+              {c.analyzed_at && (
+                <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff", marginLeft: "auto" }}
+                  title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
+                  🗄 캐시 스냅샷 · 분석 {String(c.analyzed_at).slice(0, 10)}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
     <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
@@ -2174,6 +2486,18 @@ export default async function CaseDetailPage({
       {/* Status branch */}
       {c.status === "draft" ? (
         <>
+          {/* ★ C4(WS4b): 적재 위저드 — channel×country 재료 체크리스트(실적재 신호) + 자동수집 배너 */}
+          <IntakeWizard
+            items={buildIntakeChecklist({
+              channel: c.channel,
+              country: c.country,
+              contentCount: contentCount ?? 0,
+              salesExists: caseSalesExists,
+              hasBsr: skuRows.some((r) => r.hasBsr),
+              storeUrl: !!c.tiktok_shop_store_url,
+              skuExists: skuRows.length > 0,
+            })}
+          />
           {/* ★ 데이터 채널 그리드 — 카드 클릭 → 그 채널 입력 UI 펼침. 원하는 채널만 골라 적재.
               (구 고정 "Section 02" 제거 — 채널 gating 없이 카드가 유일한 입력구) */}
           <div id="sec-channels" style={{ scrollMarginTop: 80 }} />
@@ -2464,10 +2788,30 @@ export default async function CaseDetailPage({
                   ig: ks.phase2.monthly_by_channel?.ig ?? [],
                   yt: ks.phase2.monthly_by_channel?.yt ?? [],
                   tk: liveTkMonthly,
+                  // ★ A1(WS4b): 샵 콘텐츠 월별 — 있을 때만.
+                  ...(liveTkShopMonthly ? { tk_shop: liveTkShopMonthly } : {}),
+                },
+              };
+            }
+            // ★ B7(WS4b): IG/YT/샵 월별을 v_case_monthly(WS1 live 뷰) 값으로 교체 — 캐시 stale 근본 해소.
+            //   뷰에 해당 채널 데이터 있을 때만 교체(없으면 캐시 폴백). tk 는 위 라이브 집계 유지.
+            if (ks.phase2 && viewMonthlyByChannel) {
+              const mbc = ks.phase2.monthly_by_channel;
+              ks.phase2 = {
+                ...ks.phase2,
+                monthly_by_channel: {
+                  tk: mbc?.tk ?? liveTkMonthly ?? ks.phase2.monthly_video_counts,
+                  ig: viewMonthlyByChannel.ig ?? mbc?.ig ?? [],
+                  yt: viewMonthlyByChannel.yt ?? mbc?.yt ?? [],
+                  ...((viewMonthlyByChannel.tk_shop ?? mbc?.tk_shop)
+                    ? { tk_shop: viewMonthlyByChannel.tk_shop ?? mbc?.tk_shop }
+                    : {}),
                 },
               };
             }
             const lastError = ks.last_error;
+            // ★ C1(WS4b): 섹션별 1줄 결론(서버 조립) — G + A~E 모두 커버하는 스코프에서 계산
+            const conclusions = buildSectionConclusions(ks, brand);
             // phase2 없으면 mockup main path 그대로 가되 SectionA~E + G 만 skip (이미 그 guard 박힘).
             // KPI / 데이터 채널 / Phase Progress 는 phase2 없어도 표시 — 사용자가 데이터 채널 카드 클릭해서 적재 가능해야.
             return (
@@ -2589,6 +2933,8 @@ export default async function CaseDetailPage({
                       </SectionBoundary>
                       {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
                       <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
+                      {/* ★ C5(WS4b): phase_runs 직결 신 11-phase 패널 (사용자 언어 라벨·비용·재실행) */}
+                      <PhaseRunsPanel caseId={c.id} runs={phaseRuns} />
                       {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
                       <DataChannelsMockup
                         case_id={c.id}
@@ -2906,13 +3252,15 @@ export default async function CaseDetailPage({
                     cur.tk = Math.max(cur.tk, tc.video_count);
                     merged.set(k, cur);
                   }
-                  for (const m of crossPlatformMatches) {
-                    const k = normH(m.name);
+                  // ★ A4(WS4b): IG/YT 도 3채널 crossChannelRows 로 채움(TK+IG/TK+YT 조합 포함).
+                  for (const r of crossChannelRows) {
+                    const k = normH(r.name);
                     if (k.length < 3) continue;
-                    const cur = merged.get(k) ?? { name: m.name, tk: 0, ig: 0, yt: 0 };
-                    cur.ig = m.ig_posts;
-                    cur.yt = m.yt_videos;
-                    if (!cur.name || cur.name.length < m.name.length) cur.name = m.name;
+                    const cur = merged.get(k) ?? { name: r.name, tk: 0, ig: 0, yt: 0 };
+                    cur.tk = Math.max(cur.tk, r.tk);
+                    cur.ig = Math.max(cur.ig, r.ig);
+                    cur.yt = Math.max(cur.yt, r.yt);
+                    if (!cur.name || cur.name.length < r.name.length) cur.name = r.name;
                     merged.set(k, cur);
                   }
                   const allEntries = [...merged.values()].map((e) => {
@@ -2934,6 +3282,7 @@ export default async function CaseDetailPage({
                   return axes.length > 0 ? (
                     <div className="bp-mockup">
                       <SectionBoundary name="G 종합 인사이트(언어 포함)">
+                      <SectionConclusion text={conclusions.G} />
                       <InsightCardMockup
                         title={oneLineSummary}
                         tagline={tagline}
@@ -2992,36 +3341,22 @@ export default async function CaseDetailPage({
                   </div>
                 )}
                 {ks.phase2 && (() => {
-                  // SectionBMockup + MiniDashboard 공용 crossChannelMatrix (TK 매칭 포함)
-                  const normHandle = (s: string) =>
-                    s.toLowerCase().replace(/[^a-z0-9]/g, "");
-                  const tkByHandleMap = new Map<string, number>();
-                  // 전체 TK 인플 기준 매칭 (≥10편 제한 없이) — cross-channel 누락 방지.
-                  for (const tc of allTkCreators) {
-                    const k = normHandle(tc.handle);
-                    if (k.length >= 4) tkByHandleMap.set(k, tc.video_count);
-                  }
-                  const sharedMatrix = crossPlatformMatches.map((m) => {
-                    const k = normHandle(m.name);
-                    let tk = tkByHandleMap.get(k) ?? 0;
-                    if (tk === 0 && k.length >= 5) {
-                      for (const [tkKey, count] of tkByHandleMap.entries()) {
-                        if (tkKey.startsWith(k) || k.startsWith(tkKey)) {
-                          if (Math.min(tkKey.length, k.length) >= 5) {
-                            tk = count;
-                            break;
-                          }
-                        }
-                      }
-                    }
-                    return { name: m.name, tk, ig: m.ig_posts, yt: m.yt_videos };
-                  });
+                  // ★ A4(WS4b): SectionBMockup + MiniDashboard 공용 crossChannelMatrix —
+                  //   서버에서 v_unified_creators 기반 3채널로 계산한 crossChannelRows 를 그대로 사용
+                  //   (기존 IG∩YT 앵커 방식 폐기, TK+IG / TK+YT 조합 포함).
+                  const sharedMatrix = crossChannelRows.map((r) => ({
+                    name: r.name,
+                    tk: r.tk,
+                    ig: r.ig,
+                    yt: r.yt,
+                  }));
                   return (
                 <div>
                   <div style={{ minWidth: 0 }}>
                     {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
                     <div className="bp-mockup">
                       <SectionBoundary name="A 콘텐츠 활동">
+                      <SectionConclusion text={conclusions.A} />
                       <SectionAMockup
                         phase2={
                           // phase2.bsr_series 가 비었지만 sales_snapshot BSR(bsrSkus)은 있는 경우
@@ -3042,9 +3377,11 @@ export default async function CaseDetailPage({
                         phase5={ks.phase5}
                         monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
+                        promotionEvents={promotionEvents}
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
+                      <SectionConclusion text={conclusions.B} />
                       <SectionBMockup
                         phase2={ks.phase2}
                         phase3={ks.phase3}
@@ -3083,10 +3420,12 @@ export default async function CaseDetailPage({
                           subscriber_count: c2.subscriber_count ?? null,
                           top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
+                        igCountrySignal={igCountrySignal}
                       />
                       </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionBoundary name="C 콘텐츠 포맷">
+                      <SectionConclusion text={conclusions.C} />
                       <SectionCMockup
                         phase2={ks.phase2}
                         phase4bClusters={phase4bClustersForUi}
@@ -3095,10 +3434,23 @@ export default async function CaseDetailPage({
                         channelData={clusterChannelData}
                         uspByChannel={uspByChannel}
                         uspVideosByChannel={uspVideosByChannel}
+                        angleTierMonth={angleTierMonth}
+                        totalContents={ks.phase2.total_contents ?? 0}
+                        visionSample={(ks.phase4b_vision?.total_with_tags ?? 0) + (ks.phase4b_vision?.total_reused ?? 0)}
+                        gmvTags={gmvTags}
                       />
                       </SectionBoundary>
+                      {/* ★ B2(WS4b): 매출 미업로드 배지 — products/SKU 있으나 case_product_sales 0행(F2).
+                          salesDone(분석 시작 게이트)는 유지, 신뢰 신호는 실매출 존재로 표기. */}
+                      {skuRows.length > 0 && !caseSalesExists && (
+                        <div style={{ margin: "8px 0", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 12, color: "#991b1b" }}>
+                          ⚠ <b>매출 미업로드</b> — 제품(SKU) {skuRows.length}개는 있으나 실매출 데이터(case_product_sales)가 0행입니다.
+                          아래 매출 수치는 비어있거나 부정확할 수 있습니다. 30일 매출 CSV를 업로드하세요.
+                        </div>
+                      )}
                       {ks.phase2.sales_summary && (
                         <SectionBoundary name="D 매출·SKU">
+                        <SectionConclusion text={conclusions.D} />
                         <SectionDMockup
                           phase2={ks.phase2}
                           phase4bSku={ks.phase4b_sku}
@@ -3204,6 +3556,17 @@ export default async function CaseDetailPage({
                     {ks.phase4a && (
                       <div className="bp-mockup">
                         <SectionBoundary name="E Meta 광고">
+                        <SectionConclusion text={conclusions.E} />
+                        {/* ★ B4(WS4b): 광고 데이터 최신성 필수 표기 */}
+                        {dataRanges.meta_ads?.max && (() => {
+                          const d = daysSince(dataRanges.meta_ads.max, new Date());
+                          return (
+                            <div style={{ fontSize: 11, color: d != null && d > 30 ? "#991b1b" : "#6b7280", marginBottom: 8, padding: "5px 10px", background: d != null && d > 30 ? "#fef2f2" : "#f9fafb", borderRadius: 4, display: "inline-block" }}>
+                              📅 광고 데이터 {d ?? "?"}일 경과 (최신 {dataRanges.meta_ads.max})
+                              {d != null && d > 30 ? " — 재수집 권장" : ""}
+                            </div>
+                          );
+                        })()}
                         <SectionEMockup
                           phase4a={ks.phase4a}
                           metaAdsList={metaAdsList}
@@ -3225,6 +3588,8 @@ export default async function CaseDetailPage({
                             }
                             return result;
                           })()}
+                          seedingAdOverlap={seedingAdOverlap}
+                          obsStartDate={dataRanges.meta_ads?.min ?? null}
                         />
                         </SectionBoundary>
                       </div>

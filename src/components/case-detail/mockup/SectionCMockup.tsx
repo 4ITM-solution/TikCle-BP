@@ -37,10 +37,28 @@ export function SectionCMockup({
   channelData,
   uspByChannel,
   uspVideosByChannel,
+  angleTierMonth,
+  totalContents,
+  visionSample,
+  gmvTags,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
   phase5?: Phase5Stats;
+  /** ★ A2(WS4b): 티어×앵글×월 교차 — v_case_angle_tier_month(019). 미적용/무데이터 시 null. */
+  angleTierMonth?: {
+    angles: string[];
+    tiers: string[];
+    months: string[];
+    cells: Record<string, Record<string, Record<string, number>>>;
+    sampleTagged: number;
+  } | null;
+  /** 표본 라벨(B3)용 — 케이스 전체 콘텐츠 수 */
+  totalContents?: number;
+  /** ★ B3(WS4b): Vision 태깅 표본 수(total_with_tags + reused) — C섹션 상시 표본 라벨 */
+  visionSample?: number;
+  /** ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null. */
+  gmvTags?: Array<{ tag: string; video_count: number; gmv_sum: number }> | null;
   /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (채널 토글 카운트용) */
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
   /** 채널별(all/tk/ig/yt) 재집계 데이터 — page.tsx server-side */
@@ -50,11 +68,14 @@ export function SectionCMockup({
   /** 채널별 USP 키워드 → 매칭 영상 top3 */
   uspVideosByChannel?: Record<ChannelFilter, Record<string, Array<{ url: string; caption: string; views: number }>>>;
 }) {
-  const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "paid">("clu");
+  const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "atm" | "gmvtag" | "paid">("clu");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
   const [expandedCluster, setExpandedCluster] = useState<string | null>(null);
+  // ★ A2(WS4b): 티어×앵글×월 히트맵 — 선택 티어(초기 = 데이터 있는 첫 티어)
+  const [atmTier, setAtmTier] = useState<string | null>(null);
+  const atmSelTier = atmTier ?? angleTierMonth?.tiers[0] ?? null;
 
   // ── 선택 채널 slice — 모든 탭 공통 적용 ──
   const cd = channelData?.[channelFilter] ?? channelData?.all;
@@ -120,6 +141,13 @@ export function SectionCMockup({
         <span className="title">콘텐츠 포맷 분석</span>
         <span className="sub">★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택</span>
       </div>
+      {/* ★ B3(WS4b): C섹션 전체 상시 표본 라벨 — Vision 태깅은 전체의 일부만 분석됨(파일럿 5%) */}
+      {visionSample != null && (totalContents ?? 0) > 0 && (
+        <div style={{ fontSize: 11, color: "#b45309", margin: "4px 0 10px", padding: "5px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 4, display: "inline-block" }}>
+          🔬 표본 {visionSample.toLocaleString()}건(영상 태깅 완료) / 전체 {(totalContents ?? 0).toLocaleString()}건
+          {` (${Math.round((visionSample / (totalContents || 1)) * 100)}%)`} — 아래 클러스터·태그·앵글 분석은 이 표본 기준
+        </div>
+      )}
 
       <div className="sub-tabs">
         <button className={tab === "clu" ? "active" : ""} onClick={() => setTab("clu")}>
@@ -134,8 +162,14 @@ export function SectionCMockup({
         <button className={tab === "tier" ? "active" : ""} onClick={() => setTab("tier")}>
           ★ 티어 × 앵글 (옛 MD)
         </button>
+        <button className={tab === "atm" ? "active" : ""} onClick={() => setTab("atm")}>
+          ★ 티어 × 앵글 × 월
+        </button>
+        <button className={tab === "gmvtag" ? "active" : ""} onClick={() => setTab("gmvtag")}>
+          ★ 태그 × GMV
+        </button>
         <button className={tab === "paid" ? "active" : ""} onClick={() => setTab("paid")}>
-          paid/seeded/organic 분류
+          광고 집행/시딩/오가닉 분류
         </button>
       </div>
 
@@ -449,7 +483,7 @@ export function SectionCMockup({
             >
               <option value="count">영상 수</option>
               <option value="view">view 합산</option>
-              <option value="paid_pct">paid 비중</option>
+              <option value="paid_pct">광고 집행 비중(스파크애즈)</option>
               <option value="gmv">★ GMV 기여 (Kalodata)</option>
             </select>
             {heatMeasure === "gmv" && (
@@ -712,6 +746,153 @@ export function SectionCMockup({
         </div>
       )}
 
+      {/* ★ A2(WS4b): 티어 × 앵글 × 월 panel — 티어 선택 후 앵글×월 heatmap (기존 .heatmap 패턴 재사용) */}
+      {tab === "atm" && (
+        <div className="panel active">
+          {!angleTierMonth || angleTierMonth.tiers.length === 0 || !atmSelTier ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              데이터 없음 — 영상 태깅·클러스터링(interpret-tag/cluster) + 인플 티어가 채워지면 표시됩니다.
+            </div>
+          ) : (
+            (() => {
+              const { angles, tiers, months, cells, sampleTagged } = angleTierMonth;
+              const TIER_LABEL: Record<string, string> = {
+                mega: "Mega (1M+)", macro: "Macro (500K+)", mid: "Mid (100K+)",
+                micro: "Micro (10K+)", nano: "Nano (1K+)", "sub-nano": "Sub-nano", unknown: "Unknown",
+              };
+              const tierCells = cells[atmSelTier] ?? {};
+              const anglesToShow = angles.filter((a) =>
+                months.some((m) => (tierCells[a]?.[m] ?? 0) > 0),
+              );
+              const maxV = Math.max(
+                ...anglesToShow.flatMap((a) => months.map((m) => tierCells[a]?.[m] ?? 0)),
+                1,
+              );
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                    선택 티어의 콘텐츠 앵글이 월별로 언제 집중됐는지 — 영상 수 (TikTok 기준)
+                  </div>
+                  {/* 표본 라벨 (B3) */}
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 8 }}>
+                    표본 {sampleTagged.toLocaleString()}건(태깅·클러스터링 완료) / 전체{" "}
+                    {(totalContents ?? 0).toLocaleString()}건
+                    {totalContents && totalContents > 0
+                      ? ` (${Math.round((sampleTagged / totalContents) * 100)}%)`
+                      : ""}
+                  </div>
+                  {/* 티어 선택 */}
+                  <div className="ch-toggle" style={{ marginBottom: 10 }}>
+                    {tiers.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={atmSelTier === t ? "active" : ""}
+                        onClick={() => setAtmTier(t)}
+                      >
+                        {TIER_LABEL[t] ?? t}
+                      </button>
+                    ))}
+                  </div>
+                  {anglesToShow.length === 0 ? (
+                    <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+                      이 티어의 월별 앵글 데이터 없음
+                    </div>
+                  ) : (
+                    <div
+                      className="heatmap"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `140px repeat(${months.length}, minmax(52px, 1fr))`,
+                        gap: 2,
+                        fontSize: 10,
+                        overflowX: "auto",
+                      }}
+                    >
+                      <div className="lbl" />
+                      {months.map((m) => (
+                        <div key={m} className="lbl">{m.slice(5)}</div>
+                      ))}
+                      {anglesToShow.map((a) => (
+                        <div style={{ display: "contents" }} key={a}>
+                          <div className="lbl" title={a}>
+                            {a.length > 14 ? `${a.slice(0, 14)}…` : a}
+                          </div>
+                          {months.map((m) => {
+                            const v = tierCells[a]?.[m] ?? 0;
+                            const intensity = v / maxV;
+                            const bg = intensity > 0.8 ? "#7f1d1d" :
+                                       intensity > 0.6 ? "#dc2626" :
+                                       intensity > 0.4 ? "#ea580c" :
+                                       intensity > 0.25 ? "#d97706" :
+                                       intensity > 0.1 ? "#f59e0b" :
+                                       intensity > 0 ? "#fcd34d" : "#f3f4f6";
+                            return (
+                              <div
+                                key={m}
+                                className="cell"
+                                style={{ background: bg, color: intensity > 0.1 ? "white" : "#374151" }}
+                                title={`${a} · ${m}: ${v} 영상`}
+                              >
+                                {v > 0 ? v : ""}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          )}
+        </div>
+      )}
+
+      {/* ★ A7(WS4b): 태그 × GMV panel — 표본 라벨(B9) 필수 */}
+      {tab === "gmvtag" && (
+        <div className="panel active">
+          {!gmvTags || gmvTags.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              데이터 없음 — GMV 연계 영상(제품 매칭 + 30일 매출)이 있어야 표시됩니다. 대부분 케이스에서 극소수(파일럿 0.1%).
+            </div>
+          ) : (
+            (() => {
+              const sorted = [...gmvTags].sort((a, b) => b.gmv_sum - a.gmv_sum).slice(0, 20);
+              const sampleVideos = gmvTags.reduce((s, t) => Math.max(s, t.video_count), 0);
+              const maxGmv = Math.max(...sorted.map((t) => t.gmv_sum), 1);
+              const fmt = (v: number) =>
+                v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` :
+                v >= 1000 ? `$${Math.round(v / 1000)}K` : `$${Math.round(v)}`;
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+                    어떤 콘텐츠 태그(hook_tags)가 GMV에 기여하는지 — 매칭된 SKU 30일 매출 합
+                  </div>
+                  {/* 표본 라벨 (B9) */}
+                  <div style={{ fontSize: 10, color: "#b45309", marginBottom: 10, padding: "6px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 4 }}>
+                    ⚠ 표본 부족 주의 — GMV 연계 영상 최대 {sampleVideos.toLocaleString()}건
+                    {totalContents ? ` / 전체 ${totalContents.toLocaleString()}건` : ""}. 태그별 GMV는 참고용(통계 신뢰도 낮음).
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {sorted.map((t) => (
+                      <div key={t.tag} style={{ display: "grid", gridTemplateColumns: "160px 1fr 90px 60px", gap: 8, alignItems: "center", fontSize: 11 }}>
+                        <span title={t.tag} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.tag}</span>
+                        <div style={{ background: "#f3f4f6", borderRadius: 3, height: 14, position: "relative" }}>
+                          <div style={{ width: `${(t.gmv_sum / maxGmv) * 100}%`, height: "100%", background: "#10b981", borderRadius: 3 }} />
+                        </div>
+                        <span style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>{fmt(t.gmv_sum)}</span>
+                        <span style={{ textAlign: "right", fontFamily: "monospace", color: "#9ca3af" }}>{t.video_count}편</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()
+          )}
+        </div>
+      )}
+
       {/* paid/seeded/organic panel */}
       {tab === "paid" && (
         <div className="panel active">
@@ -721,7 +902,7 @@ export function SectionCMockup({
             {channelFilter !== "all" && " · seeded 는 전 채널 합산만 집계되어 organic 에 포함"}
           </div>
           <div className="dist-row">
-            <span style={{ color: "#ec4899" }}>●ad</span>
+            <span style={{ color: "#ec4899" }} title="스파크애즈 등 유료 광고 집행">●광고 집행</span>
             <div className="dist-bar">
               <div className="dist-fill ig" style={{ width: `${adPct}%` }} />
             </div>

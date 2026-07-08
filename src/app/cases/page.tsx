@@ -5,6 +5,7 @@ import {
   type CaseListItem,
 } from "@/components/case-detail/CasesListWithCompare";
 import { BrowseFilters } from "@/components/case-detail/BrowseFilters";
+import { computeCompleteness } from "@/lib/case-detail/completeness";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,40 @@ export default async function CasesPage({
     for (const [cid, ch] of set) channelsByCaseId[cid] = [...ch].sort();
   }
 
+  // ★ A5(WS4b): 완결성 요약(간이) — key_stats 전체 대신 JSON 경로 스칼라만 뽑아 payload 최소화
+  //   (key_stats 는 xlsx 잔재로 케이스당 수 MB 가능 — 전체 select 금지). 타입 클라이언트가
+  //   JSON 경로 select 를 못 파싱해 any 캐스팅.
+  const completenessById: Record<string, ReturnType<typeof computeCompleteness>> = {};
+  if (allCases.length > 0) {
+    type KsScalar = {
+      id: string;
+      tk: string | null; cr: string | null; ig: string | null; yt: string | null;
+      ads: string | null; sales: string | null;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ksRows } = (await (supabase as any)
+      .from("cases")
+      .select(
+        "id, status, tk:key_stats->phase2->>total_contents, cr:key_stats->phase2->>total_unique_creators, ig:key_stats->phase2->>ig_total_videos, yt:key_stats->phase2->>yt_total_videos, ads:key_stats->phase4a->>total_ads, sales:key_stats->phase2->sales_summary->>total_revenue",
+      )) as { data: Array<KsScalar & { status: string | null }> | null };
+    const num = (s: string | null) => (s == null ? 0 : Number(s) || 0);
+    for (const r of ksRows ?? []) {
+      completenessById[r.id] = computeCompleteness(
+        {
+          phase2: {
+            total_contents: num(r.tk),
+            total_unique_creators: num(r.cr),
+            ig_total_videos: num(r.ig),
+            yt_total_videos: num(r.yt),
+            sales_summary: r.sales != null ? { total_revenue: num(r.sales) } : null,
+          },
+          phase4a: { total_ads: num(r.ads) },
+        },
+        { status: r.status, salesExists: r.sales != null },
+      );
+    }
+  }
+
   // 필터 — country/tier 정확 매칭 + brand 명 부분 일치 + 플랫폼 (products.channel 또는 cases.channel)
   const filtered = allCases.filter((c) => {
     if (selectedRegion && c.country !== selectedRegion) return false;
@@ -94,6 +129,7 @@ export default async function CasesPage({
 
   const list: CaseListItem[] = filtered.map((c) => {
     const productChannels = channelsByCaseId[c.id] ?? [];
+    const comp = completenessById[c.id];
     // 다채널 라벨: products 박혔으면 그 list, 아니면 cases.channel (옛 case)
     const channels = productChannels.length > 0
       ? productChannels
@@ -109,6 +145,9 @@ export default async function CasesPage({
       status: c.status,
       revenue_tier: c.revenue_tier,
       updated_at: c.updated_at,
+      completeness: comp
+        ? { verdict: comp.verdict, filledCount: comp.filledCount, total: comp.total }
+        : undefined,
     };
   });
 
