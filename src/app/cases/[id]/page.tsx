@@ -1656,6 +1656,31 @@ export default async function CaseDetailPage({
     return { angles, tiers, months, cells, sampleTagged };
   })();
 
+  // ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019). 미적용/무매칭 시 [].
+  const seedingAdOverlap = await (async () => {
+    type Row = {
+      creator_handle: string | null;
+      seeding_channel: string | null;
+      tier: string | null;
+      follower_count: number | null;
+      ad_count: number | null;
+    };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_seeding_ad_overlap",
+      (q) => q.eq("case_id", c.id),
+    );
+    return rows
+      .map((r) => ({
+        creator_handle: r.creator_handle ?? "?",
+        seeding_channel: r.seeding_channel ?? "tiktok",
+        tier: r.tier,
+        follower_count: r.follower_count,
+        ad_count: r.ad_count ?? 0,
+      }))
+      .sort((a, b) => b.ad_count - a.ad_count || (b.follower_count ?? 0) - (a.follower_count ?? 0));
+  })();
+
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
   const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
     // 1) dataRanges — 각 채널 min/max date
@@ -3301,6 +3326,7 @@ export default async function CaseDetailPage({
                             }
                             return result;
                           })()}
+                          seedingAdOverlap={seedingAdOverlap}
                         />
                         </SectionBoundary>
                       </div>

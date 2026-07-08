@@ -121,3 +121,44 @@ WHERE cm.platform = 'tiktok'
 GROUP BY 1, 2, 3, 4;
 -- dry-run: SELECT tier, count(DISTINCT angle), count(DISTINCT month), sum(video_count)
 --          FROM v_case_angle_tier_month WHERE case_id='<ready>' GROUP BY 1;
+
+-- =====================================================================
+-- A3. 시딩∩광고 교집합
+-- =====================================================================
+-- 조인 키: meta_ads.creator_page_name(1순위) + inferred_creator_handle(보조) 를 norm_handle로
+--   정규화 → v_unified_creators.norm_handle(TK/IG/YT 통합) 과 case 내에서 매칭.
+--   근거 BE-9: inferred_creator_handle 은 SharkNinja류에서 거의 0건, creator_page_name 에
+--   실제 크리에이터(PlantYou 등) 43/221 존재 → page_name 우선. 매칭 없으면 빈 결과(정상).
+--   컬럼: case_id, norm_handle, creator_handle, seeding_channel, tier, follower_count,
+--         ad_count, creator_page_name, inferred_creator_handle
+CREATE OR REPLACE VIEW v_case_seeding_ad_overlap AS
+WITH ad_handles AS (
+  SELECT
+    m.case_id,
+    COALESCE(
+      NULLIF(regexp_replace(lower(m.creator_page_name), '[^a-z0-9]', '', 'g'), ''),
+      NULLIF(regexp_replace(lower(m.inferred_creator_handle), '[^a-z0-9]', '', 'g'), '')
+    ) AS norm_handle,
+    max(m.creator_page_name) AS creator_page_name,
+    max(m.inferred_creator_handle) AS inferred_creator_handle,
+    count(*) AS ad_count
+  FROM meta_ads m
+  WHERE COALESCE(m.creator_page_name, m.inferred_creator_handle) IS NOT NULL
+  GROUP BY 1, 2
+)
+SELECT
+  ah.case_id,
+  ah.norm_handle,
+  uc.handle AS creator_handle,
+  uc.channel AS seeding_channel,
+  uc.tier,
+  uc.follower_count,
+  ah.ad_count,
+  ah.creator_page_name,
+  ah.inferred_creator_handle
+FROM ad_handles ah
+JOIN v_unified_creators uc
+  ON uc.case_id = ah.case_id AND uc.norm_handle = ah.norm_handle
+WHERE ah.norm_handle IS NOT NULL
+  AND length(ah.norm_handle) >= 4;
+-- dry-run: SELECT count(*), count(DISTINCT norm_handle) FROM v_case_seeding_ad_overlap WHERE case_id='<ready>';

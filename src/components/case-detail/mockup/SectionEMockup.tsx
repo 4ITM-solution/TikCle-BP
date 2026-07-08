@@ -36,12 +36,22 @@ export function SectionEMockup({
   phase4a,
   metaAdsList,
   partnerChannelMap,
+  seedingAdOverlap,
 }: {
   phase4a: Phase4aStats;
   metaAdsList?: AdLike[];
   /** creator_page_name 정규화 → 다른 채널 활동 (TK/IG/YT count + 팔로워).
    * page.tsx 에서 crossPlatformMatches + top_creators handle 매칭으로 만듦. */
   partnerChannelMap?: Record<string, { tk: number; ig: number; yt: number; follower?: number | null }>;
+  /** ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019, SQL norm_handle 조인).
+   *  광고 등장 크리에이터가 오가닉 시딩(TK/IG/YT)도 한 사례. 미적용/무매칭 시 빈 배열. */
+  seedingAdOverlap?: Array<{
+    creator_handle: string;
+    seeding_channel: string;
+    tier: string | null;
+    follower_count: number | null;
+    ad_count: number;
+  }>;
 }) {
   const [search, setSearch] = useState("");
   const [landingFilter, setLandingFilter] = useState<string>("all");
@@ -546,6 +556,58 @@ export function SectionEMockup({
           </table>
         </>
       )}
+
+      {/* ★ A3(WS4b): 시딩∩광고 교집합 — SQL(v_case_seeding_ad_overlap) norm_handle 조인 결과 */}
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+          시딩 ∩ 광고 교집합
+        </div>
+        <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 8 }}>
+          광고(Meta)에 등장하면서 오가닉 시딩(TK/IG/YT)도 한 크리에이터 — 핸들 정규화 매칭
+        </div>
+        {!seedingAdOverlap || seedingAdOverlap.length === 0 ? (
+          <div style={{ padding: 12, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+            데이터 없음 — 광고 크리에이터 핸들(creator_page_name)과 시딩 인플 핸들이 겹치지 않거나,
+            광고에 크리에이터 핸들이 파싱되지 않은 케이스(예: 브랜드 자체제작 위주).
+          </div>
+        ) : (
+          <table className="partner-table" style={{ width: "100%", fontSize: 11 }}>
+            <thead>
+              <tr style={{ color: "#6b7280", textAlign: "left" }}>
+                <th>크리에이터</th>
+                <th>시딩 채널</th>
+                <th>티어</th>
+                <th style={{ textAlign: "right" }}>팔로워</th>
+                <th style={{ textAlign: "right" }}>광고 수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seedingAdOverlap.slice(0, 10).map((o, i) => (
+                <tr key={`${o.creator_handle}-${o.seeding_channel}-${i}`}>
+                  <td><b>{o.creator_handle}</b></td>
+                  <td>
+                    <span className={`ch-pill pill-${o.seeding_channel === "tiktok" ? "tk" : o.seeding_channel === "instagram" ? "ig" : "yt"}`}>
+                      {o.seeding_channel === "tiktok" ? "TK" : o.seeding_channel === "instagram" ? "IG" : "YT"}
+                    </span>
+                  </td>
+                  <td style={{ color: "#6b7280" }}>{o.tier ?? "—"}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace", color: "#6b7280" }}>
+                    {formatFollowers(o.follower_count)}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>{o.ad_count}</td>
+                </tr>
+              ))}
+              {seedingAdOverlap.length > 10 && (
+                <tr style={{ color: "#9ca3af" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                    + {seedingAdOverlap.length - 10}명 더
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
