@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { tierLabel } from "@/lib/case-detail/revenue-tiers";
 import { fmtKstDateTime } from "@/lib/date-format";
+import { adoptionColors, type AdoptionVerdict } from "@/lib/case-detail/completeness";
 
 export type CaseListItem = {
   id: string;
@@ -17,6 +18,8 @@ export type CaseListItem = {
   status: string;
   revenue_tier: string | null;
   updated_at: string;
+  /** ★ A5(WS4b): 완결성 요약(간이) — 채택/보류/폐기 + n/6축 */
+  completeness?: { verdict: AdoptionVerdict; filledCount: number; total: number };
 };
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -125,7 +128,7 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
               key={c.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "32px 1fr auto auto auto auto",
+                gridTemplateColumns: "32px 1fr auto auto auto auto auto",
                 gap: 12,
                 alignItems: "center",
                 padding: "14px 18px",
@@ -228,6 +231,24 @@ export function CasesListWithCompare({ cases }: { cases: CaseListItem[] }) {
                 >
                   —
                 </span>
+              )}
+              {/* ★ A5(WS4b): 완결성 요약 배지 */}
+              {c.completeness ? (() => {
+                const col = adoptionColors(c.completeness.verdict);
+                return (
+                  <span
+                    title={`Q0 채택 판정(간이) · 완결성 ${c.completeness.filledCount}/${c.completeness.total}축`}
+                    style={{
+                      fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 9,
+                      background: col.bg, color: col.fg, border: `1px solid ${col.border}`,
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    {c.completeness.verdict} {c.completeness.filledCount}/{c.completeness.total}
+                  </span>
+                );
+              })() : (
+                <span style={{ fontSize: 10, color: "var(--color-g300)", fontFamily: "var(--font-mono)" }}>—</span>
               )}
               <span className={`status-pill ${c.status}`}>{c.status}</span>
             </div>

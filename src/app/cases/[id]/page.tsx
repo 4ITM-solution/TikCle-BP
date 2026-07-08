@@ -24,6 +24,7 @@ import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 import { SectionBoundary } from "@/components/case-detail/SectionBoundary";
 import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
 import { safeViewRows } from "@/lib/case-detail/safe-view";
+import { computeCompleteness } from "@/lib/case-detail/completeness";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -955,6 +956,23 @@ export default async function CaseDetailPage({
   const commerceReady = exolytDone && salesDone;
   const ready =
     (commerceReady || ownedChannelDone) && c.status === "draft";
+
+  // ★ A5/B1/B2(WS4b): 실매출 존재(case_product_sales 행) + 프로모션(시점) 존재.
+  //   F2 근거: products 있어도 case_product_sales 0행이면 "매출 미업로드". row 존재로 판정.
+  const caseSalesExists = await (async () => {
+    const { count } = await supabase
+      .from("case_product_sales")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", c.id);
+    return (count ?? 0) > 0;
+  })();
+  const hasPromotions = await (async () => {
+    const { count } = await supabase
+      .from("promotion_events")
+      .select("id", { count: "exact", head: true })
+      .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`);
+    return (count ?? 0) > 0;
+  })();
 
   let reason = "";
   if (c.status !== "draft") reason = `현재 상태: ${c.status}`;
@@ -2273,6 +2291,13 @@ export default async function CaseDetailPage({
     }
   }
 
+  // ★ A5(WS4b): Q0 채택 판정(간이) — 헤더 배지 + (B1 게이지 공용)
+  const caseCompleteness = computeCompleteness(keyStats, {
+    status: c.status,
+    salesExists: caseSalesExists,
+    hasPromotions,
+  });
+
   return (
     <>
       <div className="bp-mockup">
@@ -2287,6 +2312,13 @@ export default async function CaseDetailPage({
           dataChannels={dataChannels}
           channelStats={channelStats}
           analyzedAt={c.analyzed_at}
+          adoption={{
+            verdict: caseCompleteness.verdict,
+            filledCount: caseCompleteness.filledCount,
+            total: caseCompleteness.total,
+            commerceReady: caseCompleteness.commerceReady,
+            monitoringReady: caseCompleteness.monitoringReady,
+          }}
           actions={
             <CaseHeader
               case_id={c.id}
