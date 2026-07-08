@@ -333,7 +333,7 @@ export function SectionAMockup({
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">paid 비중</div>
+          <div className="kpi-label" title="스파크애즈 등 유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style={{ color: "#9ca3af", fontWeight: 400 }}>(스파크애즈)</span></div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalPaid / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalPaid.toLocaleString()}건</div>
         </div>

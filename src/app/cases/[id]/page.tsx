@@ -2423,6 +2423,13 @@ export default async function CaseDetailPage({
                 const mx = dataRanges[s.key]?.max ?? null;
                 return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
               })}
+              {/* ★ B5(WS4b): 캐시/스냅샷 표기 — 수치는 분석 시점 스냅샷(라이브 아님) */}
+              {c.analyzed_at && (
+                <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff", marginLeft: "auto" }}
+                  title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
+                  🗄 캐시 스냅샷 · 분석 {String(c.analyzed_at).slice(0, 10)}
+                </span>
+              )}
             </div>
           );
         })()}

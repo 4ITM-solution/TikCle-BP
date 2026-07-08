@@ -169,7 +169,7 @@ export function SectionCMockup({
           ★ 태그 × GMV
         </button>
         <button className={tab === "paid" ? "active" : ""} onClick={() => setTab("paid")}>
-          paid/seeded/organic 분류
+          광고 집행/시딩/오가닉 분류
         </button>
       </div>
 
@@ -483,7 +483,7 @@ export function SectionCMockup({
             >
               <option value="count">영상 수</option>
               <option value="view">view 합산</option>
-              <option value="paid_pct">paid 비중</option>
+              <option value="paid_pct">광고 집행 비중(스파크애즈)</option>
               <option value="gmv">★ GMV 기여 (Kalodata)</option>
             </select>
             {heatMeasure === "gmv" && (
@@ -902,7 +902,7 @@ export function SectionCMockup({
             {channelFilter !== "all" && " · seeded 는 전 채널 합산만 집계되어 organic 에 포함"}
           </div>
           <div className="dist-row">
-            <span style={{ color: "#ec4899" }}>●ad</span>
+            <span style={{ color: "#ec4899" }} title="스파크애즈 등 유료 광고 집행">●광고 집행</span>
             <div className="dist-bar">
               <div className="dist-fill ig" style={{ width: `${adPct}%` }} />
             </div>
