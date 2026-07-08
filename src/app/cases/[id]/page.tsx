@@ -23,6 +23,7 @@ import { SectionBMockup } from "@/components/case-detail/mockup/SectionBMockup";
 import { SectionCMockup } from "@/components/case-detail/mockup/SectionCMockup";
 import { SectionBoundary } from "@/components/case-detail/SectionBoundary";
 import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
+import { safeViewRows } from "@/lib/case-detail/safe-view";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -1613,6 +1614,48 @@ export default async function CaseDetailPage({
   const clusterChannelBreakdown = clusterBundle.clusterChannelBreakdown;
   const clusterChannelData = clusterBundle.channelData;
 
+  // ★ A2(WS4b): 티어×앵글×월 교차 — v_case_angle_tier_month(019). 미적용 시 빈 상태.
+  const angleTierMonth = await (async () => {
+    type Row = {
+      angle: string | null;
+      tier: string | null;
+      month: string | null;
+      video_count: number | null;
+    };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_angle_tier_month",
+      (q) => q.eq("case_id", c.id),
+    );
+    if (rows.length === 0) return null;
+    const TIER_ORDER = ["mega", "macro", "mid", "micro", "nano", "sub-nano", "unknown"];
+    const angleTotals = new Map<string, number>();
+    const monthSet = new Set<string>();
+    const tierSet = new Set<string>();
+    // cells[tier][angle][month] = count
+    const cells: Record<string, Record<string, Record<string, number>>> = {};
+    let sampleTagged = 0;
+    for (const r of rows) {
+      const angle = r.angle ?? "미분류";
+      const tier = r.tier ?? "unknown";
+      const month = r.month ?? "";
+      const cnt = r.video_count ?? 0;
+      if (!month) continue;
+      sampleTagged += cnt;
+      angleTotals.set(angle, (angleTotals.get(angle) ?? 0) + cnt);
+      monthSet.add(month);
+      tierSet.add(tier);
+      ((cells[tier] ??= {})[angle] ??= {})[month] = cnt;
+    }
+    const angles = [...angleTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([a]) => a)
+      .slice(0, 12);
+    const tiers = TIER_ORDER.filter((t) => tierSet.has(t));
+    const months = [...monthSet].sort();
+    return { angles, tiers, months, cells, sampleTagged };
+  })();
+
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
   const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
     // 1) dataRanges — 각 채널 min/max date
@@ -3126,6 +3169,8 @@ export default async function CaseDetailPage({
                         channelData={clusterChannelData}
                         uspByChannel={uspByChannel}
                         uspVideosByChannel={uspVideosByChannel}
+                        angleTierMonth={angleTierMonth}
+                        totalContents={ks.phase2.total_contents ?? 0}
                       />
                       </SectionBoundary>
                       {ks.phase2.sales_summary && (

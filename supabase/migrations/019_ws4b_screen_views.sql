@@ -92,3 +92,32 @@ GROUP BY 1, 2, 3;
 -- dry-run 검증 쿼리(적용 후 ORCH):
 --   SELECT channel, count(*) FROM v_case_monthly WHERE case_id='<ready>' GROUP BY 1;
 --   → tiktok_shop 행이 tiktok 이하로 나오면 정상(오버레이).
+
+-- =====================================================================
+-- A2. 티어×앵글×월 교차
+-- =====================================================================
+-- 앵글 = 메타 클러스터명(상위 묶음). 멤버는 리프 클러스터에 붙으므로 parent로 올려 집계.
+--   TikTok 경로만(content_id → contents → influencer 티어). IG/YT는 external_ref라
+--   콘텐츠 단위 티어 조인이 불명확 → 1차는 TK 한정(표본 라벨로 명시). 비전 태깅 커버리지가
+--   낮아(파일럿 5%) 화면은 표본 수 라벨 필수(B3와 연동).
+--   컬럼: case_id, angle, tier, month, video_count, views_sum, paid_count
+CREATE OR REPLACE VIEW v_case_angle_tier_month AS
+SELECT
+  lc.case_id,
+  COALESCE(mc.name, lc.name) AS angle,
+  COALESCE(i.tier::text, bp_tier(i.follower_count::bigint), 'unknown') AS tier,
+  to_char(ct.uploaded_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
+  count(*) AS video_count,
+  COALESCE(sum(ct.views), 0) AS views_sum,
+  count(*) FILTER (WHERE ct.is_ad) AS paid_count
+FROM content_cluster_members cm
+JOIN content_clusters lc ON lc.id = cm.cluster_id
+LEFT JOIN content_clusters mc ON mc.id = lc.parent_cluster_id AND mc.is_meta IS TRUE
+JOIN contents ct ON ct.id = cm.content_id
+LEFT JOIN influencers i ON i.id = ct.influencer_id
+WHERE cm.platform = 'tiktok'
+  AND cm.content_id IS NOT NULL
+  AND ct.uploaded_at IS NOT NULL
+GROUP BY 1, 2, 3, 4;
+-- dry-run: SELECT tier, count(DISTINCT angle), count(DISTINCT month), sum(video_count)
+--          FROM v_case_angle_tier_month WHERE case_id='<ready>' GROUP BY 1;
