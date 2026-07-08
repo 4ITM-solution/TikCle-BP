@@ -3551,6 +3551,7 @@ export default async function CaseDetailPage({
                             return result;
                           })()}
                           seedingAdOverlap={seedingAdOverlap}
+                          obsStartDate={dataRanges.meta_ads?.min ?? null}
                         />
                         </SectionBoundary>
                       </div>

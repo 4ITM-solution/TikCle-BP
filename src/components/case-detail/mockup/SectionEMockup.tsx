@@ -37,9 +37,12 @@ export function SectionEMockup({
   metaAdsList,
   partnerChannelMap,
   seedingAdOverlap,
+  obsStartDate,
 }: {
   phase4a: Phase4aStats;
   metaAdsList?: AdLike[];
+  /** ★ B6(WS4b): 관측 시작일 — 운영/활동 기간 생존편향 라벨용(G3). */
+  obsStartDate?: string | null;
   /** creator_page_name 정규화 → 다른 채널 활동 (TK/IG/YT count + 팔로워).
    * page.tsx 에서 crossPlatformMatches + top_creators handle 매칭으로 만듦. */
   partnerChannelMap?: Record<string, { tk: number; ig: number; yt: number; follower?: number | null }>;
@@ -206,6 +209,12 @@ export function SectionEMockup({
         <span className="letter">E</span>
         <span className="title">Meta 광고 + Partnership</span>
         <span className="sub">★ 필터 + 더보기 + partnership cross-channel</span>
+      </div>
+
+      {/* ★ B6(WS4b): 생존편향 라벨 — 운영/활동 기간은 관측 시작일 이후만 집계됨(G3) */}
+      <div style={{ fontSize: 10.5, color: "#92400e", marginBottom: 10, padding: "5px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 4 }}>
+        ⚠ 운영·활동 기간은 <b>관측 시작일{obsStartDate ? ` (${obsStartDate})` : ""} 이후 기준</b>입니다.
+        그 이전에 이미 집행 중이던 광고는 실제보다 짧게 보일 수 있습니다(생존편향).
       </div>
 
       <div
