@@ -25,6 +25,8 @@ import { SectionBoundary } from "@/components/case-detail/SectionBoundary";
 import { computeUspKeywords } from "@/lib/inngest/aggregators/phase5-position";
 import { safeViewRows } from "@/lib/case-detail/safe-view";
 import { computeCompleteness } from "@/lib/case-detail/completeness";
+import { SectionConclusion } from "@/components/case-detail/SectionConclusion";
+import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -2695,6 +2697,8 @@ export default async function CaseDetailPage({
               };
             }
             const lastError = ks.last_error;
+            // ★ C1(WS4b): 섹션별 1줄 결론(서버 조립) — G + A~E 모두 커버하는 스코프에서 계산
+            const conclusions = buildSectionConclusions(ks, brand);
             // phase2 없으면 mockup main path 그대로 가되 SectionA~E + G 만 skip (이미 그 guard 박힘).
             // KPI / 데이터 채널 / Phase Progress 는 phase2 없어도 표시 — 사용자가 데이터 채널 카드 클릭해서 적재 가능해야.
             return (
@@ -3163,6 +3167,7 @@ export default async function CaseDetailPage({
                   return axes.length > 0 ? (
                     <div className="bp-mockup">
                       <SectionBoundary name="G 종합 인사이트(언어 포함)">
+                      <SectionConclusion text={conclusions.G} />
                       <InsightCardMockup
                         title={oneLineSummary}
                         tagline={tagline}
@@ -3236,6 +3241,7 @@ export default async function CaseDetailPage({
                     {/* ★ mockup 1:1 — A + B 섹션 mockup CSS로 적용 */}
                     <div className="bp-mockup">
                       <SectionBoundary name="A 콘텐츠 활동">
+                      <SectionConclusion text={conclusions.A} />
                       <SectionAMockup
                         phase2={
                           // phase2.bsr_series 가 비었지만 sales_snapshot BSR(bsrSkus)은 있는 경우
@@ -3260,6 +3266,7 @@ export default async function CaseDetailPage({
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
+                      <SectionConclusion text={conclusions.B} />
                       <SectionBMockup
                         phase2={ks.phase2}
                         phase3={ks.phase3}
@@ -3302,6 +3309,7 @@ export default async function CaseDetailPage({
                       </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
                       <SectionBoundary name="C 콘텐츠 포맷">
+                      <SectionConclusion text={conclusions.C} />
                       <SectionCMockup
                         phase2={ks.phase2}
                         phase4bClusters={phase4bClustersForUi}
@@ -3317,6 +3325,7 @@ export default async function CaseDetailPage({
                       </SectionBoundary>
                       {ks.phase2.sales_summary && (
                         <SectionBoundary name="D 매출·SKU">
+                        <SectionConclusion text={conclusions.D} />
                         <SectionDMockup
                           phase2={ks.phase2}
                           phase4bSku={ks.phase4b_sku}
@@ -3422,6 +3431,7 @@ export default async function CaseDetailPage({
                     {ks.phase4a && (
                       <div className="bp-mockup">
                         <SectionBoundary name="E Meta 광고">
+                        <SectionConclusion text={conclusions.E} />
                         <SectionEMockup
                           phase4a={ks.phase4a}
                           metaAdsList={metaAdsList}
