@@ -27,6 +27,8 @@ import { safeViewRows } from "@/lib/case-detail/safe-view";
 import { computeCompleteness } from "@/lib/case-detail/completeness";
 import { SectionConclusion } from "@/components/case-detail/SectionConclusion";
 import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
+import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
+import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -2401,6 +2403,18 @@ export default async function CaseDetailPage({
       {/* Status branch */}
       {c.status === "draft" ? (
         <>
+          {/* ★ C4(WS4b): 적재 위저드 — channel×country 재료 체크리스트(실적재 신호) + 자동수집 배너 */}
+          <IntakeWizard
+            items={buildIntakeChecklist({
+              channel: c.channel,
+              country: c.country,
+              contentCount: contentCount ?? 0,
+              salesExists: caseSalesExists,
+              hasBsr: skuRows.some((r) => r.hasBsr),
+              storeUrl: !!c.tiktok_shop_store_url,
+              skuExists: skuRows.length > 0,
+            })}
+          />
           {/* ★ 데이터 채널 그리드 — 카드 클릭 → 그 채널 입력 UI 펼침. 원하는 채널만 골라 적재.
               (구 고정 "Section 02" 제거 — 채널 gating 없이 카드가 유일한 입력구) */}
           <div id="sec-channels" style={{ scrollMarginTop: 80 }} />
