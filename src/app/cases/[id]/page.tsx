@@ -31,6 +31,7 @@ import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
 import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
 import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
 import { CompletenessGauge } from "@/components/case-detail/CompletenessGauge";
+import { FreshnessBadge, daysSince } from "@/components/case-detail/FreshnessBadge";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -2404,6 +2405,27 @@ export default async function CaseDetailPage({
         />
         {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
         <CompletenessGauge c={caseCompleteness} />
+        {/* ★ B4(WS4b): freshness 배지 — source별 최신성(경과일) */}
+        {(() => {
+          const now = new Date();
+          const sources: Array<{ label: string; key: string }> = [
+            { label: "TikTok", key: "tiktok_video" },
+            { label: "광고", key: "meta_ads" },
+            { label: "IG", key: "instagram" },
+            { label: "YT", key: "youtube" },
+          ];
+          const present = sources.filter((s) => dataRanges[s.key]?.max);
+          if (present.length === 0) return null;
+          return (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #e5e7eb" }}>
+              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>데이터 최신성:</span>
+              {present.map((s) => {
+                const mx = dataRanges[s.key]?.max ?? null;
+                return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
+              })}
+            </div>
+          );
+        })()}
       </div>
     <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
@@ -3490,6 +3512,16 @@ export default async function CaseDetailPage({
                       <div className="bp-mockup">
                         <SectionBoundary name="E Meta 광고">
                         <SectionConclusion text={conclusions.E} />
+                        {/* ★ B4(WS4b): 광고 데이터 최신성 필수 표기 */}
+                        {dataRanges.meta_ads?.max && (() => {
+                          const d = daysSince(dataRanges.meta_ads.max, new Date());
+                          return (
+                            <div style={{ fontSize: 11, color: d != null && d > 30 ? "#991b1b" : "#6b7280", marginBottom: 8, padding: "5px 10px", background: d != null && d > 30 ? "#fef2f2" : "#f9fafb", borderRadius: 4, display: "inline-block" }}>
+                              📅 광고 데이터 {d ?? "?"}일 경과 (최신 {dataRanges.meta_ads.max})
+                              {d != null && d > 30 ? " — 재수집 권장" : ""}
+                            </div>
+                          );
+                        })()}
                         <SectionEMockup
                           phase4a={ks.phase4a}
                           metaAdsList={metaAdsList}
