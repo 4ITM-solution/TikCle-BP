@@ -1674,6 +1674,20 @@ export default async function CaseDetailPage({
     return { angles, tiers, months, cells, sampleTagged };
   })();
 
+  // ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null.
+  const gmvTags = await (async () => {
+    type Row = { tag: string | null; video_count: number | null; gmv_sum: number | null };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_content_gmv_tags",
+      (q) => q.eq("case_id", c.id),
+    );
+    if (rows.length === 0) return null;
+    return rows
+      .filter((r) => r.tag)
+      .map((r) => ({ tag: r.tag as string, video_count: r.video_count ?? 0, gmv_sum: Number(r.gmv_sum) || 0 }));
+  })();
+
   // ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019). 미적용/무매칭 시 [].
   const seedingAdOverlap = await (async () => {
     type Row = {
@@ -3298,6 +3312,7 @@ export default async function CaseDetailPage({
                         uspVideosByChannel={uspVideosByChannel}
                         angleTierMonth={angleTierMonth}
                         totalContents={ks.phase2.total_contents ?? 0}
+                        gmvTags={gmvTags}
                       />
                       </SectionBoundary>
                       {ks.phase2.sales_summary && (

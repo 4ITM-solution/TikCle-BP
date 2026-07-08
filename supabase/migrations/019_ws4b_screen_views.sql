@@ -196,3 +196,43 @@ WHERE NOT EXISTS (
     AND pe.start_date = v.start_date::date AND pe.is_preset IS TRUE
 );
 -- dry-run: SELECT name, start_date FROM promotion_events WHERE is_preset AND country='US' ORDER BY start_date;
+
+-- =====================================================================
+-- A7. GMV × 태그 조인
+-- =====================================================================
+-- 콘텐츠 단위 GMV = case_video_analyses.matched_sku_ids → case_product_sales.revenue_30d 합.
+--   태그 = contents.hook_tags(text[]). 태그별 기여 GMV + 영상 수 집계.
+--   ⚠ 커버리지 극히 낮음(파일럿: GMV 연계 영상 10/10,139 = 0.1%) → 화면은 표본 라벨 필수(B9).
+--   컬럼: case_id, tag, video_count, gmv_sum
+CREATE OR REPLACE VIEW v_case_content_gmv_tags AS
+WITH sku_gmv AS (
+  SELECT case_id, product_id, MAX(revenue_30d) AS revenue_30d
+  FROM case_product_sales
+  WHERE revenue_30d IS NOT NULL
+  GROUP BY case_id, product_id
+),
+content_gmv AS (
+  SELECT
+    cva.case_id,
+    cva.content_id,
+    ct.hook_tags,
+    (SELECT COALESCE(SUM(sg.revenue_30d), 0)
+     FROM unnest(cva.matched_sku_ids) AS s(sku_id)
+     JOIN sku_gmv sg ON sg.product_id = s.sku_id AND sg.case_id = cva.case_id
+    ) AS gmv
+  FROM case_video_analyses cva
+  JOIN contents ct ON ct.id = cva.content_id
+  WHERE cva.content_id IS NOT NULL
+    AND cva.matched_sku_ids IS NOT NULL
+    AND array_length(cva.matched_sku_ids, 1) > 0
+)
+SELECT
+  cg.case_id,
+  t.tag,
+  count(DISTINCT cg.content_id) AS video_count,
+  SUM(cg.gmv) AS gmv_sum
+FROM content_gmv cg
+CROSS JOIN LATERAL unnest(COALESCE(cg.hook_tags, ARRAY[]::text[])) AS t(tag)
+WHERE cg.gmv > 0
+GROUP BY cg.case_id, t.tag;
+-- dry-run: SELECT tag, video_count, gmv_sum FROM v_case_content_gmv_tags WHERE case_id='<ready>' ORDER BY gmv_sum DESC;
