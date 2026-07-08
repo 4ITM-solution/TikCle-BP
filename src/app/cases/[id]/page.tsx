@@ -3369,6 +3369,7 @@ export default async function CaseDetailPage({
                         uspVideosByChannel={uspVideosByChannel}
                         angleTierMonth={angleTierMonth}
                         totalContents={ks.phase2.total_contents ?? 0}
+                        visionSample={(ks.phase4b_vision?.total_with_tags ?? 0) + (ks.phase4b_vision?.total_reused ?? 0)}
                         gmvTags={gmvTags}
                       />
                       </SectionBoundary>

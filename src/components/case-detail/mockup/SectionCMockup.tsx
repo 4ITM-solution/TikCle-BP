@@ -39,6 +39,7 @@ export function SectionCMockup({
   uspVideosByChannel,
   angleTierMonth,
   totalContents,
+  visionSample,
   gmvTags,
 }: {
   phase2: Phase2Stats;
@@ -54,6 +55,8 @@ export function SectionCMockup({
   } | null;
   /** 표본 라벨(B3)용 — 케이스 전체 콘텐츠 수 */
   totalContents?: number;
+  /** ★ B3(WS4b): Vision 태깅 표본 수(total_with_tags + reused) — C섹션 상시 표본 라벨 */
+  visionSample?: number;
   /** ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null. */
   gmvTags?: Array<{ tag: string; video_count: number; gmv_sum: number }> | null;
   /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (채널 토글 카운트용) */
@@ -138,6 +141,13 @@ export function SectionCMockup({
         <span className="title">콘텐츠 포맷 분석</span>
         <span className="sub">★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택</span>
       </div>
+      {/* ★ B3(WS4b): C섹션 전체 상시 표본 라벨 — Vision 태깅은 전체의 일부만 분석됨(파일럿 5%) */}
+      {visionSample != null && (totalContents ?? 0) > 0 && (
+        <div style={{ fontSize: 11, color: "#b45309", margin: "4px 0 10px", padding: "5px 10px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 4, display: "inline-block" }}>
+          🔬 표본 {visionSample.toLocaleString()}건(영상 태깅 완료) / 전체 {(totalContents ?? 0).toLocaleString()}건
+          {` (${Math.round((visionSample / (totalContents || 1)) * 100)}%)`} — 아래 클러스터·태그·앵글 분석은 이 표본 기준
+        </div>
+      )}
 
       <div className="sub-tabs">
         <button className={tab === "clu" ? "active" : ""} onClick={() => setTab("clu")}>
