@@ -701,17 +701,18 @@ export function SectionAMockup({
 
       {/* 1인당 영상 분포 → B(인플 풀)의 활동 3축 분포로 이관 (Part2 A) */}
 
-      {/* ★ 변곡점 timeline 카드 — phase5.bsr_inflections (Amazon BSR 급등 시점, day 단위 정확) */}
+      {/* ★ C3(WS4b): 서술(topInflection 콜아웃) 먼저, 상세 timeline 은 접어둠(기본 닫힘).
+          A·D 중복은 D 섹션이 주(主) — 여기선 요약 서술 + 접힌 상세만. */}
       {hasAmazon &&
         phase5?.bsr_inflections &&
         phase5.bsr_inflections.some((inf) => inf.top_videos.length > 0) && (
-        <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            ✨ 변곡점 timeline (주요{" "}
-            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개 ·{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>BSR 급등 ±7일에 콘텐츠가 잡힌 급등 중 개선폭 상위</span>)
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <details style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
+          <summary style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, cursor: "pointer" }}>
+            ✨ 변곡점 상세 timeline 펼치기 (주요{" "}
+            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개){" "}
+            <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 매출 급등 상세는 D(매출·SKU) 섹션과 동일</span>
+          </summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
               .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
               .slice(0, 15) // 줄줄이 방지 — 개선폭 큰 주요 급등 15개만
@@ -767,7 +768,7 @@ export function SectionAMockup({
                 </div>
               ))}
           </div>
-        </div>
+        </details>
       )}
     </div>
   );
