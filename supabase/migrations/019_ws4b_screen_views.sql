@@ -162,3 +162,37 @@ JOIN v_unified_creators uc
 WHERE ah.norm_handle IS NOT NULL
   AND length(ah.norm_handle) >= 4;
 -- dry-run: SELECT count(*), count(DISTINCT norm_handle) FROM v_case_seeding_ad_overlap WHERE case_id='<ready>';
+
+-- =====================================================================
+-- A6. 프로모션 캘린더 시드 (미국 — 사실 확인된 날짜만, 추정 금지)
+-- =====================================================================
+-- is_preset=true, case_id=NULL(글로벌 프리셋), country='US'. 화면 A섹션 월별 차트 이벤트 마커용.
+--   포함: Black Friday/Cyber Monday(추수감사절 기준 달력 확정), Amazon Prime Day(7월)·
+--         Prime Big Deal Days(10월, 공식 발표 확정 과거일). 2026 미발표분은 추정 금지 → 제외.
+--   idempotent: 동일 (name, country, start_date, is_preset) 있으면 skip.
+INSERT INTO promotion_events (name, country, start_date, end_date, is_preset, importance, notes)
+SELECT v.name, v.country, v.start_date::date, v.end_date::date, true, v.importance, v.notes
+FROM (VALUES
+  -- Amazon Prime Day (7월)
+  ('Amazon Prime Day 2023', 'US', '2023-07-11', '2023-07-12', 5, 'Amazon 공식 (확정)'),
+  ('Amazon Prime Day 2024', 'US', '2024-07-16', '2024-07-17', 5, 'Amazon 공식 (확정)'),
+  ('Amazon Prime Day 2025', 'US', '2025-07-08', '2025-07-11', 5, 'Amazon 공식 4일 (확정)'),
+  -- Amazon Prime Big Deal Days (10월)
+  ('Prime Big Deal Days 2023', 'US', '2023-10-10', '2023-10-11', 4, 'Amazon 공식 (확정)'),
+  ('Prime Big Deal Days 2024', 'US', '2024-10-08', '2024-10-09', 4, 'Amazon 공식 (확정)'),
+  ('Prime Big Deal Days 2025', 'US', '2025-10-07', '2025-10-08', 4, 'Amazon 공식 (확정)'),
+  -- Black Friday (추수감사절 다음날 — 달력 확정)
+  ('Black Friday 2023', 'US', '2023-11-24', '2023-11-24', 5, '추수감사절 익일 (달력 확정)'),
+  ('Black Friday 2024', 'US', '2024-11-29', '2024-11-29', 5, '추수감사절 익일 (달력 확정)'),
+  ('Black Friday 2025', 'US', '2025-11-28', '2025-11-28', 5, '추수감사절 익일 (달력 확정)'),
+  -- Cyber Monday (BF 다음 월요일 — 달력 확정)
+  ('Cyber Monday 2023', 'US', '2023-11-27', '2023-11-27', 4, 'BF 다음 월요일 (달력 확정)'),
+  ('Cyber Monday 2024', 'US', '2024-12-02', '2024-12-02', 4, 'BF 다음 월요일 (달력 확정)'),
+  ('Cyber Monday 2025', 'US', '2025-12-01', '2025-12-01', 4, 'BF 다음 월요일 (달력 확정)')
+) AS v(name, country, start_date, end_date, importance, notes)
+WHERE NOT EXISTS (
+  SELECT 1 FROM promotion_events pe
+  WHERE pe.name = v.name AND pe.country = v.country
+    AND pe.start_date = v.start_date::date AND pe.is_preset IS TRUE
+);
+-- dry-run: SELECT name, start_date FROM promotion_events WHERE is_preset AND country='US' ORDER BY start_date;

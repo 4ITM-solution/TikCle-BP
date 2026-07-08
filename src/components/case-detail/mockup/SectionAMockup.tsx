@@ -42,6 +42,7 @@ export function SectionAMockup({
   phase5,
   monthlyTierByChannel,
   hasAmazon,
+  promotionEvents,
 }: {
   phase2: Phase2Stats;
   phase3?: {
@@ -54,6 +55,8 @@ export function SectionAMockup({
   monthlyTierByChannel?: Partial<Record<ChannelMode, Record<string, TierDistribution>>>;
   /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
   hasAmazon?: boolean;
+  /** ★ A6(WS4b): 프로모션 이벤트(월별) — 차트 상단 마커. 추정 금지, 사실 확인된 날짜만(019 시드). */
+  promotionEvents?: Array<{ name: string; month: string; start_date: string; importance?: number | null }>;
 }) {
   // Hydration 안전 — SSR HTML 박힌 placeholder, mount 후 chart 렌더.
   // SVG chart 박힌 SSR/CSR 다른 결과 가능성 (어떤 컴포넌트가 #418 일으키는지 진단 어려움).
@@ -106,6 +109,17 @@ export function SectionAMockup({
     }
     return [...merged.values()].sort((a, b) => (a.month < b.month ? -1 : 1));
   }, [channelMode, phase2]);
+
+  // ★ A6(WS4b): 프로모션 이벤트 월별 버킷 (마커용)
+  const promoByMonth = useMemo(() => {
+    const m = new Map<string, Array<{ name: string; start_date: string }>>();
+    for (const e of promotionEvents ?? []) {
+      const arr = m.get(e.month) ?? [];
+      arr.push({ name: e.name, start_date: e.start_date });
+      m.set(e.month, arr);
+    }
+    return m;
+  }, [promotionEvents]);
 
   const totalPaid = monthlyForMode.reduce((s, m) => s + m.paid, 0);
   const totalOrganic = monthlyForMode.reduce((s, m) => s + m.organic, 0);
@@ -407,7 +421,11 @@ export function SectionAMockup({
                 }}
                 onMouseEnter={() => setHoverIdx(i)}
                 onMouseLeave={() => setHoverIdx(null)}
-                title={`${mo} · ${total} 영상`}
+                title={
+                  promoByMonth.has(mo)
+                    ? `${mo} · ${total} 영상 · 📅 ${promoByMonth.get(mo)!.map((e) => e.name).join(", ")}`
+                    : `${mo} · ${total} 영상`
+                }
               >
                 {/* 티어 데이터 있을 때 stack. 월별 없으면 전체 phase3.tier_distribution 비율로 fallback. */}
                 {show.tier && hasTierData && TIERS.map((t) => {
@@ -432,6 +450,9 @@ export function SectionAMockup({
                   />
                 )}
                 <div className="sb-label" style={isPeak ? { color: "#ec4899", fontWeight: 700 } : {}}>
+                  {promoByMonth.has(mo) && (
+                    <span title={promoByMonth.get(mo)!.map((e) => `${e.name} (${e.start_date})`).join(" · ")}>📅</span>
+                  )}
                   {`'${mo.slice(2)}`}
                   <br />
                   {total}

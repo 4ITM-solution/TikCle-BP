@@ -1699,6 +1699,26 @@ export default async function CaseDetailPage({
       .sort((a, b) => b.ad_count - a.ad_count || (b.follower_count ?? 0) - (a.follower_count ?? 0));
   })();
 
+  // ★ A6(WS4b): 프로모션 이벤트 — case별 + 국가 프리셋(is_preset·country). A섹션 차트 마커용.
+  //   월별 버킷(start_date YYYY-MM). 019 시드 적용 후 US 프리셋이 채워짐.
+  const promotionEvents = await (async () => {
+    type PromoRow = { name: string; start_date: string | null; end_date: string | null; importance: number | null };
+    const resp = await supabase
+      .from("promotion_events")
+      .select("name, start_date, end_date, importance, is_preset, country, case_id")
+      .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`)
+      .order("start_date", { ascending: true });
+    const data = resp.data as unknown as PromoRow[] | null;
+    return (data ?? [])
+      .filter((e) => e.start_date)
+      .map((e) => ({
+        name: e.name,
+        month: String(e.start_date).slice(0, 7),
+        start_date: String(e.start_date),
+        importance: e.importance ?? null,
+      }));
+  })();
+
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
   const [dataRanges, kalodataInOtherCases, relatedCases, tierDistByChannel, igAuthorsCounts] = await Promise.all([
     // 1) dataRanges — 각 채널 min/max date
@@ -3222,6 +3242,7 @@ export default async function CaseDetailPage({
                         phase5={ks.phase5}
                         monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
+                        promotionEvents={promotionEvents}
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
