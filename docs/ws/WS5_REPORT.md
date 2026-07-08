@@ -289,3 +289,25 @@ catch가 `console.warn`만 하고 그대로 진행 → **(1) 이벤트 미발행
 send가 throw → catch 진입 → cases.update({status: priorStatus, last_error}) → return ok:false.
 즉 running 박제·성공 위장 둘 다 제거. 호출부(화면)는 ok:false로 실패 인지·재시도 가능.
 ※ 라이브 주입 시뮬(send 강제 throw)은 prod write 동반이라 ORCH 몫. tsc ✅.
+
+## BE-11 — fail-open 2건 정책 수정 ✅ (CX1-F4·F5)
+
+### ① 비용 가드 fail-open (F4) — `shared.ts assertBudget`
+- 문제: phase_runs 합산 조회가 예외/쿼리에러면 `console.warn` 후 통과 → phase_runs 장애·권한·
+  마이그레이션 미적용이 곧 **비용 상한 무력화**(가드 착시). 또 `sumPaged`가 쿼리 error를 조용히
+  `break`해 부분합 0 → 역시 fail-open.
+- 수정: (a) `sumPaged`가 쿼리 error를 **throw**로 표면화. (b) 조회 실패 catch를 **fail-closed**로 —
+  `BudgetExceededError('budget_guard_unavailable … emergency cap $5 …')`로 유료 phase 중단.
+  로컬/dev는 `BP_BUDGET_FAILOPEN=1`로 종전 통과(CX F4 대안). `BP_EMERGENCY_COST_CAP_USD` 조정 가능.
+- 건강한 런에는 영향 없음(phase_runs 정상 조회 시 종전과 동일). 조회 실패 시에만 차단.
+
+### ② vision dedup fail-open (F5) — `phase4b-vision.ts fetchReusableVisionTags`
+- 문제: 재사용 조회가 `error` 미확인 → 실패 시 reuseMap 빈 맵 → **전량 재태깅(조용한 과금 증가)**.
+- 수정: error면 **throw** → 배치 실패로 Inngest 재시도(partial). 비용 절감 캐시 실패가 곧 새 LLM
+  호출로 넘어가지 않음(CX F5 정책). 타입 shape에 `error` 필드 추가.
+
+### ⚠️ 동일 패턴 플래그 (ORCH)
+`phase4a-intel.ts fetchReusableAdIntel`(광고 ad_intel dedup)도 `.select(...)` error 미확인 —
+동일 silent-cost-fallback. BE-11 스코프(vision)에는 없어 미수정. **같은 방식 throw 권고**(후속).
+
+tsc ✅.

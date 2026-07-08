@@ -51,6 +51,9 @@ const FREE_PHASES: ReadonlySet<string> = new Set(["serve-stats"]);
 
 const CASE_COST_CAP_USD = Number(process.env.BP_CASE_COST_CAP_USD || 25);
 const MONTHLY_COST_CAP_USD = Number(process.env.BP_MONTHLY_COST_CAP_USD || 300);
+// BE-11 (CX1-F4): 비용 조회 실패 시 무제한 통과 대신 적용할 emergency cap(기본 $5).
+//   조회 실패=상한 확인 불가 → fail-closed(유료 phase 중단). dev는 BP_BUDGET_FAILOPEN=1로 통과.
+const EMERGENCY_COST_CAP_USD = Number(process.env.BP_EMERGENCY_COST_CAP_USD || 5);
 
 /**
  * 파이프라인 슬랙 알림 — SLACK_PIPELINE_WEBHOOK 미설정이면 조용히 skip (로컬 개발).
@@ -124,7 +127,15 @@ async function assertBudget(
       let total = 0;
       for (let off = 0; off < 10_000; off += 1000) {
         const { data, error } = await q(off, off + 999);
-        if (error || !data) break;
+        // BE-11: 쿼리 에러를 조용히 break(부분합 0 → fail-open)하지 않고 throw로 표면화.
+        if (error) {
+          const m =
+            typeof error === "object" && error && "message" in error
+              ? (error as { message: string }).message
+              : String(error);
+          throw new Error(`phase_runs 조회 실패: ${m}`);
+        }
+        if (!data) break;
         total += data.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
         if (data.length < 1000) break;
       }
@@ -137,8 +148,18 @@ async function assertBudget(
       sb.from("phase_runs").select("cost_usd").gte("started_at", monthStart.toISOString()).range(a, b),
     );
   } catch (e) {
-    console.warn("[budget] 조회 실패 — 가드 통과:", e instanceof Error ? e.message : e);
-    return;
+    // BE-11 (CX1-F4): 비용 조회 실패를 무제한 통과로 처리하지 않는다(완전 통과 금지).
+    //   phase_runs 장애·권한·마이그레이션 미적용이 곧 상한 무력화가 되면 "가드가 있다"는
+    //   착시로 폭주 과금. 프로덕션은 fail-closed(emergency cap 정책상 유료 phase 중단).
+    //   로컬/dev는 BP_BUDGET_FAILOPEN=1로 종전처럼 통과(파이프라인 개발 배려, CX F4 대안).
+    const msg = e instanceof Error ? e.message : String(e);
+    if (process.env.BP_BUDGET_FAILOPEN === "1") {
+      console.warn("[budget] 조회 실패 — FAILOPEN(dev)로 통과:", msg);
+      return;
+    }
+    throw new BudgetExceededError(
+      `budget_guard_unavailable: 비용 조회 실패로 상한 확인 불가 — emergency cap $${EMERGENCY_COST_CAP_USD} 정책상 ${phase} 중단 (조회오류: ${msg}). dev는 BP_BUDGET_FAILOPEN=1`,
+    );
   }
   if (caseSum >= CASE_COST_CAP_USD || monthSum >= MONTHLY_COST_CAP_USD) {
     const which =
