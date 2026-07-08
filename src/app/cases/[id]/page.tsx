@@ -1838,46 +1838,75 @@ export default async function CaseDetailPage({
   //   스냅샷이라 이후 스크랩분(엑솔릿/카로 추가)을 누락하는 stale undercount.
   //   contents에서 distinct video id 기준으로 다시 세어 Section A/C·KPI를 정확화.
   //   (organic=비광고 / paid=is_ad). live가 캐시보다 클 때만 덮음(절대 악화 X).
-  const { liveTkMonthly, liveTkTotal } = await (async () => {
+  const { liveTkMonthly, liveTkTotal, liveTkShopMonthly } = await (async () => {
+    type MB = { month: string; organic: number; paid: number; total: number };
     if (!brand_id)
       return {
-        liveTkMonthly: null as
-          | null
-          | Array<{ month: string; organic: number; paid: number; total: number }>,
+        liveTkMonthly: null as null | MB[],
         liveTkTotal: null as number | null,
+        liveTkShopMonthly: null as null | MB[],
       };
     const seen = new Set<string>();
     const byMonth = new Map<string, { organic: number; paid: number }>();
+    // ★ A1(WS4b): 샵 콘텐츠(is_shop_content) 월별 별도 집계 — Section A '틱톡샵' 토글용.
+    const shopByMonth = new Map<string, { organic: number; paid: number }>();
     let total = 0;
     const PAGE = 1000;
+    // ★ A1(WS4b): is_shop_content 컬럼은 migration 019 적용 후 존재. 적용 전(현행 DB)엔
+    //   해당 컬럼 select가 에러 → base 컬럼으로 폴백(샵 집계 skip). apply 후 자동 활성.
+    //   (typed 클라이언트가 동적 select 문자열을 못 파싱해 row 타입은 명시 캐스팅.)
+    type TkRow = { url: string | null; uploaded_at: string | null; is_ad: boolean | null; is_shop_content?: boolean | null };
+    let shopCol = true;
     for (let off = 0; off < 200000; off += PAGE) {
-      const { data } = await supabase
-        .from("contents")
-        .select("url, uploaded_at, is_ad")
-        .eq("brand_id", brand_id)
-        .eq("country", c.country)
-        .ilike("url", "%tiktok.com%")
-        .not("uploaded_at", "is", null)
-        .range(off, off + PAGE - 1);
+      const runQuery = (withShop: boolean) =>
+        supabase
+          .from("contents")
+          .select(withShop ? "url, uploaded_at, is_ad, is_shop_content" : "url, uploaded_at, is_ad")
+          .eq("brand_id", brand_id)
+          .eq("country", c.country)
+          .ilike("url", "%tiktok.com%")
+          .not("uploaded_at", "is", null)
+          .range(off, off + PAGE - 1);
+      let resp = await runQuery(shopCol);
+      if (resp.error && shopCol) {
+        // 컬럼 미존재(019 미적용) — 폴백 후 같은 offset 재시도.
+        shopCol = false;
+        resp = await runQuery(false);
+      }
+      const data = resp.data as unknown as TkRow[] | null;
       if (!data || data.length === 0) break;
       for (const r of data) {
         const vid = (r.url as string | null)?.match(/\/(?:video|photo)\/(\d+)/)?.[1];
         if (!vid || seen.has(vid)) continue;
         seen.add(vid);
         const month = String(r.uploaded_at).slice(0, 7);
+        const isPaid = r.is_ad === true;
         const e = byMonth.get(month) ?? { organic: 0, paid: 0 };
-        if (r.is_ad === true) e.paid += 1;
+        if (isPaid) e.paid += 1;
         else e.organic += 1;
         byMonth.set(month, e);
+        if (r.is_shop_content === true) {
+          const se = shopByMonth.get(month) ?? { organic: 0, paid: 0 };
+          if (isPaid) se.paid += 1;
+          else se.organic += 1;
+          shopByMonth.set(month, se);
+        }
         total += 1;
       }
       if (data.length < PAGE) break;
     }
-    if (total === 0) return { liveTkMonthly: null, liveTkTotal: null };
-    const arr = [...byMonth.entries()]
-      .map(([month, v]) => ({ month, organic: v.organic, paid: v.paid, total: v.organic + v.paid }))
-      .sort((a, b) => (a.month < b.month ? -1 : 1));
-    return { liveTkMonthly: arr, liveTkTotal: total };
+    if (total === 0)
+      return { liveTkMonthly: null, liveTkTotal: null, liveTkShopMonthly: null };
+    const toArr = (m: Map<string, { organic: number; paid: number }>): MB[] =>
+      [...m.entries()]
+        .map(([month, v]) => ({ month, organic: v.organic, paid: v.paid, total: v.organic + v.paid }))
+        .sort((a, b) => (a.month < b.month ? -1 : 1));
+    const shopArr = toArr(shopByMonth);
+    return {
+      liveTkMonthly: toArr(byMonth),
+      liveTkTotal: total,
+      liveTkShopMonthly: shopArr.length > 0 ? shopArr : null,
+    };
   })();
 
   // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
@@ -2464,6 +2493,8 @@ export default async function CaseDetailPage({
                   ig: ks.phase2.monthly_by_channel?.ig ?? [],
                   yt: ks.phase2.monthly_by_channel?.yt ?? [],
                   tk: liveTkMonthly,
+                  // ★ A1(WS4b): 샵 콘텐츠 월별 — 있을 때만.
+                  ...(liveTkShopMonthly ? { tk_shop: liveTkShopMonthly } : {}),
                 },
               };
             }

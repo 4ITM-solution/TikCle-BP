@@ -33,7 +33,7 @@ const TIERS: { key: TierBucket; label: string; color: string }[] = [
   { key: "unknown", label: "미상", color: "#d1d5db" },
 ];
 
-type ChannelMode = "all" | "tk" | "ig" | "yt";
+type ChannelMode = "all" | "tk" | "ig" | "yt" | "shop";
 type BarMode = "abs" | "pct";
 
 export function SectionAMockup({
@@ -49,8 +49,9 @@ export function SectionAMockup({
     tier_distribution?: TierDistribution; // 전체 (월별 없을 때 fallback)
   };
   phase5?: Phase5Stats;
-  /** 채널별 월별 티어 분포 — Section A 티어 stack 이 채널 토글에 반응하게 (page.tsx server) */
-  monthlyTierByChannel?: Record<ChannelMode, Record<string, TierDistribution>>;
+  /** 채널별 월별 티어 분포 — Section A 티어 stack 이 채널 토글에 반응하게 (page.tsx server).
+   *  Partial — shop 등 일부 채널은 티어 분포가 없어 fallback(TK phase3)으로 렌더. */
+  monthlyTierByChannel?: Partial<Record<ChannelMode, Record<string, TierDistribution>>>;
   /** Amazon 채널 있는 case? BSR line + ★ 변곡점 marker 표시 여부 */
   hasAmazon?: boolean;
 }) {
@@ -75,12 +76,18 @@ export function SectionAMockup({
   const igVids = phase2.ig_total_videos ?? 0;
   const ytVids = phase2.yt_total_videos ?? 0;
   const allVids = tkVids + igVids + ytVids;
+  // ★ A1(WS4b): TT샵 콘텐츠 수 — tk 안의 샵분(is_shop_content). 오버레이 채널.
+  const tkShopVids = (phase2.monthly_by_channel?.tk_shop ?? []).reduce(
+    (s, r) => s + r.total,
+    0,
+  );
 
   // 채널 mode에 맞는 monthly (paid/organic) 추출.
   // "all" = TK + IG + YT 합산 (각 월별 paid/organic/total).
   const monthlyForMode = useMemo<MonthlyVideoCount[]>(() => {
     const ch = phase2.monthly_by_channel;
     if (channelMode === "tk") return ch?.tk ?? phase2.monthly_video_counts;
+    if (channelMode === "shop") return ch?.tk_shop ?? [];
     if (channelMode === "ig") return ch?.ig ?? [];
     if (channelMode === "yt") return ch?.yt ?? [];
     // all = 합산
@@ -107,6 +114,7 @@ export function SectionAMockup({
   const totalForMode =
     channelMode === "all" ? allVids :
     channelMode === "tk" ? tkVids :
+    channelMode === "shop" ? tkShopVids :
     channelMode === "ig" ? igVids :
     ytVids;
 
@@ -280,6 +288,10 @@ export function SectionAMockup({
           {([
             { k: "all", label: `전체 합산 (${allVids.toLocaleString()})`, n: allVids },
             { k: "tk", label: `TikTok (${tkVids.toLocaleString()})`, n: tkVids },
+            // ★ A1(WS4b): 샵 콘텐츠 있을 때만 노출 — 없으면 토글 자체 숨김(add-only).
+            ...(tkShopVids > 0
+              ? [{ k: "shop", label: `틱톡샵 (${tkShopVids.toLocaleString()})`, n: tkShopVids }]
+              : []),
             { k: "ig", label: `Instagram (${igVids.toLocaleString()})`, n: igVids },
             { k: "yt", label: `YouTube (${ytVids.toLocaleString()})`, n: ytVids },
           ] as const).map((b) => (
