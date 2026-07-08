@@ -1689,6 +1689,24 @@ export default async function CaseDetailPage({
     return { angles, tiers, months, cells, sampleTagged };
   })();
 
+  // ★ C6(WS4b): IG 국가 근사 신호 — v_case_ig_country_signal(019). 미적용/무데이터 시 null.
+  const igCountrySignal = await (async () => {
+    type Row = { total: number | null; non_latin: number | null; latin: number | null; non_latin_pct: number | null };
+    const rows = await safeViewRows<Row>(
+      supabase,
+      "v_case_ig_country_signal",
+      (q) => q.eq("case_id", c.id),
+    );
+    const r = rows[0];
+    if (!r || !(r.total ?? 0)) return null;
+    return {
+      total: r.total ?? 0,
+      nonLatin: r.non_latin ?? 0,
+      latin: r.latin ?? 0,
+      nonLatinPct: r.non_latin_pct ?? 0,
+    };
+  })();
+
   // ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null.
   const gmvTags = await (async () => {
     type Row = { tag: string | null; video_count: number | null; gmv_sum: number | null };
@@ -3332,6 +3350,7 @@ export default async function CaseDetailPage({
                           subscriber_count: c2.subscriber_count ?? null,
                           top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
+                        igCountrySignal={igCountrySignal}
                       />
                       </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}

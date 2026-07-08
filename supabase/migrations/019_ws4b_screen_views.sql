@@ -236,3 +236,28 @@ CROSS JOIN LATERAL unnest(COALESCE(cg.hook_tags, ARRAY[]::text[])) AS t(tag)
 WHERE cg.gmv > 0
 GROUP BY cg.case_id, t.tag;
 -- dry-run: SELECT tag, video_count, gmv_sum FROM v_case_content_gmv_tags WHERE case_id='<ready>' ORDER BY gmv_sum DESC;
+
+-- =====================================================================
+-- C6. IG 국가 근사 신호 (휴리스틱 — LLM 금지)
+-- =====================================================================
+-- ig_posts 엔 country 컬럼이 없음. 캡션의 비-라틴 문자(한글/태국어/일본어/아랍어/키릴 등)
+--   존재를 "비영어권 = 글로벌 혼입" 근사 신호로 사용. 진짜 국가 판정이 아니라 "언어 기반 근사"임을
+--   화면에서 반드시 명시(추정 라벨). 컬럼: case_id, total, non_latin, latin, non_latin_pct
+CREATE OR REPLACE VIEW v_case_ig_country_signal AS
+SELECT
+  p.case_id,
+  count(*) AS total,
+  count(*) FILTER (
+    WHERE p.caption ~ '[가-힣぀-ヿ一-鿿฀-๿؀-ۿЀ-ӿ]'
+  ) AS non_latin,
+  count(*) FILTER (
+    WHERE p.caption IS NULL OR p.caption !~ '[가-힣぀-ヿ一-鿿฀-๿؀-ۿЀ-ӿ]'
+  ) AS latin,
+  round(
+    100.0 * count(*) FILTER (
+      WHERE p.caption ~ '[가-힣぀-ヿ一-鿿฀-๿؀-ۿЀ-ӿ]'
+    ) / NULLIF(count(*), 0)
+  ) AS non_latin_pct
+FROM ig_posts p
+GROUP BY p.case_id;
+-- dry-run: SELECT total, non_latin, non_latin_pct FROM v_case_ig_country_signal WHERE case_id='<ready>';
