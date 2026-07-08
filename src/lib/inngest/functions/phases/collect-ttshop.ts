@@ -16,6 +16,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 const POLL_INTERVAL_S = 30;
@@ -149,6 +150,9 @@ export const collectTtshop = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("collect-ttshop", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "collect-ttshop",

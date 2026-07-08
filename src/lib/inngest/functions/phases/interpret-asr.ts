@@ -15,6 +15,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 const ASR_BATCH_SIZE = 50;
@@ -120,6 +121,9 @@ export const interpretAsr = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("interpret-asr", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "interpret-asr",

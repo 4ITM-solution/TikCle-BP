@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { inngestSupabase } from "@/lib/inngest/supabase";
 import { runPhase4bSample } from "@/lib/inngest/aggregators/phase4b-sample";
-import type { StagePhase } from "@/lib/inngest/client";
+import { inngest, type StagePhase } from "@/lib/inngest/client";
 import type { KeyStats, Phase4bSampleStats } from "@/lib/inngest/types";
 
 /**
@@ -27,11 +27,91 @@ export type PhaseRunStatus =
   | "failed"
   | "skipped";
 
+export type CascadeStep = { phase: StagePhase; force: boolean };
+
 export type PhaseEventData = {
   case_id: string;
   phase?: string;
   force?: boolean;
+  // BE-12(CX1-F2): 자동 동반 실행. cascade 기본 true(미설정=true). 오케스트레이터만 false.
+  cascade?: boolean;
+  cascade_chain?: CascadeStep[];
 };
+
+/**
+ * BE-12 (CX1-F2, 설계 확정본 docs/ws/BE12_DAG_설계.md) — phase 재실행 시 자동 동반할
+ * downstream 체인(순차). 표 그대로. force 규칙: tag=no-force(멱등, null만 — R3/R4 재과금 방지),
+ * cluster·sku=force(입력이 바뀌었으니 재계산), serve-stats=항상 fresh라 무관(false).
+ */
+export const PHASE_DOWNSTREAM: Record<StagePhase, CascadeStep[]> = {
+  "collect-ttshop": [
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-meta": [
+    { phase: "interpret-tag", force: false },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-ig": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "collect-yt": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "enrich-creators": [{ phase: "serve-stats", force: false }],
+  "enrich-ig-profiles": [{ phase: "serve-stats", force: false }],
+  "interpret-asr": [
+    { phase: "interpret-tag", force: false },
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-tag": [
+    { phase: "interpret-cluster", force: true },
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-cluster": [
+    { phase: "interpret-sku", force: true },
+    { phase: "serve-stats", force: false },
+  ],
+  "interpret-sku": [{ phase: "serve-stats", force: false }],
+  "serve-stats": [],
+};
+
+/**
+ * phase 완료 후 downstream 자동 동반 발행. cascade=false(오케스트레이터)면 no-op.
+ * 체인 threading: 원본 phase는 PHASE_DOWNSTREAM[자기]를 따르고, 체인 중간 phase는
+ * event.data.cascade_chain(원본 체인의 남은 단계)을 이어받는다 → collect-meta처럼 tag 뒤에
+ * cluster/sku를 건너뛰고 serve-stats로 가는 표의 뉘앙스를 정확히 재현. "다음 이벤트" 하나만 발행.
+ * ⚠️ 각 phase 함수는 실작업 성공 return 직전에만 호출(캐시/빈 결과 조기종료는 downstream 무효화
+ *    필요 없음 — stale 아님). Inngest 멱등 위해 step.run 안에서 호출할 것.
+ */
+export async function enqueueDownstream(
+  currentPhase: StagePhase,
+  case_id: string,
+  eventData: PhaseEventData,
+): Promise<{ enqueued: StagePhase | null }> {
+  if (eventData.cascade === false) return { enqueued: null };
+  const chain = eventData.cascade_chain ?? PHASE_DOWNSTREAM[currentPhase] ?? [];
+  if (chain.length === 0) return { enqueued: null };
+  const [next, ...rest] = chain;
+  await inngest.send({
+    name: "case/phase.requested",
+    data: {
+      case_id,
+      phase: next!.phase,
+      force: next!.force,
+      cascade: true,
+      cascade_chain: rest,
+    },
+  });
+  return { enqueued: next!.phase };
+}
 
 type PhaseRunsTable = {
   from: (table: string) => {

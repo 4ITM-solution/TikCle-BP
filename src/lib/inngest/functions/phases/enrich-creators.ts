@@ -28,6 +28,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 const PHASE35_BATCH_SIZE = 50;
@@ -249,6 +250,9 @@ export const enrichCreators = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("enrich-creators", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "enrich-creators",

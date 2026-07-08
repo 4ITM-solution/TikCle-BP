@@ -165,10 +165,13 @@ export const orchestrateAnalysis = inngest.createFunction(
       phase15_only,
     });
 
+    // BE-12(CX1-F2): 전체 분석은 오케스트레이터가 순서를 직접 구동하므로 phase 자동 동반을 끈다.
+    //   (cascade:false) — 안 그러면 각 phase가 downstream 이벤트를 또 발행해 이중 실행.
     const invokeData = (phase: StagePhase) => ({
       case_id,
       phase,
       force: force(phase),
+      cascade: false,
     });
 
     // ─── phase15_only: TT Shop 수집만 하고 draft로 종료 (구 동작 유지) ───

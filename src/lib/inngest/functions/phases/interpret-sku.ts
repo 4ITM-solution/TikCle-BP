@@ -13,6 +13,7 @@ import {
   mergeKeyStats,
   readKeyStats,
   type PhaseEventData,
+  enqueueDownstream,
 } from "./shared";
 
 /** S3 interpret-sku — 구 Phase 4b.5 (화면 노출 영상 SKU 매칭). */
@@ -88,6 +89,9 @@ export const interpretSku = inngest.createFunction(
       }),
     );
 
+    await step.run("enqueue-downstream", () =>
+      enqueueDownstream("interpret-sku", case_id, event.data as PhaseEventData),
+    );
     return {
       ok: true,
       phase: "interpret-sku",

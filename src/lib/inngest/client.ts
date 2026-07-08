@@ -108,8 +108,17 @@ export type Events = {
     data: { case_id: string; phase: number };
   };
   // WS2 — 개별 phase 실행/재실행. 각 phase 함수가 if 필터로 자기 phase만 수신.
+  // BE-12(CX1-F2): cascade 기본 true — phase 완료 시 downstream 자동 동반(PHASE_DOWNSTREAM).
+  //   오케스트레이터 step.invoke는 cascade:false로 자동 동반을 끈다(전체 분석은 자체 순서로 구동).
+  //   cascade_chain은 체인 중간 phase가 원본 체인의 남은 단계를 이어받기 위한 내부 필드.
   "case/phase.requested": {
-    data: { case_id: string; phase: StagePhase; force?: boolean };
+    data: {
+      case_id: string;
+      phase: StagePhase;
+      force?: boolean;
+      cascade?: boolean;
+      cascade_chain?: { phase: StagePhase; force: boolean }[];
+    };
   };
   // WS2 — 오케스트레이터 전용 (shim runAnalysis가 invoke, 직접 send도 가능).
   "case/analysis.orchestrate": {

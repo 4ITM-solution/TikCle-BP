@@ -311,3 +311,31 @@ send가 throw → catch 진입 → cases.update({status: priorStatus, last_error
 동일 silent-cost-fallback. BE-11 스코프(vision)에는 없어 미수정. **같은 방식 throw 권고**(후속).
 
 tsc ✅.
+
+## BE-12 — phase 의존 DAG (cascade) 구현 ✅ (CX1-F2, 설계 확정본 그대로)
+
+근거: `docs/ws/BE12_DAG_설계.md`(ORCH 승인). 단독 phase 재실행이 downstream을 stale로 남기던 문제.
+
+### 구현
+- `shared.ts`: `PHASE_DOWNSTREAM` 상수(표 그대로, force 규칙 포함) + `enqueueDownstream(phase, case_id, eventData)`.
+  - **체인 threading**: 원본 phase는 `PHASE_DOWNSTREAM[자기]` 전체 체인을 따르고, 중간 phase는
+    `event.data.cascade_chain`(남은 단계)을 이어받아 "다음 이벤트" 하나만 발행. → collect-meta가
+    tag 뒤 cluster/sku를 건너뛰고 serve-stats로 가는 표의 뉘앙스를 정확히 재현.
+  - 종단은 serve-stats(빈 체인) → 무한루프 없음(각 단계가 체인 1개 소비).
+- `client.ts`: `case/phase.requested`에 `cascade?`·`cascade_chain?` 필드.
+- `orchestrate-analysis.ts`: `invokeData`에 **`cascade:false`** — 전체 분석은 오케스트레이터가
+  순서를 직접 구동하므로 phase 자동 동반을 끔(안 그러면 각 phase가 downstream 재발행 → 이중 실행).
+- 10개 phase 실작업 성공 return 직전에 `step.run("enqueue-downstream", …)` hook.
+  - **serve-stats 제외**(종단, downstream 없음). **interpret-tag는 `!isPartial`일 때만**(비전 배치
+    미완 상태로 cluster/sku 돌리면 안 됨). 캐시/빈결과 조기종료는 hook 미경유(stale 아님).
+- `spec/02` §3.1(cascade 매핑 표) + §7(체크리스트 7번) 갱신.
+
+### cascade 기본 true의 안전성
+UI 단독 재실행(upload-actions `case/phase.requested`, cascade 미설정=true)만 동반 발동. 오케스트레이터
+invoke는 cascade:false라 전체 분석 경로는 종전과 동일(무동반). cascade 발행분도 assertBudget(BE-11)을
+그대로 타므로 캡 초과 시 정상 중단. ⚠️ 참고: 레거시 다중 phase 강제(mapOldForceToStages) 경로는 각
+이벤트가 cascade:true라 downstream이 겹칠 수 있음(개별 버튼=단일 phase가 정상 사용 — 무해한 재계산).
+
+### 완료 기준
+tsc ✅. 소형 케이스 `interpret-tag force+cascade` → phase_runs에 tag→cluster→sku→serve-stats 4개
+순차 completed 실검증은 **ORCH**(Inngest 이벤트 발행 + 유료 phase — 워커 금지).
