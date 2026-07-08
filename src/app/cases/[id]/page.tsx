@@ -30,6 +30,7 @@ import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
 import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
 import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
 import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
+import { CompletenessGauge } from "@/components/case-detail/CompletenessGauge";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -2401,6 +2402,8 @@ export default async function CaseDetailPage({
             />
           }
         />
+        {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
+        <CompletenessGauge c={caseCompleteness} />
       </div>
     <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
