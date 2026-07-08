@@ -3372,6 +3372,14 @@ export default async function CaseDetailPage({
                         gmvTags={gmvTags}
                       />
                       </SectionBoundary>
+                      {/* ★ B2(WS4b): 매출 미업로드 배지 — products/SKU 있으나 case_product_sales 0행(F2).
+                          salesDone(분석 시작 게이트)는 유지, 신뢰 신호는 실매출 존재로 표기. */}
+                      {skuRows.length > 0 && !caseSalesExists && (
+                        <div style={{ margin: "8px 0", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 12, color: "#991b1b" }}>
+                          ⚠ <b>매출 미업로드</b> — 제품(SKU) {skuRows.length}개는 있으나 실매출 데이터(case_product_sales)가 0행입니다.
+                          아래 매출 수치는 비어있거나 부정확할 수 있습니다. 30일 매출 CSV를 업로드하세요.
+                        </div>
+                      )}
                       {ks.phase2.sales_summary && (
                         <SectionBoundary name="D 매출·SKU">
                         <SectionConclusion text={conclusions.D} />
