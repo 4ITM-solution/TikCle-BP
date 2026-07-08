@@ -29,12 +29,9 @@ CREATE INDEX IF NOT EXISTS contents_is_shop_content_idx
 --   xlsx의 url 직접 매칭이 더 정확하나 그 데이터는 cases.key_stats(JSON)에만 있어 순수 SQL
 --   백필 불가 → 업로드 시점 코드 매칭(parseKalodataVideos)에서 flag하도록 후속(FE 별도).
 --   이 프록시 백필은 idempotent(= 재적용 안전).
-UPDATE contents c
-SET is_shop_content = true
-FROM influencers i
-WHERE c.influencer_id = i.id
-  AND i.is_tiktok_shop_creator IS TRUE
-  AND c.is_shop_content IS DISTINCT FROM true;
+-- (ORCH 반려로 프록시 백필 제거 — 2026-07-08: 샵 크리에이터의 전체 영상 플래그는
+--  108,071/379,173 = 28.5% 과대. 확정 기준은 Kalodata 영상 xlsx url 매칭 —
+--  정확 백필은 ORCH가 key_stats.kalodata_videos_xlsx 기반 코드로 별도 실행.)
 
 -- v_case_monthly 확장 — 기존 3채널(tiktok/instagram/youtube)은 계약 그대로 두고,
 --   'tiktok_shop' 채널 행을 UNION으로 "추가"만 한다(비파괴). tiktok 채널 total은
