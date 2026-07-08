@@ -2014,6 +2014,68 @@ export default async function CaseDetailPage({
     return list;
   })();
 
+  // ★ A4(WS4b): 크로스채널 인플 3채널화 — 기존 crossPlatformMatches 는 IG∩YT 앵커라
+  //   TK+IG / TK+YT 조합 인플이 누락됐음(QA-1 §2). v_unified_creators(TK/IG/YT 통합, live)로
+  //   채널 소속을 잡고, 영상수는 기존 채널별 full 리스트에서 join. 뷰 신규 없음(017 기존 뷰 사용).
+  //   결과 {name, tk, ig, yt} 는 sharedMatrix(Section B) + G 인사이트 union 양쪽에 사용.
+  const crossChannelRows = await (async () => {
+    const normH = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    // 채널별 영상수 map (norm_handle → count)
+    const tkCount = new Map<string, number>();
+    for (const tc of allTkCreators) {
+      const k = normH(tc.handle);
+      if (k.length >= 4) tkCount.set(k, Math.max(tkCount.get(k) ?? 0, tc.video_count));
+    }
+    const igCount = new Map<string, number>();
+    for (const ic of allIgCreators) {
+      const k = normH(ic.handle);
+      if (k.length >= 4) igCount.set(k, Math.max(igCount.get(k) ?? 0, ic.video_count));
+    }
+    const ytCount = new Map<string, number>();
+    for (const yc of ytTopChannels) {
+      const k = normH(yc.channel_name);
+      if (k.length >= 4) ytCount.set(k, Math.max(ytCount.get(k) ?? 0, yc.total_videos ?? 0));
+    }
+    // 보조: 기존 IG∩YT 매칭(crossPlatformMatches)의 IG/YT 카운트도 흡수 — preview 밖 보강.
+    for (const m of crossPlatformMatches) {
+      const k = normH(m.name);
+      if (k.length < 4) continue;
+      if (m.ig_posts > 0) igCount.set(k, Math.max(igCount.get(k) ?? 0, m.ig_posts));
+      if (m.yt_videos > 0) ytCount.set(k, Math.max(ytCount.get(k) ?? 0, m.yt_videos));
+    }
+    // v_unified_creators 로 채널 소속(preview 밖 YT 포함) + 대표 핸들 + 팔로워.
+    type UC = { channel: string | null; handle: string | null; norm_handle: string | null; follower_count: number | null };
+    const uc = await safeViewRows<UC>(supabase, "v_unified_creators", (q) => q.eq("case_id", c.id));
+    const byHandle = new Map<string, { name: string; chans: Set<string>; follower: number | null }>();
+    for (const r of uc) {
+      const k = r.norm_handle ?? (r.handle ? normH(r.handle) : "");
+      if (!k || k.length < 4 || !r.channel) continue;
+      const cur = byHandle.get(k) ?? { name: r.handle ?? k, chans: new Set<string>(), follower: null };
+      cur.chans.add(r.channel);
+      if (r.handle && r.handle.length > cur.name.length) cur.name = r.handle;
+      cur.follower = Math.max(cur.follower ?? 0, r.follower_count ?? 0) || cur.follower;
+      byHandle.set(k, cur);
+    }
+    // v_unified_creators 가 비어있으면(뷰 접근 실패 등) 기존 count map 합집합으로라도 구성.
+    const keys = new Set<string>([...byHandle.keys(), ...tkCount.keys(), ...igCount.keys(), ...ytCount.keys()]);
+    const rows: Array<{ name: string; tk: number; ig: number; yt: number; follower: number | null }> = [];
+    for (const k of keys) {
+      const meta = byHandle.get(k);
+      const chans = meta?.chans ?? new Set<string>();
+      // 채널 소속: v_unified_creators 소속 OR count>0. YT 소속인데 preview(25) 밖이면 floor 1로 존재 표시.
+      const tk = tkCount.get(k) ?? (chans.has("tiktok") ? 1 : 0);
+      const ig = igCount.get(k) ?? (chans.has("instagram") ? 1 : 0);
+      const yt = ytCount.get(k) ?? (chans.has("youtube") ? 1 : 0);
+      const present = [tk, ig, yt].filter((n) => n > 0).length;
+      if (present < 2) continue; // 크로스채널만
+      rows.push({ name: meta?.name ?? k, tk, ig, yt, follower: meta?.follower ?? null });
+    }
+    return rows.sort(
+      (a, b) => [b.tk, b.ig, b.yt].filter((n) => n > 0).length - [a.tk, a.ig, a.yt].filter((n) => n > 0).length
+        || (b.follower ?? 0) - (a.follower ?? 0),
+    );
+  })();
+
   // ★ 채널별 월별 티어 분포(명수) — Section A 티어 stack / Section B 월필터가 채널에 반응하도록.
   //   TK: phase3.tier_dist_by_month(기존). IG: ig_posts(월·작성자) ↔ ig_authors(followers→tier)
   //   의 월별 distinct 작성자 명수. YT: 데이터 없어 빈값. all = TK+IG 월별 병합.
@@ -3005,13 +3067,15 @@ export default async function CaseDetailPage({
                     cur.tk = Math.max(cur.tk, tc.video_count);
                     merged.set(k, cur);
                   }
-                  for (const m of crossPlatformMatches) {
-                    const k = normH(m.name);
+                  // ★ A4(WS4b): IG/YT 도 3채널 crossChannelRows 로 채움(TK+IG/TK+YT 조합 포함).
+                  for (const r of crossChannelRows) {
+                    const k = normH(r.name);
                     if (k.length < 3) continue;
-                    const cur = merged.get(k) ?? { name: m.name, tk: 0, ig: 0, yt: 0 };
-                    cur.ig = m.ig_posts;
-                    cur.yt = m.yt_videos;
-                    if (!cur.name || cur.name.length < m.name.length) cur.name = m.name;
+                    const cur = merged.get(k) ?? { name: r.name, tk: 0, ig: 0, yt: 0 };
+                    cur.tk = Math.max(cur.tk, r.tk);
+                    cur.ig = Math.max(cur.ig, r.ig);
+                    cur.yt = Math.max(cur.yt, r.yt);
+                    if (!cur.name || cur.name.length < r.name.length) cur.name = r.name;
                     merged.set(k, cur);
                   }
                   const allEntries = [...merged.values()].map((e) => {
@@ -3091,30 +3155,15 @@ export default async function CaseDetailPage({
                   </div>
                 )}
                 {ks.phase2 && (() => {
-                  // SectionBMockup + MiniDashboard 공용 crossChannelMatrix (TK 매칭 포함)
-                  const normHandle = (s: string) =>
-                    s.toLowerCase().replace(/[^a-z0-9]/g, "");
-                  const tkByHandleMap = new Map<string, number>();
-                  // 전체 TK 인플 기준 매칭 (≥10편 제한 없이) — cross-channel 누락 방지.
-                  for (const tc of allTkCreators) {
-                    const k = normHandle(tc.handle);
-                    if (k.length >= 4) tkByHandleMap.set(k, tc.video_count);
-                  }
-                  const sharedMatrix = crossPlatformMatches.map((m) => {
-                    const k = normHandle(m.name);
-                    let tk = tkByHandleMap.get(k) ?? 0;
-                    if (tk === 0 && k.length >= 5) {
-                      for (const [tkKey, count] of tkByHandleMap.entries()) {
-                        if (tkKey.startsWith(k) || k.startsWith(tkKey)) {
-                          if (Math.min(tkKey.length, k.length) >= 5) {
-                            tk = count;
-                            break;
-                          }
-                        }
-                      }
-                    }
-                    return { name: m.name, tk, ig: m.ig_posts, yt: m.yt_videos };
-                  });
+                  // ★ A4(WS4b): SectionBMockup + MiniDashboard 공용 crossChannelMatrix —
+                  //   서버에서 v_unified_creators 기반 3채널로 계산한 crossChannelRows 를 그대로 사용
+                  //   (기존 IG∩YT 앵커 방식 폐기, TK+IG / TK+YT 조합 포함).
+                  const sharedMatrix = crossChannelRows.map((r) => ({
+                    name: r.name,
+                    tk: r.tk,
+                    ig: r.ig,
+                    yt: r.yt,
+                  }));
                   return (
                 <div>
                   <div style={{ minWidth: 0 }}>
