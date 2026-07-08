@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { TikTokEmbed } from "@/components/case-detail/TikTokEmbed";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -749,19 +750,16 @@ export function SectionAMockup({
                       ({inf.views_window.toLocaleString()} vs {inf.views_compare.toLocaleString()})
                     </div>
                     {inf.top_videos.length > 0 && (
-                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
                         <span style={{ color: "#9ca3af" }}>동반 viral:</span>
+                        {/* ★ C2(WS4b): 변곡점 전후 대표 영상 인라인 임베드(클릭 로드) */}
                         {inf.top_videos.slice(0, 3).map((v, vi) => (
-                          <a
-                            key={vi}
-                            href={v.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={v.caption ?? ""}
-                            style={{ color: "#1d4ed8", textDecoration: "none", fontFamily: "monospace" }}
-                          >
-                            #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`} ↗
-                          </a>
+                          <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
+                              #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`}
+                            </span>
+                            <TikTokEmbed url={v.url} title={v.caption ?? undefined} compact />
+                          </span>
                         ))}
                       </div>
                     )}
