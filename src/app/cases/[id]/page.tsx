@@ -2064,6 +2064,28 @@ export default async function CaseDetailPage({
     };
   })();
 
+  // ★ B7(WS4b): 읽기 경로 뷰 전환 — v_case_monthly(WS1 live 뷰)로 IG/YT/샵 월별을 캐시 대신 조회.
+  //   캐시(key_stats.phase2.monthly_by_channel) stale 근본 해소. 뷰 무데이터/미접근 시 캐시 폴백.
+  const viewMonthlyByChannel = await (async () => {
+    type Row = { channel: string | null; month: string | null; paid: number | null; organic: number | null; total: number | null };
+    const rows = await safeViewRows<Row>(supabase, "v_case_monthly", (q) => q.eq("case_id", c.id));
+    if (rows.length === 0) return null;
+    const byChan: Record<string, Array<{ month: string; paid: number; organic: number; total: number }>> = {};
+    for (const r of rows) {
+      if (!r.channel || !r.month) continue;
+      (byChan[r.channel] ??= []).push({
+        month: r.month, paid: r.paid ?? 0, organic: r.organic ?? 0, total: r.total ?? 0,
+      });
+    }
+    for (const k of Object.keys(byChan)) byChan[k]!.sort((a, b) => (a.month < b.month ? -1 : 1));
+    return {
+      tk: byChan["tiktok"] ?? null,
+      ig: byChan["instagram"] ?? null,
+      yt: byChan["youtube"] ?? null,
+      tk_shop: byChan["tiktok_shop"] ?? null,
+    };
+  })();
+
   // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
   //   ig_authors 전체를 가져와 TopCreator로 — followers/total_posts/max_views 기반.
   const allIgCreators = await (async () => {
@@ -2768,6 +2790,22 @@ export default async function CaseDetailPage({
                   tk: liveTkMonthly,
                   // ★ A1(WS4b): 샵 콘텐츠 월별 — 있을 때만.
                   ...(liveTkShopMonthly ? { tk_shop: liveTkShopMonthly } : {}),
+                },
+              };
+            }
+            // ★ B7(WS4b): IG/YT/샵 월별을 v_case_monthly(WS1 live 뷰) 값으로 교체 — 캐시 stale 근본 해소.
+            //   뷰에 해당 채널 데이터 있을 때만 교체(없으면 캐시 폴백). tk 는 위 라이브 집계 유지.
+            if (ks.phase2 && viewMonthlyByChannel) {
+              const mbc = ks.phase2.monthly_by_channel;
+              ks.phase2 = {
+                ...ks.phase2,
+                monthly_by_channel: {
+                  tk: mbc?.tk ?? liveTkMonthly ?? ks.phase2.monthly_video_counts,
+                  ig: viewMonthlyByChannel.ig ?? mbc?.ig ?? [],
+                  yt: viewMonthlyByChannel.yt ?? mbc?.yt ?? [],
+                  ...((viewMonthlyByChannel.tk_shop ?? mbc?.tk_shop)
+                    ? { tk_shop: viewMonthlyByChannel.tk_shop ?? mbc?.tk_shop }
+                    : {}),
                 },
               };
             }
