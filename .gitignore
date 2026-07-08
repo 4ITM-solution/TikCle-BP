@@ -35,3 +35,4 @@ yarn-error.log*
 # generated
 src/lib/supabase/types.gen.ts
 .vercel
+.claude/

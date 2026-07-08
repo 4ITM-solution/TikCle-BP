@@ -18,6 +18,8 @@
 | BE-11 | ✅ d5367f1 [CX1-F4·F5] fail-open 2건 — ①비용 가드(shared.ts): sumPaged 쿼리에러 throw로 표면화 + 조회 실패 시 fail-closed(emergency cap $5 정책, BudgetExceededError `budget_guard_unavailable`), dev는 `BP_BUDGET_FAILOPEN=1` 통과. ②vision dedup(phase4b-vision.ts): fetchReusableVisionTags error throw → 배치 실패로 Inngest 재시도(전량 재태깅 과금 차단). tsc 통과. ⚠️ phase4a-intel fetchReusableAdIntel도 동일 패턴(보고서 플래그) | CX 재감사 F4·F5 | tsc |
 | BE-12 | ✅ [CX1-F2] phase 의존 DAG — 설계 확정본 그대로. `PHASE_DOWNSTREAM` 상수 + `enqueueDownstream`(체인 threading — collect-meta는 tag→serve-stats로 cluster/sku 건너뜀) in shared.ts, `case/phase.requested`에 cascade/cascade_chain 필드, 오케스트레이터 invoke는 cascade:false(이중실행 차단), 10개 phase 실작업 성공 return 직전 hook(serve-stats 종단 제외, interpret-tag는 partial 보류). spec/02 §3.1+§7 갱신. tsc 통과. 소형 케이스 cascade 실검증은 ORCH | BE12_DAG_설계.md | tsc + 소형 케이스 cascade 검증(ORCH) |
 
+| BE-13 | [BE-11 후속] phase4a-intel `fetchReusableAdIntel` 동일 fail-open 패턴 수정 — 광고 dedup 조회 에러도 throw로 표면화 (BE-11의 vision 쪽과 동일 처리) | ⬜ | WS5_REPORT BE-11 플래그 | tsc |
+
 ## QA 레인
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
