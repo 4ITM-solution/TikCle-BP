@@ -46,9 +46,9 @@ source: Fable ORCH 세션 → 후임 ORCH (모델 무관) 인수인계
 - Supabase: `dxjodlxkynjirldpumxr`, MCP apply_migration/execute_sql로 apply·실측.
 - 보드 충돌: 워커도 TODO.md를 갱신하므로 머지 충돌 상시 — 해소 원칙 "워커의 완료 상태 + ORCH의 신규 배차 둘 다 보존".
 
-## 6. 지금 열려 있는 것 (2026-07-07 마감 시점 — 최신은 TODO.md)
+## 6. 지금 열려 있는 것 (2026-07-08 갱신 — 최신은 TODO.md)
 
-- F1 종결: 마지막 3케이스 재실행 결과 확인 → legacy=0이면 §6에 종결 로그.
-- BE 잔여: BE-10(발행 실패 위장)·BE-11(fail-open 2건)·BE-12(DAG — 설계 확정본 docs/ws/BE12_DAG_설계.md)·Terez 789건 유실 규명.
-- 다음 큰 단계: 사용자 화면 확정(U-2) → FE-1(WS4b) → WS6(설계서 docs/ws/WS6_지시서.md) → WS7 → WS8.
-- 계약 v2의 Q0·Q6·Q7·Q8 구현은 전부 WS6~8에 배정돼 있음 — 별도 작업 아님.
+- ✅ 완결: F1(legacy 0)·BE-2~12(cascade 라이브 검증 포함)·Terez 규명·migration 018/020/021·U-1·U-2·U-6.
+- 열림: **FE-1**(현행+갭 17항목, ws-4b 워크트리 진행 중 — 항목 커밋을 그룹 A→C→B 단위로 검증·머지) · BE-13(광고 dedup fail-open, 꼬마) · U-3(슬랙 웹훅)·U-4(빈 케이스 처분).
+- 다음 큰 단계: FE-1 → WS6(지시서 완비) → WS7 → WS8. 계약 v2의 Q0·Q6~Q8은 전부 WS6~8에 배정 — 별도 작업 아님.
+- 후속 게이트 각인: FE-1 머지 시 migration 019 apply는 ORCH. WS6 착수 시 migration 022. Haiku 재도전은 gate에 cross-model fresh 비교 모드 추가 후.
