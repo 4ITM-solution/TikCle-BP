@@ -700,7 +700,28 @@ export async function resetToDraft(case_id: string): Promise<Result> {
 // =============================================================================
 // 6. 분석 시작
 // =============================================================================
-import type { PhaseKey } from "@/lib/inngest/client";
+import type { PhaseKey, StagePhase } from "@/lib/inngest/client";
+
+/**
+ * ★ C5(WS4b): 신 11-phase 개별 재실행 — PhaseRunsPanel 재실행 버튼.
+ * case/phase.requested 로 해당 stage 만 force 재실행. cascade(하류 자동 재실행)는
+ * BE-12(PHASE_DOWNSTREAM DAG) 배포 후 자동 적용 — 그 전까지는 단일 stage 만 재실행.
+ */
+export async function requestPhaseRerun(
+  case_id: string,
+  phase: StagePhase,
+): Promise<Result> {
+  try {
+    await inngest.send({
+      name: "case/phase.requested",
+      data: { case_id, phase, force: true },
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "이벤트 발행 실패" };
+  }
+  revalidatePath(`/cases/${case_id}`);
+  return { ok: true, message: `${phase} 재실행 요청됨` };
+}
 
 /**
  * Phase 1.5만 트리거 — TT Shop US 케이스에서 본 분석 시작 전에 products만 채우기.

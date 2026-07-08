@@ -29,6 +29,7 @@ import { SectionConclusion } from "@/components/case-detail/SectionConclusion";
 import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
 import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
 import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
+import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
@@ -976,6 +977,16 @@ export default async function CaseDetailPage({
       .select("id", { count: "exact", head: true })
       .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`);
     return (count ?? 0) > 0;
+  })();
+
+  // ★ C5(WS4b): phase_runs 직결 — 신 11-phase 상태·비용·partial. 없으면 빈 배열(패널 대기 표시).
+  const phaseRuns = await (async () => {
+    type Row = { phase: string; status: string; cost_usd: number | null; error: string | null; stats: Record<string, unknown> | null; finished_at: string | null };
+    const resp = await supabase
+      .from("phase_runs")
+      .select("phase, status, cost_usd, error, stats, finished_at")
+      .eq("case_id", c.id);
+    return (resp.data as unknown as Row[] | null) ?? [];
   })();
 
   let reason = "";
@@ -2834,6 +2845,8 @@ export default async function CaseDetailPage({
                       </SectionBoundary>
                       {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
                       <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
+                      {/* ★ C5(WS4b): phase_runs 직결 신 11-phase 패널 (사용자 언어 라벨·비용·재실행) */}
+                      <PhaseRunsPanel caseId={c.id} runs={phaseRuns} />
                       {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
                       <DataChannelsMockup
                         case_id={c.id}
