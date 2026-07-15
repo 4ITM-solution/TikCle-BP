@@ -216,6 +216,11 @@ export default async function CaseDetailPage({
     .eq("id", id)
     .single();
   const brand_id = brand_id_q.data?.brand_id;
+  // ★ 성능 게이트 — A~E 섹션은 ready에서만 렌더되므로, 그 전용 무거운 집계
+  //   (contents 전량 페이지네이션·클러스터 재집계·USP 코퍼스 등)는 ready가 아니면 전부 skip.
+  //   running 케이스에서 렌더 40~60초 → AutoRefresh 폴링과 겹쳐 RSC 스트림이 죽던
+  //   "Application error: client-side exception"의 근본 원인 (2026-07-15).
+  const isReady = c.status === "ready";
 
   // 2. 콘텐츠 적재 상태 (brand+country 스코프)
   const { count: contentCount } = brand_id
@@ -444,7 +449,7 @@ export default async function CaseDetailPage({
   };
   let crossPlatformMatches: CrossPlatformMatch[] = [];
 
-  if (phase4dStats && !phase4dStats.skipped_reason) {
+  if (isReady && phase4dStats && !phase4dStats.skipped_reason) {
     try {
       const { data: chRaw } = await supabase
         .from("yt_channels")
@@ -584,7 +589,7 @@ export default async function CaseDetailPage({
   }
 
   // Cross-platform 매칭 — IG/YT 둘 다 있을 때 작성자 이름 부분 일치로 추정
-  if (phase4cStats && phase4dStats && !phase4cStats.skipped_reason && !phase4dStats.skipped_reason) {
+  if (isReady && phase4cStats && phase4dStats && !phase4cStats.skipped_reason && !phase4dStats.skipped_reason) {
     try {
       const [{ data: igAll }, { data: ytAll }] = await Promise.all([
         supabase
@@ -633,7 +638,7 @@ export default async function CaseDetailPage({
   let igTopHashtags: IgHashtagStat[] = [];
   const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
 
-  if (phase4cStats && !phase4cStats.skipped_reason) {
+  if (isReady && phase4cStats && !phase4cStats.skipped_reason) {
     // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
     try {
       // region_scope=us-only면 fetch 후 휴리스틱 필터. limit 늘려서 필터 후에도 25개 남게.
@@ -1050,7 +1055,7 @@ export default async function CaseDetailPage({
     is_ad: boolean;
   };
   const skuVideoMap: Record<string, SkuVideo[]> = {};
-  {
+  if (isReady) {
     const { data: prodIdRows } = await supabase
       .from("products")
       .select("id, asin, external_product_id")
@@ -1156,7 +1161,7 @@ export default async function CaseDetailPage({
     inflections: BsrInflectionPt[];
   };
   const bsrSkus: BsrSkuData[] = [];
-  {
+  if (isReady) {
     const { data: amzProds } = await supabase
       .from("products")
       .select("id, asin, name")
@@ -1245,6 +1250,7 @@ export default async function CaseDetailPage({
     type ChK = "all" | "tk" | "ig" | "yt";
     const keywords: Record<ChK, Kw[]> = { all: [], tk: [], ig: [], yt: [] };
     const videos: Record<ChK, Record<string, Vid[]>> = { all: {}, tk: {}, ig: {}, yt: {} };
+    if (!isReady) return { keywords, videos };
 
     // TK 키워드 (phase5 재사용)
     const ksU = (c.key_stats ?? {}) as { phase5?: { usp_keywords?: Kw[] } };
@@ -1357,6 +1363,7 @@ export default async function CaseDetailPage({
     child_clusters: Array<{ id: string; name: string; member_count: number }>;
   };
   const metaClustersEffective: MetaClusterUi[] = await (async () => {
+    if (!isReady) return [];
     const fromKs = (c.key_stats as { phase4b_clusters?: { meta_clusters?: MetaClusterUi[] } })?.phase4b_clusters?.meta_clusters;
     if (fromKs && fromKs.length > 0) return fromKs;
     const { data: ccRows } = await supabase
@@ -1657,6 +1664,7 @@ export default async function CaseDetailPage({
       month: string | null;
       video_count: number | null;
     };
+    if (!isReady) return null;
     const rows = await safeViewRows<Row>(
       supabase,
       "v_case_angle_tier_month",
@@ -1694,6 +1702,7 @@ export default async function CaseDetailPage({
   // ★ C6(WS4b): IG 국가 근사 신호 — v_case_ig_country_signal(019). 미적용/무데이터 시 null.
   const igCountrySignal = await (async () => {
     type Row = { total: number | null; non_latin: number | null; latin: number | null; non_latin_pct: number | null };
+    if (!isReady) return null;
     const rows = await safeViewRows<Row>(
       supabase,
       "v_case_ig_country_signal",
@@ -1712,6 +1721,7 @@ export default async function CaseDetailPage({
   // ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null.
   const gmvTags = await (async () => {
     type Row = { tag: string | null; video_count: number | null; gmv_sum: number | null };
+    if (!isReady) return null;
     const rows = await safeViewRows<Row>(
       supabase,
       "v_case_content_gmv_tags",
@@ -1732,6 +1742,7 @@ export default async function CaseDetailPage({
       follower_count: number | null;
       ad_count: number | null;
     };
+    if (!isReady) return [];
     const rows = await safeViewRows<Row>(
       supabase,
       "v_case_seeding_ad_overlap",
@@ -1911,7 +1922,7 @@ export default async function CaseDetailPage({
   //   소수 영상 시더를 놓침). contents 전체를 인플별 집계 + influencers 팔로워 join.
   //   언어 분포(contents.language)도 같이 — 오디언스·인종 시그널 (Part2 B fix).
   const { allTkCreators, tkLanguageDist } = await (async () => {
-    if (!brand_id)
+    if (!brand_id || !isReady)
       return {
         allTkCreators: [] as Array<{
           handle: string;
@@ -1995,7 +2006,7 @@ export default async function CaseDetailPage({
   //   (organic=비광고 / paid=is_ad). live가 캐시보다 클 때만 덮음(절대 악화 X).
   const { liveTkMonthly, liveTkTotal, liveTkShopMonthly } = await (async () => {
     type MB = { month: string; organic: number; paid: number; total: number };
-    if (!brand_id)
+    if (!brand_id || !isReady)
       return {
         liveTkMonthly: null as null | MB[],
         liveTkTotal: null as number | null,
@@ -2068,6 +2079,7 @@ export default async function CaseDetailPage({
   //   캐시(key_stats.phase2.monthly_by_channel) stale 근본 해소. 뷰 무데이터/미접근 시 캐시 폴백.
   const viewMonthlyByChannel = await (async () => {
     type Row = { channel: string | null; month: string | null; paid: number | null; organic: number | null; total: number | null };
+    if (!isReady) return null;
     const rows = await safeViewRows<Row>(supabase, "v_case_monthly", (q) => q.eq("case_id", c.id));
     if (rows.length === 0) return null;
     const byChan: Record<string, Array<{ month: string; paid: number; organic: number; total: number }>> = {};
@@ -2089,7 +2101,7 @@ export default async function CaseDetailPage({
   // ★ 전체 IG 작성자 (igTopAuthors 는 25개 preview만 → B IG 요약/3축/티어표가 25명만 봄).
   //   ig_authors 전체를 가져와 TopCreator로 — followers/total_posts/max_views 기반.
   const allIgCreators = await (async () => {
-    if (!phase4cStats || phase4cStats.skipped_reason) return [];
+    if (!isReady || !phase4cStats || phase4cStats.skipped_reason) return [];
     const list: Array<{
       handle: string;
       video_count: number;
@@ -2128,6 +2140,7 @@ export default async function CaseDetailPage({
   //   채널 소속을 잡고, 영상수는 기존 채널별 full 리스트에서 join. 뷰 신규 없음(017 기존 뷰 사용).
   //   결과 {name, tk, ig, yt} 는 sharedMatrix(Section B) + G 인사이트 union 양쪽에 사용.
   const crossChannelRows = await (async () => {
+    if (!isReady) return [] as Array<{ name: string; tk: number; ig: number; yt: number; follower: number | null }>;
     const normH = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     // 채널별 영상수 map (norm_handle → count)
     const tkCount = new Map<string, number>();
@@ -2195,6 +2208,7 @@ export default async function CaseDetailPage({
       n == null ? "unknown" : n >= 1_000_000 ? "mega" : n >= 500_000 ? "macro" : n >= 100_000 ? "mid" : n >= 10_000 ? "micro" : n >= 1_000 ? "nano" : "sub-nano";
     const emptyTd = (): Record<TK3, number> => ({ mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0 });
     const tk = ((keyStats.phase3 as { tier_dist_by_month?: Record<string, Record<TK3, number>> } | undefined)?.tier_dist_by_month) ?? {};
+    if (!isReady) return { all: tk, tk, ig: {}, yt: {} as Record<string, Record<TK3, number>> };
 
     // IG 작성자 → tier
     const igTierByUser = new Map<string, TK3>();
@@ -3609,7 +3623,7 @@ export default async function CaseDetailPage({
         </>
       ) : (
         <>
-          <AutoRefresh enabled intervalMs={5000} />
+          <AutoRefresh enabled intervalMs={20000} />
           <div
             style={{
               padding: 18,
@@ -3619,7 +3633,7 @@ export default async function CaseDetailPage({
               color: "var(--color-warn)",
             }}
           >
-            ⟳ 분석 진행 중 (status: <b>{c.status}</b>) — 5초마다 자동 갱신됨. 완료 시 자동 표시.
+            ⟳ 분석 진행 중 (status: <b>{c.status}</b>) — 20초마다 자동 갱신됨. 완료 시 자동 표시.
             로컬 dev라면 Inngest dev server (
             <span className="font-mono">localhost:8288</span>) → Runs 탭에서 실시간 진행 추적.
           </div>
