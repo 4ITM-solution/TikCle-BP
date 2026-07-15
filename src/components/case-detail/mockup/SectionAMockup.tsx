@@ -37,6 +37,23 @@ const TIERS: { key: TierBucket; label: string; color: string }[] = [
 type ChannelMode = "all" | "tk" | "ig" | "yt" | "shop";
 type BarMode = "abs" | "pct";
 
+// 변곡점 동반 viral 정렬 축 설정 (조회수/공유/댓글). 옛 케이스는 shares/comments 미채움→0.
+type TlVid = { views?: number; shares?: number; comments?: number };
+const TL_METRIC_CFG: Record<
+  "views" | "shares" | "comments",
+  { label: string; get: (v: TlVid) => number }
+> = {
+  views: { label: "조회수", get: (v) => v.views ?? 0 },
+  shares: { label: "공유", get: (v) => v.shares ?? 0 },
+  comments: { label: "댓글", get: (v) => v.comments ?? 0 },
+};
+
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1000)}K`;
+  return String(n);
+}
+
 export function SectionAMockup({
   phase2,
   phase3,
@@ -71,6 +88,10 @@ export function SectionAMockup({
   const [barMode, setBarMode] = useState<BarMode>("abs");
   // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
   const [show, setShow] = useState({ tier: true, ad: false, bsr: false, vc: true });
+  // 변곡점 타임라인 동반 viral 정렬 축 — 조회수/공유/댓글
+  const [tlMetric, setTlMetric] = useState<"views" | "shares" | "comments">(
+    "views",
+  );
   // BSR 데이터 있으면 자동 ON (오버레이 기본 off라 데이터 있어도 안 보이던 문제).
   //   최초 1회만 켜고 이후 사용자 토글은 존중.
   const [bsrAutoOn, setBsrAutoOn] = useState(false);
@@ -712,6 +733,47 @@ export function SectionAMockup({
             {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개){" "}
             <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 매출 급등 상세는 D(매출·SKU) 섹션과 동일</span>
           </summary>
+          {/* 동반 viral 정렬 축 토글 — 조회수/공유/댓글 */}
+          {phase5.bsr_inflections.some((inf) =>
+            inf.top_videos.some((v) => v.shares != null || v.comments != null),
+          ) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                marginTop: 10,
+                marginBottom: 2,
+              }}
+            >
+              <span style={{ fontSize: 10, color: "#9ca3af", fontFamily: "monospace" }}>
+                동반 viral 정렬
+              </span>
+              {(["views", "shares", "comments"] as const).map((m) => {
+                const on = tlMetric === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setTlMetric(m)}
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "monospace",
+                      padding: "3px 9px",
+                      borderRadius: 5,
+                      border: `1px solid ${on ? "#ec4899" : "#e5e7eb"}`,
+                      background: on ? "#ec4899" : "#fff",
+                      color: on ? "#fff" : "#6b7280",
+                      cursor: "pointer",
+                      fontWeight: on ? 700 : 400,
+                    }}
+                  >
+                    {TL_METRIC_CFG[m].label}순
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
               .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
@@ -752,12 +814,19 @@ export function SectionAMockup({
                     </div>
                     {inf.top_videos.length > 0 && (
                       <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
-                        <span style={{ color: "#9ca3af" }}>동반 viral:</span>
-                        {/* ★ C2(WS4b): 변곡점 전후 대표 영상 인라인 임베드(클릭 로드) */}
-                        {inf.top_videos.slice(0, 3).map((v, vi) => (
+                        <span style={{ color: "#9ca3af" }}>
+                          동반 viral{tlMetric !== "views" ? ` (${TL_METRIC_CFG[tlMetric].label}순)` : ""}:
+                        </span>
+                        {/* ★ C2(WS4b): 변곡점 전후 대표 영상 인라인 임베드(클릭 로드) — 선택 지표 desc top 3 */}
+                        {[...inf.top_videos]
+                          .sort((a, b) => TL_METRIC_CFG[tlMetric].get(b) - TL_METRIC_CFG[tlMetric].get(a))
+                          .filter((v) => TL_METRIC_CFG[tlMetric].get(v) > 0)
+                          .slice(0, 3)
+                          .map((v, vi) => (
                           <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                             <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
-                              #{vi + 1} {v.views >= 1_000_000 ? `${(v.views / 1_000_000).toFixed(1)}M` : `${Math.round(v.views / 1000)}K`}
+                              #{vi + 1} {fmtCompact(TL_METRIC_CFG[tlMetric].get(v))}
+                              {tlMetric === "shares" ? " 공유" : tlMetric === "comments" ? " 댓글" : ""}
                             </span>
                             <TikTokEmbed url={v.url} title={v.caption ?? undefined} compact />
                           </span>
