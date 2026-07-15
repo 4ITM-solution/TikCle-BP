@@ -627,6 +627,8 @@ async function computeBsrInflections(
       let viewsCompare = 0;
       let sharesWindow = 0;
       let commentsWindow = 0;
+      let sharesCompare = 0;
+      let commentsCompare = 0;
       const inWindow: typeof allContents = [];
       for (const c of allContents) {
         if (c.uploaded_at >= w0Start && c.uploaded_at < w0End) {
@@ -636,6 +638,8 @@ async function computeBsrInflections(
           inWindow.push(c);
         } else if (c.uploaded_at >= wPrevStart && c.uploaded_at < wPrevEnd) {
           viewsCompare += c.views;
+          sharesCompare += c.shares;
+          commentsCompare += c.comments;
         }
       }
       const viewsRatio =
@@ -680,6 +684,8 @@ async function computeBsrInflections(
         is_mega_volume: isMegaVolume,
         shares_window: sharesWindow,
         comments_window: commentsWindow,
+        shares_compare: sharesCompare,
+        comments_compare: commentsCompare,
         top_videos: topVideos,
       });
     }

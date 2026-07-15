@@ -607,6 +607,8 @@ export type BsrInflection = {
   is_mega_volume: boolean; // views_ratio >= 2
   shares_window?: number; // [t-7, t] 콘텐츠 공유 합계 (옛 케이스 미채움)
   comments_window?: number; // [t-7, t] 콘텐츠 댓글 합계 (옛 케이스 미채움)
+  shares_compare?: number; // [t-14, t-7] 공유 합계 (ratio 계산용)
+  comments_compare?: number; // [t-14, t-7] 댓글 합계 (ratio 계산용)
   // [t-7, t] 영상 후보 풀 — 뷰·공유·댓글 각 상위 union (프론트가 지표별 재정렬).
   top_videos: BsrInflectionVideo[];
 };

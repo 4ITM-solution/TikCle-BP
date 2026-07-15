@@ -779,7 +779,39 @@ export function SectionAMockup({
               .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
               .slice(0, 15) // 줄줄이 방지 — 개선폭 큰 주요 급등 15개만
               .sort((a, b) => a.date.localeCompare(b.date))
-              .map((inf, i) => (
+              .map((inf, i) => {
+                const cfg = TL_METRIC_CFG[tlMetric];
+                // 선택 지표의 window / 직전7일 compare / ratio
+                const mWindow =
+                  tlMetric === "views"
+                    ? inf.views_window
+                    : tlMetric === "shares"
+                      ? inf.shares_window ?? 0
+                      : inf.comments_window ?? 0;
+                const mCompare =
+                  tlMetric === "views"
+                    ? inf.views_compare
+                    : tlMetric === "shares"
+                      ? inf.shares_compare ?? 0
+                      : inf.comments_compare ?? 0;
+                const mRatio =
+                  mCompare > 0 ? mWindow / mCompare : mWindow > 0 ? Infinity : 0;
+                const isMega =
+                  tlMetric === "views"
+                    ? inf.is_mega_volume
+                    : mCompare > 0 && mRatio >= 2;
+                const ratioStr =
+                  mCompare > 0
+                    ? `×${mRatio.toFixed(1)}`
+                    : mWindow > 0
+                      ? "신규(직전0)"
+                      : "×0";
+                // 선택 지표 desc top 5
+                const ranked = [...inf.top_videos]
+                  .sort((a, b) => cfg.get(b) - cfg.get(a))
+                  .filter((v) => cfg.get(v) > 0)
+                  .slice(0, 5);
+                return (
                 <div
                   key={`tl-${i}`}
                   style={{
@@ -807,27 +839,36 @@ export function SectionAMockup({
                       </b>{" "}
                       ({inf.rank_improvement_pct > 0 ? "▲" : "▼"}{" "}
                       {Math.abs(inf.rank_improvement_pct).toFixed(0)}%) ·{" "}
-                      <span style={{ color: inf.is_mega_volume ? "#ec4899" : "#6b7280", fontWeight: inf.is_mega_volume ? 700 : 400 }}>
-                        뷰 ×{inf.views_ratio.toFixed(1)}{inf.is_mega_volume ? " 🔥" : ""}
+                      <span style={{ color: isMega ? "#ec4899" : "#6b7280", fontWeight: isMega ? 700 : 400 }}>
+                        {cfg.label} {ratioStr}{isMega ? " 🔥" : ""}
                       </span>{" "}
-                      ({inf.views_window.toLocaleString()} vs {inf.views_compare.toLocaleString()})
+                      ({mWindow.toLocaleString()} vs {mCompare.toLocaleString()})
                     </div>
-                    {inf.top_videos.length > 0 && (
-                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
+                    {ranked.length > 0 && (
+                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
                         <span style={{ color: "#9ca3af" }}>
-                          동반 viral{tlMetric !== "views" ? ` (${TL_METRIC_CFG[tlMetric].label}순)` : ""}:
+                          동반 viral{tlMetric !== "views" ? ` (${cfg.label}순 Top ${ranked.length})` : ` (Top ${ranked.length})`}:
                         </span>
-                        {/* ★ C2(WS4b): 변곡점 전후 대표 영상 인라인 임베드(클릭 로드) — 선택 지표 desc top 3 */}
-                        {[...inf.top_videos]
-                          .sort((a, b) => TL_METRIC_CFG[tlMetric].get(b) - TL_METRIC_CFG[tlMetric].get(a))
-                          .filter((v) => TL_METRIC_CFG[tlMetric].get(v) > 0)
-                          .slice(0, 3)
-                          .map((v, vi) => (
-                          <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
-                              #{vi + 1} {fmtCompact(TL_METRIC_CFG[tlMetric].get(v))}
-                              {tlMetric === "shares" ? " 공유" : tlMetric === "comments" ? " 댓글" : ""}
-                            </span>
+                        {/* 각 영상마다 뷰·공유·댓글 3지표 병기 (선택 지표 강조) → 축 간 중복 파악 */}
+                        {ranked.map((v, vi) => (
+                          <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#374151" }}>#{vi + 1}</span>
+                            {(["views", "shares", "comments"] as const).map((m) => {
+                              const on = m === tlMetric;
+                              return (
+                                <span
+                                  key={m}
+                                  style={{
+                                    fontFamily: "monospace",
+                                    color: on ? "#ec4899" : "#9ca3af",
+                                    fontWeight: on ? 800 : 400,
+                                  }}
+                                >
+                                  {m === "views" ? "뷰" : m === "shares" ? "공유" : "댓글"}{" "}
+                                  {fmtCompact(TL_METRIC_CFG[m].get(v))}
+                                </span>
+                              );
+                            })}
                             <TikTokEmbed url={v.url} title={v.caption ?? undefined} compact />
                           </span>
                         ))}
@@ -835,7 +876,8 @@ export function SectionAMockup({
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
           </div>
         </details>
       )}
