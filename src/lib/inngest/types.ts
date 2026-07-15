@@ -589,6 +589,9 @@ export type UspKeywordEntry = {
 export type BsrInflectionVideo = {
   url: string;
   views: number;
+  // 공유·댓글 (뷰 외 정렬 축). 옛 케이스는 미채움 → optional, UI에서 0 fallback.
+  shares?: number;
+  comments?: number;
   caption: string | null;
 };
 
@@ -602,7 +605,10 @@ export type BsrInflection = {
   views_compare: number; // [t-14, t-7] 콘텐츠 뷰 합계
   views_ratio: number; // views_window / views_compare (1+로 잘라둠)
   is_mega_volume: boolean; // views_ratio >= 2
-  top_videos: BsrInflectionVideo[]; // [t-7, t] 영상 중 뷰 desc top 3
+  shares_window?: number; // [t-7, t] 콘텐츠 공유 합계 (옛 케이스 미채움)
+  comments_window?: number; // [t-7, t] 콘텐츠 댓글 합계 (옛 케이스 미채움)
+  // [t-7, t] 영상 후보 풀 — 뷰·공유·댓글 각 상위 union (프론트가 지표별 재정렬).
+  top_videos: BsrInflectionVideo[];
 };
 
 export type Phase5Stats = {

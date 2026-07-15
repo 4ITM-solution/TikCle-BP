@@ -514,6 +514,16 @@ export function BsrTrendChart({
   );
 }
 
+type VideoMetric = "views" | "shares" | "comments";
+const METRIC_CFG: Record<
+  VideoMetric,
+  { label: string; unit: string; get: (v: BsrInflection["top_videos"][number]) => number }
+> = {
+  views: { label: "조회수", unit: "views", get: (v) => v.views ?? 0 },
+  shares: { label: "공유", unit: "shares", get: (v) => v.shares ?? 0 },
+  comments: { label: "댓글", unit: "comments", get: (v) => v.comments ?? 0 },
+};
+
 function InflectionDetail({
   inf,
   color,
@@ -523,6 +533,21 @@ function InflectionDetail({
   color: string;
   onClose: () => void;
 }) {
+  const [metric, setMetric] = useState<VideoMetric>("views");
+  const cfg = METRIC_CFG[metric];
+  // 선택 지표 desc 정렬 후 top 5 (후보 풀은 뷰·공유·댓글 union으로 이미 채워짐)
+  const rankedVideos = useMemo(
+    () =>
+      [...inf.top_videos]
+        .sort((a, b) => cfg.get(b) - cfg.get(a))
+        .filter((v) => cfg.get(v) > 0)
+        .slice(0, 5),
+    [inf.top_videos, cfg],
+  );
+  // 옛 케이스(shares/comments 미채움)면 공유·댓글 토글 숨김
+  const hasEngagement = inf.top_videos.some(
+    (v) => v.shares != null || v.comments != null,
+  );
   return (
     <div
       style={{
@@ -587,6 +612,18 @@ function InflectionDetail({
                 </span>
               </>
             )}
+            {(inf.shares_window != null || inf.comments_window != null) && (
+              <>
+                {" · 공유 "}
+                <b style={{ color: "var(--color-ink)" }}>
+                  {formatViews(inf.shares_window ?? 0)}
+                </b>
+                {" · 댓글 "}
+                <b style={{ color: "var(--color-ink)" }}>
+                  {formatViews(inf.comments_window ?? 0)}
+                </b>
+              </>
+            )}
           </div>
         </div>
         <button
@@ -605,7 +642,52 @@ function InflectionDetail({
         </button>
       </div>
 
-      {inf.top_videos.length === 0 ? (
+      {/* 정렬 축 토글 — 조회수 / 공유 / 댓글 */}
+      {hasEngagement && inf.top_videos.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            marginBottom: 10,
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: "var(--color-g400)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            정렬
+          </span>
+          {(["views", "shares", "comments"] as const).map((m) => {
+            const on = metric === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetric(m)}
+                style={{
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  padding: "3px 9px",
+                  borderRadius: 5,
+                  border: `1px solid ${on ? color : "var(--color-g200)"}`,
+                  background: on ? color : "white",
+                  color: on ? "white" : "var(--color-g500)",
+                  cursor: "pointer",
+                  fontWeight: on ? 700 : 400,
+                }}
+              >
+                {METRIC_CFG[m].label}순
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {rankedVideos.length === 0 ? (
         <div style={{ fontSize: 11, color: "var(--color-g400)" }}>
           그 7일 윈도우에 매칭된 영상 없음 (외부 콘텐츠 영향일 수 있음)
         </div>
@@ -617,7 +699,7 @@ function InflectionDetail({
             gap: 10,
           }}
         >
-          {inf.top_videos.map((v, idx) => {
+          {rankedVideos.map((v, idx) => {
             const id = extractTikTokVideoId(v.url);
             return (
               <div
@@ -631,11 +713,23 @@ function InflectionDetail({
                     fontFamily: "var(--font-mono)",
                     display: "flex",
                     justifyContent: "space-between",
+                    gap: 6,
                   }}
                 >
                   <span>#{idx + 1}</span>
-                  <span style={{ fontWeight: 700 }}>
-                    {formatViews(v.views)} views
+                  <span style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                    {/* 선택 지표는 강조, 나머지는 흐리게 병기 */}
+                    <b style={{ color, fontWeight: 800 }}>
+                      {formatViews(cfg.get(v))} {cfg.unit}
+                    </b>
+                    {(["views", "shares", "comments"] as const)
+                      .filter((m) => m !== metric)
+                      .map((m) => (
+                        <span key={m} style={{ color: "var(--color-g400)" }}>
+                          {formatViews(METRIC_CFG[m].get(v))}{" "}
+                          {METRIC_CFG[m].unit}
+                        </span>
+                      ))}
                   </span>
                 </div>
                 {id ? (

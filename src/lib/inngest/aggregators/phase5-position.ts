@@ -498,7 +498,7 @@ export function computeUspKeywords(
 
 const RANK_IMPROVE_THRESHOLD = 0.5; // 50% 이상 개선
 const VOLUME_RATIO_THRESHOLD = 2.0; // 직전 7일 대비 2배 이상이면 메가 볼륨
-const TOP_VIDEOS_PER_INFLECTION = 3;
+const TOP_VIDEOS_PER_INFLECTION = 5; // 지표별(뷰/공유/댓글) 각 상위 N — union이 후보 풀
 
 async function computeBsrInflections(
   supabase: SupaClient,
@@ -545,10 +545,12 @@ async function computeBsrInflections(
   }
   if (bsrByProduct.size === 0) return [];
 
-  // 3. brand+country contents fetch (uploaded_at + views + url + caption)
+  // 3. brand+country contents fetch (uploaded_at + views + shares + comments + url + caption)
   const allContents: Array<{
     uploaded_at: string;
     views: number;
+    shares: number;
+    comments: number;
     url: string;
     caption: string | null;
   }> = [];
@@ -556,7 +558,7 @@ async function computeBsrInflections(
   while (true) {
     const { data, error } = await supabase
       .from("contents")
-      .select("uploaded_at, views, url, caption")
+      .select("uploaded_at, views, shares, comments, url, caption")
       .eq("brand_id", brand_id)
       .eq("country", country)
       .not("uploaded_at", "is", null)
@@ -568,6 +570,8 @@ async function computeBsrInflections(
       allContents.push({
         uploaded_at: String(r.uploaded_at).slice(0, 10),
         views: r.views ?? 0,
+        shares: r.shares ?? 0,
+        comments: r.comments ?? 0,
         url: r.url,
         caption: r.caption ?? null,
       });
@@ -621,10 +625,14 @@ async function computeBsrInflections(
 
       let viewsWindow = 0;
       let viewsCompare = 0;
+      let sharesWindow = 0;
+      let commentsWindow = 0;
       const inWindow: typeof allContents = [];
       for (const c of allContents) {
         if (c.uploaded_at >= w0Start && c.uploaded_at < w0End) {
           viewsWindow += c.views;
+          sharesWindow += c.shares;
+          commentsWindow += c.comments;
           inWindow.push(c);
         } else if (c.uploaded_at >= wPrevStart && c.uploaded_at < wPrevEnd) {
           viewsCompare += c.views;
@@ -639,14 +647,26 @@ async function computeBsrInflections(
       const isMegaVolume =
         viewsCompare > 0 && viewsRatio >= VOLUME_RATIO_THRESHOLD;
 
-      const top3: BsrInflectionVideo[] = inWindow
-        .sort((a, b) => b.views - a.views)
-        .slice(0, TOP_VIDEOS_PER_INFLECTION)
-        .map((c) => ({
-          url: c.url,
-          views: c.views,
-          caption: c.caption,
-        }));
+      // 후보 풀 = 뷰·공유·댓글 각 상위 N의 union (url dedupe). 프론트가 지표별 재정렬.
+      const topByUrl = new Map<string, BsrInflectionVideo>();
+      for (const key of ["views", "shares", "comments"] as const) {
+        const topN = [...inWindow]
+          .sort((a, b) => b[key] - a[key])
+          .slice(0, TOP_VIDEOS_PER_INFLECTION);
+        for (const c of topN) {
+          if (c[key] <= 0) continue; // 그 지표가 0인 영상은 해당 축 상위에서 제외
+          if (!topByUrl.has(c.url)) {
+            topByUrl.set(c.url, {
+              url: c.url,
+              views: c.views,
+              shares: c.shares,
+              comments: c.comments,
+              caption: c.caption,
+            });
+          }
+        }
+      }
+      const topVideos = Array.from(topByUrl.values());
 
       inflections.push({
         asin,
@@ -658,7 +678,9 @@ async function computeBsrInflections(
         views_compare: viewsCompare,
         views_ratio: viewsRatio === Infinity ? 999 : viewsRatio,
         is_mega_volume: isMegaVolume,
-        top_videos: top3,
+        shares_window: sharesWindow,
+        comments_window: commentsWindow,
+        top_videos: topVideos,
       });
     }
   }
