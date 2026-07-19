@@ -102,6 +102,8 @@ import {
   getRegionScope,
   isLikelyUs,
 } from "@/lib/case-detail/region-filter";
+import { getPeriodScope, periodLabel } from "@/lib/case-detail/period-filter";
+import { PeriodScopeToggle } from "@/components/case-detail/PeriodScopeToggle";
 import {
   crossPlatformAuthors,
   monthlyTrend as buildMonthlyTrend,
@@ -221,6 +223,11 @@ export default async function CaseDetailPage({
   //   running 케이스에서 렌더 40~60초 → AutoRefresh 폴링과 겹쳐 RSC 스트림이 죽던
   //   "Application error: client-side exception"의 근본 원인 (2026-07-15).
   const isReady = c.status === "ready";
+  // ★ 분석 기간 필터 — 라이브 집계에 uploaded_at/start_date WHERE만 추가 (유료 재실행 X).
+  const periodScope = getPeriodScope((c.options ?? {}) as Record<string, unknown>);
+  const psStart = periodScope?.start ?? null;
+  const psEnd = periodScope?.end ?? null;
+  const psEndTs = psEnd ? `${psEnd}T23:59:59` : null;
 
   // 2. 콘텐츠 적재 상태 (brand+country 스코프)
   const { count: contentCount } = brand_id
@@ -362,12 +369,16 @@ export default async function CaseDetailPage({
   // 필요해서 가드 풀음 — 2026-05-27)
   let metaAdsList: MetaAdListItem[] = [];
   if (c.status === "ready") {
-    const { data: ads } = await supabase
+    let adsQ = supabase
       .from("meta_ads")
       .select(
         "id, ad_archive_id, page_name, format, start_date, end_date, is_active, body_text, link_url, thumbnail_url, video_url, is_brand_official, creator_page_name, partner_page_name, partner_page_id, inferred_creator_handle, ad_intel",
       )
-      .eq("case_id", c.id)
+      .eq("case_id", c.id);
+    // ★ 기간 필터 — 광고 시작일 기준
+    if (psStart) adsQ = adsQ.gte("start_date", psStart);
+    if (psEnd) adsQ = adsQ.lte("start_date", psEnd);
+    const { data: ads } = await adsQ
       .order("start_date", { ascending: false })
       .limit(2000);
     metaAdsList = (ads ?? []).map((a) => ({
@@ -931,12 +942,14 @@ export default async function CaseDetailPage({
     total_videos: number;
   }> = [];
   if (brand_id) {
-    const { data: bvt } = await supabase
+    let bvtQ = supabase
       .from("brand_view_trends")
       .select("week_start, total_views, total_videos")
       .eq("brand_id", brand_id)
-      .eq("country", c.country)
-      .order("week_start", { ascending: true });
+      .eq("country", c.country);
+    if (psStart) bvtQ = bvtQ.gte("week_start", psStart);
+    if (psEnd) bvtQ = bvtQ.lte("week_start", psEnd);
+    const { data: bvt } = await bvtQ.order("week_start", { ascending: true });
     weeklyViews = (bvt ?? []).map((r) => ({
       week_start: r.week_start,
       total_views: Number(r.total_views),
@@ -1175,11 +1188,14 @@ export default async function CaseDetailPage({
       //   라인 토글이 비활성되던 버그. range로 전체 수집.
       const snaps: Array<{ product_id: string; bsr: number | null; collected_at: string }> = [];
       for (let off = 0; off < 200000; off += 1000) {
-        const { data: page } = await supabase
+        let snapQ = supabase
           .from("sales_snapshot")
           .select("product_id, bsr, collected_at")
           .in("product_id", pidList)
-          .not("bsr", "is", null)
+          .not("bsr", "is", null);
+        if (psStart) snapQ = snapQ.gte("collected_at", psStart);
+        if (psEndTs) snapQ = snapQ.lte("collected_at", psEndTs);
+        const { data: page } = await snapQ
           .order("collected_at", { ascending: true })
           .range(off, off + 999);
         if (!page || page.length === 0) break;
@@ -1187,14 +1203,18 @@ export default async function CaseDetailPage({
         if (page.length < 1000) break;
       }
       const { data: bvids } = brand_id
-        ? await supabase
-            .from("contents")
-            .select("url, views, caption, uploaded_at")
-            .eq("brand_id", brand_id)
-            .eq("country", c.country)
-            .ilike("url", "%tiktok.com%")
-            .not("uploaded_at", "is", null)
-            .limit(5000)
+        ? await (() => {
+            let q = supabase
+              .from("contents")
+              .select("url, views, caption, uploaded_at")
+              .eq("brand_id", brand_id)
+              .eq("country", c.country)
+              .ilike("url", "%tiktok.com%")
+              .not("uploaded_at", "is", null);
+            if (psStart) q = q.gte("uploaded_at", psStart);
+            if (psEndTs) q = q.lte("uploaded_at", psEndTs);
+            return q.limit(5000);
+          })()
         : { data: [] as Array<{ url: string; views: number | null; caption: string | null; uploaded_at: string | null }> };
       // 제품별 월별 min BSR (랭크는 낮을수록 좋음)
       const byPid = new Map<string, Map<string, number>>();
@@ -1577,6 +1597,16 @@ export default async function CaseDetailPage({
       });
     }
 
+    // ★ 기간 필터 — 멤버 month 기준 (클러스터 정의는 유지, 멤버 집계만 재계산)
+    const psM = psStart ? psStart.slice(0, 7) : null;
+    const peM = psEnd ? psEnd.slice(0, 7) : null;
+    const unifiedScoped =
+      psM || peM
+        ? unified.filter(
+            (u) => u.month && (!psM || u.month >= psM) && (!peM || u.month <= peM),
+          )
+        : unified;
+
     // ⑥ 채널 subset 별 집계
     const aggregate = (members: UM[]): CSlice => {
       const slice = emptySlice(metasMeta);
@@ -1646,10 +1676,10 @@ export default async function CaseDetailPage({
     return {
       clusterChannelBreakdown: breakdown,
       channelData: {
-        all: aggregate(unified),
-        tk: aggregate(unified.filter((u) => u.ch === "tk")),
-        ig: aggregate(unified.filter((u) => u.ch === "ig")),
-        yt: aggregate(unified.filter((u) => u.ch === "yt")),
+        all: aggregate(unifiedScoped),
+        tk: aggregate(unifiedScoped.filter((u) => u.ch === "tk")),
+        ig: aggregate(unifiedScoped.filter((u) => u.ch === "ig")),
+        yt: aggregate(unifiedScoped.filter((u) => u.ch === "yt")),
       } as Record<"all" | ChKey, CSlice>,
     };
   })();
@@ -1941,13 +1971,16 @@ export default async function CaseDetailPage({
     const tkContents: Array<{ influencer_id: string | null; views: number | null; is_ad: boolean | null; language: string | null }> = [];
     const PAGE = 1000;
     for (let off = 0; off < 100000; off += PAGE) {
-      const { data } = await supabase
+      let tkQ = supabase
         .from("contents")
         .select("influencer_id, views, is_ad, language")
         .eq("brand_id", brand_id)
         .eq("country", c.country)
-        .not("influencer_id", "is", null)
-        .range(off, off + PAGE - 1);
+        .not("influencer_id", "is", null);
+      // ★ 기간 필터 — 기간 내 활동 인플만 (기간 밖 영상 제외)
+      if (psStart) tkQ = tkQ.gte("uploaded_at", psStart);
+      if (psEndTs) tkQ = tkQ.lte("uploaded_at", psEndTs);
+      const { data } = await tkQ.range(off, off + PAGE - 1);
       if (!data || data.length === 0) break;
       tkContents.push(...data);
       if (data.length < PAGE) break;
@@ -2024,15 +2057,18 @@ export default async function CaseDetailPage({
     type TkRow = { url: string | null; uploaded_at: string | null; is_ad: boolean | null; is_shop_content?: boolean | null };
     let shopCol = true;
     for (let off = 0; off < 200000; off += PAGE) {
-      const runQuery = (withShop: boolean) =>
-        supabase
+      const runQuery = (withShop: boolean) => {
+        let q = supabase
           .from("contents")
           .select(withShop ? "url, uploaded_at, is_ad, is_shop_content" : "url, uploaded_at, is_ad")
           .eq("brand_id", brand_id)
           .eq("country", c.country)
           .ilike("url", "%tiktok.com%")
-          .not("uploaded_at", "is", null)
-          .range(off, off + PAGE - 1);
+          .not("uploaded_at", "is", null);
+        if (psStart) q = q.gte("uploaded_at", psStart); // ★ 기간 필터
+        if (psEndTs) q = q.lte("uploaded_at", psEndTs);
+        return q.range(off, off + PAGE - 1);
+      };
       let resp = await runQuery(shopCol);
       if (resp.error && shopCol) {
         // 컬럼 미존재(019 미적용) — 폴백 후 같은 offset 재시도.
@@ -2441,6 +2477,27 @@ export default async function CaseDetailPage({
         />
         {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
         <CompletenessGauge c={caseCompleteness} />
+        {/* ★ 분석 기간 필터 행 — 라이브 집계 WHERE 재적용 (유료 재실행 X) */}
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            padding: "6px 16px",
+            background: periodScope ? "#f5f3ff" : "#fafafa",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#5b21b6" }}>📆 분석 기간</span>
+          <PeriodScopeToggle case_id={c.id} current={periodScope} />
+          {periodScope && (
+            <span style={{ fontSize: 10, color: "#6b7280" }}>
+              <b style={{ color: "#5b21b6" }}>{periodLabel(periodScope)}</b> 적용 중 — TikTok 영상·인플·Meta 광고·클러스터 멤버·BSR·주간뷰는 기간 재집계 ·
+              IG/YT 명단·클러스터 정의문·USP·매출 30d 스냅샷은 전 기간 기준
+            </span>
+          )}
+        </div>
         {/* ★ B4(WS4b): freshness 배지 — source별 최신성(경과일) */}
         {(() => {
           const now = new Date();
@@ -2792,10 +2849,12 @@ export default async function CaseDetailPage({
               ks.phase2 &&
               liveTkMonthly &&
               liveTkTotal != null &&
-              liveTkTotal > (ks.phase2.total_contents ?? 0)
+              // ★ 기간 필터 중엔 항상 override (필터 결과가 캐시보다 작아도) — 아니면 캐시 전 기간 수치가 이김
+              (periodScope != null || liveTkTotal > (ks.phase2.total_contents ?? 0))
             ) {
               ks.phase2 = {
                 ...ks.phase2,
+                ...(periodScope ? { total_unique_creators: allTkCreators.length } : {}),
                 total_contents: liveTkTotal,
                 monthly_video_counts: liveTkMonthly,
                 monthly_by_channel: {

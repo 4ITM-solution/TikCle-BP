@@ -1,0 +1,961 @@
+<title>케이스 상세 프로토 v8 — 개선 + 기간 필터</title>
+<style>
+  :root{--ink:#1f2937;--g25:#fafafa;--g100:#f3f4f6;--g200:#e5e7eb;--g400:#9ca3af;--g500:#6b7280;--g600:#4b5563;--accent:#ec4899;--ok:#10b981;--warn:#f59e0b;}
+  body{font-family:-apple-system,"Apple SD Gothic Neo","Pretendard",sans-serif;font-size:13px;color:var(--ink);margin:0;background:#fff;}
+  .proto-note{background:#ede9fe;color:#5b21b6;font-size:11px;padding:8px 24px;border-bottom:1px solid #ddd6fe;}
+  .chip-prop{display:inline-block;background:#7c3aed;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px;vertical-align:middle;cursor:help;}
+  .prop-line{font-size:10px;color:#7c3aed;background:#f5f3ff;border:1px dashed #c4b5fd;border-radius:4px;padding:4px 8px;margin-top:4px;}
+  /* status strip */
+  .status-strip{background:#1f2937;color:#fff;padding:12px 24px;position:sticky;top:0;z-index:50;}
+  .strip-inner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .strip-divider{width:1px;height:18px;background:#374151;}
+  .strip-channel{font-size:11px;display:flex;align-items:center;gap:4px;}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .dot-ok{background:#10b981;} .dot-off{background:#4b5563;}
+  .ch-count{font-weight:700;}
+  .adopt-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#065f46;color:#a7f3d0;border:1px solid #10b981;}
+  .strip-actions button{font-size:10px;padding:3px 9px;border:1px solid #4b5563;background:transparent;color:#d1d5db;border-radius:4px;cursor:pointer;margin-left:4px;}
+  /* gauge + freshness */
+  .gauge-row{display:flex;align-items:center;gap:10px;padding:8px 24px;background:#fff;border-bottom:1px solid var(--g200);font-size:11px;flex-wrap:wrap;}
+  .gauge-bar{width:180px;height:8px;background:var(--g200);border-radius:4px;overflow:hidden;}
+  .gauge-fill{height:100%;background:linear-gradient(90deg,#10b981,#059669);}
+  .fresh-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 24px;background:#fafafa;border-bottom:1px solid var(--g200);font-size:11px;}
+  .fresh-badge{font-size:10px;padding:2px 8px;border-radius:9px;border:1px solid var(--g200);background:#fff;}
+  .fresh-ok{color:#065f46;border-color:#a7f3d0;background:#ecfdf5;}
+  .fresh-warn{color:#92400e;border-color:#fde68a;background:#fffbeb;}
+  .cache-badge{font-size:10px;color:var(--g500);padding:2px 8px;border-radius:9px;background:#eef2ff;margin-left:auto;cursor:help;}
+  /* layout */
+  .breadcrumb{padding:14px 32px 0;font-size:12px;color:var(--g500);}
+  .breadcrumb a{color:#1d4ed8;text-decoration:none;}
+  .layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;padding:12px 32px 60px;max-width:1680px;}
+  .side-toc{position:sticky;top:120px;align-self:start;font-size:11px;}
+  .side-toc a{display:block;padding:5px 8px;color:var(--g500);text-decoration:none;border-left:2px solid var(--g200);}
+  .side-toc a:hover{color:var(--ink);border-left-color:#1f2937;background:var(--g25);}
+  /* section 공통 */
+  .section{border:1px solid var(--g200);border-radius:10px;padding:18px 20px;margin-bottom:22px;background:#fff;}
+  .section-h{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+  .section-h .letter{font-size:16px;font-weight:800;background:#1f2937;color:#fff;border-radius:6px;padding:2px 9px;}
+  .section-h .title{font-size:15px;font-weight:800;}
+  .section-h .sub{font-size:11px;color:var(--g400);}
+  .conclusion{font-size:12px;font-weight:600;color:#1e3a8a;background:#eff6ff;border-left:3px solid #3b82f6;padding:8px 12px;border-radius:4px;margin-bottom:14px;}
+  /* KPI */
+  .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;}
+  .ks-item{border:1px solid var(--g200);border-radius:8px;padding:10px 12px;background:#fff;}
+  .ks-label{font-size:10px;color:var(--g500);}
+  .ks-val{font-size:18px;font-weight:800;margin-top:2px;}
+  .ks-sub{font-size:10px;color:var(--g400);margin-top:2px;}
+  .ks-trend.up{color:#10b981;} .ks-trend.dn{color:#ef4444;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .kpi{border:1px solid var(--g100);border-radius:8px;padding:9px 11px;background:var(--g25);}
+  .kpi-label{font-size:10px;color:var(--g500);}
+  .kpi-val{font-size:16px;font-weight:800;margin-top:2px;}
+  .kpi-sub{font-size:10px;color:var(--g400);}
+  /* phase progress */
+  details.phase-progress{border:1px solid var(--g200);border-radius:8px;padding:10px 14px;margin-bottom:14px;background:var(--g25);font-size:12px;}
+  details.phase-progress summary{cursor:pointer;font-weight:600;}
+  .pp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;font-size:11px;}
+  .pp-item{padding:5px 8px;border-radius:4px;background:#fff;border:1px solid var(--g200);display:flex;justify-content:space-between;gap:6px;align-items:center;}
+  .pp-item.ok{border-color:#a7f3d0;background:#ecfdf5;}
+  .pp-rerun{font-size:9px;padding:2px 6px;border:1px solid #d1d5db;border-radius:3px;background:#fff;cursor:pointer;color:var(--g500);}
+  /* channel cards */
+  .channels-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+  .ch-card{text-align:left;border:1px solid var(--g200);border-radius:8px;padding:10px;background:#fff;cursor:pointer;font-family:inherit;font-size:12px;}
+  .ch-card.active{border-color:#10b981;background:#ecfdf5;}
+  .ch-card.open{border-color:#1f2937;background:#1f2937;color:#fff;}
+  .ch-card-h{display:flex;align-items:center;gap:5px;font-weight:700;font-size:11px;}
+  .ch-badge{margin-left:auto;font-size:9px;padding:1px 6px;border-radius:8px;background:var(--g100);color:var(--g500);}
+  .ch-card.active .ch-badge{background:#10b981;color:#fff;}
+  .ch-card.open .ch-badge{background:#fff;color:#1f2937;}
+  .ch-stat{font-size:11px;font-weight:700;margin-top:6px;}
+  .ch-sub{font-size:9px;color:var(--g400);margin-top:2px;}
+  .ch-card.open .ch-sub{color:#9ca3af;}
+  .ch-panel{margin-top:12px;padding:16px;background:#fff;border:2px solid #1f2937;border-radius:8px;}
+  .ch-panel-foot{margin-top:14px;background:#fef3c7;border:1px dashed #fbbf24;border-radius:6px;padding:12px;font-size:10px;color:#92400e;}
+  .phase-pill{display:inline-flex;gap:4px;background:#fff;padding:2px 6px;border-radius:3px;font-size:10px;border:1px solid #10b981;margin:2px;}
+  .phase-pill.paid{border-color:#ec4899;}
+  .btn-free{font-size:11px;padding:5px 12px;border:1px solid #10b981;border-radius:4px;background:#10b981;color:#fff;cursor:pointer;font-weight:700;}
+  .btn-paid{font-size:11px;padding:5px 12px;border:1px solid #be185d;border-radius:4px;background:#fff;color:#be185d;cursor:pointer;font-weight:700;}
+  /* G insight */
+  .insight-card{border:2px solid #1f2937;border-radius:12px;padding:18px 20px;margin-bottom:22px;background:linear-gradient(180deg,#fff,#fafafa);}
+  .ic-label{font-size:10px;font-weight:800;color:var(--g400);letter-spacing:.06em;}
+  .ic-title{font-size:17px;font-weight:800;margin-top:4px;}
+  .ic-tagline{font-size:12px;color:var(--g500);margin-top:2px;}
+  .ic-meta{font-size:11px;color:#7c3aed;margin-top:4px;font-weight:600;}
+  .axis-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px;}
+  .axis-card{border:1px solid var(--g200);border-radius:8px;padding:8px 10px;background:#fff;}
+  .ax-h{font-size:10px;color:var(--g500);font-weight:700;}
+  .ax-val{font-size:12px;font-weight:800;margin-top:3px;line-height:1.3;}
+  .ax-sub{font-size:10px;color:var(--g400);margin-top:2px;}
+  .insight-row{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:14px;}
+  .ib-h{font-size:11px;font-weight:700;margin-bottom:6px;}
+  .ib-li{font-size:11px;padding:3px 0;border-top:1px solid var(--g100);}
+  .related-cases{margin-top:12px;font-size:11px;color:var(--g500);}
+  .related-cases a{color:#1d4ed8;margin-right:10px;}
+  /* 토글 */
+  .ch-toggle{display:inline-flex;border:1px solid var(--g200);border-radius:6px;overflow:hidden;}
+  .ch-toggle button{font-size:11px;padding:5px 11px;border:none;background:#fff;cursor:pointer;color:var(--g500);border-right:1px solid var(--g100);font-family:inherit;}
+  .ch-toggle button:last-child{border-right:none;}
+  .ch-toggle button.active{background:#1f2937;color:#fff;}
+  .ch-toggle button:disabled{opacity:.4;cursor:not-allowed;}
+  /* A 차트 */
+  .trend-chart{position:relative;border:1px solid var(--g100);border-radius:8px;padding:12px;background:var(--g25);}
+  .trend-toggles{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+  .trend-toggles button{font-size:10px;padding:4px 10px;border:1px solid var(--g200);background:#fff;border-radius:12px;cursor:pointer;color:var(--g500);font-family:inherit;}
+  .trend-toggles button.active{background:#1f2937;border-color:#1f2937;color:#fff;}
+  .trend-toggles button.active-ad{background:#f59e0b;border-color:#f59e0b;color:#fff;}
+  .trend-toggles button.active-bsr{background:#ef4444;border-color:#ef4444;color:#fff;}
+  .trend-toggles button.active-vc{background:#06b6d4;border-color:#06b6d4;color:#fff;}
+  .stack-bars{position:relative;display:flex;align-items:flex-end;gap:6px;height:240px;padding:0 10px;}
+  .stack-bar{flex:1;display:flex;flex-direction:column-reverse;position:relative;cursor:pointer;min-height:4px;border-radius:2px 2px 0 0;overflow:visible;}
+  .stack-bar>.seg{width:100%;}
+  .sb-label{position:absolute;bottom:-34px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--g500);text-align:center;line-height:1.3;white-space:nowrap;}
+  .overlay-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .trend-tooltip{position:absolute;top:14px;background:#fff;border:1px solid #1f2937;border-radius:8px;padding:10px 12px;font-size:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:20;min-width:180px;}
+  .trend-tooltip table{border-collapse:collapse;width:100%;}
+  .trend-tooltip td{padding:1px 2px;}
+  .tt-h{font-weight:800;font-size:11px;margin-bottom:4px;}
+  .tt-color{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+  .tt-stat{margin-top:6px;padding-top:6px;border-top:1px solid var(--g100);}
+  .trend-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:40px;font-size:10px;color:var(--g500);align-items:center;}
+  .lg-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+  .callout-ok{margin-top:12px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #10b981;border-radius:4px;font-size:11px;color:#065f46;}
+  .tl-item{display:grid;grid-template-columns:100px 1fr;gap:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;margin-top:8px;font-size:11px;}
+  /* 표 공통 */
+  table.t{border-collapse:collapse;width:100%;font-size:11px;}
+  table.t th{text-align:left;font-size:10px;color:var(--g500);border-bottom:1px solid var(--g200);padding:5px 6px;}
+  table.t td{border-bottom:1px solid var(--g100);padding:5px 6px;}
+  .mono{font-family:ui-monospace,monospace;}
+  .r{text-align:right;}
+  .tag-warn{font-size:9px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 4px;margin-left:4px;}
+  .tag-owned{font-size:9px;background:#1f2937;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700;}
+  .ch-pill{font-size:9px;border-radius:3px;padding:1px 5px;margin-right:3px;font-weight:700;}
+  .pill-tk{background:#fce7f3;color:#9d174d;} .pill-ig{background:#ede9fe;color:#5b21b6;} .pill-yt{background:#fee2e2;color:#991b1b;}
+  .tier-row{display:grid;grid-template-columns:64px 1fr 44px;gap:8px;align-items:center;font-size:11px;padding:3px 0;cursor:pointer;}
+  .tier-row.sel{background:#fef3c7;border-radius:4px;}
+  .tier-bar{height:10px;background:var(--g100);border-radius:5px;overflow:hidden;}
+  .tier-fill{height:100%;background:#1f2937;border-radius:5px;}
+  .matrix-table{border-collapse:collapse;font-size:10px;width:100%;}
+  .matrix-table th,.matrix-table td{padding:3px 5px;text-align:center;border-bottom:1px solid var(--g100);}
+  .mt-on{background:#d1fae5;color:#065f46;border-radius:3px;padding:1px 6px;font-weight:700;}
+  .mt-off{color:var(--g400);}
+  .embed-ph{background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 8px,#e5e7eb 8px,#e5e7eb 16px);border:1px solid #fde68a;border-radius:4px;height:150px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--g500);text-align:center;line-height:1.5;}
+  .summary-card{padding:10px 14px;background:var(--g25);border:1px solid var(--g200);border-radius:8px;font-size:11px;line-height:1.8;}
+  .lang-row{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:10px;}
+  .lang-bar{flex:1;height:8px;background:var(--g200);border-radius:4px;overflow:hidden;}
+  .lang-fill{height:100%;background:#6366f1;}
+  .bucket-row{display:grid;grid-template-columns:80px 1fr 40px;align-items:center;gap:6px;font-size:10px;margin-bottom:4px;}
+  .bucket-bar{height:6px;background:var(--g100);border-radius:3px;}
+  .bucket-fill{height:100%;border-radius:3px;}
+  .histogram{display:flex;align-items:flex-end;gap:3px;height:90px;}
+  .hg-bar{flex:1;background:#0ea5e9;border-radius:2px 2px 0 0;min-height:2px;}
+  .hg-labels{display:flex;gap:3px;font-size:7.5px;color:var(--g400);margin-top:3px;}
+  .hg-labels span{flex:1;text-align:center;overflow:hidden;}
+  /* C */
+  .sub-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--g200);padding-bottom:8px;}
+  .sub-tabs button{font-size:11px;padding:5px 12px;border:1px solid var(--g200);border-radius:14px;background:#fff;cursor:pointer;color:var(--g500);font-family:inherit;}
+  .sub-tabs button.active{background:#1f2937;color:#fff;border-color:#1f2937;}
+  .sample-label{font-size:11px;color:#b45309;margin:6px 0 10px;padding:5px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:4px;display:inline-block;}
+  .unified-cluster{border:1px solid var(--g200);border-radius:8px;padding:10px 12px;margin-top:8px;cursor:pointer;}
+  .unified-cluster.exp{background:#fef3c7;}
+  .uc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .uc-rank{background:#1f2937;color:#fff;border-radius:4px;font-size:11px;font-weight:800;padding:1px 7px;}
+  .uc-name{font-weight:700;font-size:12px;}
+  .uc-ch-stat{font-size:9px;border-radius:3px;padding:1px 5px;font-weight:700;}
+  .uc-ch-stat.tk{background:#fce7f3;color:#9d174d;} .uc-ch-stat.ig{background:#ede9fe;color:#5b21b6;} .uc-ch-stat.yt{background:#fee2e2;color:#991b1b;}
+  .uc-ch-stat.off{opacity:.35;}
+  .uc-desc{font-size:10px;color:var(--g500);margin-top:4px;}
+  .uc-metrics{font-size:10px;color:var(--g600);margin-top:4px;font-family:ui-monospace,monospace;}
+  .usp-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+  .usp-keyword{display:inline-block;font-size:11px;border:1px solid var(--g200);border-radius:12px;padding:3px 9px;margin:2px;cursor:pointer;background:#fff;}
+  .usp-keyword.cta{background:#fef3c7;border-color:#d97706;}
+  .usp-keyword.active{background:#1f2937;color:#fff;border-color:#1f2937;}
+  .uk-count{color:var(--g400);font-size:9px;}
+  .usp-detail{border:1px solid var(--g200);border-radius:8px;padding:10px;background:var(--g25);font-size:11px;min-height:120px;}
+  .heat{display:grid;gap:2px;font-size:9px;}
+  .heat .lbl{color:var(--g500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 4px;align-self:center;}
+  .heat .cell{padding:4px 2px;text-align:center;border-radius:2px;min-width:0;}
+  .dist-row{display:grid;grid-template-columns:110px 1fr 60px 44px;gap:8px;align-items:center;font-size:11px;margin-top:6px;}
+  .dist-bar{height:12px;background:var(--g100);border-radius:6px;overflow:hidden;}
+  .dist-fill{height:100%;border-radius:6px;}
+  /* D */
+  .decomp-card{margin-top:10px;padding:14px;border:1px solid var(--g200);border-radius:8px;background:var(--g25);}
+  .sku-chip{padding:5px 12px;font-size:11px;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:6px;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit;}
+  .sku-chip.sel{background:#1f2937;color:#fff;border-color:#1f2937;}
+  .sku-health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;}
+  .sku-health-card{border:1px solid var(--g200);border-radius:8px;padding:12px;background:#fff;}
+  .sh-label{font-size:10px;color:var(--g500);}
+  .sh-val{font-size:20px;font-weight:800;margin-top:2px;}
+  .sh-desc{font-size:10px;color:var(--g400);}
+  .sh-bar{display:flex;margin-top:8px;height:18px;border-radius:4px;overflow:hidden;align-items:center;}
+  .sh-segment{color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;height:100%;}
+  .sh-foot{font-size:10px;color:var(--g600);margin-top:8px;font-weight:600;}
+  .hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .hero-card{border:1px solid #fde68a;border-radius:8px;padding:12px;background:#fffbeb;}
+  .hc-rank{font-size:9px;font-weight:800;color:#92400e;}
+  .hc-sku{font-size:12px;font-weight:700;margin-top:2px;}
+  .hc-rev{font-size:13px;font-weight:800;color:#10b981;margin-top:2px;}
+  .panel{margin-top:14px;}
+  .empty-box{padding:16px;background:var(--g25);border:1px dashed var(--g200);border-radius:6px;font-size:11px;color:var(--g400);text-align:center;}
+  .empty-warn{padding:16px;background:#fef3c7;border:1px dashed #fbbf24;border-radius:6px;font-size:11px;color:#92400e;text-align:center;}
+  /* E */
+  .ad-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:11px;}
+  .ad-search{flex:1;min-width:180px;padding:6px 10px;border:1px solid var(--g200);border-radius:6px;font-size:11px;font-family:inherit;}
+  .ad-toolbar select{padding:5px 8px;border:1px solid var(--g200);border-radius:6px;font-size:11px;font-family:inherit;}
+  .ad-check{display:inline-flex;align-items:center;gap:3px;color:var(--g500);}
+  .ad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .ad-card{border:1px solid var(--g200);border-radius:8px;overflow:hidden;background:#fff;cursor:pointer;text-decoration:none;color:inherit;display:block;}
+  .ad-thumb{height:130px;position:relative;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;font-weight:800;}
+  .ad-badges{position:absolute;top:6px;left:6px;display:flex;gap:4px;}
+  .ad-badge{font-size:8px;font-weight:700;border-radius:3px;padding:1px 5px;background:rgba(255,255,255,.9);color:#1f2937;}
+  .ad-badge.active{background:#10b981;color:#fff;}
+  .ad-badge.brand{background:#1f2937;color:#fff;}
+  .ad-badge.partner{background:#ec4899;color:#fff;}
+  .ad-badge.retail{background:#06b6d4;color:#fff;}
+  .ad-info{padding:8px 10px;}
+  .ad-page{font-size:11px;font-weight:700;}
+  .ad-partner{font-size:9px;color:#ec4899;}
+  .ad-date{font-size:9px;color:var(--g400);margin-top:2px;}
+  .ad-body{font-size:10px;color:var(--g600);margin-top:4px;line-height:1.4;}
+  .load-more{display:block;width:100%;margin-top:10px;padding:8px;border:1px dashed var(--g200);background:var(--g25);border-radius:6px;font-size:11px;color:var(--g500);cursor:pointer;font-family:inherit;}
+  .promo-chip{font-family:ui-monospace,monospace;font-size:11px;padding:4px 8px;border:1px solid #d97706;border-radius:3px;background:#fff;color:#92400e;font-weight:700;margin:2px;display:inline-block;}
+  /* glossary / footer */
+  .glossary{font-size:11px;columns:2;column-gap:28px;}
+  .glossary dt{font-weight:700;margin-top:8px;}
+  .glossary dd{margin:2px 0 0;color:var(--g500);}
+  .dev-footer{border:1px dashed var(--g200);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--g400);margin-top:30px;}
+  .toast{position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;z-index:99;}
+  .toast.show{opacity:1;}
+  @media (prefers-color-scheme: dark){ body{background:#fff;} } /* 프로토는 라이트 고정 — 배포판이 라이트 */
+</style>
+
+<div class="proto-note">🧪 <b>프로토타입 v8 — UX 개선 + 전역 분석 기간 필터</b> · 배포판 블록 전수 유지(삭제된 정보 0건) + 개선 13건 적용. 바뀐 블록마다 보라색 <span class="chip-prop" style="margin:0">개선</span> 칩(호버=근거+배포판 원형). 데이터는 <b>픽스처(합성) — 전 축 채움, 실측 아님</b>.
+<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📋 개선 체인지로그 13건 펼치기 (블록별 · 배포판→개선)</summary>
+<ol style="margin:6px 0 2px;padding-left:18px;line-height:1.7">
+<li><b>헤더</b> 완결성 게이지 행 + 최신성 행 2줄 → <b>신뢰 정보 1줄 통합</b> (게이지·6축·freshness·캐시 배지 전부 유지)</li>
+<li><b>Phase 패널</b> 배포판은 PhaseProgress + PhaseRunsPanel 2중 → <b>1패널 통합</b> (phase별 상태·수치·재실행 ↻ 유지) — "한 사건은 화면에 한 번만"</li>
+<li><b>데이터 채널</b> 상시 펼침 7카드 그리드 → <b>기본 접힘 콘솔</b> (요약줄 상시, 클릭 1번에 전체 — 상단 스트립 dot과 중복이라 분석 흐름에서 분리)</li>
+<li><b>A 차트</b> 오버레이 라인이 상단 밴드[28,158]에 갇혀 실제 값과 무관한 높이로 그려짐 → <b>실측 스케일 + 축 라벨</b> (영상수=막대와 동일 축, BSR·광고%=좌/우 축 눈금)</li>
+<li><b>A KPI</b> gifted(시딩) 상시 "-" → C의 seeded regex 집계 <b>연결 표시</b> (추정 라벨 부착)</li>
+<li><b>B</b> 채널 토글마다 표 소스가 조용히 바뀜 → 표 위에 <b>현재 스코프 문장 캡션</b> ("지금 보는 풀: …")</li>
+<li><b>B</b> Top 작성자 기본 5명 → <b>기본 10명</b> (더보기 20명 유지 — 정보 증가)</li>
+<li><b>C</b> 탭 7개 이름만으로 구분 어려움 → 활성 탭 아래 <b>"이 탭이 답하는 질문" 한 줄</b> 부착 (탭 수·내용 유지)</li>
+<li><b>D</b> "전체 브랜드" 지표와 "채널·SKU" 지표가 한 흐름에 섞여 스코프 혼동 → <b>① 브랜드 전체 / ② 채널·SKU 상세 2밴드 분리</b> (내용 전량 유지)</li>
+<li><b>D</b> Affiliate code conversion 상시 빈 탭 → <b>E의 promo code 추출 재노출</b> + E 점프 링크</li>
+<li><b>E</b> KPI 6개가 5열 grid라 마지막 카드 홀로 줄바꿈 → <b>6열 정렬</b></li>
+<li><b>공통</b> 섹션 결론 한 줄·드릴다운↗·임베드·표본/추정 라벨 — 배포판 문법 그대로 유지 (변경 없음)</li>
+<li><b>★신규: 전역 분석 기간 필터</b> — 헤더에서 기간 선택 시 A·C·E·KPI가 <b>즉시 재집계 (유료 재실행 $0)</b>. 티어·태그·클러스터 소속은 영상/인플 단위 속성이라 그대로 필터만 됨. 클러스터 정의문·USP 사전 등 "전 기간 코퍼스 산출물"은 라벨로 구분. 매출(D)은 30d 스냅샷/Kalodata 기간 적재 별도 축</li>
+</ol><div style="font-weight:700">삭제된 정보: 0건 — 배포판에서 읽히던 모든 수치·표·차트·라벨이 그대로 있거나 더 읽기 쉬운 위치로 이동.</div></details></div>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ══════════ 픽스처 — 합성 데이터 (전 축 채움) ══════════ */
+const MONTHS=["2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07"];
+const TIERS=[["mega","메가","#7f1d1d"],["macro","매크로","#ea580c"],["mid","미드","#fcd34d"],["micro","마이크로","#84cc16"],["nano","나노","#06b6d4"],["sub-nano","서브나노","#8b5cf6"],["unknown","미상","#d1d5db"]];
+const FX={
+  brand:"루미브 (Lumive)",country:"US",channel:"tiktok_shop",status:"ready",tier:"★★★",analyzedAt:"2026-07-09 14:22 KST",
+  adoption:{verdict:"채택",filled:6,total:6,kind:"커머스+모니터링"},
+  completeness:{pct:100,axes:"콘텐츠·인플·포맷·매출·광고·모니터링 6/6축"},
+  fresh:[["TikTok",2,"2026-07-09"],["광고",5,"2026-07-06"],["IG",9,"2026-07-02"],["YT",12,"2026-06-29"]],
+  // 월별 채널 데이터 {tk:[organic,paid], shop, ig, yt} — KPI·차트가 여기서 파생 (배포판 라이브 집계 방식 미러)
+  monthly:{
+    tk:[[112,8],[164,16],[221,19],[368,52],[402,38],[521,59],[688,72],[801,119],[1002,138],[1174,176],[1288,192],[598,86]],
+    shop:[[20,2],[34,4],[51,6],[98,14],[102,11],[141,17],[196,22],[233,35],[301,44],[356,55],[398,61],[181,27]],
+    ig:[[18,2],[26,4],[35,5],[58,10],[61,8],[79,12],[102,15],[121,21],[148,26],[169,31],[182,34],[84,15]],
+    yt:[[3,0],[5,1],[6,1],[10,2],[11,2],[14,3],[18,3],[21,5],[26,6],[29,7],[31,8],[14,3]]
+  },
+  seeded:412,
+  tierFracByMonth:[ // 월별 티어 명수 비율(합성) — 초반 나노 중심 → 후반 미드·매크로 확대
+    [0,1,4,18,52,20,5],[0,1,5,22,58,22,6],[0,2,7,28,66,25,7],[1,3,11,44,92,34,9],[1,3,12,46,90,33,9],
+    [1,4,16,58,108,39,11],[2,6,22,74,132,46,13],[2,7,27,88,148,52,15],[3,9,34,106,172,60,17],[3,11,41,122,192,66,19],[4,12,46,134,204,70,21],[2,6,22,62,94,32,10]],
+  bsrByMonth:{"2025-10":84200,"2025-11":61800,"2025-12":55400,"2026-01":47100,"2026-02":9800,"2026-03":7400,"2026-04":5100,"2026-05":4200,"2026-06":3600,"2026-07":3200},
+  promos:[{m:"2025-11",name:"Black Friday",d:"2025-11-28"},{m:"2026-07",name:"Prime Day",d:"2026-07-08"}],
+  inflection:{date:"2026-02-11",before:42000,after:9800,pct:77,viewsRatio:3.4,mega:true},
+  inflTimeline:[
+    {date:"2026-02-11",asin:"B0CLMV001",from:42000,to:9800,pct:77,ratio:3.4,mega:true,vids:[["4.2M","PDRN 세럼 7일 비포애프터"],["1.8M","성분 클로즈업 데모"],["950K","GRWM 아침 루틴"]]},
+    {date:"2026-04-03",asin:"B0CLMV002",from:18400,to:8200,pct:55,ratio:1.9,mega:false,vids:[["1.1M","가격 비교 하울"],["640K","ASMR 언박싱"]]}],
+  kpi:{views:"412M",gmv:1284000,gmvTrend:"▲ 23% vs 직전 · 8 SKU",ads:214,adsBrand:96,adsPartner:61,cost:18.4},
+  langs:[["en",78],["es",9],["pt",4],["fr",3],["ko",2],["기타",4]],
+  poolSummary:{oneoff:71,repeat:29,top10share:83},
+  creators:[
+    ["glowwithmaya",2400000,14,3,"4.2M",184000,["TK","IG"]],["skinbyjules",890000,9,2,"2.8M",96500,["TK"]],
+    ["dermdiary.us",510000,22,6,"1.9M",312000,["TK","IG","YT"]],["beautyonbudget",128000,31,4,"1.1M",48200,["TK"]],
+    ["kbeauty.nina",96000,18,2,"860K",22100,["TK","IG"]],["lumive_official",84000,42,12,"720K",0,["TK","IG","YT"],"owned"],
+    ["selfcare.sam",61000,7,1,"540K",8400,["TK"]],["glossygrace",44000,12,0,"470K",15800,["TK","YT"]],
+    ["mia.skincare",28000,5,1,"390K",3100,["TK"]],["thejennytest",19000,26,3,"310K",41000,["TK"]],
+    ["acnejourney.kay",12000,4,0,"280K",1900,["TK"]],["budgetglow",8200,9,1,"190K",5200,["TK"]],
+    ["newmom.skincare",5400,3,0,"120K",800,["TK"]],["dailydewy",3100,6,0,"88K",1200,["TK"]],["skintok.rae",1800,2,0,"41K",0,["TK"]]],
+  xMatrix:[["dermdiary.us",22,6,3],["glowwithmaya",14,4,0],["lumive_official",42,38,11],["glossygrace",12,0,2]],
+  shopTop:[["glowwithmaya",184000,31],["dermdiary.us",312000,54],["skinbyjules",96500,18],["thejennytest",41000,22],["beautyonbudget",48200,12]],
+  shopHist:{total:1412,nullG:238,buckets:[["$0",412],["$1~$100",336],["$100~$500",228],["$500~$1K",118],["$1K~$5K",142],["$5K~$10K",64],["$10K~$50K",58],["$50K~$100K",24],["$100K~$500K",22],["$500K+",8]]},
+  clusters:[
+    {id:"c1",name:"7일 비포애프터",desc:"피부 고민 → 7일 사용 타임랩스 → 결과 클로즈업",tk:412,ig:64,yt:8,avg:"1.2M",save:4.8,paid:12,kids:4},
+    {id:"c2",name:"성분 클로즈업 데모",desc:"제형 텍스처 마사지 + 성분 자막 (PDRN·펩타이드)",tk:298,ig:88,yt:12,avg:"840K",save:3.9,paid:18,kids:3},
+    {id:"c3",name:"GRWM 루틴 삽입",desc:"아침/저녁 루틴 중 자연스러운 1스텝 배치",tk:246,ig:112,yt:6,avg:"620K",save:2.1,paid:9,kids:5},
+    {id:"c4",name:"가격 비교 하울",desc:"고가 대비 dupe 포지셔닝 · 장바구니 유도",tk:184,ig:22,yt:4,avg:"580K",save:1.8,paid:31,kids:2},
+    {id:"c5",name:"ASMR 언박싱",desc:"패키지 개봉 사운드 중심 · 브랜드 무드",tk:96,ig:41,yt:9,avg:"310K",save:1.2,paid:6,kids:2}],
+  clusterHeatCount:[[4,8,14,38,42,52,66,71,58,44,12,3],[2,6,10,24,30,38,44,49,42,36,14,3],[6,9,12,20,26,30,36,40,34,26,5,2],[0,2,4,18,22,20,26,30,28,22,9,3],[1,2,4,8,10,12,14,16,13,11,4,1]],
+  visionSample:1236,totalContents:8214,
+  usp:[["pdrn",214,1],["7 day results",186,0],["glass skin",162,0],["dupe",148,0],["peptide",141,0],["texture",120,0],["link in bio",118,1],["sensitive skin",96,0],["code LUMIVE20",88,1],["barrier repair",81,0],["dewy",74,0],["overnight",66,0],["snail mucin",58,0],["affordable",52,0],["restock",44,0],["tiktok shop finds",41,1]],
+  tierAngle:{tiers:["mega","macro","mid","micro","nano"],cells:[[2,1,3,0,0],[6,4,8,2,1],[38,22,31,12,6],[164,118,102,88,41],[202,153,102,82,42]]},
+  gmvTags:[["before_after",42,184000],["ingredient_demo",31,121000],["price_anchor",18,96000],["routine_insert",26,54000],["unboxing_asmr",9,12000]],
+  skus:[
+    {asin:"B0CLMV001",name:"루미브 PDRN 리페어 세럼 30ml",cat:"세럼",launch:"2025-09",price:24,rev:512000,units:21300,bsr:3200,ch:"tiktok_shop",listings:3},
+    {asin:"B0CLMV002",name:"루미브 펩타이드 배리어 크림 50ml",cat:"크림",launch:"2025-11",price:28,rev:296000,units:10600,bsr:8200,ch:"tiktok_shop",listings:1},
+    {asin:"B0CLMV003",name:"루미브 글래스스킨 토너 패드 60매",cat:"패드",launch:"2026-01",price:19,rev:214000,units:11300,bsr:11400,ch:"tiktok_shop",listings:2},
+    {asin:"B0CLMV004",name:"루미브 오버나이트 마스크 80ml",cat:"마스크",launch:"2024-06",price:22,rev:118000,units:5400,bsr:24100,ch:"amazon",listings:1},
+    {asin:"B0CLMV005",name:"루미브 스네일 무신 에센스 100ml",cat:"에센스",launch:"2024-03",price:17,rev:74000,units:4350,bsr:31800,ch:"amazon",listings:1},
+    {asin:"B0CLMV006",name:"루미브 선세럼 SPF50 40ml",cat:"선케어",launch:"2026-03",price:21,rev:41000,units:1950,bsr:44600,ch:"tiktok_shop",listings:1},
+    {asin:"B0CLMV007",name:"루미브 립 슬리핑 마스크 15g",cat:"립케어",launch:"2025-05",price:12,rev:19000,units:1580,bsr:52100,ch:"amazon",listings:1},
+    {asin:"B0CLMV008",name:"루미브 미니 키트 (여행용 4종)",cat:"키트",launch:"2026-05",price:15,rev:10000,units:660,bsr:null,ch:"tiktok_shop",listings:1}],
+  brandPeriods:[["2026-07-05","2026-04-07 ~ 2026-07-05 · $1.28M",1284000],["2026-04-06","2026-01-06 ~ 2026-04-06 · $610K",610000]],
+  decomp:{self:262000,aff:796000,mall:226000,affiliates:1412,newVids:2214},
+  liveVideo:{live:238000,video:912000,card:134000,liveN:14,videoN:186,mixN:22,
+    topLive:[["liveshop.hana",88000,64000],["dailydeals.tv",142000,52000]],
+    topVideo:[["dermdiary.us",510000,312000],["glowwithmaya",2400000,184000]]},
+  catRank:{cur:4,avg7:4.6,delta:-38,top10:41,points:[[0,42],[1,38],[2,31],[3,26],[4,19],[5,14],[6,9],[7,7],[8,5],[9,4],[10,6],[11,4]]},
+  creatorSku:[["dermdiary.us",[184000,72000,31000,8000],17000,312000],["glowwithmaya",[121000,38000,14000,4000],7000,184000],["skinbyjules",[52000,21000,12000,6000],5500,96500],["beautyonbudget",[22000,9000,8000,3000],6200,48200],["thejennytest",[18000,11000,6000,2000],4000,41000]],
+  vidRevenue:[["dermdiary.us","PDRN 세럼","4.2M",41200],["glowwithmaya","PDRN 세럼","2.8M",28400],["skinbyjules","배리어 크림","1.9M",19800],["thejennytest","토너 패드","1.1M",12400],["beautyonbudget","PDRN 세럼","860K",9800],["kbeauty.nina","배리어 크림","720K",7100],["glossygrace","토너 패드","540K",5200],["mia.skincare","PDRN 세럼","470K",4100],["selfcare.sam","오버나이트 마스크","390K",2900],["budgetglow","토너 패드","310K",2200]],
+  lives:[["2026-06-28","루미브 공식 썸머 세일 라이브","2h 14m","48K",42000],["2026-06-14","dermdiary 스킨케어 Q&A","1h 40m","31K",28000],["2026-05-30","liveshop.hana 뷰티 특가","3h 02m","64K",51000],["2026-05-11","글래스스킨 루틴 라이브","1h 18m","19K",12000]],
+  bsrSkuSeries:[
+    {asin:"B0CLMV004",name:"오버나이트 마스크",pts:[["2025-10",84200],["2025-11",61800],["2025-12",55400],["2026-01",47100],["2026-02",9800],["2026-03",7400],["2026-04",5100],["2026-05",4200],["2026-06",3600],["2026-07",3200]],infl:[{m:"2026-02",from:47100,to:9800,vids:[["4.2M","PDRN 세럼 7일 비포애프터 (동월 브랜드 viral)"],["1.8M","성분 클로즈업 데모"]]}]},
+    {asin:"B0CLMV005",name:"스네일 무신 에센스",pts:[["2025-12",92000],["2026-01",74000],["2026-02",41000],["2026-03",28000],["2026-04",22000],["2026-05",19000],["2026-06",17500],["2026-07",16800]],infl:[{m:"2026-02",from:74000,to:41000,vids:[["1.1M","가격 비교 하울"]]}]}],
+  obsStart:"2025-08-14",
+  adKpi:{total:214,active:38,brand:96,brandPct:45,retail:22,partner:61,partnerCr:23,amazonPct:31,dtcPct:44,cost:6.2},
+  ads:[
+    ["Lumive","brand",1,"2026-06-21","PDRN serum that actually works — 7 day challenge. Free shipping this week only.","#c084fc"],
+    ["glowwithmaya","partner",1,"2026-06-18","I tested the viral PDRN serum for a month… use code LUMIVE20 🤍","#f472b6"],
+    ["Lumive","brand",0,"2026-05-30","Glass skin toner pads — 60 pads, one glow. Shop on TikTok Shop.","#a78bfa"],
+    ["Ulta Beauty","retail",1,"2026-06-25","New at Ulta: Lumive barrier cream. Members earn 2x points.","#22d3ee"],
+    ["dermdiary.us","partner",1,"2026-06-10","Derm-reviewed: why peptides + PDRN pair well. code DERM15","#fb7185"],
+    ["Lumive","brand",0,"2026-05-12","Barrier repair in 7 nights — overnight mask restock.","#8b5cf6"],
+    ["skinbyjules","partner",0,"2026-04-28","My honest 30-day Lumive routine. Link in bio.","#f9a8d4"],
+    ["Walmart","retail",0,"2026-04-20","Lumive mini kit now at Walmart — under $15.","#67e8f9"],
+    ["Lumive","brand",1,"2026-06-30","Prime Day preview — up to 30% off bestsellers.","#c084fc"],
+    ["beautyonbudget","partner",0,"2026-03-18","Dupe alert: $24 vs $98 serum comparison. LUMIVE20","#fda4af"],
+    ["Lumive","brand",0,"2026-02-14","Valentine bundle — serum + lip mask.","#a78bfa"],
+    ["thejennytest","partner",0,"2026-02-02","I bought it 3 times. Here's why. code JENNY10","#f472b6"]],
+  landing:[["Amazon",66,31,"#f59e0b"],["DTC",94,44,"#1f2937"],["Instagram",18,8,"#8b5cf6"],["TT Shop",22,10,"#ec4899"],["기타 도메인",10,5,"#9ca3af"],["랜딩 없음",4,2,"#d1d5db"]],
+  formats:[["VIDEO",162,76],["IMAGE",48,22],["기타",4,2]],
+  promoCodes:[["LUMIVE20",14],["DERM15",6],["JENNY10",4],["GLOW15",3],["MAYA10",2],["SUMMER25",2]],
+  partnerCreators:[["glowwithmaya","Lumive",2400000,9,[14,4,0],"2026-01-12 ~ 2026-06-18"],["dermdiary.us","Lumive",510000,7,[22,6,3],"2025-11-03 ~ 2026-06-10"],["skinbyjules",null,890000,5,[9,0,0],"2026-02-20 ~ 2026-04-28"],["beautyonbudget",null,128000,3,[31,0,0],"2026-03-01 ~ 2026-03-18"],["thejennytest","Lumive",19000,2,[26,0,0],"2026-02-02"]],
+  overlap:[["glowwithmaya","tiktok","macro",2400000,9],["dermdiary.us","tiktok","mid",510000,7],["dermdiary.us","instagram","mid",510000,7],["skinbyjules","tiktok","macro",890000,5],["beautyonbudget","tiktok","mid",128000,3],["thejennytest","tiktok","nano",19000,2]],
+  gAxes:[["제품","PDRN 세럼 + 배리어 크림","Top 2 SKU가 매출 63%"],["인플","4,542명 (메가 4)","마이크로 42% · portfolio 분산"],["콘텐츠","7일 비포애프터 + 성분 데모","5 클러스터 · USP 추출됨"],["채널","5 채널 활성","tiktok video · tt shop · meta ads · instagram · youtube"],["시즈널리티","2026-06 peak","1,480 영상 · paid 13%"]],
+  gFindings:["인플 portfolio — 1편만 만든 인플 71% (long-tail 패턴)","Meta partnership 인플 23명 · 광고 61건","viral 클러스터 5개 식별 · 콘텐츠 hook 패턴 추출","30일 매출 $1,284K · SKU 8 · affiliate 62% (시딩 driven)"],
+  gCross:[["lumive_official","TK·IG·YT",91],["dermdiary.us","TK·IG·YT",31],["glowwithmaya","TK·IG",18],["glossygrace","TK·YT",14]],
+  gRelated:[["아누아 (US)","#"],["오가나셀 (US)","#"],["토코보 (US)","#"]],
+  phases:[["Phase 1.5 (TT Shop)",1,"8 제품"],["Phase 2 (SQL 집계)",1,"SQL 집계"],["Phase 3 (fans 룩업)",1,"3,842명"],["Phase 3.5 (폴백)",1,"폴백 214명"],["Phase 3.7 (Shop)",1,"Shop 1,412명"],["Phase 4a (Meta 광고)",1,"214 광고"],["Phase 4a.5 (자산)",1,"Storage 96건"],["Phase 4a intel (광고 인텔)",1,"광고 인텔"],["Phase 4b.1 (샘플)",1,"샘플 1,236"],["Phase 4b.2 (ASR)",1,"ASR 1,180"],["Phase 4b.3 (Vision)",1,"Vision 1,236"],["Phase 4b.4 (cluster)",1,"Cluster 5"],["Phase 4b.5 (SKU 매칭)",1,"SKU 매칭 214"],["Phase 4c (IG)",1,"IG 1,132"],["Phase 4d (YT)",1,"YT 186"],["Phase 5 (포지셔닝)",1,"포지셔닝 분석"]],
+  dataChannels:[["tiktok_video","🎵","TikTok 영상","8,214 영상 · 412M views","📅 2025-08-14 ~ 2026-07-09 · Exolyt CSV",1],["tt_shop","🛒","TT Shop","8 제품 · $1.3M GMV","📅 2026-06-05 ~ 2026-07-05 · store URL · Helium10",1],["amazon","📦","Amazon","$118K 매출","📅 2025-10 ~ 2026-07 · Amazon",1],["shopee","🧡","Shopee","—","이 케이스 사용 안 함",0],["meta_ads","📢","Meta 광고","214 광고 · 23 partnership","📅 2026-02-02 ~ 2026-07-06 · 하이브리드 $6.20",1],["instagram","📸","Instagram","1,132 posts · 612 authors","📅 2025-09-01 ~ 2026-07-02 · Phase 4c",1],["youtube","▶️","YouTube","186 영상 · 88 채널","📅 2025-11-12 ~ 2026-06-29 · Phase 4d",1]],
+  chAffected:{tiktok_video:[["Phase 2 (SQL 집계)","$0",1],["Phase 3 (fans 룩업)","$0",1],["Phase 4b.1 (분석 샘플)","$0",1],["Phase 4b.2 (ASR)","~$0.51",0],["Phase 4b.3 (Vision)","~$3.50",0],["Phase 4b.4 (cluster)","~$0.60",0]],
+    tt_shop:[["Phase 1.5 (TT Shop)","$20/월 정액",1],["Phase 2 (SQL 집계)","$0",1],["Phase 4b.5 (SKU 매칭)","~$0.40",0]],
+    amazon:[["Phase 2 (SQL 집계)","$0",1],["Phase 4b.5 (SKU 매칭)","~$0.40",0],["Phase 5 (BSR inflection)","$0",1]],
+    shopee:[["Phase 2 (SQL 집계)","$0",1]],
+    meta_ads:[["Phase 4a (Meta 광고)","$0.75 cap",0],["Phase 4a.5 (자산)","$0",1]],
+    instagram:[["Phase 4c (IG)","최대 ~$6.50",0]],
+    youtube:[["Phase 4d (YT)","최대 ~$4.00",0]]}
+};
+/* 파생 (배포판 로직 미러) */
+const sum=a=>a.reduce((s,x)=>s+x,0);
+const chTotal=k=>sum(FX.monthly[k].map(r=>r[0]+r[1]));
+const T={tk:chTotal("tk"),shop:chTotal("shop"),ig:chTotal("ig"),yt:chTotal("yt")};
+T.all=T.tk+T.ig+T.yt;
+const fmtN=n=>n.toLocaleString("en-US");
+const fmtUsd=n=>n>=1e6?"$"+(n/1e6).toFixed(1)+"M":n>=1e3?"$"+Math.round(n/1e3)+"K":"$"+n;
+const fmtV=n=>{if(typeof n==="string")return n;return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?Math.round(n/1e3)+"K":""+n;};
+const fmtF=n=>n==null||n===0?"—":n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?Math.round(n/1e3)+"K":""+n;
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2200);}
+function embedPh(label,views){return `<div class="embed-ph">▶ ${label}<br><b>${views}</b> views<br><span style="font-size:8px;color:#9ca3af">프로토: 실화면에선 TikTok/IG/YT iframe 임베드 · ↗ 원본</span></div>`;}
+function propChip(txt){return `<span class="chip-prop" title="${txt}">개선</span>`;}
+
+/* ══════════ 상태 ══════════ */
+const S={aCh:"all",aBar:"abs",aShow:{tier:true,ad:false,bsr:true,vc:true},aHover:null,
+  bCh:"all",bMonth:"all",bTier:null,bSort:"videos",bMore:false,bExp:null,bUs:false,
+  cTab:"clu",cCh:"all",cKw:null,cHeat:"count",cExp:null,cAtmTier:"micro",
+  dSku:"all",dTab:"sku",dChn:"tiktok_shop",dPeriod:0,dSkuAll:false,vidShowAll:false,
+  eSearch:"",eLanding:"all",eFormat:"all",eBrand:false,eActive:false,eRetail:false,ePartner:false,eShow:8,
+  openCh:null,ppOpen:false,dcOpen:false,
+  pStart:0,pEnd:11}; // [개선#13] 전역 분석 기간 (MONTHS 인덱스)
+const P={active:()=>S.pStart>0||S.pEnd<11,label:()=>MONTHS[S.pStart]+" ~ "+MONTHS[S.pEnd]};
+
+/* ══════════ 렌더 ══════════ */
+function render(){
+  $("app").innerHTML=[hdr(),`<div class="breadcrumb"><a href="#">Browse</a> <span style="color:#d1d5db">/</span> <a href="#">${FX.brand}</a> <span style="color:#d1d5db">/</span> ${FX.country}/${FX.channel.toUpperCase()}</div>`,
+  `<div class="layout"><nav class="side-toc">${[["#sec-kpi","KPI"],["#sec-phase","Phase 진행"],["#sec-channels","데이터 채널"],["#sec-g","G 종합 인사이트"],["#sec-a","A 콘텐츠 활동"],["#sec-b","B 인플루언서 풀"],["#sec-c","C 콘텐츠 포맷"],["#sec-d","D 매출·BSR"],["#sec-e","E Meta 광고"],["#sec-gloss","용어 사전"],["#sec-dev","DEV"]].map(x=>`<a href="${x[0]}">${x[1]}</a>`).join("")}</nav><div style="min-width:0">
+    ${kpiStrip()}${phaseProgress()}${dataChannels()}${sectionG()}${sectionA()}${sectionB()}${sectionC()}${sectionD()}${sectionE()}${glossary()}
+    <div class="dev-footer" id="sec-dev">⚙️ DEV 액션 (배포판: CaseDevFooter — 평소 접힘) · key_stats raw · merge 후보 · 비용 추정 — 프로토 생략 표기</div>
+  </div></div>`].join("");
+  bind();
+}
+
+/* ── 헤더 3종 ── */
+function hdr(){
+  return `<div class="status-strip"><div class="strip-inner">
+    <span style="font-size:18px;font-weight:800">${FX.brand}</span>
+    <span class="adopt-badge" title="Q0 채택 판정(간이) · 완결성 ${FX.adoption.filled}/${FX.adoption.total}축 · ${FX.adoption.kind} ready">${FX.adoption.verdict} · ${FX.adoption.filled}/${FX.adoption.total}</span>
+    <span style="font-size:11px;color:#9ca3af">매출 tier: ${FX.tier}</span>
+    <div class="strip-divider"></div>
+    ${FX.dataChannels.map(c=>`<div class="strip-channel" style="color:${c[5]?"#e5e7eb":"#6b7280"}"><span class="dot ${c[5]?"dot-ok":"dot-off"}"></span>${c[1]} ${c[2]}${c[5]?` <span class="ch-count">${c[3].split(" ")[0]}</span>`:""}</div>`).join("")}
+    <div class="strip-actions" style="margin-left:auto"><button data-act="csv">CSV</button><button data-act="tier">tier 수정</button><button data-act="region">🌎 region</button><button data-act="del" style="border-color:#7f1d1d;color:#fca5a5">삭제</button></div>
+  </div><div style="font-size:10px;color:#6b7280;margin-top:4px">${FX.country} · ${FX.status} · 분석 ${FX.analyzedAt}</div></div>
+  <div class="gauge-row"><b style="font-size:11px">완결성${propChip("배포판: 게이지 행 + 최신성 행 2줄 → 1줄 통합. 게이지·6축 텍스트·ready 배지·freshness 4종·캐시 배지 전부 유지")}</b><div class="gauge-bar"><div class="gauge-fill" style="width:${FX.completeness.pct}%"></div></div><span>${FX.completeness.axes}</span><span style="color:#065f46;font-weight:700">커머스·모니터링 ready ✓</span>
+    <span style="color:#d1d5db">|</span><span style="font-weight:600;color:#6b7280">최신성:</span>
+    ${FX.fresh.map(f=>`<span class="fresh-badge ${f[1]<=7?"fresh-ok":"fresh-warn"}" title="최신 ${f[2]}">${f[0]} ${f[1]}일</span>`).join("")}
+    <span class="cache-badge" title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">🗄 캐시 스냅샷 · 분석 2026-07-09</span></div>
+  <div class="fresh-row" style="background:#f5f3ff;border-bottom:1px solid #ddd6fe">
+    <span style="font-weight:700;color:#5b21b6">📆 분석 기간${propChip("★신규(개선#13): 전역 기간 필터. 기간 변경 = 재분석 아님 — 티어·태그·클러스터 소속이 영상/인플 단위 속성으로 저장돼 있어 WHERE로 재집계만 함(유료 재실행 $0). A·C·E·KPI 즉시 반응. 클러스터 정의문·USP 사전은 전 기간 산출물이라 라벨로 구분. 매출(D)은 30d 스냅샷 별도 축")}</span>
+    <div class="ch-toggle">
+      <button data-pset="all" class="${!P.active()?"active":""}">전체 12개월</button>
+      <button data-pset="3m" class="${S.pStart===9&&S.pEnd===11?"active":""}">최근 3개월</button>
+      <button data-pset="apr" class="${S.pStart===8&&S.pEnd===11?"active":""}">2026-04 ~ 현재</button>
+    </div>
+    <span style="color:#9ca3af">커스텀:</span>
+    <select id="pStart" style="padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:10px">${MONTHS.map((m,i)=>`<option value="${i}" ${S.pStart===i?"selected":""}>${m}</option>`).join("")}</select>
+    <span>~</span>
+    <select id="pEnd" style="padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:10px">${MONTHS.map((m,i)=>`<option value="${i}" ${S.pEnd===i?"selected":""}>${m}</option>`).join("")}</select>
+    ${P.active()?`<span style="color:#5b21b6;font-weight:700">적용 중 ${P.label()} · 유료 재실행 $0</span><span style="color:#9ca3af;font-size:10px">클러스터 정의·티어 룩업은 전 기간 속성 — 해당 위치에 라벨</span>`:`<span style="color:#9ca3af">전 기간 보기 — 기간을 좁히면 A·C·E·KPI가 즉시 재집계됩니다</span>`}
+  </div>`;
+}
+function kpiStrip(){
+  const K=FX.kpi;
+  const cs=k=>sum(FX.monthly[k].slice(S.pStart,S.pEnd+1).map(r=>r[0]+r[1]));
+  const tkN=cs("tk"),igN=cs("ig"),ytN=cs("yt"),allN=tkN+igN+ytN;
+  const frac=allN/T.all;
+  const adsInRange=FX.ads.filter(a=>{const mo=a[3].slice(0,7);return mo>=MONTHS[S.pStart]&&mo<=MONTHS[S.pEnd];}).length;
+  return `<div class="kpi-strip" id="sec-kpi">
+    <div class="ks-item"><div class="ks-label">총 영상${P.active()?` <span style="color:#7c3aed;font-weight:700">${P.label()}</span>`:""}</div><div class="ks-val">${fmtN(allN)}</div><div class="ks-sub">TK ${fmtN(tkN)} · IG ${fmtN(igN)} · YT ${fmtN(ytN)}</div></div>
+    <div class="ks-item"><div class="ks-label">총 인플 풀</div><div class="ks-val">${P.active()?"~"+fmtN(Math.round(4542*frac))+"명":"4,542명"}</div><div class="ks-sub">${P.active()?"기간 내 활동 인플 재집계 (픽스처 근사~)":"TK 3,842 · IG 612 · YT 88"}</div></div>
+    <div class="ks-item"><div class="ks-label">총 view</div><div class="ks-val">${P.active()?"~"+Math.round(412*frac)+"M":K.views}</div><div class="ks-sub">top creator 합산 추정</div></div>
+    <div class="ks-item"><div class="ks-label">TT Shop GMV (30d)</div><div class="ks-val">${fmtUsd(K.gmv)}</div><div class="ks-sub ks-trend up">${K.gmvTrend}${P.active()?" · 30d 스냅샷(기간 별도 축)":""}</div></div>
+    <div class="ks-item"><div class="ks-label">Meta 광고</div><div class="ks-val">${P.active()?adsInRange+" <span style=\"font-size:11px;color:#9ca3af\">/ "+K.ads+"</span>":K.ads}</div><div class="ks-sub">brand ${K.adsBrand} · partner ${K.adsPartner}${P.active()?" · 기간 내 시작 광고":""}</div></div>
+    <div class="ks-item"><div class="ks-label">분석 비용</div><div class="ks-val">$${K.cost.toFixed(2)}</div><div class="ks-sub">예상 최대</div></div></div>`;
+}
+function phaseProgress(){
+  const done=FX.phases.filter(p=>p[1]).length;
+  return `<details class="phase-progress" id="sec-phase" ${S.ppOpen?"open":""}><summary>🔧 Phase 진행 상태 (${done}/${FX.phases.length} · cache cascade · 펼치기)${propChip("배포판: PhaseProgressMockup + PhaseRunsPanel 2중 패널(같은 phase를 두 번) → 1패널 통합. phase별 상태·수치·비용·재실행 ↻ 전부 유지 — 한 사건은 화면에 한 번만")}</summary>
+    <div class="pp-grid">${FX.phases.map((p,i)=>`<div class="pp-item ${p[1]?"ok":""}"><span>${p[0]} ${p[1]?"✓":"—"} ${p[2]}</span><button class="pp-rerun" data-rerun="${i}" title="재실행 (캐시 무시)">↻</button></div>`).join("")}</div>
+    <div style="margin-top:8px;font-size:10px;color:#9ca3af">비용·partial 상태(구 PhaseRunsPanel)는 각 항목 hover title로 흡수 — 총 실집행 비용 $18.40</div></details>`;
+}
+function dataChannels(){
+  const open=S.openCh;
+  return `<details class="section" id="sec-channels" style="padding:12px 20px" ${S.dcOpen||open?"open":""}><summary style="cursor:pointer;display:flex;align-items:baseline;gap:10px"><span class="letter" style="font-size:14px;background:#1f2937;color:#fff;border-radius:6px;padding:2px 9px;font-weight:800">📥</span><b style="font-size:14px">데이터 채널 · 적재/재실행 콘솔</b><span style="font-size:11px;color:#9ca3af">6/7 활성 — TK 8,214 · TT샵 8제품 · Meta 214 · IG 1,132 · YT 186 · Amazon $118K · 펼쳐서 적재/재실행</span>${propChip("배포판: 7카드 그리드 상시 펼침. 상단 스트립 dot과 정보 중복 + 분석 흐름 중간에 운영 UI가 끼어듦 → 기본 접힘 콘솔로. 요약줄 상시 노출, 클릭 1번에 카드 7개+적재 UI+재실행 버튼 전부 그대로")}</summary>
+  <div class="channels-grid" style="margin-top:12px">${FX.dataChannels.map(c=>{
+    const isOpen=open===c[0];
+    return `<button class="ch-card ${isOpen?"open":c[5]?"active":""}" data-ch="${c[0]}"><div class="ch-card-h"><span>${c[1]}</span><span>${c[2]}</span><span class="ch-badge">${isOpen?"✕ 닫기":c[5]?"적재":"추가"}</span></div>
+      ${c[5]?`<div class="ch-stat">${c[3]}</div><div class="ch-sub">${c[4]}</div>`:`<div class="ch-sub">클릭하여 데이터 추가</div>`}</button>`;}).join("")}</div>
+  ${open?`<div class="ch-panel"><div style="display:flex;justify-content:space-between;border-bottom:1px solid #f3f4f6;padding-bottom:10px;margin-bottom:10px"><b style="font-size:13px">${FX.dataChannels.find(c=>c[0]===open)[1]} ${FX.dataChannels.find(c=>c[0]===open)[2]} 데이터 추가</b><button class="pp-rerun" data-ch="${open}">✕ 닫기</button></div>
+    <div class="empty-box">업로드/설정 UI 자리 — 배포판: ${open==="tiktok_video"?"ExolytSection + BrandViewTrendsSection":open==="amazon"?"AmazonSalesSection + BsrSection":open==="tt_shop"?"TT Shop 설정 + Helium10 ProductFinder + Affiliate CSV + KalodataSection":open==="meta_ads"?"Meta 설정 안내(brand_meta_pages / brand_keyword)":open==="instagram"?"IgPrepBox + IgPostlearnBox + IgProfileScrapeBox":open==="youtube"?"YoutubeSeedingSection + YtPrepBox + YtPostlearnBox":"ShopdoraSection"} (프로토: 형태만)</div>
+    <div class="ch-panel-foot"><b>💡 적재 후 다음 단계</b> — 적재만으로는 화면이 갱신되지 않습니다. 영향 phase 재실행 필요 (cache cascade — force한 phase만 비용).<br>
+    <div style="margin:8px 0">${(FX.chAffected[open]||[]).map(p=>`<span class="phase-pill ${p[2]?"":"paid"}"><code>${p[0]}</code> <b style="color:${p[2]?"#10b981":"#be185d"}">${p[1]}</b></span>`).join("")}</div>
+    <button class="btn-free" data-run="free">🟢 무료 phase 만 재실행 (${(FX.chAffected[open]||[]).filter(p=>p[2]).length}개 · $0)</button>
+    ${(FX.chAffected[open]||[]).some(p=>!p[2])?`<button class="btn-paid" data-run="all">🔴 모든 phase 재실행 (${(FX.chAffected[open]||[]).length}개 · 유료)</button>`:""}
+    <span style="margin-left:6px">또는 위 ⚙️ Phase 진행 상태 펼쳐서 개별 ↻</span></div></div>`:""}</details>`;
+}
+function sectionG(){
+  return `<div class="insight-card" id="sec-g"><div class="ic-label">🎯 SECTION G · 종합 인사이트</div>
+  <div class="conclusion" style="margin:8px 0">결론 — 시딩(affiliate) 매출 62%가 주 엔진: 마이크로 중심 대량 시딩 → 7일 비포애프터 포맷이 viral → PDRN 세럼 BSR 77% 개선으로 이어진 케이스.</div>
+  <div class="ic-title">${FX.brand} — 자동 종합 분석</div>
+  <div class="ic-tagline">PDRN 세럼 + 배리어 크림 × 4,542명 (메가 4) × 7일 비포애프터 + 성분 데모 × 5 채널 활성 × 2026-06 peak</div>
+  <div class="ic-meta">주력 언어: 영어 78% · 스페인어 9% · 포르투갈어 4%</div>
+  ${P.active()?`<div style="font-size:10px;color:#7c3aed;margin-top:4px;font-weight:600">📆 기간 필터 적용 중 ${P.label()} — A·C·E·KPI는 기간 재집계, 이 카드의 축 요약·정의문은 전 기간 기준</div>`:""}
+  <div class="axis-grid">${FX.gAxes.map(a=>`<div class="axis-card"><div class="ax-h">${a[0]}</div><div class="ax-val">${a[1]}</div><div class="ax-sub">${a[2]}</div></div>`).join("")}</div>
+  <div class="insight-row"><div><div class="ib-h">📊 핵심 발견 (${FX.gFindings.length})</div>${FX.gFindings.map(f=>`<div class="ib-li">${f}</div>`).join("")}</div>
+  <div><div class="ib-h">⭐ TK+IG+YT 통합 인플 (Top 4)</div><table class="t"><thead><tr><th>이름</th><th>채널</th><th class="r">영상</th></tr></thead><tbody>${FX.gCross.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td><td class="r mono">${p[2]}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="related-cases"><b>🔗 비교 가능 케이스:</b> ${FX.gRelated.map(r=>`<a href="${r[1]}">${r[0]}</a>`).join("")}</div></div>`;
+}
+
+/* ── Section A ── */
+function aMonthly(mode){ // [organic,paid] 합산
+  if(mode==="all"){return MONTHS.map((_,i)=>{const t=FX.monthly.tk[i],g=FX.monthly.ig[i],y=FX.monthly.yt[i];return [t[0]+g[0]+y[0],t[1]+g[1]+y[1]];});}
+  return FX.monthly[mode==="shop"?"shop":mode];
+}
+function sectionA(){
+  const RM=MONTHS.slice(S.pStart,S.pEnd+1); // [개선#13] 기간 슬라이스
+  const OFF=S.pStart;
+  const rows=aMonthly(S.aCh).slice(S.pStart,S.pEnd+1);
+  const totals=rows.map(r=>r[0]+r[1]);
+  const allRows=aMonthly("all").slice(S.pStart,S.pEnd+1),globalMax=Math.max(...allRows.map(r=>r[0]+r[1]));
+  const maxV=S.aCh==="all"?globalMax:Math.max(...totals,1);
+  const totalPaid=sum(rows.map(r=>r[1])),totalOrg=sum(rows.map(r=>r[0]));
+  const totalForMode=sum(totals);
+  const bsrMonths=Object.keys(FX.bsrByMonth),bsrVals=Object.values(FX.bsrByMonth);
+  const bsrMin=Math.min(...bsrVals),bsrMax=Math.max(...bsrVals),bsrRange=bsrMax-bsrMin||1;
+  const lineEnd=(S.pEnd===11)?RM.length-1:RM.length; // 부분월(현재월)은 라인 제외 (배포판 동일)
+  // [개선#4] 배포판은 라인을 상단 밴드[28,158]에 가둬 실제 값과 무관한 높이 — 실측 스케일:
+  //   영상수=막대와 동일 축(막대 꼭대기 정확 추종), 광고%·BSR=전체 플롯 + 축 눈금.
+  const PT=10,PB=214,bandY=f=>PT+(1-Math.max(0,Math.min(1,f)))*(PB-PT);
+  const barY=f=>222*(1-Math.max(0,Math.min(1,f))); // 막대 top 실좌표
+  const X=i=>(RM.length>1?(i/(RM.length-1))*1000:500)+50;
+  const adScaleMax=Math.max(...rows.slice(0,lineEnd).map((r,i)=>totals[i]>0?r[1]/totals[i]:0),0.10);
+  // 막대
+  const bars=RM.map((mo,i)=>{
+    const total=totals[i],hPct=S.aBar==="abs"?Math.max(total/maxV*100,2):100;
+    const tf=FX.tierFracByMonth[i+OFF],tSum=sum(tf);
+    const isPeak=i===RM.length-1&&S.pEnd===11;
+    const promo=FX.promos.find(p=>p.m===mo);
+    const segs=S.aShow.tier?TIERS.map((t,ti)=>`<div class="seg" style="height:${tf[ti]/tSum*100}%;background:${t[2]}"></div>`).join(""):`<div class="seg" style="height:100%;background:#e5e7eb;opacity:.5"></div>`;
+    return `<div class="stack-bar" data-bar="${i}" style="height:${hPct}%${isPeak?";box-shadow:0 0 0 2px #1f2937;z-index:4":""}" title="${mo} · ${total} 영상${promo?` · 📅 ${promo.name}`:""}">${segs}
+      <div class="sb-label"${isPeak?' style="color:#ec4899;font-weight:700"':""}>${promo?`<span title="${promo.name} (${promo.d})">📅</span>`:""}'${mo.slice(2)}<br>${total}${isPeak?" ★":""}</div></div>`;}).join("");
+  // 라인들
+  let svg="";
+  if(S.aShow.vc&&lineEnd>1)svg+=`<polyline points="${RM.slice(0,lineEnd).map((mo,i)=>`${X(i)},${barY(totals[i]/maxV)}`).join(" ")}" stroke="#06b6d4" stroke-width="3" fill="none" vector-effect="non-scaling-stroke"/>`;
+  if(S.aShow.ad&&lineEnd>1){
+    svg+=`<polyline points="${RM.slice(0,lineEnd).map((mo,i)=>`${X(i)},${bandY((totals[i]>0?rows[i][1]/totals[i]:0)/adScaleMax)}`).join(" ")}" stroke="#f59e0b" stroke-width="2" fill="none" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>`;
+    svg+=`<text x="1092" y="${bandY(1)+4}" font-size="9" text-anchor="end" fill="#f59e0b">${Math.round(adScaleMax*100)}%</text><text x="1092" y="${bandY(0)}" font-size="9" text-anchor="end" fill="#f59e0b">0%</text>`;}
+  if(S.aShow.bsr&&RM.some(mo=>FX.bsrByMonth[mo])){
+    svg+=`<polyline points="${RM.filter((mo,i)=>FX.bsrByMonth[mo]&&i<lineEnd).map(mo=>`${X(RM.indexOf(mo))},${bandY(1-(FX.bsrByMonth[mo]-bsrMin)/bsrRange)}`).join(" ")}" stroke="#ef4444" stroke-width="2" fill="none" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>`;
+    svg+=`<text x="8" y="${bandY(1)+4}" font-size="9" fill="#ef4444">#${fmtV(bsrMin)} (best)</text><text x="8" y="${bandY(0)}" font-size="9" fill="#ef4444">#${fmtV(bsrMax)}</text>`;}
+  // 변곡점 ★
+  FX.inflTimeline.forEach(inf=>{const idx=RM.indexOf(inf.date.slice(0,7));if(idx<0)return;
+    svg+=`<text x="${X(idx)}" y="14" font-size="14" text-anchor="middle" fill="#ec4899">★</text><line x1="${X(idx)}" y1="18" x2="${X(idx)}" y2="160" stroke="#ec4899" stroke-width="1" stroke-dasharray="3 2" opacity="0.4"/>`;});
+  // hover dot
+  if(S.aHover!=null&&S.aHover<RM.length){const i=S.aHover,x=X(i);
+    svg+=`<line x1="${x}" y1="0" x2="${x}" y2="222" stroke="#1f2937" stroke-width="1" stroke-dasharray="2"/>`;
+    if(S.aShow.vc&&totals[i]>0)svg+=`<circle cx="${x}" cy="${barY(totals[i]/maxV)}" r="5" fill="#06b6d4" stroke="white" stroke-width="2"/>`;
+    if(S.aShow.bsr&&FX.bsrByMonth[RM[i]])svg+=`<circle cx="${x}" cy="${bandY(1-(FX.bsrByMonth[RM[i]]-bsrMin)/bsrRange)}" r="5" fill="#ef4444" stroke="white" stroke-width="2"/>`;}
+  // 툴팁
+  let tip="";
+  if(S.aHover!=null&&S.aHover<RM.length){const i=S.aHover,mo=RM[i],total=totals[i],tf=FX.tierFracByMonth[i+OFF],tSum=sum(tf);
+    const prev=i>0?totals[i-1]:0,vs=prev>0?Math.round((total-prev)/prev*100):0;
+    const bsr=FX.bsrByMonth[mo],prevBsr=i>0?FX.bsrByMonth[RM[i-1]]:null;
+    const bsrCh=bsr&&prevBsr?Math.round((bsr-prevBsr)/prevBsr*100):null;
+    const adPct=total>0?Math.round(rows[i][1]/total*100):0;
+    const isInf=Math.abs(vs)>=40||(bsrCh!=null&&Math.abs(bsrCh)>=50);
+    const pos=i>=Math.floor(RM.length*2/3)?"left:30px;right:auto":"right:30px;left:auto";
+    tip=`<div class="trend-tooltip" style="${pos}"><div class="tt-h">${mo}${i===RM.length-1&&S.pEnd===11?" ★ 최신":""}${isInf?" ★ 변곡점":""}</div><table><tbody>
+      <tr><td><span class="tt-color" style="background:#06b6d4"></span>총 영상</td><td class="r mono" style="color:#06b6d4"><b>${total}개${vs>0?" ▲":vs<0?" ▼":""}</b></td></tr>
+      ${prev>0?`<tr><td colspan="2" style="font-size:9px;color:#9ca3af">vs ${RM[i-1].slice(2)}: ${prev} → ${vs>0?"+":""}${vs}%</td></tr>`:""}
+      ${TIERS.map((t,ti)=>tf[ti]>0?`<tr><td><span class="tt-color" style="background:${t[2]}"></span>${t[1]}</td><td class="r mono">${tf[ti]}명 (${Math.round(tf[ti]/tSum*100)}%)</td></tr>`:"").join("")}
+      </tbody></table><div class="tt-stat"><span style="color:#f59e0b">광고 비중 ${adPct}%</span>${bsr?`<br><span style="color:#ef4444"><b>BSR #${fmtN(Math.round(bsr))}${bsrCh!=null&&bsrCh<0?" ▼":bsrCh!=null&&bsrCh>0?" ▲":""}</b></span>${bsrCh!=null?` <span style="color:#9ca3af;font-size:9px">(${bsrCh>0?"+":""}${bsrCh}%)</span>`:""}`:""}${isInf&&vs>0&&bsrCh!=null&&bsrCh<0?`<br><span style="color:#10b981;font-size:10px">→ 영상 수+${vs}% & BSR${bsrCh}% 동조</span>`:""}</div></div>`;}
+  const inf=FX.inflection;
+  return `<div class="section" id="sec-a"><div class="section-h"><span class="letter">A</span><span class="title">콘텐츠 활동</span><span class="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span></div>
+  <div class="conclusion">결론 — 시딩 볼륨은 10개월 연속 우상향(월 120→1,480편), 2026-02 BSR 77% 개선이 최대 변곡점. 광고 비중은 13%로 오가닉 주도.</div>
+  <div style="margin-bottom:14px"><div class="ch-toggle">
+    ${[["all",`전체 합산 (${fmtN(T.all)})`],["tk",`TikTok (${fmtN(T.tk)})`],["shop",`틱톡샵 (${fmtN(T.shop)})`],["ig",`Instagram (${fmtN(T.ig)})`],["yt",`YouTube (${fmtN(T.yt)})`]].map(b=>`<button data-ach="${b[0]}" class="${S.aCh===b[0]?"active":""}">${b[1]}</button>`).join("")}</div></div>
+  <div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi"><div class="kpi-label">총 영상</div><div class="kpi-val">${fmtN(totalForMode)}</div><div class="kpi-sub">TK ${fmtV(T.tk)} · IG ${fmtV(T.ig)} · YT ${T.yt}</div></div>
+    <div class="kpi"><div class="kpi-label" title="스파크애즈 등 유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style="color:#9ca3af;font-weight:400">(스파크애즈)</span></div><div class="kpi-val">${Math.round(totalPaid/(totalPaid+totalOrg||1)*100)}%</div><div class="kpi-sub">${fmtN(totalPaid)}건</div></div>
+    <div class="kpi"><div class="kpi-label">organic</div><div class="kpi-val">${Math.round(totalOrg/(totalPaid+totalOrg||1)*100)}%</div><div class="kpi-sub">${fmtN(totalOrg)}건</div></div>
+    <div class="kpi"><div class="kpi-label">gifted (시딩)${propChip("배포판: 상시 '-' 빈 칸. C 섹션에 이미 있는 seeded 집계(캡션 #gifted/#pr regex)를 연결 — 추정 라벨 부착")}</div><div class="kpi-val">${S.aCh==="all"?"~"+Math.round(FX.seeded/T.all*100)+"%":"-"}</div><div class="kpi-sub">${S.aCh==="all"?"~"+fmtN(Math.round(FX.seeded*(totalPaid+totalOrg)/T.all))+"건 · 캡션 regex 추정":"채널별 미집계 —"}</div></div>
+    <div class="kpi"><div class="kpi-label">총 view</div><div class="kpi-val">${FX.kpi.views}</div><div class="kpi-sub">top 100명 합계</div></div></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><b style="font-size:12px">월간 인플 · 광고 · BSR 통합 트렌드 (${RM.length}개월${P.active()?` · ${P.label()}`:""})${propChip("배포판: 오버레이 라인이 상단 밴드[28,158]에 갇혀 값과 무관한 높이(라벨 침범 방지용) → 실측 스케일. 영상수 라인=막대 꼭대기 정확 추종, 광고%·BSR=좌/우 축 눈금. 티어×월 스택 주인공은 그대로")}</b>
+    <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#6b7280"><span>막대 단위:</span><div class="ch-toggle" style="font-size:10px"><button data-abar="abs" class="${S.aBar==="abs"?"active":""}">절대 영상 수</button><button data-abar="pct" class="${S.aBar==="pct"?"active":""}">비중 (%)</button></div></div></div>
+  <div class="trend-chart"><div class="trend-toggles">
+    <button data-atg="tier" class="${S.aShow.tier?"active":""}">인플 티어 stack</button>
+    <button data-atg="ad" class="${S.aShow.ad?"active-ad":""}">광고 비중 line</button>
+    <button data-atg="bsr" class="${S.aShow.bsr?"active-bsr":""}">BSR line (Amazon)</button>
+    <button data-atg="vc" class="${S.aShow.vc?"active-vc":""}">★ 영상 수 line</button></div>
+  <div class="stack-bars">${bars}<svg class="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">${svg}</svg></div>${tip}</div>
+  <div class="trend-legend">${TIERS.map(t=>`<span class="lg-item"><span class="lg-sw" style="background:${t[2]}"></span>${t[1]}</span>`).join("")}
+    <span style="margin-left:auto"><span style="color:#06b6d4;font-weight:700">━</span> ★ 총 영상 수</span><span><span style="color:#f59e0b">─ ─</span> 광고 비중 0~100%</span><span><span style="color:#ef4444">─ ─</span> BSR (낮을수록 좋음)</span></div>
+  <div class="callout-ok">💡 <b>볼륨 ↔ BSR 상관:</b> ${inf.date} 시점 BSR #${fmtN(inf.before)} → #${fmtN(inf.after)} (${inf.pct}% 개선). 직전 7일 뷰 합계 +${Math.round((inf.viewsRatio-1)*100)}% 동조 (메가 볼륨).</div>
+  <details style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb"><summary style="font-size:12px;font-weight:700;cursor:pointer">✨ 변곡점 상세 timeline 펼치기 (주요 ${FX.inflTimeline.length}개) <span style="color:#9ca3af;font-weight:400">· 매출 급등 상세는 D(매출·SKU) 섹션과 동일</span></summary>
+    ${FX.inflTimeline.map(t=>`<div class="tl-item"><div><div style="font-size:14px;font-weight:800;color:#ec4899">★ ${t.date}</div><div style="font-size:10px;color:#92400e" class="mono">ASIN ${t.asin}</div></div>
+    <div><b style="color:#ec4899">BSR #${fmtN(t.from)} → #${fmtN(t.to)}</b> (▲ ${t.pct}%) · <span style="color:${t.mega?"#ec4899":"#6b7280"};font-weight:${t.mega?700:400}">뷰 ×${t.ratio}${t.mega?" 🔥":""}</span>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">${t.vids.map((v,vi)=>`<span style="font-size:10px;color:#6b7280" class="mono">#${vi+1} ${v[0]}</span><span style="font-size:10px;color:#1d4ed8;cursor:pointer" data-emb="${v[1]}">▶ ${v[1]} (클릭 임베드)</span>`).join("")}</div></div></div>`).join("")}</details></div>`;
+}
+
+/* ── Section B ── */
+function sectionB(){
+  const chFilter=S.bCh;
+  const pool={all:4542,tk:3842,ig:612,yt:88}[chFilter];
+  const tierDist=chFilter==="yt"?[0,1,4,18,42,18,5]:chFilter==="ig"?[1,4,18,88,214,152,135]:[4,12,46,404,2418,720,938]; // 합성
+  const distAll=chFilter==="all"?tierDist.map((n,i)=>i===4?n+256:n):tierDist;
+  const list=FX.creators.filter(c=>chFilter==="all"||(chFilter==="tk"?c[6].includes("TK"):chFilter==="ig"?c[6].includes("IG"):c[6].includes("YT")));
+  const tierOf=f=>f>=1e6?"mega":f>=5e5?"macro":f>=1e5?"mid":f>=1e4?"micro":f>=1e3?"nano":"sub-nano";
+  let shown=list.slice();
+  if(S.bTier)shown=shown.filter(c=>tierOf(c[1])===S.bTier);
+  shown.sort((a,b)=>S.bSort==="views"?parseV(b[4])-parseV(a[4]):S.bSort==="gmv"?b[5]-a[5]:b[2]-a[2]);
+  const visible=shown.slice(0,S.bMore?20:10); // [개선#7] 기본 5명→10명
+  const maxTier=Math.max(...distAll);
+  const tierRows=TIERS.slice(0,5).concat(TIERS.slice(5).filter((t,i)=>distAll[5+i]>0)).map((t,i)=>{
+    const ti=TIERS.indexOf(t),n=distAll[ti],sel=S.bTier===t[0];
+    return `<div class="tier-row ${sel?"sel":""}" data-btier="${t[0]}" title="${t[1]} 티어 인플만 우측 Top 작성자에 표시"><span style="${sel?"font-weight:700":""}">${t[1]}</span><div class="tier-bar"><div class="tier-fill" style="width:${n/maxTier*100}%"></div></div><span class="r mono">${fmtN(n)}</span></div>`;}).join("");
+  const buckets=(items,val,defs)=>defs.map(d=>[d[0],items.filter(x=>val(x)>=d[1]&&val(x)<d[2]).length]);
+  const vB=buckets(list,c=>c[2],[["1회성",1,2],["2-5회",2,6],["5-10회",6,11],["10-20회",11,21],["20+ heavy",21,1/0]]);
+  const wB=buckets(list,c=>parseV(c[4]),[["<10K",0,1e4],["10K~100K",1e4,1e5],["100K~1M",1e5,1e6],["1M~10M",1e6,1e7],["10M+",1e7,1/0]]);
+  const gB=buckets(list,c=>c[5],[["$0",0,1],["$1~$1K",1,1e3],["$1K~$10K",1e3,1e4],["$10K~$100K",1e4,1e5],["$100K+",1e5,1/0]]);
+  const axis=(title,bs,color,active)=>{const mx=Math.max(...bs.map(b=>b[1]),1);
+    return `<div style="padding:10px;border:1px solid ${active?color:"#e5e7eb"};border-radius:6px;background:${active?"#fafafa":"#fff"}"><div style="font-size:11px;font-weight:700;margin-bottom:8px;color:${color}">${title}</div>
+    ${bs.map(b=>`<div class="bucket-row"><span style="color:#6b7280">${b[0]}</span><div class="bucket-bar"><div class="bucket-fill" style="width:${b[1]/mx*100}%;background:${color}"></div></div><span class="r mono">${b[1]}</span></div>`).join("")}</div>`;};
+  const hMax=Math.max(...FX.shopHist.buckets.map(b=>b[1]));
+  return `<div class="section" id="sec-b"><div class="section-h"><span class="letter">B</span><span class="title">인플루언서 풀</span><span class="sub">★ 채널 toggle + 월 필터 + cross-channel matrix + Shop creator + GMV 분포</span></div>
+  <div class="conclusion">결론 — 마이크로·나노가 풀의 84%를 차지하는 long-tail 시딩 구조. 반복협업 29%, 상위 10%가 조회 83% 집중 — 소수 검증 인플에 재투자하는 패턴.</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div class="summary-card"><b>📊 풀 요약 — 총 ${fmtN(pool)}명 (${chFilter==="all"?"전 채널":chFilter.toUpperCase()})</b><br>메가 0% · 매크로 1% · 미드 2% · 마이크로 42% · 나노↓ 55%<br>1회성 ${FX.poolSummary.oneoff}% vs 반복협업 ${FX.poolSummary.repeat}% · <b style="color:#7c3aed">상위 10%가 조회 ${FX.poolSummary.top10share}% 집중</b></div>
+    <div class="summary-card"><b>🗣 콘텐츠 언어 — TikTok 기준 (타깃 오디언스 시그널)</b>${FX.langs.map(l=>`<div class="lang-row"><span style="width:40px;color:#6b7280;text-transform:uppercase">${l[0]}</span><div class="lang-bar"><div class="lang-fill" style="width:${l[1]}%"></div></div><span style="width:32px;text-align:right">${l[1]}%</span></div>`).join("")}</div></div>
+  <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <div><span style="font-size:11px;color:#6b7280;margin-right:8px">채널:</span><div class="ch-toggle">${[["all",`전체 (${fmtN(4542)}명)`],["tk","TikTok (3,842명)"],["ig","IG (612명)"],["yt","YT (88명)"]].map(b=>`<button data-bch="${b[0]}" class="${chFilter===b[0]?"active":""}">${b[1]}</button>`).join("")}</div></div>
+    ${chFilter==="ig"?`<div style="display:inline-flex;align-items:center;gap:8px;font-size:11px;padding:4px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:6px"><label style="cursor:pointer"><input type="checkbox" id="bUs" ${S.bUs?"checked":""}> US 근사</label><span style="color:#92400e">${S.bUs?"비라틴 게시물 14% 제외 → US 근사 973건":"전체 1,132건 · 글로벌 혼입 추정 14%"}</span><span style="color:#9ca3af;font-size:10px" title="캡션의 비라틴 문자 유무로 판정한 언어 기반 근사이며, 실제 국가가 아닙니다.">ⓘ 언어 기반 추정</span></div>`:""}
+    <div><span style="font-size:11px;color:#6b7280;margin-right:8px">월:</span><select id="bMonth" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:11px"><option value="all">전체 기간 (12개월)</option>${MONTHS.slice().reverse().map(m=>`<option value="${m}" ${S.bMonth===m?"selected":""}>${m}</option>`).join("")}</select></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:24px"><div>
+    <b style="font-size:12px">티어 분포 <span style="font-size:10px;color:#9ca3af;font-weight:400">(${chFilter==="all"?"전 채널 합산":chFilter==="tk"?"TikTok":chFilter==="ig"?"Instagram":"YouTube"})</span></b>
+    ${chFilter==="yt"?`<div style="font-size:10px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;margin:6px 0">⚠ YouTube follower 데이터 일부 미수집 — tier 분류 제한</div>`:""}
+    <div style="margin-top:6px">${tierRows}</div>
+    ${S.bMonth!=="all"?`<div style="margin-top:6px;font-size:10px;color:#1d4ed8;background:#dbeafe;padding:4px 8px;border-radius:4px">📅 <b>${S.bMonth}</b> 월 티어 분포만 — 우측 Top 작성자는 전체 기간 그대로</div>`:""}
+    ${S.bTier?`<div style="margin-top:8px;font-size:10px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;display:flex;gap:6px;align-items:center"><span>⭐ <b>${S.bTier}</b> 티어만 우측 Top 작성자에 표시</span><button data-btier="${S.bTier}" style="margin-left:auto;background:#fff;border:1px solid #d97706;border-radius:3px;padding:1px 6px;font-size:9px;color:#92400e;cursor:pointer">✕ 해제</button></div>`:""}
+    <b style="font-size:12px;display:block;margin-top:18px">★ cross-channel matrix (Top 인플)</b>
+    <table class="matrix-table" style="margin-top:6px"><thead><tr><th></th><th>TK</th><th>IG</th><th>YT</th></tr></thead><tbody>
+    ${FX.xMatrix.map(r=>`<tr><td style="text-align:left">${r[0]}</td>${[1,2,3].map(i=>`<td><span class="${r[i]>0?"mt-on":"mt-off"}">${r[i]>0?r[i]:"·"}</span></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <div><div style="font-size:10px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:4px 8px;margin-bottom:6px">👁 지금 보는 풀: <b>${chFilter==="all"?"전 채널":chFilter==="tk"?"TikTok":chFilter==="ig"?"Instagram":"YouTube"}</b> · 정렬 <b>${{videos:"영상 수",views:"조회수",gmv:"매출"}[S.bSort]}</b>${S.bTier?` · <b>${S.bTier}</b> 티어만`:""}${P.active()?` · <b style="color:#5b21b6">기간 ${P.label()}</b> (기간 내 활동 인플 — 픽스처는 근사)`:""} — 표시 ${visible.length}/${fmtN(shown.length)}명${propChip("배포판: 채널 토글마다 표 소스(phase2/ig_authors/yt_channels)가 조용히 바뀜 → 현재 스코프를 문장으로 상시 표기 + 전역 기간 반영")}</div>
+  <div style="display:flex;align-items:center;margin-bottom:8px"><b style="font-size:12px">Top 작성자 <span style="font-size:10px;color:#9ca3af;font-weight:400">· 팔로워 = TK 본 채널 기준</span></b>
+    <div style="margin-left:auto;display:flex;gap:4px;font-size:10px;align-items:center"><span style="color:#6b7280">정렬:</span>${[["videos","영상 수"],["views","조회수"],["gmv","매출"]].map(s=>`<button data-bsort="${s[0]}" style="padding:2px 8px;font-size:10px;border:1px solid ${S.bSort===s[0]?"#1f2937":"#d1d5db"};background:${S.bSort===s[0]?"#1f2937":"#fff"};color:${S.bSort===s[0]?"#fff":"#6b7280"};border-radius:3px;cursor:pointer">${s[1]}</button>`).join("")}</div></div>
+    <table class="t"><thead><tr><th>이름</th><th>팔로워</th><th>채널 활동</th><th class="r" style="${S.bSort==="videos"?"background:#fef3c7":""}">영상</th><th class="r" style="${S.bSort==="views"?"background:#fef3c7":""}">최고 조회</th><th class="r" style="${S.bSort==="gmv"?"background:#fef3c7":""}">Lifetime GMV</th></tr></thead><tbody>
+    ${visible.map(c=>{const exp=S.bExp===c[0];
+      return `<tr data-bexp="${c[0]}" style="cursor:pointer;${exp?"background:#fef3c7":""}" title="클릭하여 영상 Top 3 임베드 보기"><td><b>${c[0]}</b>${c[7]==="owned"?'<span class="tag-owned" title="본사 직접 운영 채널">🏢 본사</span>':""}${c[1]>=1e7?'<span class="tag-warn">⭐셀럽</span>':""} <span style="font-size:9px;color:#92400e">${exp?"▼":"▶"}</span></td>
+      <td>${fmtF(c[1])}</td><td>${c[6].map(ch=>`<span class="ch-pill pill-${ch.toLowerCase()}">${ch} ${ch==="TK"?c[2]:Math.max(1,Math.round(c[2]/4))}개</span>`).join("")}</td>
+      <td class="r mono" style="${S.bSort==="videos"?"background:#fef3c7":""}">${c[2]}</td><td class="r mono" style="${S.bSort==="views"?"background:#fef3c7":""}">${c[4]}</td>
+      <td class="r mono" style="${S.bSort==="gmv"?"background:#fef3c7":""};color:${c[5]>0?"#10b981":"#9ca3af"}">${c[5]>0?fmtUsd(c[5]):"—"}</td></tr>
+      ${exp?`<tr><td colspan="6" style="padding:10px;background:#fffbeb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${[1,2,3].map(i=>embedPh(`@${c[0]} 영상 #${i}`,fmtV(Math.round(parseV(c[4])/i)))).join("")}</div></td></tr>`:""}`;}).join("")}
+    ${shown.length>10?`<tr><td colspan="6" style="text-align:center;padding:8px"><button id="bMore" class="pp-rerun" style="font-size:11px;padding:5px 14px">${S.bMore?"▲ 접기 (상위 10명만)":`▼ 상위 ${Math.min(shown.length,20)}명 보기 (총 ${fmtN(shown.length)}명)`}</button></td></tr>`:""}</tbody></table></div></div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #e5e7eb"><b style="font-size:12px">🎯 인플 활동 3축 분포 <span style="font-size:10px;color:#9ca3af;font-weight:400">· ${list.length}명(표시 픽스처) 기준 — 많이 올렸냐 / 조회수 잘 나왔냐 / 매출 잘 나왔냐</span></b>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:10px">${axis("영상 수 (반복)",vB,"#1f2937",S.bSort==="videos")}${axis("최고 조회수",wB,"#06b6d4",S.bSort==="views")}${axis("Lifetime GMV",gB,"#10b981",S.bSort==="gmv")}</div></div>
+  <div style="margin-top:24px;padding-top:20px;border-top:1px dashed #e5e7eb"><b style="font-size:12px">🛒 TT Shop Creator GMV (TT Shop 활성 시)</b>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:10px"><div>
+    <div style="font-size:11px;color:#6b7280;margin-bottom:6px">Top GMV 5명 · lifetime cross-brand</div>
+    <table class="t"><thead><tr><th>핸들</th><th class="r">Lifetime GMV</th><th class="r">브랜드 협업</th></tr></thead><tbody>
+    ${FX.shopTop.sort((a,b)=>b[1]-a[1]).map(c=>`<tr><td>@${c[0]}</td><td class="r mono">${fmtUsd(c[1])}</td><td class="r mono">${c[2]}</td></tr>`).join("")}</tbody></table></div>
+  <div><div style="font-size:11px;color:#6b7280;margin-bottom:6px">Shop Creator GMV 분포 (${fmtN(FX.shopHist.total)}명 · 미백필 ${FX.shopHist.nullG})</div>
+    <div class="histogram">${FX.shopHist.buckets.map(b=>`<div class="hg-bar" style="height:${Math.max(b[1]/hMax*100,2)}%" title="${b[0]}: ${b[1]}명"></div>`).join("")}</div>
+    <div class="hg-labels">${FX.shopHist.buckets.map(b=>`<span>${b[0]}</span>`).join("")}</div></div></div></div></div>`;
+}
+function parseV(s){if(typeof s==="number")return s;const m=String(s).match(/([\d.]+)([MK]?)/);if(!m)return 0;return parseFloat(m[1])*(m[2]==="M"?1e6:m[2]==="K"?1e3:1);}
+
+/* ── Section C ── */
+function sectionC(){
+  const tab=S.cTab;
+  const RM2=MONTHS.slice(S.pStart,S.pEnd+1); // [개선#13] 기간 슬라이스
+  const cFrac=mi=>P.active()?sum(FX.clusterHeatCount[mi].slice(S.pStart,S.pEnd+1))/Math.max(1,sum(FX.clusterHeatCount[mi])):1;
+  const metas=FX.clusters.filter(m=>S.cCh==="all"||(S.cCh==="tk"?m.tk>0:S.cCh==="ig"?m.ig>0:m.yt>0));
+  const heatColor=f=>f>0.8?"#7f1d1d":f>0.6?"#dc2626":f>0.4?"#ea580c":f>0.25?"#d97706":f>0.1?"#f59e0b":f>0?"#fcd34d":"#f3f4f6";
+  let panel="";
+  if(tab==="clu"){
+    panel=metas.map((m,i)=>{const exp=S.cExp===m.id;
+      const fr=cFrac(FX.clusters.indexOf(m)),sc=n=>Math.round(n*fr);
+      return `<div class="unified-cluster ${exp?"exp":""}" data-cexp="${m.id}" title="클릭하여 Top 3 영상 임베드 보기"><div class="uc-h"><span class="uc-rank">${i+1}</span><span class="uc-name">${m.name} <span style="font-size:9px;color:#92400e">${exp?"▼":"▶"}</span></span>
+      <span class="uc-ch-stat tk ${m.tk?"":"off"}">TK ${sc(m.tk)}</span><span class="uc-ch-stat ig ${m.ig?"":"off"}">IG ${sc(m.ig)}</span><span class="uc-ch-stat yt ${m.yt?"":"off"}">YT ${sc(m.yt)}</span>
+      <span style="color:#9ca3af;font-size:10px">→ ${P.active()?`기간 내 ${sc(m.tk+m.ig+m.yt)} / 전체 ${m.tk+m.ig+m.yt}`:`전체 ${m.tk+m.ig+m.yt}`} 영상</span></div>
+      <div class="uc-desc">${m.desc}${P.active()?' <span style="color:#b45309">· ⓘ 정의문·이름은 전 기간 코퍼스 기준(멤버 수만 기간 재집계)</span>':""}</div><div class="uc-metrics">avg views ${m.avg} · save ${m.save}% · paid ${m.paid}% · ${m.kids} 자식 cluster</div>
+      ${exp?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #f3f4f6">${[1,2,3].map(i2=>embedPh(`${m.name} Top #${i2}`,fmtV(parseV(m.avg)*(4-i2)))).join("")}</div>`:""}</div>`;}).join("");
+  }else if(tab==="usp"){
+    const sel=S.cKw;
+    panel=`<div class="usp-grid"><div><b style="font-size:12px">USP 키워드 (클릭 시 →)</b><div style="margin-top:6px">
+    ${FX.usp.map(k=>`<span class="usp-keyword ${k[2]?"cta":""} ${sel===k[0]?"active":""}" data-ckw="${k[0]}">${k[0]} <span class="uk-count">${k[1]}${k[2]?" CTA":""}</span></span>`).join("")}</div></div>
+    <div class="usp-detail">${sel?`<b>★ "${sel}" 등장 영상 ${(FX.usp.find(k=>k[0]===sel)||[])[1]}건</b><div style="margin-top:8px;display:grid;gap:8px">${[1,2,3].map(i=>embedPh(`"${sel}" 매칭 영상 #${i}`,fmtV(900000/i))).join("")}</div>`:`<div style="color:#9ca3af;text-align:center;padding:20px">← 좌측에서 키워드 클릭</div>`}</div></div>`;
+  }else if(tab==="heat"){
+    const measure=S.cHeat;
+    const valOf=(v,ci)=>measure==="count"?v:measure==="view"?v*8200:measure==="paid_pct"?Math.min(45,Math.round(v*0.9)):v*310;
+    panel=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:11px"><span style="color:#6b7280">measure:</span>
+    <select id="cHeat" style="padding:4px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:11px">
+      <option value="count" ${measure==="count"?"selected":""}>영상 수</option><option value="view" ${measure==="view"?"selected":""}>view 합산</option>
+      <option value="paid_pct" ${measure==="paid_pct"?"selected":""}>광고 집행 비중(스파크애즈)</option><option value="gmv" ${measure==="gmv"?"selected":""}>★ GMV 기여 (Kalodata)</option></select>
+    ${measure==="gmv"?`<span style="font-size:10px;color:#9ca3af">★ Kalodata 영상매출 매칭 — D 섹션과 연결</span>`:""}</div>
+    <div class="heat" style="grid-template-columns:140px repeat(${RM2.length},1fr)"><div class="lbl"></div>${RM2.map(m=>`<div class="lbl" style="text-align:center">${m.slice(5)}</div>`).join("")}
+    ${FX.clusters.map((m,mi)=>{const row=FX.clusterHeatCount[mi].slice(S.pStart,S.pEnd+1);const vals=row.map(v=>valOf(v,mi));const mx=Math.max(...vals,1);
+      return `<div class="lbl" title="${m.name}">${m.name.length>12?m.name.slice(0,12)+"…":m.name}</div>${vals.map((v,i)=>{const f=v/mx;
+      const label=measure==="gmv"?(v>=1000?"$"+Math.round(v/1000)+"K":v>0?"$"+v:""):measure==="view"?(v>=1000?Math.round(v/1000)+"K":""):v>0?v+(measure==="paid_pct"?"%":""):"";
+      return `<div class="cell" style="background:${heatColor(f)};color:${f>0.5?"#fff":"#374151"}" title="${m.name} · ${RM2[i]}: ${label||v}">${label}</div>`;}).join("")}`;}).join("")}</div>`;
+  }else if(tab==="tier"){
+    const ta=FX.tierAngle;const mx=Math.max(...ta.cells.flat(),1);
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:10px">어떤 인플 티어가 어떤 콘텐츠 앵글(meta cluster)에 집중하는지 — 영상 수 cross-tab · 셀 클릭 → 클러스터 탭</div>
+    <div class="heat" style="grid-template-columns:120px repeat(${FX.clusters.length},minmax(90px,1fr))"><div class="lbl"></div>${FX.clusters.map(m=>`<div class="lbl" style="text-align:center;font-weight:600;white-space:normal">${m.name}</div>`).join("")}
+    ${ta.tiers.map((t,ti)=>`<div class="lbl" style="font-weight:700;text-align:right;padding-right:6px">${{mega:"Mega (1M+)",macro:"Macro (500K+)",mid:"Mid (100K+)",micro:"Micro (10K+)",nano:"Nano (1K+)"}[t]}</div>
+    ${ta.cells[ti].map((v,ci)=>{const f=v/mx;return `<div class="cell" data-ctier-cell="${FX.clusters[ci].id}" style="background:${heatColor(f)};color:${f>0.1?"#fff":"#374151"};font-weight:${v>0?700:400};cursor:${v>0?"pointer":"default"}" title="${t} × ${FX.clusters[ci].name}: ${v} 영상 — 클릭하여 영상 보기">${v||""}</div>`;}).join("")}`).join("")}</div>`;
+  }else if(tab==="atm"){
+    const selT=S.cAtmTier;
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:6px">선택 티어의 콘텐츠 앵글이 월별로 언제 집중됐는지 — 영상 수 (TikTok 기준)</div>
+    <div style="font-size:10px;color:#9ca3af;margin-bottom:8px">표본 ${fmtN(FX.visionSample)}건(태깅·클러스터링 완료) / 전체 ${fmtN(FX.totalContents)}건 (${Math.round(FX.visionSample/FX.totalContents*100)}%)</div>
+    <div class="ch-toggle" style="margin-bottom:10px">${["mega","macro","mid","micro","nano"].map(t=>`<button data-catm="${t}" class="${selT===t?"active":""}">${{mega:"Mega (1M+)",macro:"Macro (500K+)",mid:"Mid (100K+)",micro:"Micro (10K+)",nano:"Nano (1K+)"}[t]}</button>`).join("")}</div>
+    <div class="heat" style="grid-template-columns:140px repeat(${RM2.length},minmax(40px,1fr))"><div class="lbl"></div>${RM2.map(m=>`<div class="lbl" style="text-align:center">${m.slice(5)}</div>`).join("")}
+    ${FX.clusters.slice(0,4).map((m,mi)=>{const scale={mega:0.05,macro:0.15,mid:0.4,micro:1,nano:1.2}[selT];
+      const row=FX.clusterHeatCount[mi].slice(S.pStart,S.pEnd+1).map(v=>Math.round(v*scale));const mx=Math.max(...row,1);
+      return `<div class="lbl" title="${m.name}">${m.name}</div>${row.map((v,i)=>{const f=v/mx;return `<div class="cell" style="background:${heatColor(f)};color:${f>0.1?"#fff":"#374151"}" title="${m.name} · ${RM2[i]}: ${v} 영상">${v||""}</div>`;}).join("")}`;}).join("")}</div>`;
+  }else if(tab==="gmvtag"){
+    const mx=Math.max(...FX.gmvTags.map(t=>t[2]));
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:6px">어떤 콘텐츠 태그(hook_tags)가 GMV에 기여하는지 — 매칭된 SKU 30일 매출 합</div>
+    <div class="sample-label">⚠ 표본 부족 주의 — GMV 연계 영상 최대 42건 / 전체 ${fmtN(FX.totalContents)}건. 태그별 GMV는 참고용(통계 신뢰도 낮음).</div>
+    <div style="display:flex;flex-direction:column;gap:4px">${FX.gmvTags.sort((a,b)=>b[2]-a[2]).map(t=>`<div style="display:grid;grid-template-columns:160px 1fr 90px 60px;gap:8px;align-items:center;font-size:11px"><span>${t[0]}</span><div style="background:#f3f4f6;border-radius:3px;height:14px"><div style="width:${t[2]/mx*100}%;height:100%;background:#10b981;border-radius:3px"></div></div><span class="r mono" style="font-weight:700">${fmtUsd(t[2])}</span><span class="r mono" style="color:#9ca3af">${t[1]}편</span></div>`).join("")}</div>`;
+  }else{ // paid
+    const rows=aMonthly(S.cCh==="all"?"all":S.cCh).slice(S.pStart,S.pEnd+1);
+    const paid=sum(rows.map(r=>r[1])),orgRaw=sum(rows.map(r=>r[0]));
+    const seeded=S.cCh==="all"?(P.active()?Math.round(FX.seeded*sum(rows.map(r=>r[0]+r[1]))/T.all):FX.seeded):0;const org=Math.max(0,orgRaw-seeded);const tot=paid+seeded+org||1;
+    const pct=n=>Math.round(n/tot*100);
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:10px">${S.cCh==="all"?"전 채널":S.cCh.toUpperCase()} 콘텐츠 FTC 자동 분류 (paid_signal · is_ad / promoted 기반)${S.cCh!=="all"?" · seeded 는 전 채널 합산만 집계되어 organic 에 포함":""}</div>
+    <div class="dist-row"><span style="color:#ec4899" title="스파크애즈 등 유료 광고 집행">●광고 집행</span><div class="dist-bar"><div class="dist-fill" style="background:#ec4899;width:${pct(paid)}%"></div></div><span class="r mono">${fmtN(paid)}</span><span class="r" style="color:#9ca3af">${pct(paid)}%</span></div>
+    ${S.cCh==="all"?`<div class="dist-row"><span style="color:#f59e0b">●seeded</span><div class="dist-bar"><div class="dist-fill" style="background:#f59e0b;width:${pct(seeded)}%"></div></div><span class="r mono">${fmtN(seeded)}</span><span class="r" style="color:#9ca3af">${pct(seeded)}%</span></div>`:""}
+    <div class="dist-row"><span style="color:#10b981">●organic</span><div class="dist-bar"><div class="dist-fill" style="background:#10b981;width:${pct(org)}%"></div></div><span class="r mono">${fmtN(org)}</span><span class="r" style="color:#9ca3af">${pct(org)}%</span></div>
+    ${S.cCh==="all"?`<div style="margin-top:8px;font-size:10px;color:#9ca3af">seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)</div>`:""}
+    <div style="margin-top:12px;font-size:11px;color:#6b7280">채널별 ad 비중: TK 12% · IG 15% · YT 19%</div>`;
+  }
+  return `<div class="section" id="sec-c"><div class="section-h"><span class="letter">C</span><span class="title">콘텐츠 포맷 분석</span><span class="sub">★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택</span></div>
+  <div class="conclusion">결론 — "7일 비포애프터"가 avg 1.2M·save 4.8%로 최강 포맷. CTA 키워드(code LUMIVE20·link in bio)가 상위권 — 전환 설계된 시딩.</div>
+  <div class="sample-label">🔬 표본 ${fmtN(FX.visionSample)}건(영상 태깅 완료) / 전체 ${fmtN(FX.totalContents)}건 (${Math.round(FX.visionSample/FX.totalContents*100)}%) — 아래 클러스터·태그·앵글 분석은 이 표본 기준</div>
+  <div class="sub-tabs">${[["clu",`통합 클러스터 (${metas.length})`],["usp",`USP 키워드 (${FX.usp.length})`],["heat","시즈널리티 heatmap"],["tier","★ 티어 × 앵글"],["atm","★ 티어 × 앵글 × 월"],["gmvtag","★ 태그 × GMV"],["paid","광고 집행/시딩/오가닉 분류"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:6px">❓ ${({clu:"어떤 콘텐츠 포맷(묶음)이 터졌나 — 카드 클릭으로 대표 영상 검증",usp:"캡션에서 반복되는 소구점·CTA는 뭔가 — 키워드 클릭으로 실제 영상 확인",heat:"어떤 포맷이 어느 달에 집중됐나 — measure를 GMV로 바꾸면 매출 기여까지",tier:"어떤 티어 인플이 어떤 앵글을 만드나 — 셀 클릭으로 클러스터 점프",atm:"선택 티어의 앵글이 시간에 따라 어떻게 이동했나",gmvtag:"어떤 콘텐츠 태그가 매출로 이어졌나 (표본 극소 — 참고용)",paid:"이 볼륨이 광고인가 시딩인가 오가닉인가 (FTC regex 분류)"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
+  <div style="margin:10px 0;display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#6b7280">채널:</span><div class="ch-toggle">${[["all","전 채널"],["tk","TikTok (5)"],["ig","IG (5)"],["yt","YT (5)"]].map(m=>`<button data-cch="${m[0]}" class="${S.cCh===m[0]?"active":""}">${m[1]}</button>`).join("")}</div></div>
+  <div class="panel">${panel}</div></div>`;
+}
+
+/* ── Section D ── */
+function sectionD(){
+  const skus=FX.skus.filter(s=>s.ch===S.dChn||S.dChn==="all"); // 채널 필터
+  if(S.dSku!=="all"&&!skus.some(s=>s.asin===S.dSku))S.dSku="all"; // 채널 전환 시 유령 SKU 방어
+  const selected=S.dSku;
+  const filtered=selected==="all"?skus:skus.filter(s=>s.asin===selected);
+  const totalRev=sum(filtered.map(s=>s.rev));
+  const allRev=sum(skus.map(s=>s.rev));
+  const period=FX.brandPeriods[S.dPeriod];
+  const dc=FX.decomp,dTot=dc.self+dc.aff+dc.mall;
+  const pS=Math.round(dc.self/dTot*100),pA=Math.round(dc.aff/dTot*100),pM=Math.round(dc.mall/dTot*100);
+  const lv=FX.liveVideo,lTot=lv.live+lv.video+lv.card;
+  const pL=Math.round(lv.live/lTot*100),pV=Math.round(lv.video/lTot*100),pC=Math.round(lv.card/lTot*100);
+  const shortSku=n=>n.replace(/^루미브 /,"");
+  // 헬스 카드 or 개별 SKU 영상
+  let health="";
+  if(selected==="all"){
+    const sorted=[...skus].sort((a,b)=>b.rev-a.rev);
+    const t1=Math.round(sorted[0].rev/allRev*100),t2=Math.round(sorted[1].rev/allRev*100),t3=Math.round(sorted[2].rev/allRev*100);
+    const cats=[...new Set(skus.map(s=>s.cat))];
+    health=`<div class="sku-health-grid">
+    <div class="sku-health-card"><div class="sh-label">매출 집중도</div><div class="sh-val">${t1+t2+t3}%</div><div class="sh-desc">Top 3 SKU가 매출 합계 차지</div>
+      <div class="sh-bar"><div class="sh-segment" style="background:#3b82f6;flex:${t1}">Top1 ${t1}%</div><div class="sh-segment" style="background:#60a5fa;flex:${t2}">Top2 ${t2}%</div><div class="sh-segment" style="background:#93c5fd;flex:${t3}">Top3 ${t3}%</div><span style="font-size:9px;color:#9ca3af;margin-left:6px">기타 ${100-t1-t2-t3}%</span></div>
+      <div class="sh-foot">${t1+t2+t3>=70?"★ 집중 → 2-3 SKU 마케팅 주력":"분산 → SKU 다양"}</div></div>
+    <div class="sku-health-card"><div class="sh-label">카테고리</div><div class="sh-val">${cats.length}개</div><div class="sh-desc">${skus.length} SKU ${cats.length} 카테고리</div>
+      <div style="margin-top:10px;font-size:10px;color:#4b5563">${cats.slice(0,5).map(c=>{const r=sum(skus.filter(s=>s.cat===c).map(s=>s.rev));return `${c} ${Math.round(r/allRev*100)}%`;}).join(" · ")}</div>
+      <div class="sh-foot">${cats.length>=3?"카테고리 다양 (전반)":"단일 카테고리"}</div></div>
+    <div class="sku-health-card"><div class="sh-label">신상 매출 비중</div><div class="sh-val">78%</div><div class="sh-desc">출시 1년 내 SKU 4개</div>
+      <div style="margin-top:10px;font-size:10px;color:#4b5563"><span style="color:#10b981">●신상 78%</span> · <span style="color:#f59e0b">1~3년 20%</span> · <span style="color:#9ca3af">3년+ 2%</span></div>
+      <div class="sh-foot">신상 위주 매출 (launch 폭발형)</div></div></div>`;
+  }else{
+    const s=skus.find(x=>x.asin===selected);
+    health=`<div style="margin-top:12px;margin-bottom:10px;font-size:11px;color:#92400e;background:#fef3c7;padding:6px 12px;border-radius:6px;border:1px solid #fde68a">🎯 <b>${s.name}</b> 선택 — 매출 ${fmtUsd(s.rev)} · 전체의 ${Math.round(s.rev/allRev*100)}% · 매칭 영상 5개</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="sku-health-card"><b style="font-size:11px">⭐ 뷰 Top 영상 (이 SKU)</b><div style="display:grid;gap:6px;margin-top:8px">${[1,2,3].map(i=>embedPh(`${shortSku(s.name)} 뷰 #${i}`,fmtV(4200000/i))).join("")}</div></div>
+    <div class="sku-health-card"><b style="font-size:11px">⭐ 매출 기여 추정 영상 (이 SKU)</b><div style="display:grid;gap:6px;margin-top:8px">${[1,2,3].map(i=>embedPh(`${shortSku(s.name)} GMV $${fmtN(Math.round(41200/i))}`,fmtV(3100000/i))).join("")}</div></div></div>`;
+  }
+  // 탭 패널
+  let panel="";
+  if(S.dTab==="sku"){
+    const grouped=[...filtered].sort((a,b)=>b.rev-a.rev);
+    const limit=selected!=="all"?grouped.length:S.dSkuAll?grouped.length:5;
+    panel=`<table class="t"><thead><tr><th>제품</th><th>ASIN</th><th>카테고리</th><th class="r">출시</th><th class="r">가격</th><th class="r">30d GMV</th><th class="r">판매</th><th class="r">BSR</th><th class="r" title="이 SKU 와 매칭된 영상 수 (Vision SKU 매칭 + Kalodata 영상 제목 매칭)">매칭 영상</th></tr></thead><tbody>
+    ${grouped.slice(0,limit).map(s=>`<tr><td><b>${shortSku(s.name)}</b>${s.listings>1?`<span style="margin-left:6px;font-size:9px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px;font-weight:700" title="같은 제품의 여러 리스팅(캠페인) 합산">🔗 ${s.listings} 리스팅 합산</span>`:""}</td>
+    <td><a href="#" class="mono" style="font-size:10px;color:#1f2937">${s.asin}</a></td><td style="font-size:10px;color:#6b7280">${s.cat}</td><td class="r mono" style="font-size:10px;color:#6b7280">${s.launch}</td><td class="r mono" style="font-size:10px">$${s.price}</td>
+    <td class="r mono" style="color:#10b981;font-weight:700">${fmtUsd(s.rev)}</td><td class="r mono">${fmtN(s.units)}</td><td class="r mono" style="color:${s.bsr?"#1f2937":"#9ca3af"}">${s.bsr?"#"+fmtN(s.bsr):"—"}</td><td class="r mono" style="color:#ec4899">${Math.max(1,Math.round(s.rev/100000))}개</td></tr>`).join("")}</tbody></table>
+    ${selected==="all"&&grouped.length>5?`<div style="text-align:center;margin-top:8px"><button id="dSkuAll" class="pp-rerun" style="font-size:11px;padding:5px 14px">${S.dSkuAll?"▲ 5개만 보기":`▼ 전체 ${grouped.length}개 제품 보기 (현재 5개)`}</button></div>`:""}`;
+  }else if(S.dTab==="rank"){
+    const cr=FX.catRank,pts=cr.points,minR=Math.min(...pts.map(p=>p[1])),maxR=Math.max(...pts.map(p=>p[1]));
+    const sx=i=>30+(i/(pts.length-1))*640,sy=r=>12+((r-minR)/Math.max(1,maxR-minR))*76;
+    panel=`<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+    <div class="kpi"><div class="kpi-label">현재 순위</div><div class="kpi-val">#${cr.cur}</div></div>
+    <div class="kpi"><div class="kpi-label">최근 7일 평균</div><div class="kpi-val">#${cr.avg7}</div></div>
+    <div class="kpi"><div class="kpi-label">시작 대비</div><div class="kpi-val" style="color:#10b981">▲ ${Math.abs(cr.delta)}계단</div></div>
+    <div class="kpi"><div class="kpi-label">Top 10 진입</div><div class="kpi-val">${cr.top10}일</div></div></div>
+    <svg viewBox="0 0 700 100" style="width:100%;height:100px"><path d="${pts.map((p,i)=>`${i===0?"M":"L"} ${sx(i)} ${sy(p[1])}`).join(" ")}" fill="none" stroke="#1f2937" stroke-width="2"/>${pts.map((p,i)=>`<circle cx="${sx(i)}" cy="${sy(p[1])}" r="2.5" fill="#1f2937"/>`).join("")}${MONTHS.map((m,i)=>i%2===0?`<text x="${sx(i)}" y="99" font-size="8" text-anchor="middle" fill="#6b7280">${m.slice(5)}</text>`:"").join("")}</svg>
+    <div style="font-size:10px;color:#6b7280;margin-top:4px">12개 point · 낮을수록 좋음 (Skincare 카테고리 · Kalodata Category Ranking)</div>`;
+  }else if(S.dTab==="matrix"){
+    const prods=["PDRN 세럼","배리어 크림","토너 패드","오버나이트"];
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:10px">Creator × SKU별 GMV 기여 — 누가 어떤 SKU 잘 팔았나</div>
+    <table class="t"><thead><tr><th style="width:130px">Creator</th>${prods.map(p=>`<th class="r">${p}</th>`).join("")}<th class="r">기타</th><th class="r">합계</th></tr></thead><tbody>
+    ${FX.creatorSku.map(r=>{const mx=Math.max(...r[1],r[2]);return `<tr><td><b>@${r[0]}</b></td>${r[1].map(g=>`<td class="r mono" style="${g===mx?"background:#fef3c7;font-weight:700":""}">${fmtUsd(g)}</td>`).join("")}<td class="r mono" style="${r[2]===mx?"background:#fef3c7;font-weight:700":""}">${fmtUsd(r[2])}</td><td class="r mono" style="font-weight:700">${fmtUsd(r[3])}</td></tr>`;}).join("")}
+    <tr style="background:#f9fafb;font-weight:700"><td>SKU 합계</td>${[0,1,2,3].map(i=>`<td class="r mono">${fmtUsd(sum(FX.creatorSku.map(r=>r[1][i])))}</td>`).join("")}<td class="r mono">${fmtUsd(sum(FX.creatorSku.map(r=>r[2])))}</td><td class="r mono">${fmtUsd(sum(FX.creatorSku.map(r=>r[3])))}</td></tr></tbody></table>
+    <div style="font-size:10px;color:#9ca3af;text-align:center;margin-top:8px">+ 1,407명 더보기</div>`;
+  }else if(S.dTab==="affiliate"){
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:8px">코드별 conversion(매출 귀속)은 결제 attribution이 없어 <b>불가</b> — 대신 광고에서 운용 중인 promo code 목록(E 섹션 regex 추출)을 여기서 바로 봅니다.${propChip("배포판: 상시 placeholder 빈 탭 → E 섹션에 이미 있는 promo code 추출 결과 재노출 + E 점프 링크. 빈 화면은 다음 행동을 말한다 적용")}</div>
+    <div>${FX.promoCodes.map(c=>`<span class="promo-chip">${c[0]} <span style="color:#b45309;font-weight:400">×${c[1]} 광고</span></span>`).join("")}</div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:8px">출처: E 섹션 광고 body_text regex 추출 · <a href="#sec-e" style="color:#7c3aed">E 섹션에서 해당 광고 카드 보기 ↗</a> · conversion 수치가 필요하면 결제단 attribution 데이터 적재 필요</div>`;
+  }else if(S.dTab==="vid"){
+    const vids=selected==="all"?FX.vidRevenue:FX.vidRevenue.filter(v=>skus.find(s=>s.asin===selected&&s.name.includes(v[1].split(" ")[0])));
+    const tot=sum(FX.vidRevenue.map(v=>v[3])),top10=sum(FX.vidRevenue.slice(0,10).map(v=>v[3]));
+    panel=`<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+    <div class="kpi"><div class="kpi-label">매출 발생 영상</div><div class="kpi-val">186</div><div class="kpi-sub">총 8,214 영상 중 2%</div></div>
+    <div class="kpi"><div class="kpi-label">영상당 평균 GMV</div><div class="kpi-val">${fmtUsd(Math.round(tot/10))}</div></div>
+    <div class="kpi"><div class="kpi-label">Top 영상 1건 GMV</div><div class="kpi-val">${fmtUsd(FX.vidRevenue[0][3])}</div><div class="kpi-sub">${FX.vidRevenue[0][0]}</div></div>
+    <div class="kpi"><div class="kpi-label">Top 10 영상 GMV 비중</div><div class="kpi-val">${Math.round(top10/tot*100)}%</div></div></div>
+    <div style="font-size:10px;color:#9ca3af;margin-bottom:4px">영상 클릭 → 임베드 재생 · ${selected==="all"?"전체 SKU (SKU 배지 표시)":"선택 SKU"}</div>
+    <div style="display:flex;flex-direction:column;gap:5px">${(vids.length?vids:FX.vidRevenue).map((v,i)=>`<details style="border:1px solid #f3f4f6;border-radius:4px;background:#fff"><summary style="display:flex;gap:8px;align-items:center;padding:6px 8px;cursor:pointer;list-style:none;font-size:11px">
+    <span style="width:12px;color:#6b7280">▶</span>${selected==="all"?`<span style="background:#ede9fe;color:#7c3aed;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700">${v[1]}</span>`:""}
+    <span class="mono" style="flex:1">@${v[0]}</span><span class="mono" style="color:#6b7280;font-size:10px">${v[2]}뷰</span><span class="mono" style="color:#10b981;font-weight:700">$${fmtN(v[3])}</span></summary>
+    <div style="padding:8px">${embedPh(`@${v[0]} · ${v[1]}`,v[2])}</div></details>`).join("")}</div>`;
+  }else if(S.dTab==="live"){
+    const tot=sum(FX.lives.map(l=>l[4]));
+    panel=`<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+    <div class="kpi"><div class="kpi-label">총 Live</div><div class="kpi-val">${FX.lives.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Live GMV</div><div class="kpi-val">${fmtUsd(tot)}</div></div>
+    <div class="kpi"><div class="kpi-label">평균 viewer</div><div class="kpi-val">40K</div></div>
+    <div class="kpi"><div class="kpi-label">Live당 GMV</div><div class="kpi-val">${fmtUsd(Math.round(tot/FX.lives.length))}</div></div></div>
+    <table class="t"><thead><tr><th>날짜</th><th>호스트</th><th class="r">duration</th><th class="r">viewer</th><th class="r">GMV</th></tr></thead><tbody>
+    ${FX.lives.map(l=>`<tr><td>${l[0]}</td><td>${l[1]}</td><td class="r mono">${l[2]}</td><td class="r mono">${l[3]}</td><td class="r mono" style="color:#10b981">${fmtUsd(l[4])}</td></tr>`).join("")}</tbody></table>`;
+  }else{ // bsr
+    const series=FX.bsrSkuSeries;
+    const sel=selected!=="all"?series.find(s=>s.asin===selected):null;
+    const isTT=selected!=="all"&&!sel;
+    const shown=sel?[sel]:series;
+    const allMonths=[...new Set(shown.flatMap(s=>s.pts.map(p=>p[0])))].sort();
+    const allB=shown.flatMap(s=>s.pts.map(p=>p[1]));
+    const lmin=Math.log(Math.min(...allB)),lmax=Math.log(Math.max(...allB));
+    const xx=m=>40+(allMonths.indexOf(m)/(allMonths.length-1))*540;
+    const yy=b=>16+((Math.log(b)-lmin)/(lmax-lmin||1))*138;
+    const colors=["#2563eb","#10b981"];
+    panel=`<div style="font-size:11px;color:#6b7280;margin-bottom:8px">${sel?`📉 ${sel.name} BSR 추이 — 상승시점(▼) + 당시 브랜드 영상`:isTT?"이 SKU는 TT샵 SKU라 Amazon BSR 없음 — Amazon SKU 선택 시 상승시점+영상 표시":"📉 전체 Amazon SKU BSR 추이 (낮을수록 좋은 랭크=위쪽). 개별 SKU 선택 시 상승시점+영상."}</div>
+    ${!isTT?`<svg viewBox="0 0 620 170" style="width:100%;height:180px;background:#fafafa;border-radius:6px">
+    ${shown.map((s,si)=>`<path d="${s.pts.map((p,i)=>`${i===0?"M":"L"} ${xx(p[0]).toFixed(1)} ${yy(p[1]).toFixed(1)}`).join(" ")}" fill="none" stroke="${colors[si%2]}" stroke-width="1.6"/>
+    ${sel?s.infl.map(inf=>`<circle cx="${xx(inf.m)}" cy="${yy(inf.to)}" r="4" fill="#dc2626"/><text x="${xx(inf.m)}" y="${yy(inf.to)-7}" font-size="8" text-anchor="middle" fill="#dc2626">▼${inf.m.slice(2)}</text>`).join(""):""}`).join("")}
+    ${allMonths.map(m=>`<text x="${xx(m)}" y="168" font-size="7" text-anchor="middle" fill="#9ca3af">${m.slice(2)}</text>`).join("")}</svg>`:""}
+    ${!sel&&!isTT?`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:9px">${shown.map((s,si)=>`<span style="color:#374151"><span style="display:inline-block;width:9px;height:9px;background:${colors[si%2]};border-radius:2px;margin-right:3px;vertical-align:middle"></span>${s.name} (best #${fmtN(Math.min(...s.pts.map(p=>p[1])))})</span>`).join("")}</div>`:""}
+    ${sel?(sel.infl.length===0?`<div style="font-size:11px;color:#9ca3af;padding:10px">뚜렷한 BSR 상승시점 없음 (전월比 40%+ 개선 기준)</div>`:`<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">${sel.infl.map(inf=>`<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:6px;padding:10px"><b style="font-size:11px;color:#991b1b">▼ ${inf.m} — BSR #${fmtN(inf.from)} → #${fmtN(inf.to)} (${Math.round((1-inf.to/inf.from)*100)}% 개선)</b>
+    <div style="font-size:10px;color:#6b7280;margin-top:4px">당시 브랜드 영상 (조회 Top ${inf.vids.length}):</div>${inf.vids.map(v=>`<div style="font-size:10px;color:#1d4ed8">${v[0]}뷰 · ${v[1]} ↗</div>`).join("")}</div>`).join("")}</div>`):""}`;
+  }
+  const heroSkus=[...skus].sort((a,b)=>b.rev-a.rev).slice(0,3);
+  return `<div class="section" id="sec-d"><div class="section-h"><span class="letter">D</span><span class="title">매출 & BSR</span><span class="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span></div>
+  ${allRev===0?"":""}<div class="conclusion">결론 — 30일 GMV $1.28M의 62%가 affiliate(시딩)發, 영상 driven(71%). PDRN 세럼 단일 SKU가 40% — 히어로 SKU 집중 구조.</div>
+  ${P.active()?`<div style="font-size:10px;color:#92400e;background:#fffbeb;border:1px dashed #fcd34d;border-radius:4px;padding:5px 10px;margin-bottom:10px">📆 전역 기간 필터(${P.label()})는 매출에 직접 적용되지 않습니다 — 매출은 30d 스냅샷·Kalodata 기간 적재가 별도 축. 아래 "브랜드 매출 기간" select로 매출 기간을 고르세요.</div>`:""}
+  <div style="border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;background:#fdfcff;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:12px;color:#5b21b6">① 브랜드 전체 기준 <span style="font-weight:400;color:#7c3aed">— Kalodata · 아래 ② 채널·SKU 표와 스코프가 다름</span></b>${propChip("배포판: ↓ 전체 브랜드 기준 회색 소제목 한 줄만 있어 채널 토글·SKU 표와 한 흐름에 섞여 보임 → ①/② 밴드로 시각 분리. 내용(기간 select·매출 출처 분해·Live/Video 분해) 전량 유지")}</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px"><span style="color:#6b7280;font-weight:600">📅 브랜드 매출 기간:</span>
+  <select id="dPeriod" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px" class="mono">${FX.brandPeriods.map((p,i)=>`<option value="${i}" ${S.dPeriod===i?"selected":""}>${i===0?"전체 · ":""}${p[1]}</option>`).join("")}</select>
+  <span style="font-size:10px;color:#9ca3af">${FX.brandPeriods.length}개 기간 적재됨</span></div>
+  <div class="decomp-card"><b style="font-size:12px;color:#374151">💰 매출 출처 분해 (Kalodata) — Self-운영 vs Affiliate(시딩) vs Shopping Mall</b>
+    <div style="font-size:11px;margin:2px 0 10px;color:#7c3aed;font-weight:600">→ 🔥 affiliate (시딩) driven brand <span style="font-size:10px;color:#9ca3af;font-weight:400">(${period[1].split(" · ")[0]})</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${[["Self-Operated",dc.self,pS,"#a855f7"],["Affiliate (시딩)",dc.aff,pA,"#ec4899"],["Shopping Mall",dc.mall,pM,"#06b6d4"]].map(s=>`<div><div style="font-size:10px;color:#6b7280">${s[0]}</div><div style="font-size:14px;font-weight:700;color:${s[3]}">${fmtUsd(s[1])} <span style="font-size:11px;color:#9ca3af">· ${s[2]}%</span></div><div style="height:6px;background:#e5e7eb;border-radius:3px;margin-top:4px"><div style="height:100%;width:${s[2]}%;background:${s[3]};border-radius:3px"></div></div></div>`).join("")}</div>
+    <div style="margin-top:10px;font-size:10px;color:#831843">★ Active Affiliates ${fmtN(dc.affiliates)}명 · 신규 영상 ${fmtN(dc.newVids)}개</div></div>
+  <div class="decomp-card"><b style="font-size:12px;color:#374151">🎙 매출 콘텐츠 분해 (Kalodata) — Live vs Video vs Product Card</b>
+    <div style="font-size:11px;margin:2px 0 10px;color:#7c3aed;font-weight:600">→ 🎬 영상 driven 브랜드</div>
+    <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:6px"><div style="width:${pL}%;background:#ef4444" title="Live ${pL}%"></div><div style="width:${pV}%;background:#3b82f6" title="Video ${pV}%"></div><div style="width:${pC}%;background:#06b6d4" title="Product Card ${pC}%"></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px 16px;font-size:11px;color:#374151;margin-bottom:12px"><span><b style="color:#ef4444">🔴 Live ${fmtUsd(lv.live)}</b> · ${pL}%</span><span><b style="color:#3b82f6">🎬 Video ${fmtUsd(lv.video)}</b> · ${pV}%</span><span><b style="color:#06b6d4">🛒 Product Card ${fmtUsd(lv.card)}</b> · ${pC}%</span></div>
+    <div style="font-size:11px;color:#6b7280;margin-bottom:8px">크리에이터 포맷: <b style="color:#ef4444">라이브 전문 ${lv.liveN}</b> · <b style="color:#3b82f6">영상 전문 ${lv.videoN}</b> · 혼합 ${lv.mixN} <span style="color:#9ca3af">(GMV 70%↑ 기준)</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:10px">
+      <div><b style="color:#ef4444">🔴 라이브 전문 Top</b>${lv.topLive.map(c=>`<div style="display:flex;justify-content:space-between;padding:1px 0;color:#374151"><span>@${c[0]} <span style="color:#9ca3af">· ${fmtF(c[1])}</span></span><span>${fmtUsd(c[2])}</span></div>`).join("")}</div>
+      <div><b style="color:#3b82f6">🎬 영상 전문 Top</b>${lv.topVideo.map(c=>`<div style="display:flex;justify-content:space-between;padding:1px 0;color:#374151"><span>@${c[0]} <span style="color:#9ca3af">· ${fmtF(c[1])}</span></span><span>${fmtUsd(c[2])}</span></div>`).join("")}</div></div></div>
+  </div><!-- /① 브랜드 밴드 -->
+  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-bottom:4px">② 채널·SKU 상세 <span style="font-weight:400;color:#9ca3af;font-size:10px">— 아래 토글·필터·탭은 전부 이 스코프</span></div>
+  <div style="display:flex;gap:14px;align-items:center;margin-top:4px;margin-bottom:14px;flex-wrap:wrap">
+    <div><span style="font-size:11px;color:#6b7280;margin-right:8px">채널:</span><div class="ch-toggle">${[["tiktok_shop","TT Shop"],["amazon","Amazon"],["shopee","Shopee"]].map(c=>{const exists=FX.skus.some(s=>s.ch===c[0]);const act=S.dChn===c[0]&&exists;
+      return `<button data-dchn="${c[0]}" class="${act?"active":""}" ${exists?"":"disabled"}>${c[1]}${act?` (${fmtUsd(sum(FX.skus.filter(s=>s.ch===c[0]).map(s=>s.rev)))})`:""}</button>`;}).join("")}</div></div>
+    <div><span style="font-size:11px;color:#6b7280;margin-right:8px">기간:</span><div class="ch-toggle"><button disabled>7일</button><button disabled>14일</button><button class="active">30일</button></div></div></div>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:11px;color:#374151">SKU 필터</b><span style="font-size:10px;color:#9ca3af">선택하면 아래 모든 표·차트가 그 SKU 기준으로 바뀝니다</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px"><button class="sku-chip ${selected==="all"?"sel":""}" data-dsku="all">전체 (${skus.length} SKU)</button>
+    ${skus.slice(0,8).map(s=>`<button class="sku-chip ${selected===s.asin?"sel":""}" data-dsku="${s.asin}" title="${s.name}">${shortSku(s.name)}</button>`).join("")}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:8px">현재 선택: <b style="color:#374151">${selected==="all"?`전체 ${skus.length} SKU`:shortSku(skus.find(s=>s.asin===selected).name)}</b> · 30일 GMV ${fmtUsd(totalRev)}</div></div>
+  ${health}
+  ${selected!=="all"?`<div style="margin-top:16px;padding:12px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa"><b style="font-size:11px">📈 선택 SKU의 GMV 시계열 (Kalodata 영상매출 매칭, 월별)</b>
+    <svg viewBox="0 0 600 80" style="width:100%;height:80px"><path d="${MONTHS.slice(4).map((m,i)=>`${i===0?"M":"L"} ${30+i*77} ${70-((i+1)*(i+1)*1.4)}`).join(" ")}" fill="none" stroke="#10b981" stroke-width="2"/>${MONTHS.slice(4).map((m,i)=>`<circle cx="${30+i*77}" cy="${70-((i+1)*(i+1)*1.4)}" r="3" fill="#10b981"/><text x="${30+i*77}" y="79" font-size="8" text-anchor="middle" fill="#6b7280">${m.slice(5)}</text>`).join("")}</svg>
+    <div style="font-size:10px;color:#6b7280;margin-top:4px">매칭 영상 42개 · 최대 월 GMV $41K</div></div>`:""}
+  ${selected==="all"?`<b style="font-size:12px;display:block;margin:16px 0 8px">⭐ 히어로 SKU × 메가 viral 영상 (1M+ views 매칭)</b>
+  <div class="hero-grid">${heroSkus.map((s,i)=>`<div class="hero-card"><div class="hc-rank">Top ${i+1} 매출</div><div class="hc-sku" title="${s.name}">${shortSku(s.name)}</div><div class="hc-rev">${fmtUsd(s.rev)} · ${Math.round(s.rev/allRev*100)}%</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:4px">매칭 영상 3개 (high confidence)</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${[1,2,3].map(v=>embedPh(`viral #${v}`,fmtV(4200000/(i+1)/v))).join("")}</div></div>`).join("")}</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:6px">★ 매출 Top 3 × 1M+ views 영상으로 마케팅 주력 판정 (Phase 4b.5 SKU 매칭, high confidence만)</div>`:""}
+  <div class="sub-tabs" style="margin-top:20px">${[["sku",`SKU 매출 표 (${skus.length})`],["rank","★ 카테고리 ranking 시계열"],["matrix","★ Creator × SKU GMV matrix"],["affiliate","★ Affiliate code conversion"],["vid","영상별 매출 (Kalodata)"],["live","Live 매출 (Kalodata)"],["bsr","★ BSR 상승 시점 (옛 MD)"]].map(t=>`<button data-dtab="${t[0]}" class="${S.dTab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
+  <div class="panel">${panel}</div></div>`;
+}
+
+/* ── Section E ── */
+function sectionE(){
+  const K=FX.adKpi;
+  let ads=FX.ads.slice();
+  if(S.eSearch){const q=S.eSearch.toLowerCase();ads=ads.filter(a=>a[0].toLowerCase().includes(q)||a[4].toLowerCase().includes(q));}
+  if(S.eBrand)ads=ads.filter(a=>a[1]==="brand");
+  if(S.eRetail)ads=ads.filter(a=>a[1]==="retail");
+  if(S.ePartner)ads=ads.filter(a=>a[1]==="partner");
+  if(S.eActive)ads=ads.filter(a=>a[2]===1);
+  if(P.active())ads=ads.filter(a=>{const mo=a[3].slice(0,7);return mo>=MONTHS[S.pStart]&&mo<=MONTHS[S.pEnd];}); // [개선#13] 기간: 광고 시작일 기준
+  const displayed=ads.slice(0,S.eShow);
+  const more=Math.max(0,ads.length-S.eShow);
+  return `<div class="section" id="sec-e"><div class="section-h"><span class="letter">E</span><span class="title">Meta 광고 + Partnership</span><span class="sub">★ 필터 + 더보기 + partnership cross-channel · 소재 이미지 카드 1급</span></div>
+  <div class="conclusion">결론 — 광고 214건 중 인플 partnership 61건(23명): 시딩에서 검증된 인플(glowwithmaya·dermdiary)을 광고로 증폭하는 whitelisting 패턴. 랜딩은 DTC 44% > Amazon 31%.</div>
+  <div class="sample-label">⚠ 운영·활동 기간은 <b>관측 시작일 (${FX.obsStart}) 이후 기준</b>입니다. 그 이전 집행 광고는 실제보다 짧게 보일 수 있습니다(생존편향).</div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+    <div class="kpi"><div class="kpi-label">총 광고</div><div class="kpi-val">${K.total}</div><div class="kpi-sub">active ${K.active}</div></div>
+    <div class="kpi"><div class="kpi-label">🏢 본사 직접</div><div class="kpi-val">${K.brand}</div><div class="kpi-sub">${K.brandPct}%</div></div>
+    <div class="kpi" title="유통 retailer (Walmart/Target/Sephora 등) — 본사 비용 X"><div class="kpi-label">🛒 유통 retailer</div><div class="kpi-val">${K.retail}</div><div class="kpi-sub">샘플 안 10%</div></div>
+    <div class="kpi"><div class="kpi-label">👤 인플 partnership ★</div><div class="kpi-val">${K.partner}</div><div class="kpi-sub">${K.partnerCr}명 인플</div></div>
+    <div class="kpi"><div class="kpi-label">landing → Amazon</div><div class="kpi-val">${K.amazonPct}%</div><div class="kpi-sub">DTC ${K.dtcPct}%</div></div>
+    <div class="kpi"><div class="kpi-label">분석 비용${propChip("배포판: KPI 6개를 5열 grid(repeat(5,1fr))에 배치해 마지막 카드가 다음 줄로 홀로 떨어짐 → 6열 정렬")}</div><div class="kpi-val">$${K.cost.toFixed(2)}</div><div class="kpi-sub">하이브리드</div></div></div>
+  ${P.active()?`<div style="font-size:10px;color:#5b21b6;background:#f5f3ff;border:1px dashed #c4b5fd;border-radius:4px;padding:4px 8px;margin-bottom:10px">📆 기간 ${P.label()} — 아래 광고 그리드는 <b>시작일이 기간 내</b>인 광고만 (KPI 카드는 전 기간 집계 유지)</div>`:""}
+  <div class="ad-toolbar"><input class="ad-search" id="eSearch" placeholder="🔍 광고 body / page name 검색…" value="${S.eSearch}">
+    <select id="eLanding"><option value="all">전체 landing</option>${FX.landing.map(l=>`<option>${l[0]} (${l[1]})</option>`).join("")}</select>
+    <select id="eFormat"><option value="all">전체 format</option>${FX.formats.map(f=>`<option>${f[0]} (${f[1]})</option>`).join("")}</select>
+    <label class="ad-check"><input type="checkbox" id="eBrand" ${S.eBrand?"checked":""}> 본사만</label>
+    <label class="ad-check"><input type="checkbox" id="eActive" ${S.eActive?"checked":""}> active만</label>
+    <label class="ad-check"><input type="checkbox" id="eRetail" ${S.eRetail?"checked":""}> 🛒 유통만</label>
+    <label class="ad-check"><input type="checkbox" id="ePartner" ${S.ePartner?"checked":""}> 👤 인플만</label>
+    <span style="margin-left:auto;font-size:10px;color:#6b7280">${ads.length} / ${FX.ads.length} 표시</span></div>
+  <div class="ad-grid">${displayed.map(a=>`<a class="ad-card" href="#" onclick="return false" title="클릭 → FB Ad Library 새 탭 (실화면)"><div class="ad-thumb" style="background:linear-gradient(135deg,${a[5]},#1f2937)">▶<div class="ad-badges">${a[2]?'<span class="ad-badge active">active</span>':""}<span class="ad-badge ${a[1]==="brand"?"brand":a[1]==="retail"?"retail":"partner"}">${a[1]==="brand"?"🏢 본사":a[1]==="retail"?"🛒 유통":"👤 인플"}</span></div></div>
+  <div class="ad-info"><div class="ad-page">${a[0]}</div>${a[1]==="partner"?'<div class="ad-partner">× partnership</div>':""}<div class="ad-date">${a[3]} ${a[2]?"~":"~ 종료"}</div><div class="ad-body">${a[4]}</div></div></a>`).join("")}</div>
+  ${more>0?`<button class="load-more" id="eMore">+ ${more}개 광고 더보기</button>`:""}
+  <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px"><div><b style="font-size:12px">광고 landing 분포</b>
+    ${FX.landing.map(l=>`<div class="dist-row"><span>${l[0]}</span><div class="dist-bar"><div class="dist-fill" style="width:${l[2]}%;background:${l[3]}"></div></div><span class="r mono">${l[1]}</span><span class="r" style="color:#9ca3af">${l[2]}%</span></div>`).join("")}
+    <div style="margin-top:6px;font-size:10px;color:#9ca3af">기타 Top: lumive.com · linktr.ee · beacons.ai</div></div>
+  <div><b style="font-size:12px">광고 format</b>${FX.formats.map(f=>`<div class="dist-row"><span>${f[0]}</span><div class="dist-bar"><div class="dist-fill" style="width:${f[2]}%;background:#1f2937"></div></div><span class="r mono">${f[1]}</span><span class="r" style="color:#9ca3af">${f[2]}%</span></div>`).join("")}</div></div>
+  <div style="margin-top:18px;padding:12px;border:1px solid #fde68a;border-radius:6px;background:#fffbeb"><b style="font-size:12px;color:#92400e">🎟 광고 promo code 추출 (${FX.promoCodes.length}개) — body_text regex</b>
+    <div style="margin-top:8px">${FX.promoCodes.map(c=>`<span class="promo-chip">${c[0]} <span style="color:#b45309;font-weight:400">×${c[1]}</span></span>`).join("")}</div>
+    <div style="font-size:10px;color:#92400e;margin-top:6px">※ 전체 광고 body_text 에서 추출 (use code / promo / coupon 패턴 + 단어+숫자 형식)</div></div>
+  <b style="font-size:12px;display:block;margin:18px 0 8px">파트너 인플 ${K.partnerCr}명 — cross-channel ★</b>
+  <table class="t"><thead><tr><th></th><th>인플</th><th class="r">팔로워</th><th class="r">광고</th><th>다른 채널 활동</th><th>활동 기간</th></tr></thead><tbody>
+  ${FX.partnerCreators.map(c=>`<tr><td><span style="display:inline-block;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#f472b6,#a78bfa)"></span></td>
+  <td><b>${c[0]}</b>${c[1]?` <span style="color:#6b7280;font-size:10px">× ${c[1]}</span>`:""}</td><td class="r mono" style="color:#6b7280">${fmtF(c[2])}</td><td class="r mono">${c[3]}</td>
+  <td>${c[4][0]>0?`<span class="ch-pill pill-tk">TK${c[4][0]}</span>`:""}${c[4][1]>0?`<span class="ch-pill pill-ig">IG${c[4][1]}</span>`:""}${c[4][2]>0?`<span class="ch-pill pill-yt">YT${c[4][2]}</span>`:""}</td>
+  <td style="font-size:10px;color:#6b7280">${c[5]}</td></tr>`).join("")}
+  <tr style="color:#9ca3af"><td colspan="6" style="text-align:center;padding:8px">+ ${K.partnerCr-5}명 더보기</td></tr></tbody></table>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb"><b style="font-size:12px">시딩 ∩ 광고 교집합</b>
+  <div style="font-size:10px;color:#9ca3af;margin:4px 0 8px">광고(Meta)에 등장하면서 오가닉 시딩(TK/IG/YT)도 한 크리에이터 — 핸들 정규화 매칭</div>
+  <table class="t"><thead><tr><th>크리에이터</th><th>시딩 채널</th><th>티어</th><th class="r">팔로워</th><th class="r">광고 수</th></tr></thead><tbody>
+  ${FX.overlap.map(o=>`<tr><td><b>${o[0]}</b></td><td><span class="ch-pill pill-${o[1]==="tiktok"?"tk":o[1]==="instagram"?"ig":"yt"}">${o[1]==="tiktok"?"TK":o[1]==="instagram"?"IG":"YT"}</span></td><td style="color:#6b7280">${o[2]}</td><td class="r mono" style="color:#6b7280">${fmtF(o[3])}</td><td class="r mono">${o[4]}</td></tr>`).join("")}</tbody></table></div></div>`;
+}
+
+/* ── 용어 사전 ── */
+function glossary(){
+  const terms=[["티어","팔로워 규모 구간. 메가 1M+ · 매크로 500K+ · 미드 100K+ · 마이크로 10K+ · 나노 1K+ · 서브나노 <1K"],["스파크애즈 (광고 집행)","크리에이터 영상을 브랜드가 유료 광고로 부스팅한 것 (is_ad)"],["organic","광고 집행 없이 자연 노출된 영상"],["gifted / seeded (시딩)","제품 무상 제공 대가 콘텐츠. 캡션 #gifted·#pr 매칭으로 추정"],["BSR","Amazon Best Sellers Rank — 낮을수록 잘 팔림"],["GMV","기간 내 총 거래액 (판매가 × 수량)"],["Lifetime GMV","해당 크리에이터가 전 브랜드 통틀어 TikTok Shop에서 만든 누적 매출"],["클러스터 / 앵글","비슷한 hook·구성의 영상 묶음 = 콘텐츠 포맷 패턴 (Vision 자동 분류)"],["USP 키워드","캡션에서 반복 추출된 소구점 키워드"],["partnership 광고","크리에이터 계정 명의로 집행된 브랜드 광고 (whitelisting)"],["landing","광고 클릭 도착지 (Amazon / DTC 자사몰 / IG 등)"],["캐시 스냅샷","화면 수치는 분석 시점 저장값 — 실시간 아님. 추정치는 ~ 표기"],["표본 (Vision)","영상 태깅은 전량이 아닌 표본만 분석 — 각 섹션에 표본 % 라벨"],["변곡점","전월 대비 BSR 40%+ 개선 & 8만위 이내 진입 시점"],["분석 기간 필터","헤더에서 기간 선택 시 영상·광고 지표를 그 기간으로 재집계 (재분석 아님 · $0). 티어·태그는 영상/인플 속성이라 유지, 정의문·매출은 별도 축 라벨"]];
+  return `<div class="section" id="sec-gloss"><div class="section-h"><span class="letter">📖</span><span class="title">용어 사전</span><span class="sub">화면 용어 — 영문·내부 코드 노출 방지 (U3)</span></div>
+  <dl class="glossary">${terms.map(t=>`<dt>${t[0]}</dt><dd>${t[1]}</dd>`).join("")}</dl></div>`;
+}
+
+/* ══════════ 이벤트 바인딩 ══════════ */
+function bind(){
+  document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>toast("프로토: 실화면에서 "+({csv:"CSV 다운로드",tier:"매출 tier 수정 모달",region:"region scope 토글",del:"케이스 삭제 확인"})[b.dataset.act]));
+  document.querySelectorAll("[data-rerun]").forEach(b=>b.onclick=e=>{e.preventDefault();toast("프로토: 해당 phase 단독 재실행 (startAnalysis · skipAutoForce)");});
+  document.querySelectorAll("[data-ch]").forEach(b=>b.onclick=e=>{e.preventDefault();const c=b.dataset.ch;S.openCh=S.openCh===c?null:c;S.dcOpen=true;render();});
+  const dcEl=document.getElementById("sec-channels");if(dcEl)dcEl.ontoggle=()=>{S.dcOpen=dcEl.open;};
+  document.querySelectorAll("[data-pset]").forEach(b=>b.onclick=()=>{const v=b.dataset.pset;if(v==="all"){S.pStart=0;S.pEnd=11;}else if(v==="3m"){S.pStart=9;S.pEnd=11;}else{S.pStart=8;S.pEnd=11;}S.aHover=null;render();});
+  const pS1=$("pStart");if(pS1)pS1.onchange=()=>{S.pStart=+pS1.value;if(S.pStart>S.pEnd)S.pEnd=S.pStart;S.aHover=null;render();};
+  const pS2=$("pEnd");if(pS2)pS2.onchange=()=>{S.pEnd=+pS2.value;if(S.pEnd<S.pStart)S.pStart=S.pEnd;S.aHover=null;render();};
+  document.querySelectorAll("[data-run]").forEach(b=>b.onclick=e=>{e.stopPropagation();toast(b.dataset.run==="free"?"✓ 무료 phase 재실행 트리거 (프로토)":"⚠ 유료 phase — 실화면은 confirm 후 실행");});
+  // A
+  document.querySelectorAll("[data-ach]").forEach(b=>b.onclick=()=>{S.aCh=b.dataset.ach;S.aHover=null;render();});
+  document.querySelectorAll("[data-abar]").forEach(b=>b.onclick=()=>{S.aBar=b.dataset.abar;render();});
+  document.querySelectorAll("[data-atg]").forEach(b=>b.onclick=()=>{S.aShow[b.dataset.atg]=!S.aShow[b.dataset.atg];render();});
+  document.querySelectorAll("[data-bar]").forEach(b=>{b.onmouseenter=()=>{S.aHover=+b.dataset.bar;render();};});
+  const sb=document.querySelector(".stack-bars");if(sb)sb.onmouseleave=()=>{S.aHover=null;render();};
+  document.querySelectorAll("[data-emb]").forEach(b=>b.onclick=()=>toast("프로토: TikTok 임베드 로드 — "+b.dataset.emb));
+  // B
+  document.querySelectorAll("[data-bch]").forEach(b=>b.onclick=()=>{S.bCh=b.dataset.bch;S.bTier=null;render();});
+  document.querySelectorAll("[data-btier]").forEach(b=>b.onclick=()=>{S.bTier=S.bTier===b.dataset.btier?null:b.dataset.btier;render();});
+  document.querySelectorAll("[data-bsort]").forEach(b=>b.onclick=()=>{S.bSort=b.dataset.bsort;render();});
+  document.querySelectorAll("[data-bexp]").forEach(r=>r.onclick=()=>{S.bExp=S.bExp===r.dataset.bexp?null:r.dataset.bexp;render();});
+  const bM=$("bMore");if(bM)bM.onclick=e=>{e.stopPropagation();S.bMore=!S.bMore;render();};
+  const bMo=$("bMonth");if(bMo)bMo.onchange=()=>{S.bMonth=bMo.value;render();};
+  const bUs=$("bUs");if(bUs)bUs.onchange=()=>{S.bUs=bUs.checked;render();};
+  // C
+  document.querySelectorAll("[data-ctab]").forEach(b=>b.onclick=()=>{S.cTab=b.dataset.ctab;render();});
+  document.querySelectorAll("[data-cch]").forEach(b=>b.onclick=()=>{S.cCh=b.dataset.cch;render();});
+  document.querySelectorAll("[data-cexp]").forEach(c=>c.onclick=()=>{S.cExp=S.cExp===c.dataset.cexp?null:c.dataset.cexp;render();});
+  document.querySelectorAll("[data-ckw]").forEach(k=>k.onclick=()=>{S.cKw=k.dataset.ckw;render();});
+  const cH=$("cHeat");if(cH)cH.onchange=()=>{S.cHeat=cH.value;render();};
+  document.querySelectorAll("[data-ctier-cell]").forEach(c=>c.onclick=()=>{S.cTab="clu";S.cExp=c.dataset.ctierCell;render();toast("티어×앵글 셀 → 클러스터 탭 점프 (배포판 동일)");});
+  document.querySelectorAll("[data-catm]").forEach(b=>b.onclick=()=>{S.cAtmTier=b.dataset.catm;render();});
+  // D
+  const dP=$("dPeriod");if(dP)dP.onchange=()=>{S.dPeriod=+dP.value;render();};
+  document.querySelectorAll("[data-dchn]").forEach(b=>b.onclick=()=>{S.dChn=b.dataset.dchn;S.dSku="all";render();});
+  document.querySelectorAll("[data-dsku]").forEach(b=>b.onclick=()=>{S.dSku=b.dataset.dsku;render();});
+  document.querySelectorAll("[data-dtab]").forEach(b=>b.onclick=()=>{S.dTab=b.dataset.dtab;render();});
+  const dSA=$("dSkuAll");if(dSA)dSA.onclick=()=>{S.dSkuAll=!S.dSkuAll;render();};
+  // E
+  const eS=$("eSearch");if(eS){eS.oninput=()=>{S.eSearch=eS.value;const v=eS.value;render();const n=$("eSearch");n.value=v;n.focus();n.setSelectionRange(v.length,v.length);};}
+  [["eBrand","eBrand"],["eActive","eActive"],["eRetail","eRetail"],["ePartner","ePartner"]].forEach(([id,key])=>{const el=$(id);if(el)el.onchange=()=>{S[key]=el.checked;render();};});
+  const eM=$("eMore");if(eM)eM.onclick=()=>{S.eShow+=12;render();};
+}
+render();
+</script>
