@@ -5,11 +5,15 @@
  * 저장돼 있어, 라이브 집계 쿼리에 uploaded_at/posted_at/start_date 조건만 건다
  * (유료 phase 재실행 $0). 이퀄베리 "4/1 이후 성과만 보기" 니즈에서 도입 (2026-07-19).
  *
- * v1 적용 범위:
+ * 적용 범위:
  *   - 기간 재집계: TK 영상 월별/총량(liveTkMonthly), TK 인플 풀(allTkCreators),
  *     Meta 광고 리스트, 클러스터 멤버 재집계, BSR 시계열, 주간 viral views
- *   - 전 기간 유지(라벨로 고지): IG/YT 명단(작성자 단위 — 게시일 조인 필요),
- *     클러스터 정의문·USP 사전(전 기간 코퍼스 산출물), 매출 30d 스냅샷(별도 축)
+ *   - IG/YT 명단 (BE-15, 2026-07-19): ig_posts.posted_at / yt_videos.uploaded_at로 "기간 내
+ *     활동 작성자/채널" 집합을 만들어 명단(top authors·tier·pool)을 membership 필터 + 직접
+ *     post 기반 리스트(월별·소스·top-paid·해시태그/타입)에 게시일 WHERE. enrich(followers·
+ *     tier)는 ig_authors/yt_channels 값 보존(집합만 기간 제약).
+ *   - 전 기간 유지(라벨로 고지): 클러스터 정의문·USP 사전(전 기간 코퍼스 산출물),
+ *     매출 30d 스냅샷(별도 축)
  */
 
 export type PeriodScope = { start: string | null; end: string | null };

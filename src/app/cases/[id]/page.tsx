@@ -461,6 +461,34 @@ export default async function CaseDetailPage({
   let crossPlatformMatches: CrossPlatformMatch[] = [];
 
   if (isReady && phase4dStats && !phase4dStats.skipped_reason) {
+    // ★ BE-15: 기간 필터 YT 확장. yt_channels는 전기간 집계라 게시일 없음 → yt_videos.uploaded_at로
+    //   "기간 내 업로드한 channel_name 집합"을 만들어 명단을 membership 필터(subscriber 등 enrich 보존).
+    let ytActiveChannels: Set<string> | null = null;
+    if (psStart || psEndTs) {
+      ytActiveChannels = new Set<string>();
+      try {
+        const PAGE = 1000;
+        for (let off = 0; off < 100000; off += PAGE) {
+          let q = supabase
+            .from("yt_videos")
+            .select("channel_name, uploaded_at")
+            .eq("case_id", c.id)
+            .not("uploaded_at", "is", null);
+          if (psStart) q = q.gte("uploaded_at", psStart);
+          if (psEndTs) q = q.lte("uploaded_at", psEndTs);
+          const { data } = await q.range(off, off + PAGE - 1);
+          if (!data || data.length === 0) break;
+          for (const r of data)
+            if (r.channel_name) ytActiveChannels.add(r.channel_name);
+          if (data.length < PAGE) break;
+        }
+      } catch (e) {
+        console.warn("[yt] active-channel set fail:", e);
+      }
+    }
+    const ytInPeriod = (channel: string | null | undefined) =>
+      !ytActiveChannels || (!!channel && ytActiveChannels.has(channel));
+
     try {
       const { data: chRaw } = await supabase
         .from("yt_channels")
@@ -469,9 +497,11 @@ export default async function CaseDetailPage({
         )
         .eq("case_id", c.id)
         .order("max_views", { ascending: false, nullsFirst: false })
-        .limit(regionScope === "us-only" ? 60 : 25);
-      const filtered = (chRaw ?? []).filter((c2) =>
-        regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true,
+        .limit(regionScope === "us-only" || ytActiveChannels ? 300 : 25);
+      const filtered = (chRaw ?? []).filter(
+        (c2) =>
+          (regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true) &&
+          ytInPeriod(c2.channel_name),
       );
       ytTopChannels = filtered.slice(0, 25) as YtChannelRow[];
     } catch (e) {
@@ -479,13 +509,16 @@ export default async function CaseDetailPage({
     }
 
     try {
-      const { data: paidRaw } = await supabase
+      let paidQ = supabase
         .from("yt_videos")
         .select(
           "id, yt_id, channel_name, title, description, view_count, like_count, paid_signal, monetization_status, url, thumbnail_url, type, duration_seconds",
         )
         .eq("case_id", c.id)
-        .not("paid_signal", "is", null)
+        .not("paid_signal", "is", null);
+      if (psStart) paidQ = paidQ.gte("uploaded_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) paidQ = paidQ.lte("uploaded_at", psEndTs);
+      const { data: paidRaw } = await paidQ
         .order("view_count", { ascending: false, nullsFirst: false })
         .limit(regionScope === "us-only" ? 30 : 12);
       const filtered = (paidRaw ?? []).filter((v) =>
@@ -499,11 +532,13 @@ export default async function CaseDetailPage({
     }
 
     try {
-      const { data: srcRaw } = await supabase
+      let srcQ = supabase
         .from("yt_videos")
-        .select("source, channel_name")
-        .eq("case_id", c.id)
-        .limit(5000);
+        .select("source, channel_name, uploaded_at")
+        .eq("case_id", c.id);
+      if (psStart) srcQ = srcQ.gte("uploaded_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) srcQ = srcQ.lte("uploaded_at", psEndTs);
+      const { data: srcRaw } = await srcQ.limit(5000);
       const srcMap = new Map<string, { videos: number; channels: Set<string> }>();
       for (const r of srcRaw ?? []) {
         if (!r.source) continue;
@@ -531,8 +566,10 @@ export default async function CaseDetailPage({
         )
         .eq("case_id", c.id)
         .limit(5000);
-      const filtered = (allCh ?? []).filter((c2) =>
-        regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true,
+      const filtered = (allCh ?? []).filter(
+        (c2) =>
+          (regionScope === "us-only" ? isLikelyUs(null, c2.channel_name) : true) &&
+          ytInPeriod(c2.channel_name), // ★ BE-15: 기간 내 활동 채널만 tier/pool 반영
       );
       ytTierDist = tierDistributionYt(
         filtered.map((c2) => ({
@@ -559,12 +596,14 @@ export default async function CaseDetailPage({
 
     // YT 월별 트렌드
     try {
-      const { data: monthRaw } = await supabase
+      let monthQ = supabase
         .from("yt_videos")
         .select("uploaded_at, paid_signal, view_count, channel_name")
         .eq("case_id", c.id)
-        .eq("brand_matched", true)
-        .limit(5000);
+        .eq("brand_matched", true);
+      if (psStart) monthQ = monthQ.gte("uploaded_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) monthQ = monthQ.lte("uploaded_at", psEndTs);
+      const { data: monthRaw } = await monthQ.limit(5000);
       const filtered = (monthRaw ?? []).filter((r) =>
         regionScope === "us-only" ? isLikelyUs(null, r.channel_name) : true,
       );
@@ -574,12 +613,14 @@ export default async function CaseDetailPage({
     }
 
     try {
-      const { data: typeRaw } = await supabase
+      let typeQ = supabase
         .from("yt_videos")
-        .select("type, paid_signal")
+        .select("type, paid_signal, uploaded_at")
         .eq("case_id", c.id)
-        .eq("brand_matched", true)
-        .limit(5000);
+        .eq("brand_matched", true);
+      if (psStart) typeQ = typeQ.gte("uploaded_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) typeQ = typeQ.lte("uploaded_at", psEndTs);
+      const { data: typeRaw } = await typeQ.limit(5000);
       const typeMap = new Map<string, { count: number; paid: number }>();
       for (const r of typeRaw ?? []) {
         const t = r.type ?? "unknown";
@@ -650,6 +691,35 @@ export default async function CaseDetailPage({
   const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
 
   if (isReady && phase4cStats && !phase4cStats.skipped_reason) {
+    // ★ BE-15: 기간 필터 IG 확장. ig_authors는 전기간 집계라 게시일이 없어 v1에서 제외됐음
+    //   → ig_posts.posted_at로 "기간 내 게시한 작성자 username 집합"을 만들어 명단(roster)을
+    //   그 집합으로 membership 필터(followers·tier 등 enrich는 보존). 기간 미설정이면 null=무필터.
+    let igActiveUsernames: Set<string> | null = null;
+    if (psStart || psEndTs) {
+      igActiveUsernames = new Set<string>();
+      try {
+        const PAGE = 1000;
+        for (let off = 0; off < 100000; off += PAGE) {
+          let q = supabase
+            .from("ig_posts")
+            .select("owner_username, posted_at")
+            .eq("case_id", c.id)
+            .not("posted_at", "is", null);
+          if (psStart) q = q.gte("posted_at", psStart);
+          if (psEndTs) q = q.lte("posted_at", psEndTs);
+          const { data } = await q.range(off, off + PAGE - 1);
+          if (!data || data.length === 0) break;
+          for (const r of data)
+            if (r.owner_username) igActiveUsernames.add(r.owner_username);
+          if (data.length < PAGE) break;
+        }
+      } catch (e) {
+        console.warn("[ig] active-username set fail:", e);
+      }
+    }
+    const igInPeriod = (username: string | null | undefined) =>
+      !igActiveUsernames || (!!username && igActiveUsernames.has(username));
+
     // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
     try {
       // region_scope=us-only면 fetch 후 휴리스틱 필터. limit 늘려서 필터 후에도 25개 남게.
@@ -660,9 +730,12 @@ export default async function CaseDetailPage({
         )
         .eq("case_id", c.id)
         .order("max_likes", { ascending: false, nullsFirst: false })
-        .limit(regionScope === "us-only" ? 60 : 25);
-      const filtered = (authorsRaw ?? []).filter((a) =>
-        regionScope === "us-only" ? isLikelyUs(null, a.username) : true,
+        // 기간 필터 시 membership 후에도 25개 남게 headroom 확대(us-only와 동일 이유).
+        .limit(regionScope === "us-only" || igActiveUsernames ? 300 : 25);
+      const filtered = (authorsRaw ?? []).filter(
+        (a) =>
+          (regionScope === "us-only" ? isLikelyUs(null, a.username) : true) &&
+          igInPeriod(a.username),
       );
       igTopAuthors = filtered.slice(0, 25) as IgAuthorRow[];
     } catch (e) {
@@ -670,13 +743,16 @@ export default async function CaseDetailPage({
     }
 
     try {
-      const { data: paidRaw } = await supabase
+      let paidQ = supabase
         .from("ig_posts")
         .select(
           "id, owner_username, owner_full_name, caption, likes_count, comments_count, video_play_count, paid_signal, url, display_url, posted_at",
         )
         .eq("case_id", c.id)
-        .not("paid_signal", "is", null)
+        .not("paid_signal", "is", null);
+      if (psStart) paidQ = paidQ.gte("posted_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) paidQ = paidQ.lte("posted_at", psEndTs);
+      const { data: paidRaw } = await paidQ
         .order("video_play_count", { ascending: false, nullsFirst: false })
         .limit(regionScope === "us-only" ? 30 : 12);
       const filtered = (paidRaw ?? []).filter((v) =>
@@ -691,11 +767,13 @@ export default async function CaseDetailPage({
 
     try {
       // 큰 fetch 위험 — limit 5000으로 cap
-      const { data: srcRaw } = await supabase
+      let srcQ = supabase
         .from("ig_posts")
-        .select("source, owner_username")
-        .eq("case_id", c.id)
-        .limit(5000);
+        .select("source, owner_username, posted_at")
+        .eq("case_id", c.id);
+      if (psStart) srcQ = srcQ.gte("posted_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) srcQ = srcQ.lte("posted_at", psEndTs);
+      const { data: srcRaw } = await srcQ.limit(5000);
       const srcMap = new Map<
         string,
         { posts: number; authors: Set<string> }
@@ -728,8 +806,10 @@ export default async function CaseDetailPage({
         .select("username, max_likes, max_views, paid_posts, brand_matched_posts, total_likes")
         .eq("case_id", c.id)
         .limit(5000);
-      const filtered = (allAuthors ?? []).filter((a) =>
-        regionScope === "us-only" ? isLikelyUs(null, a.username) : true,
+      const filtered = (allAuthors ?? []).filter(
+        (a) =>
+          (regionScope === "us-only" ? isLikelyUs(null, a.username) : true) &&
+          igInPeriod(a.username), // ★ BE-15: 기간 내 활동 작성자만 tier/pool 반영
       );
       igTierDist = tierDistributionIg(
         filtered.map((a) => ({
@@ -755,12 +835,14 @@ export default async function CaseDetailPage({
 
     // IG 월별 트렌드 (posted_at + paid_signal)
     try {
-      const { data: monthRaw } = await supabase
+      let monthQ = supabase
         .from("ig_posts")
         .select("posted_at, paid_signal, likes_count, owner_username")
         .eq("case_id", c.id)
-        .eq("brand_matched", true)
-        .limit(5000);
+        .eq("brand_matched", true);
+      if (psStart) monthQ = monthQ.gte("posted_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) monthQ = monthQ.lte("posted_at", psEndTs);
+      const { data: monthRaw } = await monthQ.limit(5000);
       const filtered = (monthRaw ?? []).filter((r) =>
         regionScope === "us-only" ? isLikelyUs(null, r.owner_username) : true,
       );
@@ -770,12 +852,14 @@ export default async function CaseDetailPage({
     }
 
     try {
-      const { data: hashtagRaw } = await supabase
+      let hashQ = supabase
         .from("ig_posts")
-        .select("hashtags, paid_signal")
+        .select("hashtags, paid_signal, posted_at")
         .eq("case_id", c.id)
-        .eq("brand_matched", true)
-        .limit(5000);
+        .eq("brand_matched", true);
+      if (psStart) hashQ = hashQ.gte("posted_at", psStart); // ★ BE-15 기간 필터
+      if (psEndTs) hashQ = hashQ.lte("posted_at", psEndTs);
+      const { data: hashtagRaw } = await hashQ.limit(5000);
       const tagMap = new Map<string, { posts: number; paid: number }>();
       for (const r of hashtagRaw ?? []) {
         if (!Array.isArray(r.hashtags)) continue;
