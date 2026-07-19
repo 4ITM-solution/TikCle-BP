@@ -19,6 +19,8 @@
 | BE-12 | ✅ [CX1-F2] phase 의존 DAG — 설계 확정본 그대로. `PHASE_DOWNSTREAM` 상수 + `enqueueDownstream`(체인 threading — collect-meta는 tag→serve-stats로 cluster/sku 건너뜀) in shared.ts, `case/phase.requested`에 cascade/cascade_chain 필드, 오케스트레이터 invoke는 cascade:false(이중실행 차단), 10개 phase 실작업 성공 return 직전 hook(serve-stats 종단 제외, interpret-tag는 partial 보류). spec/02 §3.1+§7 갱신. tsc 통과. **라이브 cascade 검증 통과**(08cc: sku→serve-stats 자동 동반 실측, 2026-07-08) | BE12_DAG_설계.md | tsc + 소형 케이스 cascade 검증(ORCH) |
 
 | BE-13 | [BE-11 후속] phase4a-intel `fetchReusableAdIntel` 동일 fail-open 패턴 수정 — 광고 dedup 조회 에러도 throw로 표면화 (BE-11의 vision 쪽과 동일 처리) | ⬜ | WS5_REPORT BE-11 플래그 | tsc |
+| BE-14 | Helium10 Sales History(일별 판매 추정) 적재 파서 — Amazon 케이스 기간 정확 매출 시계열. 새 업로드 포맷+파서+period 필터 연동 | ⏸ 사용자 보류(2026-07-19 "일단 아니야") — 승인 시 착수 | 기간 필터 v1(54acafc 이후) 논의 | 파서+tsc+실적재 1케이스 |
+| BE-15 | 기간 필터 IG/YT 확장 — ig_posts/yt_videos 게시일 조인으로 IG/YT 명단도 period_scope 반영 (v1은 TK·광고·클러스터·BSR만) | ⬜ | period-filter.ts v1 주석 | tsc + 실화면 |
 
 ## QA 레인
 
@@ -41,6 +43,7 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
+| FE-2 | 케이스 상세 프로토 v8 확정 시 **1:1 구현** (재해석·축소 금지) — 개선 13건 + 전역 기간 필터 UI. 정본: docs/design/prototype/bp-case-proto-v8.html + 아티팩트 f30052b0 | ⏸ 사용자 프로토 검수 대기 | PROTOTYPE_PROTOCOL.md §5 | 프로토 대비 블록 diff 0 |
 | FE-1 | **현행 화면 유지 + 갭 17항목 결선** — 우선순위 A(기능7)→C(UX6)→B(신뢰7), 리디자인 금지. migration 019 작성 포함 | ✅ 브랜치 `ws-4b-screens` — 17항목 전부 항목별 커밋(A1~A7·C1~C6·B1~B7) + REPORT(6e2ebc9). tsc 전부 통과. 실화면 QA 3케이스(medicube·Foodology·Nature Republic) 스크린샷 확인 — 크래시·콘솔에러 없음, 019 미적용 그레이스풀 폴백 확인. **검증·머지는 ORCH.** ⚠️ ORCH 조치: ①migration 019 apply+A1백필+재QA ②로컬 main 쓰레기 커밋 48faa29 정리(git reset --hard 70cffac) | docs/ws/WS4_지시서.md 확정판 | 항목별 커밋 + 실화면 QA 3케이스 |
 
 ## ORCH 직영 (운영 배치·게이트)
