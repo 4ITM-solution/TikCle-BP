@@ -1,0 +1,625 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"downloads":"downloads.BABDwU1K.js","mcp":"mcp.hoz5jxDa.js","permissions":"permissions.ByA9Fd8x.js","self":"self.D3u1zjZe.js","user":"user.Cp1-RnjB.js"},"transforms":"_transforms.DYk1Ltlh.js","comments":"_comments.Dp6RDy7J.js","translate":"_translate.C9eLA9Mu.js"}</script><script>(function(){"use strict";const Ee="modulepreload",we=function(e){return"/"+e},Se={},ee=function(t,n,c){let i=Promise.resolve();function s(u){const a=new Event("vite:preloadError",{cancelable:!0});if(a.payload=u,window.dispatchEvent(a),!a.defaultPrevented)throw u}return i.then(u=>{for(const a of u||[])a.status==="rejected"&&s(a.reason);return t().catch(s)})},te=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function H(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function re(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&te.includes(n)}function se(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}const oe=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))}));function W(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let n=null;for(let u=0;u<t.length;u++){const a=t[u];if(a&&a.matches&&a.matches("a[href],area[href]")){n=a;break}}if(!n&&e.target&&e.target.closest&&(n=e.target.closest("a[href],area[href]")),!n)return;const c=n.getAttribute("href");if(!c)return;let i,s;try{i=new URL(c,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}const Y={};function C(e){if(window===top)return;const t=Date.now();t-(Y[e]||0)<500||(Y[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}const ie=2e3,K=["wheel","touchstart","touchmove","keydown","pointerdown"];let x=0;function ae(e){e.isTrusted&&(x=Date.now())}function ce(){addEventListener("click",W,!0),addEventListener("auxclick",W,!0)}function le(){for(let e=0;e<K.length;e++)addEventListener(K[e],ae,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-x<ie&&C("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&C("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&C("click")},{capture:!0,passive:!0})}const D="__frame_scroll",ue=150,fe=310,de=160,me=3e4;function pe(){let e=0,t=!1,n=!1,c=!1,i=0;const s=d=>{try{sessionStorage.setItem(D,JSON.stringify({y:d}))}catch{}},u=()=>{if(t){t=!1;return}n=!0,clearTimeout(e),e=setTimeout(()=>s(scrollY),ue)};try{addEventListener("scroll",u,{passive:!0}),addEventListener("pagehide",()=>{clearTimeout(e),s(scrollY)})}catch{}const a=()=>{let d;try{d=sessionStorage.getItem(D)}catch{return null}if(d===null)return null;let h;try{h=JSON.parse(d)}catch{h=null}const g=h?.y;if(!(typeof g=="number"&&Number.isFinite(g)&&g>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return g};let y=!1;const _=d=>{try{const h=scrollY;scrollTo({top:d,left:0,behavior:"instant"}),i=d,c=!0,s(d);const g=scrollY;g!==h&&(t=!0),g!==d&&!y&&(y=!0,addEventListener("load",()=>{try{if(scrollY===g){const b=a();_(b!==null?b:i)}}catch{}},{once:!0}))}catch{}},o=()=>{try{return!!location.hash}catch{return!0}};let l=!1;const p=()=>{try{if(l||innerWidth>fe||innerHeight>de)return;l=!0;const d=Date.now(),h=()=>{try{removeEventListener("resize",h)}catch{}if(Date.now()-d>me||n||o())return;const g=a();_(g!==null?g:i)};addEventListener("resize",h)}catch{}};let m=!1,f=!1;return{restore(){if(m||(m=!0,o()))return;const d=a();d!==null&&(_(d),p())},promoted(){if(f||(f=!0,o()))return;const d=a();d!==null?(_(d),p()):c&&_(i)}}}function he(e,t,n){const c=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const u=`${e}.${i}`,a=c.filter(y=>y.targets.includes(u));return a.length===0?(...y)=>{try{return s(...y)}catch(_){return Promise.reject(_)}}:(...y)=>{let _=y;for(const l of a){const p=l.module.parameters;if(p)try{_=p(_)}catch{return Promise.reject({code:"transform_error",id:l.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(..._)}catch(l){o=Promise.reject(l)}return o.then(l=>{for(let p=a.length-1;p>=0;p--){const m=a[p],f=m.module.returns;if(f)try{l=f(l)}catch{return n({id:m.id,scope:e,leg:"returns"}),l}}return l},l=>{for(let p=a.length-1;p>=0;p--){const m=a[p],f=m.module.throws;if(f)try{l=f(l)}catch{return n({id:m.id,scope:e,leg:"throws"}),Promise.reject(l)}}return Promise.reject(l)})}}}}function ge(e,t,n,c=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const u of i){const a=t[u];a&&s.set(u,a)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:n.shellOrigin,mount:n.mount,pipe:u=>he(u,s,c)}}(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let c=0;for(let i=0;i<n.length;i++){const s=n[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&c++}if(c&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:c},"*")}catch{}})();const _e=1e4,ye=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function J(e){for(const t of ye)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}const R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),I=window.__FRAME_PREAMBLE?.transforms,U=window.__FRAME_PREAMBLE?.comments,z=window.__FRAME_PREAMBLE?.translate,T=/^[\w.-]+\.js$/,be=/^[a-z][a-z0-9_-]{0,63}$/;let G=null,j=null;function $(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}let q=!1;function V(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,q=!0):q&&(delete t.dataset.theme,t.style.colorScheme="",q=!1)}const A=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),M=new Map;function X(e,t){const n=M.get(e);if(!n)return;const c=Object.assign(Object.create(null),t);Object.assign(n.impl,c),n.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=n.queue;n.queue=[];for(const s of i){const u=c[s.method];if(u)if(A[e]?.[s.method])try{s.resolve(u(...s.args))}catch{k(s,A[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else u(...s.args).then(s.resolve,s.reject);else{const a={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},y=A[e]?.[s.method];if(y){k(s,y.handlerArg,a);continue}s.reject(a)}}}function ve(e,t){const n=M.get(e);if(!n)return;n.impl.__settled=()=>Promise.reject(t);const c=n.queue;n.queue=[];for(const i of c){const s=A[e]?.[i.method];if(s){k(i,s.handlerArg,t);continue}i.reject(t)}}function N(e,t){const n=oe[e];if(!n){ve(e,t);return}X(e,Object.fromEntries(Object.entries(n).map(([c,i])=>[c,()=>Promise.resolve(i)])))}function k(e,t,n){if(e.syncState?.dead)return;const c=e.args[t];typeof c=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{c({type:"error",error:n})}catch(i){se(i)}})}const B=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(B&&B.writable===!1)){ce(),le();let e=null;try{e=pe()}catch{}const t=B?.value??{};$(window,"claude",t);const n=o=>{const l={impl:Object.create(null),queue:[]};M.set(o,l);const p=new Proxy(l.impl,{get:(m,f)=>{if(typeof f!="string"||f==="then"||f==="toJSON"||f==="valueOf")return;if(f==="toString")return Object.prototype.toString;const d=A[o]?.[f];return d?(...h)=>{if(typeof h[d.handlerArg]!="function")throw new TypeError(`${o}.${f} requires a handler function`);const g=m[f];if(g)return g(...h);if(m.__settled){const w={dead:!1},S={args:[...h],syncState:w};return m.__settled().catch(P=>k(S,d.handlerArg,P)),()=>{w.dead=!0}}let b=null;const v={dead:!1};return l.queue.push({method:f,args:h,resolve:w=>{b=typeof w=="function"?w:null,v.dead&&b?.()},reject:()=>{},syncState:v}),()=>{v.dead=!0,b?.()}}:(...h)=>{const g=m[f]??m.__settled;return g?g(...h):new Promise((b,v)=>{l.queue.push({method:f,args:h,resolve:b,reject:v})})}},set:()=>!1});$(t,o,p)};for(const o of Object.keys(R)){if(t[o]!==void 0){$(t,o,t[o]);continue}n(o)}let c=null,i=null,s=0;const u=o=>{o.source!==parent||!J(o.origin)||ne(o.data)&&(c=o.data.__frame_init,j=o.origin,removeEventListener("message",u),clearTimeout(s),i?.())};addEventListener("message",u),parent.postMessage({__frame_connect:!0},"*");const a=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",u),o()},_e)}),y=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();y.then(()=>{try{e?.restore()}catch{}});const _=o=>{if(!(o.source!==parent||!J(o.origin))&&H(o.data)){removeEventListener("message",_);try{e?.promoted()}catch{}}};addEventListener("message",_),a.then(async()=>{if(!c||!j){for(const r of M.keys())N(r,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}V(c.theme);const o=j;let l=!1,p=!1;addEventListener("message",r=>{if(r.source!==parent||r.origin!==o)return;re(r.data)&&V(r.data.__frame_theme.theme);const E=r.data?.__fc_mode;E&&typeof E=="object"&&!l&&U&&T.test(U)&&(l=!0,m(U).then(F=>F.install?.(o,E.on===!0)).catch(()=>{}));const O=r.data?.__ft_cmd;O&&typeof O=="object"&&!p&&z&&T.test(z)&&(p=!0,m(z).then(F=>F.install?.(o,O)).catch(()=>{}))});const m=r=>ee(()=>import("/_runtime/"+r),void 0),f=Object.keys(c.capabilities??{});for(const r of f)Object.hasOwn(R,r)||be.test(r)&&t[r]===void 0&&(n(r),N(r,{code:"capability_disabled",message:"capability not in this runtime generation"}));const d=f.filter(r=>Object.hasOwn(R,r)).map(r=>[r,R[r]]).filter(r=>typeof r[1]=="string"&&T.test(r[1])),[h,...g]=await Promise.allSettled([I&&T.test(I)?m(I):Promise.resolve({}),...d.map(([,r])=>m(r))]),b=j;G=ge(c,h.status==="fulfilled"&&h.value?.TRANSFORMS||{},{shellOrigin:b,mount:X},r=>parent.postMessage({__frame_cap_telemetry:r},b));const v=r=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:r}},b),w=G;g.forEach((r,E)=>{const O=d[E][0];if(r.status!=="fulfilled"){v(O);return}try{r.value?.install?.(w)}catch{v(O)}});for(const[r,E]of M)if(!(E.queue.length===0&&Object.keys(E.impl).length>0)){if(f.includes(r)){N(r,{code:"capability_disabled",message:"capability not available in this session"});continue}N(r,{code:"not_granted",message:"capability not available in this session"})}await y,parent.postMessage({__frame_ready:!0},j);let S=-1,P=0;const Q=()=>{P=0;const r=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);r!==S&&(S=r,parent.postMessage({__frame_size:!0,h:r},b))},L=()=>{P||(P=setTimeout(Q,200))},Z=new ResizeObserver(L);Z.observe(document.documentElement),document.body&&Z.observe(document.body),document.addEventListener("load",L,!0),document.fonts?.ready.then(L,()=>{}),addEventListener("beforeprint",()=>{S=-1,Q()}),L(),addEventListener("message",r=>{if(!(r.source!==parent||r.origin!==b)&&H(r.data)){try{e?.promoted()}catch{}S=-1,L()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<meta charset="utf-8">
+<title>이퀄베리 × 메디테라피 — 프라임 윈도우 리포트 (4/1–7/15)</title>
+<style>
+:root{
+  --surface-1:#fcfcfb; --plane:#f9f9f7; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --eq:#2a78d6; --md:#1baf7a; --pt:#eda100;
+  --eq2:#4a3aa7; --eq3:#eb6834;
+  --good:#006300; --bad:#d03b3b;
+  --prime:rgba(237,161,0,.12); --prime-line:rgba(237,161,0,.55);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-1:#1a1a19; --plane:#0d0d0d; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --eq:#3987e5; --md:#199e70; --pt:#c98500;
+    --eq2:#9085e9; --eq3:#d95926;
+    --good:#0ca30c; --bad:#e66767;
+    --prime:rgba(201,133,0,.16); --prime-line:rgba(201,133,0,.6);
+  }
+}
+:root[data-theme="light"]{
+  --surface-1:#fcfcfb; --plane:#f9f9f7; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --eq:#2a78d6; --md:#1baf7a; --pt:#eda100; --eq2:#4a3aa7; --eq3:#eb6834;
+  --good:#006300; --bad:#d03b3b;
+  --prime:rgba(237,161,0,.12); --prime-line:rgba(237,161,0,.55);
+}
+:root[data-theme="dark"]{
+  --surface-1:#1a1a19; --plane:#0d0d0d; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --eq:#3987e5; --md:#199e70; --pt:#c98500; --eq2:#9085e9; --eq3:#d95926;
+  --good:#0ca30c; --bad:#e66767;
+  --prime:rgba(201,133,0,.16); --prime-line:rgba(201,133,0,.6);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font-family:system-ui,-apple-system,"Apple SD Gothic Neo",Pretendard,"Segoe UI","Malgun Gothic",sans-serif;
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:940px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+h1{font-size:31px;line-height:1.25;margin:10px 0 6px;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:20px;margin:0 0 4px;font-weight:800;letter-spacing:-.005em}
+h3{font-size:15px;margin:0 0 6px;font-weight:700}
+.sub{color:var(--ink-2);max-width:70ch}
+.section{margin-top:52px;padding-top:28px;border-top:1px solid var(--grid)}
+.secno{color:var(--muted);font-weight:700;font-size:12px;letter-spacing:.1em}
+.card{background:var(--surface-1);border:1px solid var(--ring);border-radius:10px;padding:18px 18px 14px;margin-top:14px}
+.chart-wrap{overflow-x:auto}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:2px 0 10px}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.tile{background:var(--surface-1);border:1px solid var(--ring);border-radius:10px;padding:14px 16px}
+.tile .l{font-size:12px;color:var(--muted);font-weight:600}
+.tile .v{font-size:27px;font-weight:800;letter-spacing:-.01em;margin:2px 0}
+.tile .d{font-size:12.5px;color:var(--ink-2)}
+.tile .up{color:var(--good);font-weight:700}
+.brand-eq{color:var(--eq);font-weight:700}
+.brand-md{color:var(--md);font-weight:700}
+td a{color:var(--eq);text-decoration:underline;text-underline-offset:2px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:10px}
+th{font-size:12px;color:var(--muted);text-align:left;font-weight:700;padding:7px 10px;border-bottom:1.5px solid var(--axis);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;border:1px solid var(--ring);background:var(--surface-1)}
+.pill.prime{background:var(--prime);border-color:var(--prime-line);color:var(--ink)}
+ul.keys{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:12px}
+ul.keys li{background:var(--surface-1);border:1px solid var(--ring);border-radius:10px;padding:13px 16px}
+ul.keys b{font-weight:800}
+.caveat li{margin-bottom:6px}
+.tt{position:fixed;pointer-events:none;background:var(--surface-1);border:1px solid var(--ring);
+  box-shadow:0 4px 14px rgba(0,0,0,.13);border-radius:8px;padding:8px 11px;font-size:12.5px;
+  z-index:9;display:none;max-width:260px;line-height:1.5}
+.tt b{font-variant-numeric:tabular-nums}
+.src{font-size:11.5px;color:var(--muted);margin-top:6px}
+footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--grid);font-size:12.5px;color:var(--muted)}
+svg text{font-family:inherit}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<div class="eyebrow">TikCle BP · Analyst Report · 2026-07-20</div>
+<h1>이퀄베리 × 메디테라피 US — 프라임 윈도우 캠페인 리포트</h1>
+<p class="sub">분석 기간 <b>2026-04-01 ~ 07-15</b> · 앵커 이벤트 <span class="pill prime">Amazon Prime Day 6/23–26</span><br>
+시딩(TikTok·IG) → 퍼포먼스(Meta·Spark) → 아마존 매출·BSR의 시간 정렬 분석. 모든 수치는 Supabase 원천 테이블 기준(각 섹션에 표기).</p>
+
+<!-- ================= 요약 ================= -->
+<div class="section">
+<div class="secno">01</div><h2>한눈 요약</h2>
+<ul class="keys">
+<li><b>프라임은 "새 광고를 켜는 날"이 아니라 "걸어둔 광고로 수확하는 날"이었다.</b> 프라임 4일간 <b>활성 광고는 이퀄베리 39건·메디테라피 91건</b>이 돌고 있었지만 신규 게시는 각 3건·5건뿐 — 운영의 무게는 <b>사전 빌드업</b>(이퀄베리: 6/9 파트너십 배치 + 프라임 주 시딩 정점 396편/주)과 <b>사후 수확</b>(메디테라피: 6/27~7/15 신규 168건, price_deal 훅 54건)에 있었다. ⚠ 단, 7/16 수집은 종료 광고를 거의 못 잡아(6/20~7/5 종료 광고 0건) <b>프라임에 잠깐 돌고 꺼진 단기 딜 광고는 판별 불가</b> — "당일 신규 없음"은 단정이 아니라 하한선.</li>
+<li><b>이퀄베리 = 포트폴리오 플레이.</b> 매출 $5.05M→$6.86M(+36%), Top1 비중 36.6%. 프라임에서 BSR 점프한 건 주력이 아니라 <b>NAD+ 라인</b>(세럼 597위→171위)이고, 이 라인 광고 소재(products_visible)와 시딩이 사전에 깔려 있었다.</li>
+<li><b>메디테라피의 프라임 실탄은 시딩이 아니라 "2차 가공 광고"였다.</b> 시딩 물량은 4월 폭발 후 프라임으로 갈수록 감소(주 438→164편)하고 조회수 피크도 프라임 전(6/15 주 3.6M → 6/29 주 9.1만 폭락) — 당일 시딩 푸시는 없었다. 대신 사후 신규 광고 168건 중 파트너십은 4건뿐, <b>UGC 2차 가공이 128건</b>. 시딩은 인지·소재를 쌓는 선행 공정, 프라임 수확은 그 소재를 재가공한 광고가 담당했다.</li>
+<li><b>메디테라피 = 단일 히어로 돌파.</b> 4월 시딩 폭탄(주 400편+, 신규 크리에이터 비중 99%) → 6월 중순 조회수 정점(주 3.6M, 프라임 직전) → 프라임 직후 UGC 광고 총공세 → <b>레티날 세럼 한 SKU가 $4.03M로 매출의 89%</b>. BSR은 기간 내내 뷰티 톱60, 프라임 직후 29위 최고점.</li>
+<li><b>UGC 재활용이 광고의 중추.</b> 비전 태깅 기준 메디테라피 광고의 78%가 UGC 기반(틱톡 출처 확정 최소 78건), 이퀄베리도 태깅분의 45%. 시딩 크리에이터가 파트너십 광고로 이어진 사례를 크리에이터 단위로 확정(§05).</li>
+</ul>
+</div>
+
+<!-- ================= 매출 ================= -->
+<div class="section">
+<div class="secno">02</div><h2>아마존 매출 — 윈도우 안의 두 스냅샷</h2>
+<div class="tiles">
+<div class="tile"><div class="l"><span class="brand-eq">이퀄베리</span> · 4/2–5/1</div><div class="v">$5.05M</div><div class="d">7 SKU 업로드분</div></div>
+<div class="tile"><div class="l"><span class="brand-eq">이퀄베리</span> · 6/15–7/14 <span class="pill prime">프라임 포함</span></div><div class="v">$6.86M</div><div class="d"><span class="up">▲ 36%</span> · 36 SKU · 276,895개 · Top1 36.6%</div></div>
+<div class="tile"><div class="l"><span class="brand-md">메디테라피</span> · 6/16–7/16 <span class="pill prime">프라임 포함</span></div><div class="v">$4.51M</div><div class="d">45 SKU · 히어로 1개가 89%</div></div>
+<div class="tile"><div class="l"><span class="brand-md">메디테라피</span> · TikTok Shop 4/1–7/14</div><div class="v">$119K</div><div class="d">Kalodata · 아마존의 2.6% — 시딩의 매출 귀결은 아마존</div></div>
+</div>
+<table>
+<tr><th>SKU 레벨 하이라이트</th><th class="num">이전</th><th class="num">최근 30d</th><th class="num">변화</th></tr>
+<tr><td><span class="brand-eq">EQ</span> Vitamin Illuminating Serum (주력)</td><td class="num">$2.48M</td><td class="num">$2.51M</td><td class="num">플랫 (판매량 −18% → 단가↑)</td></tr>
+<tr><td><span class="brand-eq">EQ</span> NAD+ Peptide Serum</td><td class="num">$247K</td><td class="num">$1.23M</td><td class="num up">×5.0</td></tr>
+<tr><td><span class="brand-eq">EQ</span> NAD+ 라인 합계(파생 팩 포함)</td><td class="num">—</td><td class="num">≈$3.0M</td><td class="num">성장 동력</td></tr>
+<tr><td><span class="brand-md">MD</span> Retinal Skin Booster Serum</td><td class="num">—</td><td class="num">$4.03M · 200,188개</td><td class="num">매출의 89%</td></tr>
+</table>
+<div class="note">⚠ 이퀄베리 +36%에는 SKU 커버리지 확대(7→36개) 효과가 섞여 있음. 두 기간 공통 7 SKU 기준 비교는 별도 요청 시 산출.</div>
+<div class="src">원천: case_product_sales (manual_csv 7/20·7/16 업로드, kalodata), cases.key_stats.phase2</div>
+</div>
+
+<!-- ================= 타임라인 ================= -->
+<div class="section">
+<div class="secno">03</div><h2>주간 타임라인 — 시딩 · 조회수 · 광고 게시</h2>
+<p class="sub">노란 밴드 = 프라임 데이(6/23–26). 마우스를 올리면 주간 상세.</p>
+
+<div class="card">
+<h3>틱톡 시딩 볼륨 (주간 신규 영상 수)</h3>
+<div class="legend"><span><span class="sw" style="background:var(--eq)"></span>이퀄베리</span><span><span class="sw" style="background:var(--md)"></span>메디테라피</span></div>
+<div class="chart-wrap"><svg id="c-vids" width="880" height="240"></svg></div>
+<div class="note">이퀄베리는 프라임 주(6/22)에 396편으로 정점 — 프라임을 향해 볼륨을 쌓는 궤적. 메디테라피는 4월 초 폭발(438편/주) 후 점감 — 선(先)시딩·후(後)수확형. 스파크(유료 증폭) 비중은 두 브랜드 모두 주차별 40~80%.</div>
+<div class="src">원천: contents (uploaded_at 주간 집계) · 7/13 주는 부분 주</div>
+</div>
+
+<div class="card">
+<h3>틱톡 주간 조회수 (누적 스냅샷 기준, M)</h3>
+<div class="legend"><span><span class="sw" style="background:var(--eq)"></span>이퀄베리</span><span><span class="sw" style="background:var(--md)"></span>메디테라피</span></div>
+<div class="chart-wrap"><svg id="c-views" width="880" height="220"></svg></div>
+<div class="note">이퀄베리 4/27 주 10.5M의 실체는 <b>사실상 영상 1편</b> — 멕시코 최정상 셀럽 <a href="https://www.tiktok.com/@kimberly.loaiza/video/7633561956787522824" target="_blank">@kimberly.loaiza</a>의 스페인어 리뷰 <b>1,015만 뷰</b>(주간의 97%, 좋아요 48.2만). 스파크 라벨 없는 셀럽 앵커로, 같은 시기 스페인어권 마이크로 융단폭격과 결합된 라틴 시장 공세의 정점. 메디테라피는 <b>프라임 직전 6/15 주 3.6M 정점</b> — 인지 피크가 프라임 구매 전환 직전에 오도록 맞춰진 모양새.</div>
+<div class="src">원천: contents.views (수집 시점 누적값 — 최근 주는 과소 집계됨)</div>
+</div>
+
+<div class="card">
+<h3>메타 신규 광고 게시 (주간)</h3>
+<div class="legend"><span><span class="sw" style="background:var(--eq)"></span>이퀄베리</span><span><span class="sw" style="background:var(--md)"></span>메디테라피</span><span><span class="sw" style="background:var(--pt)"></span>파트너십(공동 게재) 포함 주</span></div>
+<div class="chart-wrap"><svg id="c-ads" width="880" height="240"></svg></div>
+<div class="note">이퀄베리: 4월 말 웨이브(30건) → <b>6/8 주 파트너십 배치 6건</b>(프라임 2주 전) → 프라임 조용 → 7/6 주 36건 재점화. 메디테라피: 프라임 전까지 주 5~15건 유지 → <b>7/6 주 97건·7/13 주 60건 총공세</b>. 프라임 당일(6/22·6/29 주 일부)은 양쪽 다 저활동 — 이벤트 기간엔 이미 걸어둔 광고로 수확.</div>
+<div class="src">원천: meta_ads.start_date · Ad Library 생존 편향으로 과거 종료 광고는 과소 집계</div>
+</div>
+<div class="card">
+<h3>주간 시딩 × 인플루언서 티어 구성 (영상 수 기준 스택)</h3>
+<div class="legend"><span><span class="sw" style="background:#86b6ef"></span>나노</span><span><span class="sw" style="background:#5598e7"></span>마이크로</span><span><span class="sw" style="background:#2a78d6"></span>미드</span><span><span class="sw" style="background:#1c5cab"></span>매크로</span><span><span class="sw" style="background:#0d366b"></span>메가</span><span><span class="sw" style="background:var(--axis);opacity:.55"></span>미분류</span></div>
+<div style="font-size:12.5px;color:var(--ink-2);margin:2px 0 4px"><span class="brand-eq">이퀄베리</span></div>
+<div class="chart-wrap"><svg id="c-tier-eq" width="880" height="220"></svg></div>
+<div style="font-size:12.5px;color:var(--ink-2);margin:10px 0 4px"><span class="brand-md">메디테라피</span></div>
+<div class="chart-wrap"><svg id="c-tier-md" width="880" height="220"></svg></div>
+<div class="note">호버하면 주간 티어별 영상 수·크리에이터 수. 읽는 법: 이퀄베리는 5월부터 나노·마이크로 융단이 두꺼워지며 프라임 주 정점, 상위 티어(진한 파랑·상단 얇은 층)는 6월에 스팟 투입. 메디테라피는 4월 폭발 후 점감 — 미분류(반투명) 층이 두꺼운 건 팔로워 미조회 경량 계정 비중.</div>
+</div>
+<div class="card">
+<h3>티어 분포 (윈도우 4/1~7/15 내 활동 기준)</h3>
+<div class="tbl-wrap"><table>
+<tr><th>티어</th><th class="num">이퀄베리 명 / 영상</th><th class="num">평균뷰</th><th class="num">메디테라피 명 / 영상</th><th class="num">평균뷰</th></tr>
+<tr><td>mega</td><td class="num">7 / 21</td><td class="num">217,320</td><td class="num">4 / 5</td><td class="num">557,729</td></tr>
+<tr><td>macro</td><td class="num">10 / 25</td><td class="num">52,764</td><td class="num">3 / 5</td><td class="num">8,946</td></tr>
+<tr><td>mid</td><td class="num">56 / 155</td><td class="num">12,851</td><td class="num">30 / 54</td><td class="num">49,850</td></tr>
+<tr><td>micro</td><td class="num">488 / 1,253</td><td class="num">5,535</td><td class="num">469 / 1,215</td><td class="num">2,644</td></tr>
+<tr><td>nano</td><td class="num">495 / 1,099</td><td class="num">722</td><td class="num">579 / 1,177</td><td class="num">1,355</td></tr>
+<tr><td>미분류</td><td class="num">685 / 1,066</td><td class="num">10,608</td><td class="num">805 / 1,647</td><td class="num">832</td></tr>
+</table></div>
+<div class="note">둘 다 마이크로 이하가 90%+ 융단폭격 구조. 차이는 상위 티어 — 참고로 <b>전체 기간</b> 기준 이퀄베리는 메가 56·매크로 33명을 누적 보유(과거 시딩 자산)하나 윈도우 내 활동은 17명뿐 — 상위 티어는 상시 가동이 아니라 <b>스팟 투입</b>. 메디는 신규 브랜드라 전체≈윈도우.</div>
+</div>
+</div>
+
+<!-- ================= BSR ================= -->
+<div class="section">
+<div class="secno">04</div><h2>BSR — 프라임이 만든 순위 점프</h2>
+<p class="sub">축은 순위(낮을수록 상위)라 <b>위로 갈수록 좋음</b>으로 뒤집어 표시. 6/8–7/15(메디 7/16).</p>
+<div class="card">
+<h3><span class="brand-eq">이퀄베리</span> 상위 3 SKU (Beauty 카테고리 순위)</h3>
+<div class="legend"><span><span class="sw" style="background:var(--eq)"></span>Vitamin Serum</span><span><span class="sw" style="background:var(--eq2)"></span>NAD+ Serum</span><span><span class="sw" style="background:var(--eq3)"></span>NAD+ Cream</span></div>
+<div class="chart-wrap"><svg id="c-bsr-eq" width="880" height="260"></svg></div>
+<div class="note"><b>NAD+ 세럼: 6/23 597위 → 6/25 171위 (3.5배 점프)</b> 후 130~340위 유지 — 프라임의 최대 수혜자이자 매출 5배 성장과 정합. NAD+ 크림도 601→275위. 주력 비타민 세럼은 53위까지 회복했다가 7월 중순 374위로 되밀림 — 프라임 효과의 지속성은 NAD+ 라인에서만 나타남.</div>
+</div>
+<div class="card">
+<h3><span class="brand-md">메디테라피</span> 히어로 — Retinal Skin Booster Serum</h3>
+<div class="chart-wrap"><svg id="c-bsr-md" width="880" height="200"></svg></div>
+<div class="note">기간 내내 22~58위의 안정적 톱티어. 프라임 직후 6/28 <b>29위 최고점</b> 후에도 40위대 유지 — 신규 브랜드가 히어로 SKU 하나로 카테고리 상위권에 안착한 그림.</div>
+</div>
+<div class="src">원천: sales_snapshot (keepa, 일간) · 이퀄베리 BSR은 9개 중 6개 ASIN만 7/20까지 갱신(나머지 3개는 5/2까지 — 최근 매출 비중 3.8%라 영향 미미)</div>
+</div>
+
+<!-- ================= 광고 크리에이티브 ================= -->
+<div class="section">
+<div class="secno">05</div><h2>광고 크리에이티브 해부 — 비전 태깅</h2>
+<p class="sub">태깅 커버리지: <span class="brand-md">메디테라피 282/282 (100%)</span> · <span class="brand-eq">이퀄베리 125/327 (38%)</span> — 이퀄베리 5월 수집분 198건은 썸네일 만료로 영구 태깅 불가(2026년 캠페인 위주로 편향된 표본임을 감안).</p>
+
+<div class="card">
+<h3>프라임 전 / 중 / 후 — 소재 전략이 바뀐다</h3>
+<div class="tbl-wrap"><table>
+<tr><th></th><th>구간</th><th class="num">신규 광고</th><th class="num">UGC 기반</th><th class="num">price_deal 훅</th><th class="num">프로모 오버레이</th></tr>
+<tr><td rowspan="3"><span class="brand-eq">이퀄베리</span></td><td>사전 4/1–6/22</td><td class="num">96</td><td class="num">22</td><td class="num">1</td><td class="num">6</td></tr>
+<tr><td>프라임 6/23–26</td><td class="num">3</td><td class="num">1</td><td class="num">0</td><td class="num">2</td></tr>
+<tr><td>사후 6/27–7/15</td><td class="num">62</td><td class="num">25</td><td class="num"><b>9</b></td><td class="num"><b>13</b></td></tr>
+<tr><td rowspan="3"><span class="brand-md">메디테라피</span></td><td>사전 4/1–6/22</td><td class="num">81</td><td class="num">61</td><td class="num">3</td><td class="num">7</td></tr>
+<tr><td>프라임 6/23–26</td><td class="num">5</td><td class="num">5</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>사후 6/27–7/15</td><td class="num"><b>168</b></td><td class="num"><b>128</b></td><td class="num"><b>54</b></td><td class="num"><b>58</b></td></tr>
+</table></div>
+<div class="note">사전엔 문제해결·변화 서사(브랜딩), <b>사후엔 가격·딜 소재로 급전환</b> — 특히 메디테라피는 사후 신규 광고의 32%가 price_deal 훅. "프라임에 산 사람들 주변"을 재타게팅하며 딜 모멘텀을 연장하는 전형적 사후 수확 패턴. ⚠ 프라임 4일 행은 "신규 게시" 기준 — 같은 기간 <b>활성 광고는 이퀄베리 39건·메디테라피 91건</b>이며, 단기 게시 후 종료된 광고는 수집 시점(7/16) 특성상 누락 가능.</div>
+</div>
+
+<div class="card">
+<h3>스팟체크 — 프라임 전·중·후 UGC 2차 가공 실사 (메디테라피, 썸네일 16건 육안 검증)</h3>
+<div class="tbl-wrap"><table>
+<tr><th>구간</th><th>게시일</th><th>실제로 보인 것</th><th>가공 유형</th></tr>
+<tr><td rowspan="3">전 2주<br>(6/9–22)</td><td>6/15</td><td>빨간머리 여성 셀피 + "youre not UGLY your just dehydrated"</td><td>자막 오버레이</td></tr>
+<tr><td>6/15</td><td><b>같은 크리에이터</b> 다른 소재 + before 인셋 + "the REASON your make looks like 💩"</td><td>자막·인셋</td></tr>
+<tr><td>6/18</td><td>시니어 남성 "I didn't even get Botox, but my wrinkles are gone" (+ 등 여드름 커플·반짝이 스티커 소재 등 총 6건 게시)</td><td>자막 오버레이</td></tr>
+<tr><td>프라임<br>(6/23–26)</td><td>—</td><td colspan="2"><b>신규 게시 0건</b> — 걸어둔 활성 광고(91건)로 수확만 한 구간</td></tr>
+<tr><td rowspan="3">후<br>(6/27–7/15)</td><td>7/8·7/9</td><td>"Pov: your skin is thirsty" / "POV: Your skin needs HYALURONIC ACID" — <b>HA 세럼 신히어로 푸시</b></td><td>자막 오버레이</td></tr>
+<tr><td>7/10</td><td>수영장 POV 다리 클로즈업 "pov: reversing a whole summer of sun damage"</td><td>자막 오버레이</td></tr>
+<tr><td>7/15</td><td>듀엣 구성 "68 looking like 38" · 신체부위 인셋 "everyone is putting retinal…"</td><td>듀엣·인셋 재활용</td></tr>
+</table></div>
+<div class="note"><b>판정 누적 16/16 오분류 0건</b> — ugc_processed 분류 신뢰 가능. 구간별 특징: 전 2주엔 동일 크리에이터의 소재 여러 종을 연달아 투입, 프라임 중엔 신규 0, 후엔 POV형 + HA 세럼(매출 2위로 부상한 신제품) 중심으로 소재 전환. 별건 확인: 5/28 광고는 <b>UGC 영상+브랜드 배너 합성형</b>, 6/4 광고는 <b>틱톡 앱 화면 캡처 인용형</b>(그린스크린 코멘터리) — 두 패턴 모두 파트너십 라벨 없이 운영. 일부 소재는 위탁 제작 UGC-style일 가능성 있음(원본이 수집 풀 밖).</div>
+<div class="src">검증 방법: Storage 재호스트 썸네일·영상 실사 + 캡션/ASR 역검색 (2026-07-20)</div>
+</div>
+
+<div class="card">
+<h3>시딩 → 광고 소재화: 랜딩과 크리에이터 선별 기준</h3>
+<div class="tbl-wrap"><table>
+<tr><th>랜딩 (6/9~7/15 광고)</th><th><span class="brand-eq">이퀄베리</span></th><th><span class="brand-md">메디테라피</span></th></tr>
+<tr><td>광고 클릭 도착지</td><td>자사 <b>브릿지 페이지</b> 120건 (eqqualberryglobal.com, 광고별 전용 URL) · TikTok 2 · Amazon 직링크 1</td><td><b>Amazon 100%</b> (188건 전부, 파트너십 포함)</td></tr>
+<tr><td>구조 해석 (실사 확인)</td><td>브릿지 페이지의 <b>메인 CTA가 전부 아마존 상품 직행</b> — 자사 장바구니 없음, URL에 <b>Amazon Attribution 태그(maas·aa_maas)</b> 부착 = 광고→아마존 매출을 측정하는 정교한 프리랜더 구조. 슬러그에 캠페인 메타(소재·크리에이터명·날짜) 인코딩</td><td>광고→아마존 직행, 히어로 SKU 집중과 일관</td></tr>
+</table></div>
+<div class="tbl-wrap"><table>
+<tr><th>광고 활용 크리에이터</th><th>티어</th><th>시딩 영상</th><th>최고 뷰</th><th>풀 내 성과 백분위*</th></tr>
+<tr><td>carlosantoniocerv <span style="color:var(--muted)">(EQ 6/2·6/9)</span></td><td>메가 163만</td><td>14편(전부 스파크)</td><td>4,270만</td><td><b>상위 ~1%</b></td></tr>
+<tr><td>makeup_mabell <span style="color:var(--muted)">(EQ 2/5·4/8·7/16)</span></td><td>메가 355만</td><td>24편(전부 스파크)</td><td>264만</td><td>상위 1%</td></tr>
+<tr><td>mayaya.kimmm <span style="color:var(--muted)">(EQ 6/9)</span></td><td>미드 13.4만</td><td>5편</td><td>108만</td><td>상위 2%</td></tr>
+<tr><td>_lilyis <span style="color:var(--muted)">(EQ '25-09)</span></td><td>미드 45만</td><td>3편</td><td>81.5만</td><td>상위 1%</td></tr>
+<tr><td>linyingho <span style="color:var(--muted)">(MD 7/6)</span></td><td>마이크로 9.3만</td><td>4편</td><td>2.9만</td><td>상위 1%</td></tr>
+<tr><td>bubblyreview <span style="color:var(--muted)">(EQ '25-11)</span></td><td>나노 701</td><td>1편</td><td>1,496</td><td>상위 14%</td></tr>
+<tr><td>luisam_mc · megskinbeauty · albinasglam <span style="color:var(--muted)">(EQ/MD 6~7월)</span></td><td>릴스 네이티브</td><td>EQ 릴스 각 4편</td><td>likes 3~7.2K</td><td>IG 풀 상위권</td></tr>
+</table></div>
+<div class="note">* 브랜드 풀 내 크리에이터 평균뷰 기준 percent_rank. 풀 벤치마크: 크리에이터당 평균 2.2편, 영상당 중앙값 이퀄베리 437뷰·메디테라피 121뷰. <b>핵심: 광고로 승격된 크리에이터는 (나노 1명 제외) 전원 시딩 성과 상위 1~3%</b> — 티어 불문, 자기 풀 안에서 상위 성과자만 소재화하는 선별 깔때기가 정량 확인됨. 스파크 증폭 여부는 선별에 무관(승격작 다수가 스파크 영상).</div>
+<div class="src">원천: meta_ads.link_url · contents × influencers percent_rank (2026-07-20)</div>
+</div>
+
+<div class="card">
+<h3>훅 타입 분포 (윈도우 내 게시·태깅분)</h3>
+<div class="chart-wrap"><svg id="c-hooks" width="880" height="270"></svg></div>
+<div class="note">메디테라피는 <b>problem_solution(139건) 단일 서사 집중</b> + price_deal 57건 — 히어로 SKU 하나를 미는 브랜드답게 메시지도 수렴. 이퀄베리는 age_transformation·problem_solution 양축(각 33건) — NAD+(안티에이징)와 비타민(브라이트닝) 두 라인을 나눠 미는 포트폴리오 구조가 소재에도 반영.</div>
+<div class="src">원천: meta_ads.ad_intel (Claude 비전 태깅) · start_date 4/1–7/15</div>
+</div>
+</div>
+
+<!-- ================= 시딩→광고 파이프라인 ================= -->
+<div class="section">
+<div class="secno">06</div><h2>시딩 → 파트너십 광고 파이프라인 (크리에이터 확정 매칭)</h2>
+<p class="sub">틱톡 시딩 풀 × IG 수집(이퀄베리 544포스트, 태그드 200) × 메타 광고 3면 대조. 이퀄베리 파트너십 크리에이터 <b>7명 중 6명 출처 확정</b>.</p>
+<div class="tbl-wrap"><table>
+<tr><th>크리에이터</th><th>시딩 출처</th><th>시딩 시점</th><th>광고 게시</th><th>패턴</th></tr>
+<tr><td>carlosantoniocerv / @carlos.skincare<br><span style="color:var(--muted);font-size:12px">TT 163만 팔로워</span></td><td>틱톡 14편(전부 스파크, 최고 42.7M뷰) + IG 릴스 4편</td><td>2025-08 ~</td><td>6/2 · 6/9</td><td>아카이브 발굴 (10개월 전 소재)</td></tr>
+<tr><td>makeup_mabell (Mabell Rodriguez)<br><span style="color:var(--muted);font-size:12px">TT 355만</span></td><td>틱톡 24편 (최고 2.6M뷰)</td><td>2025-06 ~</td><td>2/5 · 4/8 · 7/16</td><td>장기 반복 기용</td></tr>
+<tr><td>mayaya.kimmm <span style="color:var(--muted);font-size:12px">TT 13.4만</span></td><td>틱톡 5편</td><td>2025-10 ~ 2026-01</td><td>6/9 배치</td><td>아카이브 발굴</td></tr>
+<tr><td>luisam_mc</td><td><b>IG 릴스 네이티브</b> 4편 (최고 3,019 좋아요)</td><td>2026-02~03</td><td>6/9 배치</td><td>릴스 시딩 → 프라임 전 증폭</td></tr>
+<tr><td>megskinbeauty <span style="color:var(--muted);font-size:12px">IG/TT 20만</span></td><td><b>IG 릴스 네이티브</b> 4편 (최고 7,239)</td><td>2026-03~04</td><td>7/15</td><td>릴스 시딩 → 사후 증폭</td></tr>
+<tr><td>Albinasglam</td><td>미확정 (틱톡 계정 실존, 브랜드 콘텐츠는 수집 한도 밖)</td><td>—</td><td>3/24~7/15 5건</td><td>양 브랜드 공통 기용</td></tr>
+</table></div>
+<div class="note">이퀄베리 6/9 배치는 "지난 10개월 시딩 아카이브에서 검증된 크리에이터를 골라 프라임 2주 전 메타로 옮긴" 큐레이션. 릴스 시딩(2~4월, 스페인어권 집중)이 6~7월 파트너십으로 이어진 것도 확인 — <b>tagged 수집 200포스트·작성자 181명, paid 시그널 0</b>은 아직 광고로 안 끌어온 기프팅 풀(차기 후보군). 메디테라피는 IG 수집이 파이프라인 버그로 미완(BE 수정 대기) — 파트너십 5명의 릴스 검증은 보류.</div>
+<div class="src">원천: contents × influencers × ig_posts × meta_ads 핸들·시점 매칭 + 웹 교차검색</div>
+</div>
+
+<!-- ================= 전략 비교 ================= -->
+<div class="section">
+<div class="secno">07</div><h2>소재 정체 추적 — "이 광고는 정확히 누구 영상인가"</h2>
+<p class="sub">메디테라피 UGC 광고 222건 — 1차: 첫 컷 × 시딩 커버 851장 pHash / 2차: 광고 영상 157편 전체 키프레임(장면전환) × 커버 대조 + 육안 확정 (비용 $0). 시각 확정 6건 + 파트너십 라벨 15건 = <b>정체 확정 21건</b>.</p>
+<div class="card">
+<div class="tbl-wrap"><table>
+<tr><th>광고 (게시)</th><th>= 원본 크리에이터</th><th>티어·팔로워</th><th>시딩 이력</th></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/1913339216005350.mp4" target="_blank">1913339216005350</a> <a href="https://www.facebook.com/ads/library/?id=1913339216005350" target="_blank" style="font-size:11px">[AdLib]</a> (7월)</td><td><b><a href="https://www.tiktok.com/@linyingho/video/7659401433057447198" target="_blank">@linyingho</a></b> — HA세럼 스페인어(7/9 게시)</td><td>마이크로 9.3만</td><td>4편 · 파트너십 광고(7/6)와 별개로 비라벨 광고에도 푸티지 재사용</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/2328215374378928.mp4" target="_blank">2328215374378928</a> <a href="https://www.facebook.com/ads/library/?id=2328215374378928" target="_blank" style="font-size:11px">[AdLib]</a></td><td><b><a href="https://www.tiktok.com/@eatyourveggiespleaseee/video/7625804061446655245" target="_blank">@eatyourveggiespleaseee</a></b> — 레티날 시연</td><td>마이크로 5.1만</td><td>15편(스파크 12) · 최고 10.8만뷰</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/827649073429224.mp4" target="_blank">827649073429224</a> <a href="https://www.facebook.com/ads/library/?id=827649073429224" target="_blank" style="font-size:11px">[AdLib]</a></td><td><b><a href="https://www.tiktok.com/@gabriella.vy/video/7648831636947143949" target="_blank">@gabriella.vy</a></b> — 튼살 비포애프터</td><td><b>나노 151명</b></td><td>35편 다작 · 최고 44.4만뷰 · "150ml 스크립트" 배포 캠페인 계정</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/965420823038902.mp4" target="_blank">965420823038902</a> <a href="https://www.facebook.com/ads/library/?id=965420823038902" target="_blank" style="font-size:11px">[AdLib]</a></td><td><b><a href="https://www.tiktok.com/@jenn_lyles/video/7635286084267560206" target="_blank">@jenn_lyles</a></b> — 차량 셀피 증언</td><td>미드 11.5만</td><td>3편(전부 스파크)</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/1355570119464235.mp4" target="_blank">1355570119464235</a> <a href="https://www.facebook.com/ads/library/?id=1355570119464235" target="_blank" style="font-size:11px">[AdLib]</a></td><td><b><a href="https://www.tiktok.com/@kajsa.ziebell/video/7623969664594414861" target="_blank">@kajsa.ziebell</a></b> — 스파 헤어밴드·시린지 시연(4/2 게시)</td><td>마이크로 7.1만</td><td>스파크 · 프라임 중 시딩 탑5에도 등장한 크리에이터</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/a112a5b1-7e00-4287-b801-05cba371ee0a/2040451826862499.mp4" target="_blank">2040451826862499</a> <a href="https://www.facebook.com/ads/library/?id=2040451826862499" target="_blank" style="font-size:11px">[AdLib]</a> (7/7 게시)</td><td><b><a href="https://www.tiktok.com/@__kristina__marie__/video/7604198181219372301" target="_blank">@__kristina__marie__</a></b> — 차량 하울 "RESTOCKED!"(2/7 게시)</td><td>마이크로 2.6만</td><td>스파크 · <b>5개월 전 시딩 소재를 사후 광고로 발굴</b></td></tr>
+</table></div>
+<div class="note">방법: 첫 컷 OCR·pHash 깔때기(무료). 한계: 광고가 원본의 <b>중간 컷</b>을 쓰면 첫 컷 매칭으론 못 잡음 — 나머지 광고의 상당수는 전체 프레임 대조(무료·컴퓨트↑) 또는 수집 풀 밖 소재(무브랜드 캡션·위탁 제작). "UGC 형식 소재 ≠ 실제 인플 소재 확정"의 구분은 §10 한계 참조.</div>
+</div>
+<div class="card">
+<h3><span class="brand-eq">이퀄베리</span> — 시각 매칭 확정 3건 (가용 광고 이미지 129건 + 영상 57편 대상)</h3>
+<div class="tbl-wrap"><table>
+<tr><th>광고 (게시)</th><th>= 원본 시딩 영상</th><th>티어·팔로워</th><th>주목할 점</th></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56/961893786340729.mp4" target="_blank">961893786340729</a> <a href="https://www.facebook.com/ads/library/?id=961893786340729" target="_blank" style="font-size:11px">[AdLib]</a> (4/8 · 파트너십 라벨)</td><td><b><a href="https://www.tiktok.com/@makeup_mabell/video/7626114389460012318" target="_blank">@makeup_mabell</a></b> 4/7 게시 영상 (4.5만뷰·스파크)</td><td>메가 322만</td><td><b>시딩 다음날 광고 전환</b> — 최단 턴어라운드 실측</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56/1040841148272666.mp4" target="_blank">1040841148272666</a> <a href="https://www.facebook.com/ads/library/?id=1040841148272666" target="_blank" style="font-size:11px">[AdLib]</a> (6/9 배치 · 파트너십 라벨)</td><td><b><a href="https://www.tiktok.com/@carlosantoniocerv/video/7620631851979279629" target="_blank">@carlosantoniocerv</a></b> 3/24 게시 영상 (5.5만뷰·스파크)</td><td>메가 163만</td><td>6/9 프라임 전 배치가 재활용한 정확한 원본 특정</td></tr>
+<tr><td><a href="https://dxjodlxkynjirldpumxr.supabase.co/storage/v1/object/public/case-assets/meta-ads/5f106fc6-4461-4d5c-a0c9-ef19bf2bcb56/1383590066982589.mp4" target="_blank">1383590066982589</a> <a href="https://www.facebook.com/ads/library/?id=1383590066982589" target="_blank" style="font-size:11px">[AdLib]</a> (7/16 · 라벨 없음)</td><td><b><a href="https://www.tiktok.com/@shopmissa/video/7533292173198986510" target="_blank">@shopmissa</a></b> 2025-07-31 게시 영상 (4.9천뷰·오가닉)</td><td>미드 25.9만 (리테일러)</td><td><b>1년 묵은 아카이브 소재를 사후 광고로 발굴</b>, 파트너십 라벨 없이</td></tr>
+</table></div>
+<div class="note">이퀄베리는 광고 이미지의 61%(198건)가 영구 소실이라 시각 매칭 모수가 2026년 6~7월 캠페인 중심 — 3~5월 소재의 정체 추적은 구조적으로 불가. 파트너십 라벨 14건(크리에이터 확정)과 합쳐 <b>정체 확정 15건</b>(라벨 12 + 라벨·원본영상 동시 확정 2 + 비라벨 원본 확정 1).</div>
+</div>
+</div>
+
+<div class="section">
+<div class="secno">08</div><h2>시딩 구조 — 티어 분포 · 티어별 앵글 · 프라임 탑 콘텐츠</h2>
+
+<div class="card">
+<h3>티어별 앵글 분포 — 영상 컨셉 분류(클러스터) × 티어</h3>
+<p class="note" style="margin-top:0">"앵글" = AI가 영상을 보고 분류한 콘텐츠 유형(대시보드 C섹션의 그 클러스터). <b>표본: 윈도우 내(4/17~7/15) 업로드 영상, 이퀄베리 323편·메디테라피 303편</b> — 전량이 아닌 대표 표본임.</p>
+<div class="tbl-wrap"><table>
+<tr><th><span class="brand-eq">이퀄베리</span> 앵글 (표본 내 편수)</th><th class="num">nano</th><th class="num">micro</th><th class="num">mid</th><th class="num">macro</th><th class="num">mega</th><th class="num">계</th></tr>
+<tr><td>개인 스토리·증언 UGC 리뷰 전환형</td><td class="num">24</td><td class="num">17</td><td class="num">22</td><td class="num">15</td><td class="num">10</td><td class="num"><b>101</b></td></tr>
+<tr><td>튜토리얼·루틴 시연 데모형</td><td class="num">7</td><td class="num">4</td><td class="num">11</td><td class="num">2</td><td class="num">2</td><td class="num">38</td></tr>
+<tr><td>소셜 증거·FOMO 고전환 shop_link형</td><td class="num">8</td><td class="num">6</td><td class="num">9</td><td class="num">4</td><td class="num">2</td><td class="num">34</td></tr>
+<tr><td>리스트·큐레이션 저장 유도형</td><td class="num">2</td><td class="num">14</td><td class="num">3</td><td class="num">—</td><td class="num">—</td><td class="num">29</td></tr>
+<tr><td>비포·애프터 변화 시각화형</td><td class="num">4</td><td class="num">2</td><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="num">26</td></tr>
+<tr><td>언박싱·하울 개봉 탐색형</td><td class="num">8</td><td class="num">3</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">16</td></tr>
+</table></div>
+<div class="tbl-wrap"><table>
+<tr><th><span class="brand-md">메디테라피</span> 앵글 (표본 내 편수)</th><th class="num">nano</th><th class="num">micro</th><th class="num">mid</th><th class="num">macro</th><th class="num">mega</th><th class="num">계</th></tr>
+<tr><td>개인 경험 토킹헤드 리뷰 구매 유도형</td><td class="num">20</td><td class="num">10</td><td class="num">17</td><td class="num">3</td><td class="num">—</td><td class="num"><b>64</b></td></tr>
+<tr><td>비포어/애프터 변환 시각화형</td><td class="num">2</td><td class="num">4</td><td class="num">2</td><td class="num">—</td><td class="num">—</td><td class="num">41*</td></tr>
+<tr><td>문제 제기+솔루션 데모 튜토리얼형</td><td class="num">4</td><td class="num">8</td><td class="num">9</td><td class="num">—</td><td class="num">2</td><td class="num">32</td></tr>
+<tr><td>소셜 프루프 증언 신뢰 구축형</td><td class="num">7</td><td class="num">6</td><td class="num">6</td><td class="num">—</td><td class="num">—</td><td class="num">28</td></tr>
+<tr><td>성분 교육 정보 전달형</td><td class="num">5</td><td class="num">5</td><td class="num">7</td><td class="num">—</td><td class="num">—</td><td class="num">27</td></tr>
+<tr><td>일상 루틴 GRWM형</td><td class="num">10</td><td class="num">8</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">21</td></tr>
+</table></div>
+<div class="note">계에는 티어 미분류분 포함(*메디 비포어/애프터 41편 중 33편이 미분류 경량 계정 — 얼굴 안 나오는 신체부위 비포애프터를 소형 계정에 집중 배정). 읽는 법: 두 브랜드 모두 <b>1위 앵글은 "개인 경험 증언형"</b>이고, 이퀄베리는 mid 티어에 튜토리얼·FOMO 전환형을 몰고, 메디는 문제제기+솔루션을 mid·micro에 배치.</div>
+</div>
+<div class="card">
+<h3><span class="brand-eq">이퀄베리</span> — 프라임 전·중·후 시딩 탑5 (뷰 기준)</h3>
+<div class="tbl-wrap"><table>
+<tr><th>구간</th><th>#</th><th>크리에이터</th><th>티어·팔로워</th><th class="num">뷰</th><th class="num">댓글</th><th class="num">공유</th><th>스파크</th><th>내용·앵글</th></tr>
+<tr><td rowspan="5">전 2주<br>6/9–22</td><td>1</td><td>moralaqueteenamora</td><td>micro 6.6만</td><td class="num">570,688</td><td class="num">94</td><td class="num">752</td><td>O</td><td>겨드랑이 미백(스페인어) · 개인 스토리·증언형</td></tr>
+<tr><td>2</td><td>777ellemon</td><td>mid 26.7만</td><td class="num">419,838</td><td class="num">222</td><td class="num">302</td><td>—</td><td>모닝 루틴 · 일상 페르소나 공감형</td></tr>
+<tr><td>3</td><td>moralaqueteenamora</td><td>micro 6.6만</td><td class="num">396,149</td><td class="num">100</td><td class="num">236</td><td>O</td><td>K뷰티 스킨케어(스페인어)</td></tr>
+<tr><td>4</td><td>ofertasenlausa</td><td>micro 1.5만</td><td class="num">188,856</td><td class="num">5</td><td class="num">75</td><td>O</td><td>Vitamin Duo 딜 소개</td></tr>
+<tr><td>5</td><td>makeup_mabell</td><td>mega 322만</td><td class="num">170,229</td><td class="num">56</td><td class="num">75</td><td>O</td><td>손 기미 듀오(스페인어)</td></tr>
+<tr><td rowspan="5">프라임<br>6/23–26</td><td>1</td><td>xxpushinpretty</td><td>mega 141만</td><td class="num">327,090</td><td class="num">113</td><td class="num">1,205</td><td>O</td><td>언더암 변화 · 증언+FOMO 전환형</td></tr>
+<tr><td>2</td><td>danyanoemi</td><td>mid 25.5만</td><td class="num">115,244</td><td class="num">11</td><td class="num">35</td><td>O</td><td>민감 부위 미백(스페인어)</td></tr>
+<tr><td>3</td><td>ruthgarcia0211</td><td>micro 1.1만</td><td class="num">74,612</td><td class="num">20</td><td class="num">25</td><td>O</td><td>NAD+ 안티에이징 듀오(스페인어)</td></tr>
+<tr><td>4</td><td>hawibofdu6o</td><td>micro 1.7만</td><td class="num">49,155</td><td class="num">33</td><td class="num">68</td><td>O</td><td>Vitamin Duo</td></tr>
+<tr><td>5</td><td>moralaqueteenamora</td><td>micro 6.6만</td><td class="num">19,562</td><td class="num">2</td><td class="num">3</td><td>O</td><td>겨드랑이 미백 후속</td></tr>
+<tr><td rowspan="5">사후<br>6/27–7/15</td><td>1</td><td>makeup_mabell</td><td>mega 322만</td><td class="num">738,813</td><td class="num">78</td><td class="num">293</td><td>O</td><td>하이퍼피그멘테이션 · 튜토리얼 시연형</td></tr>
+<tr><td>2</td><td>ifutoon.ao</td><td>macro 50.3만</td><td class="num">174,452</td><td class="num">135</td><td class="num">272</td><td>—</td><td>멀티브랜드 하울</td></tr>
+<tr><td>3</td><td>creadoradeofertas</td><td>micro 1.3만</td><td class="num">145,898</td><td class="num">4</td><td class="num">39</td><td>O</td><td>듀오 딜 소개(스페인어)</td></tr>
+<tr><td>4</td><td>mysistersskin</td><td>mid 43.7만</td><td class="num">80,494</td><td class="num">94</td><td class="num">266</td><td>—</td><td>나이트 루틴 스텝바이스텝</td></tr>
+<tr><td>5</td><td>xxpushinpretty</td><td>mega 141만</td><td class="num">70,643</td><td class="num">13</td><td class="num">26</td><td>O</td><td>포어 듀오</td></tr>
+</table></div>
+</div>
+
+<div class="card">
+<h3><span class="brand-md">메디테라피</span> — 프라임 전·중·후 시딩 탑5 (뷰 기준)</h3>
+<div class="tbl-wrap"><table>
+<tr><th>구간</th><th>#</th><th>크리에이터</th><th>티어·팔로워</th><th class="num">뷰</th><th class="num">댓글</th><th class="num">공유</th><th>스파크</th><th>내용·앵글</th></tr>
+<tr><td rowspan="5">전 2주<br>6/9–22</td><td>1</td><td>sasainseoul</td><td>mega 114.8만</td><td class="num">1,392,301</td><td class="num">301</td><td class="num"><b>7,231</b></td><td>O</td><td>chicken skin 해결 · 문제해결+튜토리얼형</td></tr>
+<tr><td>2</td><td>s_u_n_r_i_t_a_</td><td><b>nano 2,145</b></td><td class="num">1,336,565</td><td class="num">60</td><td class="num">4,131</td><td>—</td><td>다크서클 · #MeditherapyGlowChallenge · 증언형</td></tr>
+<tr><td>3</td><td>meditherapy_official (공식)</td><td>micro 2.0만</td><td class="num">516,691</td><td class="num">43</td><td class="num">42</td><td>O</td><td>Glow Challenge 공지 (5/18~6/23)</td></tr>
+<tr><td>4</td><td>kimcassironway</td><td>mid 28.8만</td><td class="num">450,227</td><td class="num">210</td><td class="num">2,454</td><td>—</td><td>Day 8 데이로그 · chicken skin</td></tr>
+<tr><td>5</td><td>illaalvarez</td><td>mid 28.8만</td><td class="num">133,140</td><td class="num">118</td><td class="num">153</td><td>O</td><td>"세럼은 효과없다?" 메이크업 들뜸 훅</td></tr>
+<tr><td rowspan="5">프라임<br>6/23–26</td><td>1</td><td>mar.hacks</td><td>mega 452만</td><td class="num">1,152,644</td><td class="num">200</td><td class="num">1,417</td><td>O</td><td>레티날 부스터 · 토킹헤드 리뷰형</td></tr>
+<tr><td>2</td><td>meditherapy_official (공식)</td><td>micro 2.0만</td><td class="num">118,446</td><td class="num">58</td><td class="num">34</td><td>O</td><td>"Prime Day is HERE" 딜 공지</td></tr>
+<tr><td>3</td><td>kimcassironway</td><td>mid 28.8만</td><td class="num">26,752</td><td class="num">36</td><td class="num">84</td><td>O</td><td>Day 12 데이로그</td></tr>
+<tr><td>4</td><td>kristingl</td><td>mid 17.7만</td><td class="num">16,974</td><td class="num">21</td><td class="num">18</td><td>—</td><td>지성·수분부족 루틴 (에스테틱션)</td></tr>
+<tr><td>5</td><td>kajsa.ziebell</td><td>micro 7.1만</td><td class="num">6,960</td><td class="num">2</td><td class="num">6</td><td>O</td><td>메이크업 밀착 GRWM</td></tr>
+<tr><td rowspan="5">사후<br>6/27–7/15</td><td>1</td><td>meimonte1</td><td>mid 35.1만</td><td class="num">373,417</td><td class="num">135</td><td class="num">2,877</td><td>—</td><td>종아리 관리 · 문제해결형</td></tr>
+<tr><td>2</td><td>linyingho</td><td>micro 9.3만</td><td class="num">28,914</td><td class="num">46</td><td class="num">38</td><td>—</td><td>아젤라익 루틴(스페인어)</td></tr>
+<tr><td>3</td><td>linyingho</td><td>micro 9.3만</td><td class="num">26,086</td><td class="num">58</td><td class="num">45</td><td>—</td><td>YesStyle 세일 연계</td></tr>
+<tr><td>4</td><td>linyingho</td><td>micro 9.3만</td><td class="num">22,976</td><td class="num">46</td><td class="num">56</td><td>—</td><td>트레티노인 나이트 루틴</td></tr>
+<tr><td>5</td><td>linyingho</td><td>micro 9.3만</td><td class="num">22,403</td><td class="num">21</td><td class="num">25</td><td>O</td><td>HA 세럼(스페인어) — <b>이 영상이 광고 소재로 채택됨(§07)</b></td></tr>
+</table></div>
+<div class="note">🔍 <b>새 발견 — 메디테라피 "Glow Challenge" (5/18~6/23)</b>: 공식 계정 운영 챌린지의 종료일 = 프라임 시작일. 나노 2,145명 계정이 챌린지 해시태그로 136만뷰·공유 4,131을 내는 등, 시딩 붐을 챌린지로 조직해 프라임 직전 인지 정점을 설계했다. 사후 탑5는 linyingho가 4/5석 — 사후 국면의 얼굴로 낙점되며 동시에 파트너십 광고·소재 재활용까지 3중 활용. 프라임 중 탑 영상은 두 브랜드 모두 스파크 증폭분.</div>
+<div class="src">원천: contents × influencers × content_clusters (2026-07-20) · 뷰·댓글·공유는 수집 시점 누적값</div>
+</div>
+</div>
+
+<div class="section">
+<div class="secno">09</div><h2>플레이북 비교</h2>
+<div class="tbl-wrap"><table>
+<tr><th></th><th><span class="brand-eq">이퀄베리</span> — 성숙기 포트폴리오</th><th><span class="brand-md">메디테라피</span> — 신규 진입 히어로 돌파</th></tr>
+<tr><td>시딩 궤적</td><td>점증형: 4월 29편/주 → 프라임 주 396편 정점. 신규 크리에이터 45%</td><td>폭발형: 진입 직후 4월 400편+/주, 신규 크리에이터 99%</td></tr>
+<tr><td>스파크(틱톡 유료 증폭)</td><td>전체 콘텐츠의 49% (3,846편)</td><td>전체의 47% (1,953편)</td></tr>
+<tr><td>메타 광고</td><td>327건 · 파트너십 14건 · 프라임 2주 전 배치</td><td>282건 · UGC 78% · 프라임 직후 168건 총공세</td></tr>
+<tr><td>소재 전략</td><td>2개 라인 분리 서사 (안티에이징/브라이트닝)</td><td>단일 서사(problem_solution) + 사후 딜 훅</td></tr>
+<tr><td>매출 구조</td><td>$6.86M · Top1 36.6% · NAD+ 라인이 성장 견인</td><td>$4.51M · Top1 89% (레티날 세럼)</td></tr>
+<tr><td>프라임 성과 신호</td><td>NAD+ 세럼 BSR 597→171위 (지속)</td><td>히어로 BSR 29위 최고점, 40위대 안착</td></tr>
+</table></div>
+</div>
+
+<!-- ================= 한계 ================= -->
+<div class="section">
+<div class="secno">10</div><h2>데이터 한계 (해석 시 주의)</h2>
+<ul class="caveat sub">
+<li><b>메타 Ad Library 생존 편향 (실측)</b> — 7/16 수집분에서 6/20~7/5 종료 광고가 0건: 수집은 사실상 "수집 시점에 살아있는 광고"만 포착. 종료된 광고(특히 프라임 단기 딜 광고)는 과소 집계 — "몇 건 게시"는 전부 하한선.</li>
+<li><b>기간 필터 예외</b> — 활동 지표(틱톡·광고·IG)는 4/1~7/15로 절단. 예외: 메디테라피 매출 스냅샷은 업로드 원기간 6/16~<b>7/16</b>, 메디 BSR 끝점 7/16, §06 크리에이터 시딩 이력은 광고 소재의 출처 추적을 위해 <b>의도적으로 전체 기간(2025-08~)</b>.</li>
+<li><b>UGC 판정의 성격</b> — origin_class/source_channel은 광고별 썸네일+캡션에 대한 모델 시각 판정(파트너십 라벨과 무관하게 2차 가공 흔적을 봄). 단 <b>개별 광고↔원본 틱톡 영상 1:1 대응은 파트너십/크리에이터명 광고에서만 확정</b>, 나머지는 "UGC 사용" 수준까지만.</li>
+<li><b>이퀄베리 비전 태깅 38%</b> — 5월 수집분 198건 썸네일 만료로 영구 미태깅. 태깅 표본은 2026년 캠페인에 편향.</li>
+<li><b>매출은 기간당 스냅샷 1개</b> — 주간 매출 시계열이 없어 "시점 정합"까지만 말할 수 있고 인과·기여도 분해는 불가.</li>
+<li><b>틱톡 조회수는 수집 시점 누적값</b> — 최근 주는 과소, 과거 바이럴은 과대 반영. 7/13 주는 부분 주.</li>
+<li><b>메디테라피 IG 미수집</b> — collect-ig가 step output 상한 버그로 실패(INSIGHT_INBOX 수거, BE 수정 대기). 릴스 축 분석은 이퀄베리만 완료.</li>
+<li>이퀄베리 BSR: 9개 중 3개 ASIN(최근 매출 비중 3.8%)은 5/2 이후 데이터 없음.</li>
+</ul>
+</div>
+
+<footer>TikCle BP · ANALYST 세션 · 원천: Supabase dxjodlxkynjirldpumxr (contents · meta_ads · ig_posts · sales_snapshot · case_product_sales · key_stats) · 생성 2026-07-20</footer>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script>
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const WKS = ["3/30","4/6","4/13","4/20","4/27","5/4","5/11","5/18","5/25","6/1","6/8","6/15","6/22","6/29","7/6","7/13"];
+const EQ_V = [29,42,76,157,192,181,252,285,312,352,308,330,396,325,285,97];
+const MD_V = [352,438,407,335,328,287,286,251,239,197,207,248,205,164,130,29];
+const EQ_S = [3,15,16,77,72,132,172,228,261,270,248,287,298,242,219,80];
+const MD_S = [113,170,163,174,160,152,146,127,115,98,87,145,120,91,60,9];
+const EQ_VW = [0.40,0.21,2.03,0.97,10.51,2.45,1.67,1.83,0.64,0.34,0.92,1.98,1.14,1.08,0.65,0.09];
+const MD_VW = [0.10,0.34,0.81,0.45,0.21,0.28,0.19,1.23,0.13,0.87,1.38,3.61,1.50,0.09,0.49,0.005];
+const EQ_A = [3,10,17,7,30,0,0,0,0,2,19,8,3,12,36,14];
+const MD_A = [0,8,5,5,3,8,7,11,11,7,1,15,5,11,97,60];
+const EQ_P = [0,1,0,0,0,0,0,0,0,1,6,0,0,0,0,2];
+const MD_P = [0,0,0,0,0,1,0,2,0,0,0,0,0,0,3,1];
+// Prime: 6/23-26 → between week idx 12 (6/22 wk) start+1d and +4d. We shade x range across 6/23-6/26 as fraction of week 12.
+const tt = document.getElementById('tt');
+function showTT(html,x,y){ tt.innerHTML=html; tt.style.display='block';
+  const w = tt.offsetWidth, h = tt.offsetHeight;
+  tt.style.left = Math.min(x+14, innerWidth-w-10)+'px';
+  tt.style.top  = Math.max(8, y-h-12)+'px'; }
+function hideTT(){ tt.style.display='none'; }
+
+function lineChart(id, seriesArr, opts){
+  const svg = document.getElementById(id); if(!svg) return;
+  const W=+svg.getAttribute('width'), H=+svg.getAttribute('height');
+  const m={t:14,r:16,b:26,l:46};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const n=WKS.length;
+  const ymax = opts.ymax ?? Math.max(...seriesArr.flatMap(s=>s.data))*1.08;
+  const x=i=>m.l+iw*(i/(n-1));
+  const y=v=>m.t+ih*(1-v/ymax);
+  let g='';
+  // prime band: 6/23-26 inside week idx12 (6/22~6/28): frac 1/7..5/7 of segment 12→13
+  const px1 = x(12)+(x(13)-x(12))*(1/7), px2 = x(12)+(x(13)-x(12))*(5/7);
+  g+=`<rect x="${px1}" y="${m.t}" width="${px2-px1}" height="${ih}" fill="${css('--prime')}"/>`;
+  g+=`<line x1="${(px1+px2)/2}" y1="${m.t}" x2="${(px1+px2)/2}" y2="${m.t+ih}" stroke="${css('--prime-line')}" stroke-dasharray="3 3"/>`;
+  g+=`<text x="${(px1+px2)/2}" y="${m.t+11}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${css('--muted')}">PRIME</text>`;
+  // grid
+  const ticks = opts.ticks ?? 4;
+  for(let i=0;i<=ticks;i++){ const v=ymax*i/ticks, yy=y(v);
+    g+=`<line x1="${m.l}" y1="${yy}" x2="${W-m.r}" y2="${yy}" stroke="${css('--grid')}" stroke-width="1"/>`;
+    g+=`<text x="${m.l-7}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="${css('--muted')}" font-variant-numeric="tabular-nums">${opts.fmt? opts.fmt(v): Math.round(v)}</text>`; }
+  // x labels (every other)
+  WKS.forEach((w,i)=>{ if(i%2===0||i===n-1) g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="${css('--muted')}">${w}</text>`; });
+  // lines
+  seriesArr.forEach(s=>{
+    const pts=s.data.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const li=s.data.length-1;
+    g+=`<circle cx="${x(li)}" cy="${y(s.data[li])}" r="3.5" fill="${s.color}" stroke="${css('--surface-1')}" stroke-width="2"/>`;
+  });
+  g+=`<line x1="${m.l}" y1="${m.t+ih}" x2="${W-m.r}" y2="${m.t+ih}" stroke="${css('--axis')}"/>`;
+  g+=`<line id="${id}-cross" x1="0" y1="${m.t}" x2="0" y2="${m.t+ih}" stroke="${css('--axis')}" stroke-dasharray="2 3" style="display:none"/>`;
+  svg.innerHTML=g;
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect();
+    const mx=e.clientX-r.left;
+    let i=Math.round((mx-m.l)/(iw/(n-1))); i=Math.max(0,Math.min(n-1,i));
+    const cr=svg.querySelector(`#${CSS.escape(id)}-cross`); cr.style.display='block';
+    cr.setAttribute('x1',x(i)); cr.setAttribute('x2',x(i));
+    showTT(opts.tip(i), e.clientX, e.clientY);
+  });
+  svg.addEventListener('mouseleave',()=>{ hideTT(); const cr=svg.querySelector(`#${CSS.escape(id)}-cross`); if(cr)cr.style.display='none'; });
+}
+
+lineChart('c-vids',
+ [{data:EQ_V,color:css('--eq')},{data:MD_V,color:css('--md')}],
+ {ticks:4, tip:i=>`<b>${WKS[i]} 주</b><br>이퀄베리 <b>${EQ_V[i]}</b>편 (스파크 ${EQ_S[i]})<br>메디테라피 <b>${MD_V[i]}</b>편 (스파크 ${MD_S[i]})`});
+
+lineChart('c-views',
+ [{data:EQ_VW,color:css('--eq')},{data:MD_VW,color:css('--md')}],
+ {ticks:4, fmt:v=>v.toFixed(1)+'M', tip:i=>`<b>${WKS[i]} 주</b><br>이퀄베리 <b>${EQ_VW[i]}M</b> 뷰<br>메디테라피 <b>${MD_VW[i]}M</b> 뷰`});
+
+// grouped bars for ads
+(function(){
+  const svg=document.getElementById('c-ads'); if(!svg)return;
+  const W=+svg.getAttribute('width'), H=+svg.getAttribute('height');
+  const m={t:14,r:16,b:26,l:40}, iw=W-m.l-m.r, ih=H-m.t-m.b, n=WKS.length;
+  const ymax=100;
+  const bw=iw/n;
+  const y=v=>m.t+ih*(1-v/ymax);
+  let g='';
+  const px1=m.l+bw*12+bw*(1/7)+bw/2, px2=m.l+bw*12+bw*(5/7)+bw/2;
+  g+=`<rect x="${px1}" y="${m.t}" width="${px2-px1}" height="${ih}" fill="${css('--prime')}"/>`;
+  g+=`<text x="${(px1+px2)/2}" y="${m.t+11}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${css('--muted')}">PRIME</text>`;
+  for(let i=0;i<=4;i++){const v=ymax*i/4, yy=y(v);
+    g+=`<line x1="${m.l}" y1="${yy}" x2="${W-m.r}" y2="${yy}" stroke="${css('--grid')}"/>`;
+    g+=`<text x="${m.l-7}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="${css('--muted')}" font-variant-numeric="tabular-nums">${v}</text>`;}
+  const bar=(i,off,v,color)=>{ if(v<=0) return '';
+    const x=m.l+bw*i+bw*0.18+off, w=bw*0.28, yy=y(v), hh=m.t+ih-yy;
+    return `<path d="M${x},${m.t+ih} L${x},${yy+3} Q${x},${yy} ${x+3},${yy} L${x+w-3},${yy} Q${x+w},${yy} ${x+w},${yy+3} L${x+w},${m.t+ih} Z" fill="${color}"/>`; };
+  for(let i=0;i<n;i++){
+    g+=bar(i,0,EQ_A[i],css('--eq'));
+    g+=bar(i,bw*0.30+2,MD_A[i],css('--md'));
+    if(EQ_P[i]>0) g+=`<circle cx="${m.l+bw*i+bw*0.18+bw*0.14}" cy="${y(EQ_A[i])-8}" r="3.5" fill="${css('--pt')}"/>`;
+    if(MD_P[i]>0) g+=`<circle cx="${m.l+bw*i+bw*0.18+bw*0.30+2+bw*0.14}" cy="${y(MD_A[i])-8}" r="3.5" fill="${css('--pt')}"/>`;
+  }
+  WKS.forEach((w,i)=>{ if(i%2===0||i===n-1) g+=`<text x="${m.l+bw*i+bw/2}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="${css('--muted')}">${w}</text>`; });
+  g+=`<line x1="${m.l}" y1="${m.t+ih}" x2="${W-m.r}" y2="${m.t+ih}" stroke="${css('--axis')}"/>`;
+  svg.innerHTML=g;
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(); let i=Math.floor((e.clientX-r.left-m.l)/bw);
+    i=Math.max(0,Math.min(n-1,i));
+    showTT(`<b>${WKS[i]} 주</b><br>이퀄베리 <b>${EQ_A[i]}</b>건${EQ_P[i]?` (파트너십 ${EQ_P[i]})`:''}<br>메디테라피 <b>${MD_A[i]}</b>건${MD_P[i]?` (파트너십 ${MD_P[i]})`:''}`, e.clientX,e.clientY);
+  });
+  svg.addEventListener('mouseleave',hideTT);
+})();
+
+// BSR charts (inverted: lower rank = higher position)
+function bsrChart(id, series, ymax, primeLabelY){
+  const svg=document.getElementById(id); if(!svg)return;
+  const W=+svg.getAttribute('width'), H=+svg.getAttribute('height');
+  const m={t:16,r:16,b:26,l:46}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const t0=new Date('2026-06-08').getTime(), t1=new Date('2026-07-16').getTime();
+  const x=d=>m.l+iw*((new Date(d).getTime()-t0)/(t1-t0));
+  const y=v=>m.t+ih*(v/ymax); // inverted: rank 0 top
+  let g='';
+  const px1=x('2026-06-23'), px2=x('2026-06-27');
+  g+=`<rect x="${px1}" y="${m.t}" width="${px2-px1}" height="${ih}" fill="${css('--prime')}"/>`;
+  g+=`<text x="${(px1+px2)/2}" y="${m.t+11}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${css('--muted')}">PRIME</text>`;
+  for(let i=0;i<=4;i++){const v=ymax*i/4, yy=y(v);
+    g+=`<line x1="${m.l}" y1="${yy}" x2="${W-m.r}" y2="${yy}" stroke="${css('--grid')}"/>`;
+    g+=`<text x="${m.l-7}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="${css('--muted')}" font-variant-numeric="tabular-nums">${Math.round(v)}위</text>`;}
+  const dates=['6/8','6/15','6/22','6/29','7/6','7/13'];
+  ['2026-06-08','2026-06-15','2026-06-22','2026-06-29','2026-07-06','2026-07-13'].forEach((d,i)=>{
+    g+=`<text x="${x(d)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="${css('--muted')}">${dates[i]}</text>`;});
+  series.forEach(s=>{
+    const pts=s.data.map(p=>`${x(p[0])},${y(p[1])}`).join(' ');
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.data.forEach(p=>{ g+=`<circle cx="${x(p[0])}" cy="${y(p[1])}" r="2.2" fill="${s.color}"/>`; });
+  });
+  svg.innerHTML=g;
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(); const mx=e.clientX-r.left;
+    let best=null,bd=1e9;
+    series.forEach(s=>s.data.forEach(p=>{const d=Math.abs(x(p[0])-mx); if(d<bd){bd=d;best={s,p};}}));
+    if(best) showTT(`<b>${best.p[0].slice(5).replace('-','/')}</b> · ${best.s.name}<br>BSR <b>${best.p[1]}위</b>`, e.clientX,e.clientY);
+  });
+  svg.addEventListener('mouseleave',hideTT);
+}
+bsrChart('c-bsr-eq',[
+ {name:'Vitamin Serum',color:css('--eq'),data:[["2026-06-08",23],["2026-06-09",26],["2026-06-10",27],["2026-06-11",43],["2026-06-12",49],["2026-06-13",66],["2026-06-14",68],["2026-06-15",70],["2026-06-16",87],["2026-06-18",108],["2026-06-20",108],["2026-06-21",107],["2026-06-22",103],["2026-06-23",117],["2026-06-24",118],["2026-06-25",53],["2026-06-29",45],["2026-06-30",51],["2026-07-01",75],["2026-07-02",89],["2026-07-03",91],["2026-07-04",88],["2026-07-06",72],["2026-07-07",80],["2026-07-08",86],["2026-07-09",87],["2026-07-10",113],["2026-07-11",150],["2026-07-13",202],["2026-07-14",258],["2026-07-15",374]]},
+ {name:'NAD+ Serum',color:css('--eq2'),data:[["2026-06-09",244],["2026-06-10",261],["2026-06-11",347],["2026-06-13",517],["2026-06-15",547],["2026-06-16",602],["2026-06-17",603],["2026-06-18",630],["2026-06-20",632],["2026-06-21",581],["2026-06-23",597],["2026-06-25",171],["2026-06-26",181],["2026-06-28",172],["2026-06-29",134],["2026-07-03",344],["2026-07-04",338],["2026-07-08",394],["2026-07-09",344],["2026-07-10",324],["2026-07-11",315],["2026-07-12",315],["2026-07-13",292],["2026-07-14",319]]},
+ {name:'NAD+ Cream',color:css('--eq3'),data:[["2026-06-08",414],["2026-06-09",412],["2026-06-10",458],["2026-06-11",531],["2026-06-12",518],["2026-06-13",550],["2026-06-15",538],["2026-06-16",564],["2026-06-17",562],["2026-06-18",571],["2026-06-19",565],["2026-06-21",538],["2026-06-22",546],["2026-06-23",588],["2026-06-24",601],["2026-06-25",275],["2026-06-28",250],["2026-06-29",231],["2026-06-30",258],["2026-07-01",353],["2026-07-03",500],["2026-07-05",487],["2026-07-06",480],["2026-07-07",539],["2026-07-10",605],["2026-07-11",602],["2026-07-13",589],["2026-07-14",618]]}
+],700);
+bsrChart('c-bsr-md',[
+ {name:'Retinal Serum',color:css('--md'),data:[["2026-06-08",22],["2026-06-10",27],["2026-06-12",57],["2026-06-13",56],["2026-06-15",49],["2026-06-16",50],["2026-06-18",46],["2026-06-20",43],["2026-06-21",45],["2026-06-22",50],["2026-06-23",58],["2026-06-25",43],["2026-06-27",35],["2026-06-28",29],["2026-06-30",42],["2026-07-01",54],["2026-07-02",58],["2026-07-05",49],["2026-07-06",40],["2026-07-07",49],["2026-07-09",46],["2026-07-10",47],["2026-07-11",46],["2026-07-12",45],["2026-07-13",41],["2026-07-15",46],["2026-07-16",46]]}
+],80);
+
+// hooks horizontal bars
+(function(){
+  const svg=document.getElementById('c-hooks'); if(!svg)return;
+  const W=+svg.getAttribute('width'), H=+svg.getAttribute('height');
+  const hooks=[
+    ['problem_solution',33,139],['age_transformation',33,33],['price_deal',10,57],
+    ['social_proof',8,13],['shock_ingredient',8,6],['기타',4,6]];
+  const m={t:8,r:60,b:6,l:150}, iw=W-m.l-m.r;
+  const max=139, rh=(H-m.t-m.b)/hooks.length;
+  let g='';
+  hooks.forEach((h,i)=>{
+    const y0=m.t+rh*i;
+    g+=`<text x="${m.l-10}" y="${y0+rh/2+4}" text-anchor="end" font-size="12.5" fill="${css('--ink-2')}">${h[0]}</text>`;
+    const w1=iw*h[1]/max, w2=iw*h[2]/max;
+    const bh=(rh-14)/2;
+    g+=`<rect x="${m.l}" y="${y0+4}" width="${Math.max(w1,2)}" height="${bh}" rx="3" fill="${css('--eq')}"/>`;
+    g+=`<text x="${m.l+Math.max(w1,2)+6}" y="${y0+4+bh-2}" font-size="11.5" fill="${css('--ink-2')}" font-variant-numeric="tabular-nums">${h[1]}</text>`;
+    g+=`<rect x="${m.l}" y="${y0+6+bh}" width="${Math.max(w2,2)}" height="${bh}" rx="3" fill="${css('--md')}"/>`;
+    g+=`<text x="${m.l+Math.max(w2,2)+6}" y="${y0+6+bh*2-2}" font-size="11.5" fill="${css('--ink-2')}" font-variant-numeric="tabular-nums">${h[2]}</text>`;
+  });
+  svg.innerHTML=g;
+})();
+
+const TIERS=["nano", "micro", "mid", "macro", "mega", "unclassified"];
+const EQ_TIER_V=[[13, 4, 1, 1, 2, 23], [14, 15, 2, 0, 1, 10], [14, 26, 0, 1, 1, 34], [42, 56, 4, 0, 0, 55], [54, 62, 8, 1, 0, 67], [53, 76, 3, 0, 0, 49], [89, 78, 13, 1, 0, 71], [115, 71, 4, 1, 2, 92], [103, 100, 18, 1, 1, 89], [111, 119, 7, 3, 3, 109], [92, 108, 16, 6, 0, 86], [95, 141, 12, 0, 4, 78], [111, 152, 30, 2, 2, 99], [93, 123, 17, 4, 3, 85], [80, 94, 13, 3, 1, 94], [26, 29, 7, 2, 1, 32]];
+const EQ_TIER_C=[[12, 3, 1, 1, 2, 20], [12, 5, 1, 0, 1, 10], [14, 17, 0, 1, 1, 26], [31, 40, 2, 0, 0, 52], [40, 50, 6, 1, 0, 56], [41, 63, 3, 0, 0, 42], [65, 55, 12, 1, 0, 66], [79, 51, 4, 1, 2, 76], [70, 61, 8, 1, 1, 70], [86, 74, 5, 2, 3, 78], [68, 67, 8, 2, 0, 67], [72, 78, 8, 0, 4, 58], [74, 84, 11, 2, 2, 72], [65, 80, 8, 1, 3, 73], [52, 58, 7, 2, 1, 74], [19, 21, 2, 1, 1, 25]];
+const MD_TIER_V=[[115, 100, 3, 1, 0, 137], [128, 124, 7, 0, 0, 179], [119, 132, 3, 0, 0, 153], [107, 110, 7, 0, 0, 111], [87, 130, 6, 1, 1, 103], [71, 92, 2, 1, 0, 121], [85, 76, 2, 0, 0, 123], [60, 69, 2, 0, 0, 120], [88, 70, 4, 0, 0, 77], [46, 46, 2, 0, 0, 103], [43, 62, 2, 1, 0, 99], [67, 68, 5, 1, 2, 105], [66, 64, 4, 0, 2, 69], [44, 40, 2, 0, 0, 78], [40, 26, 2, 1, 0, 61], [11, 8, 1, 0, 0, 9]];
+const MD_TIER_C=[[87, 78, 2, 1, 0, 117], [93, 87, 3, 0, 0, 147], [93, 97, 2, 0, 0, 115], [80, 74, 6, 0, 0, 80], [67, 75, 5, 1, 1, 79], [60, 58, 2, 1, 0, 91], [65, 47, 2, 0, 0, 85], [45, 43, 2, 0, 0, 68], [45, 34, 4, 0, 0, 39], [37, 30, 1, 0, 0, 54], [32, 31, 2, 1, 0, 41], [49, 37, 4, 1, 2, 52], [37, 34, 3, 0, 2, 45], [34, 30, 2, 0, 0, 52], [37, 22, 2, 1, 0, 40], [10, 7, 1, 0, 0, 9]];
+const TIER_COLORS={'nano':'#86b6ef','micro':'#5598e7','mid':'#2a78d6','macro':'#1c5cab','mega':'#0d366b','unclassified':'var(--axis)'};
+const TIER_KO={'nano':'나노','micro':'마이크로','mid':'미드','macro':'매크로','mega':'메가','unclassified':'미분류'};
+function tierStack(id, V, C, label){
+  const svg=document.getElementById(id); if(!svg) return;
+  const W=+svg.getAttribute('width'), H=+svg.getAttribute('height');
+  const m={t:14,r:16,b:26,l:46}, iw=W-m.l-m.r, ih=H-m.t-m.b, n=WKS.length;
+  const totals=V.map(row=>row.reduce((a,b)=>a+b,0));
+  const ymax=Math.max(...totals)*1.06;
+  const bw=iw/n; const y=v=>m.t+ih*(1-v/ymax);
+  let g='';
+  const px1=m.l+bw*12+bw*(1/7)+bw/2, px2=m.l+bw*12+bw*(5/7)+bw/2;
+  g+=`<rect x="${px1}" y="${m.t}" width="${px2-px1}" height="${ih}" fill="${css('--prime')}"/>`;
+  g+=`<text x="${(px1+px2)/2}" y="${m.t+11}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${css('--muted')}">PRIME</text>`;
+  for(let i=0;i<=4;i++){const v=ymax*i/4, yy=y(v);
+    g+=`<line x1="${m.l}" y1="${yy}" x2="${W-m.r}" y2="${yy}" stroke="${css('--grid')}"/>`;
+    g+=`<text x="${m.l-7}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="${css('--muted')}" font-variant-numeric="tabular-nums">${Math.round(v)}</text>`;}
+  for(let i=0;i<n;i++){
+    let acc=0;
+    const x=m.l+bw*i+bw*0.16, w=bw*0.68;
+    for(let t=0;t<TIERS.length;t++){
+      const v=V[i][t]; if(!v) continue;
+      const y1=y(acc+v), y0=y(acc);
+      g+=`<rect x="${x}" y="${y1}" width="${w}" height="${Math.max(y0-y1-1,1)}" fill="${TIER_COLORS[TIERS[t]]}" ${t===TIERS.length-1?'opacity="0.55"':''}/>`;
+      acc+=v;
+    }
+  }
+  WKS.forEach((wk,i)=>{ if(i%2===0||i===n-1) g+=`<text x="${m.l+bw*i+bw/2}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="${css('--muted')}">${wk}</text>`; });
+  g+=`<line x1="${m.l}" y1="${m.t+ih}" x2="${W-m.r}" y2="${m.t+ih}" stroke="${css('--axis')}"/>`;
+  svg.innerHTML=g;
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(); let i=Math.floor((e.clientX-r.left-m.l)/bw);
+    i=Math.max(0,Math.min(n-1,i));
+    let rows=''; for(let t=TIERS.length-1;t>=0;t--){ if(V[i][t]) rows+=`<span style="color:${TIER_COLORS[TIERS[t]]}">●</span> ${TIER_KO[TIERS[t]]} <b>${V[i][t]}</b>편 · ${C[i][t]}명<br>`; }
+    showTT(`<b>${WKS[i]} 주 · ${label}</b><br>${rows}합계 <b>${totals[i]}</b>편`, e.clientX, e.clientY);
+  });
+  svg.addEventListener('mouseleave',hideTT);
+}
+tierStack('c-tier-eq', EQ_TIER_V, EQ_TIER_C, '이퀄베리');
+tierStack('c-tier-md', MD_TIER_V, MD_TIER_C, '메디테라피');
+
+</script>
+
+</body></html>

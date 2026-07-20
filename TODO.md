@@ -23,6 +23,10 @@
 | BE-15 | ✅ 기간 필터 IG/YT 확장 — ig_posts.posted_at/yt_videos.uploaded_at로 "기간 내 활동 작성자/채널" 집합 산출 → 명단(top authors·tier·pool) membership 필터(followers·tier enrich 보존) + 직접 post 리스트(월별·소스·top-paid·해시태그/타입)에 게시일 WHERE. 기간 미설정=무필터(무회귀). period-filter.ts 주석 갱신. tsc 통과 + 실데이터 판별 검증(IG 270→70·YT 103→16 for 4/1~7/19). **실화면 QA는 ORCH**(기간 토글 후 명단 렌더) — **ORCH 게이트·머지·배포 완료(2026-07-20)**: 정정 2건(배너 문구 IG/YT 재집계로 이동 · membership 조회 실패 시 무필터 폴백), 잔여는 BE-16 | period-filter.ts v1 주석 | tsc + 실화면 |
 | BE-16 | [BE-15 잔여] 기간 필터 IG 완전 확장 — `allIgCreators`(B 섹션 전체 IG 리스트)와 `monthlyTierByChannel` IG 월별 티어도 igActiveUsernames membership 적용 (현재 top25·tier/pool·post 리스트만 적용됨) | ⬜ | BE-15 게이트 리뷰 2026-07-20 | tsc + B 섹션 IG 카운트 기간 반응 |
 | BE-17 | **⚠️ 데이터 유실 위험** BSR 업로드 replace → merge/append 전환 — Keepa export는 롤링 3년 창이라 히스토리 3년 초과 ASIN(예: B0CMC6S4BM, 2026-12부터 초과)은 업로드마다 앞부분 영구 삭제되는 구조. append(기존+신규 union) 기본 + 삭제 발생 시 "기존 N일 중 M일 삭제" 사전 경고 | ⬜ | INSIGHT_INBOX 2026-07-20 #4 (분석 세션 발견) | tsc + 3년경계 재현 테스트 |
+| BE-18 | **버그(BE-5 동류)** collect-ig가 Apify 시작 전 "step output size > limit"로 즉사 — kalodata 거대 key_stats를 케이스 조회 step이 통째 반환. BE-5와 동일하게 판정 필드만 반환하도록 슬림화. 메디테라피 IG 수집이 원천 봉쇄된 실사례 | ⬜ | INSIGHT_INBOX 2026-07-20 (ANALYST 진단) | tsc + 메디테라피 collect-ig 재실행 성공 |
+| BE-19 | **버그** interpret-tag 잔여 198건 영구 태깅 불가 — 5/2 수집 광고 fbcdn 썸네일 만료(403). ①수집 직후 태깅 트리거 or 썸네일 Storage 선보존 ②phase stats에 실패 원인(만료 vs 레이트리밋) 구분 노출 | ⬜ | INSIGHT_INBOX 2026-07-20 (이퀄베리 실측) | tsc + 신규 수집분 만료 전 태깅 확인 |
+| BE-20 | 메타 광고 "수집 시점 활성만" 포착 갭 — 7/16 수집분에 6/20~7/5 종료 광고 0건 실측, 이벤트 단기 딜 광고 통째 누락. 이벤트(프로모션 등록) 시 tracked_brands 케이던스 단축 or 자동 고빈도 스냅샷 | ⬜ | INSIGHT_INBOX 2026-07-20 (프라임 리포트 실측) | 설계문서 + 케이던스 구현 |
+| BE-21 | 광고 랜딩 브릿지 페이지 CTA 추적(1-hop 크롤) — 도메인만 보고 "자사몰" 오분류 중. 실제는 Amazon Attribution 태그(maas·aa_maas) 단 프리랜더(이퀄베리 실사 확정). 랜딩 분석에 브릿지 CTA 판별 추가 → 광고→아마존 구조·어트리뷰션 사용 자동 판별 | ⬜ | INSIGHT_INBOX 2026-07-20 (이퀄베리 실사) | phase4a 랜딩 분류에 bridge_to_amazon 구분 |
 
 ## QA 레인
 
@@ -46,6 +50,7 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
+| FE-6 | **크리티컬 버그** IG 자동 발굴 완료 후 suggested config 박스 렌더 시 케이스 상세 완전 freeze (이퀄베리·메디테라피 2케이스 재현, 30s+ 무응답) — IgPrepBox 결과 뷰 재렌더 루프 의심. Accept 클릭 불가 수준 | ⬜ | INSIGHT_INBOX 2026-07-20 (ANALYST 재현) | freeze 재현 케이스에서 정상 렌더+Accept 동작 |
 | FE-3 | **오표기 fix(우선)** KPI 카드 "TT Shop GMV (30d)"에 채널 불문 total_revenue가 들어감 — 아마존 온리 케이스에서 아마존 매출이 TT샵 GMV로 표기. 라벨 "매출 (30d)" + sub에 실제 채널 표기 (HeaderMockup KpiStrip + page.tsx 전달부) | ⬜ | INSIGHT_INBOX 2026-07-20 #1 | tsc + 이퀄베리 실화면 |
 | FE-4 | 진행/재실행 UI 3겹 중복 통합 (PhaseProgress 토글+PhaseProgressMockup+11단계 패널+채널 카드 내 재실행) → 진입점 1개 — **프로토 v8 개선#2와 동일 방향, FE-2 구현 시 해소가 정석**. 프로토 확정 지연 시에만 선행 미니 통합 | ⏸ FE-2에 병합 예정 | INSIGHT_INBOX 2026-07-20 #2 | 진입점 1개 |
 | FE-5 | 매출/BSR 업로드 성공 토스트에 "통계 집계 재실행" CTA — 업로드 후 재집계 경로를 못 찾는 문제 (성공 메시지에서 무료 phase 재실행 원클릭) | ⬜ | INSIGHT_INBOX 2026-07-20 #3 | 업로드→CTA→재실행 동작 |
@@ -66,6 +71,9 @@
 ## 결정 대기 (사용자)
 
 | # | 결정 | 근거 |
+| U-7 | **ANALYST 3축 로드맵 채택 여부** — ①소재 계보(광고↔원본↔크리에이터, 텍스트+pHash $0 실증) ②이벤트 윈도우 뷰(프로모션 등록→시딩·광고·BSR·매출 전중후 자동 분해) ③케이스 내 애널리스트 에이전트(판정형 리포트 자동 생성, 실비 ~$3.4/회 실증). 프라임 리포트 v12가 수동 프로토타입 — 어느 축부터 제품화할지 | INSIGHT_INBOX 2026-07-20 총평 |
+| U-8 | 시딩 수집 커버리지 확장 여부 — 캡션 키워드 수집이라 무브랜드 캡션 영상(그린스크린 리뷰·위탁 소재) 누락. 사운드/스티커/비전 기반 보강은 수집 비용 증가 트레이드오프 | INSIGHT_INBOX 2026-07-20 (메디테라피 실증) |
+| U-9 | interpret-asr 영상 Storage 보관 여부 — 보관 시 광고↔원본 컷 대조·재분석 추가 다운로드 $0, 대신 스토리지 비용. 케이스당 예상 용량 산출 후 결정 | INSIGHT_INBOX 2026-07-20 |
 |---|---|---|
 | U-3 | 슬랙 웹훅 URL → 파이프라인 실패 알림 실전화 | 가드 배포됨 |
 
