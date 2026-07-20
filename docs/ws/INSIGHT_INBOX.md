@@ -8,6 +8,8 @@
 
 ## 미수거
 
+- [2026-07-20] [이퀄베리 US 5f106fc6] interpret-tag 잔여 198건이 재실행해도 0건 진행 — 원인: 5/2 수집 광고의 fbcdn 썸네일 만료(403), 수집-태깅 시차가 크면 영구 태깅 불가 구조. 수집 직후 태깅 강제 or 썸네일 Storage 보존 필요 + phase stats에 실패 원인(만료 vs 레이트리밋) 구분 노출 (분석 단계 패널 > 영상 태깅, ANALYST 진단)
+
 ## 수거 완료 (2026-07-20 ORCH)
 
 - [2026-07-20] [이퀄베리 US 5f106fc6] KPI 카드 라벨 "TT Shop GMV (30d)"에 채널 불문 전체 매출(phase2 sales_summary.total_revenue)이 들어감 — 아마존 온리 케이스에서 아마존 $6.86M이 틱톡샵 GMV로 표기되는 오표기, 라벨을 "매출 (30d)"+채널 sub로 교체 필요 (HeaderMockup.tsx:220 KpiStrip, 사용자 직접 발견) → **배차 FE-3**
