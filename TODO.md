@@ -22,6 +22,7 @@
 | BE-14 | Helium10 Sales History(일별 판매 추정) 적재 파서 — Amazon 케이스 기간 정확 매출 시계열. 새 업로드 포맷+파서+period 필터 연동 | ⏸ 사용자 보류(2026-07-19 "일단 아니야") — 승인 시 착수 | 기간 필터 v1(54acafc 이후) 논의 | 파서+tsc+실적재 1케이스 |
 | BE-15 | ✅ 기간 필터 IG/YT 확장 — ig_posts.posted_at/yt_videos.uploaded_at로 "기간 내 활동 작성자/채널" 집합 산출 → 명단(top authors·tier·pool) membership 필터(followers·tier enrich 보존) + 직접 post 리스트(월별·소스·top-paid·해시태그/타입)에 게시일 WHERE. 기간 미설정=무필터(무회귀). period-filter.ts 주석 갱신. tsc 통과 + 실데이터 판별 검증(IG 270→70·YT 103→16 for 4/1~7/19). **실화면 QA는 ORCH**(기간 토글 후 명단 렌더) — **ORCH 게이트·머지·배포 완료(2026-07-20)**: 정정 2건(배너 문구 IG/YT 재집계로 이동 · membership 조회 실패 시 무필터 폴백), 잔여는 BE-16 | period-filter.ts v1 주석 | tsc + 실화면 |
 | BE-16 | [BE-15 잔여] 기간 필터 IG 완전 확장 — `allIgCreators`(B 섹션 전체 IG 리스트)와 `monthlyTierByChannel` IG 월별 티어도 igActiveUsernames membership 적용 (현재 top25·tier/pool·post 리스트만 적용됨) | ⬜ | BE-15 게이트 리뷰 2026-07-20 | tsc + B 섹션 IG 카운트 기간 반응 |
+| BE-17 | **⚠️ 데이터 유실 위험** BSR 업로드 replace → merge/append 전환 — Keepa export는 롤링 3년 창이라 히스토리 3년 초과 ASIN(예: B0CMC6S4BM, 2026-12부터 초과)은 업로드마다 앞부분 영구 삭제되는 구조. append(기존+신규 union) 기본 + 삭제 발생 시 "기존 N일 중 M일 삭제" 사전 경고 | ⬜ | INSIGHT_INBOX 2026-07-20 #4 (분석 세션 발견) | tsc + 3년경계 재현 테스트 |
 
 ## QA 레인
 
@@ -45,6 +46,9 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
+| FE-3 | **오표기 fix(우선)** KPI 카드 "TT Shop GMV (30d)"에 채널 불문 total_revenue가 들어감 — 아마존 온리 케이스에서 아마존 매출이 TT샵 GMV로 표기. 라벨 "매출 (30d)" + sub에 실제 채널 표기 (HeaderMockup KpiStrip + page.tsx 전달부) | ⬜ | INSIGHT_INBOX 2026-07-20 #1 | tsc + 이퀄베리 실화면 |
+| FE-4 | 진행/재실행 UI 3겹 중복 통합 (PhaseProgress 토글+PhaseProgressMockup+11단계 패널+채널 카드 내 재실행) → 진입점 1개 — **프로토 v8 개선#2와 동일 방향, FE-2 구현 시 해소가 정석**. 프로토 확정 지연 시에만 선행 미니 통합 | ⏸ FE-2에 병합 예정 | INSIGHT_INBOX 2026-07-20 #2 | 진입점 1개 |
+| FE-5 | 매출/BSR 업로드 성공 토스트에 "통계 집계 재실행" CTA — 업로드 후 재집계 경로를 못 찾는 문제 (성공 메시지에서 무료 phase 재실행 원클릭) | ⬜ | INSIGHT_INBOX 2026-07-20 #3 | 업로드→CTA→재실행 동작 |
 | FE-2 | 케이스 상세 프로토 v8 확정 시 **1:1 구현** (재해석·축소 금지) — 개선 13건 + 전역 기간 필터 UI. 정본: docs/design/prototype/bp-case-proto-v8.html + 아티팩트 f30052b0 | ⏸ 사용자 프로토 검수 대기 | PROTOTYPE_PROTOCOL.md §5 | 프로토 대비 블록 diff 0 |
 | FE-1 | **현행 화면 유지 + 갭 17항목 결선** — 우선순위 A(기능7)→C(UX6)→B(신뢰7), 리디자인 금지. migration 019 작성 포함 | ✅ 브랜치 `ws-4b-screens` — 17항목 전부 항목별 커밋(A1~A7·C1~C6·B1~B7) + REPORT(6e2ebc9). tsc 전부 통과. 실화면 QA 3케이스(medicube·Foodology·Nature Republic) 스크린샷 확인 — 크래시·콘솔에러 없음, 019 미적용 그레이스풀 폴백 확인. **검증·머지는 ORCH.** ⚠️ ORCH 조치: ①migration 019 apply+A1백필+재QA ②로컬 main 쓰레기 커밋 48faa29 정리(git reset --hard 70cffac) | docs/ws/WS4_지시서.md 확정판 | 항목별 커밋 + 실화면 QA 3케이스 |
 
