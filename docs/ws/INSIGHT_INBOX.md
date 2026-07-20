@@ -8,6 +8,8 @@
 
 ## 미수거
 
+- [2026-07-20] [메디테라피 US a112a5b1] collect-ig가 Apify 시작 전 "step output size is greater than the limit"로 즉사 — kalodata 적재 케이스의 거대 key_stats를 step이 통째 반환하는 BE-5 동류 버그로 추정(이퀄베리는 동일 config 흐름으로 성공), collect-ig의 케이스 조회 step 출력 슬림화 필요. 재실행 무의미, IG 수집이 이 케이스에서 원천 봉쇄됨 (분석 단계 패널 > 인스타그램 수집, ANALYST 진단)
+
 - [2026-07-20] [이퀄베리 US·메디테라피 US] IG 자동 발굴 완료 후 suggested config 박스가 렌더되면 케이스 상세 페이지 렌더러가 완전 freeze (두 케이스 재현, 클릭/스크린샷 30s+ 타임아웃) — IgPrepBox 결과 뷰의 재렌더 루프 의심, Accept 클릭이 사실상 불가능한 수준 (케이스 상세 > Instagram 카드 > IG Brand Monitoring 발굴 결과)
 
 - [2026-07-20] [이퀄베리 US 5f106fc6] interpret-tag 잔여 198건이 재실행해도 0건 진행 — 원인: 5/2 수집 광고의 fbcdn 썸네일 만료(403), 수집-태깅 시차가 크면 영구 태깅 불가 구조. 수집 직후 태깅 강제 or 썸네일 Storage 보존 필요 + phase stats에 실패 원인(만료 vs 레이트리밋) 구분 노출 (분석 단계 패널 > 영상 태깅, ANALYST 진단)
