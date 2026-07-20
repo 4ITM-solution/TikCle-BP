@@ -8,6 +8,8 @@
 
 ## 미수거
 
+- [2026-07-20] [이퀄베리·메디테라피 US] 메타 광고 수집이 사실상 "수집 시점 활성 광고"만 포착(7/16 수집분에 6/20~7/5 종료 광고 0건 실측) — 프라임 등 이벤트 단기 딜 광고가 통째로 누락돼 이벤트 전후 분석이 불가능. 이벤트 윈도우엔 tracked_brands 케이던스 단축 or 이벤트 프리셋 시 자동 고빈도 스냅샷 필요 (분석 리포트 작성 중 사용자 지적으로 실측 확인)
+
 - [2026-07-20] [메디테라피 US a112a5b1] collect-ig가 Apify 시작 전 "step output size is greater than the limit"로 즉사 — kalodata 적재 케이스의 거대 key_stats를 step이 통째 반환하는 BE-5 동류 버그로 추정(이퀄베리는 동일 config 흐름으로 성공), collect-ig의 케이스 조회 step 출력 슬림화 필요. 재실행 무의미, IG 수집이 이 케이스에서 원천 봉쇄됨 (분석 단계 패널 > 인스타그램 수집, ANALYST 진단)
 
 - [2026-07-20] [이퀄베리 US·메디테라피 US] IG 자동 발굴 완료 후 suggested config 박스가 렌더되면 케이스 상세 페이지 렌더러가 완전 freeze (두 케이스 재현, 클릭/스크린샷 30s+ 타임아웃) — IgPrepBox 결과 뷰의 재렌더 루프 의심, Accept 클릭이 사실상 불가능한 수준 (케이스 상세 > Instagram 카드 > IG Brand Monitoring 발굴 결과)
