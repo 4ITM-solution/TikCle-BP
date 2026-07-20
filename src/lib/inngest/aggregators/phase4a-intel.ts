@@ -54,11 +54,20 @@ async function fetchReusableAdIntel(
   const CHUNK = 300;
   for (let i = 0; i < hashes.length; i += CHUNK) {
     const chunk = hashes.slice(i, i + CHUNK);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("meta_ads")
       .select("tag_input_hash, ad_intel")
       .in("tag_input_hash", chunk)
       .not("ad_intel", "is", null);
+    // BE-13 (BE-11/CX1-F5 후속): 광고 dedup 조회 실패를 무시(빈 맵→전량 재태깅=조용한 과금)하지
+    //   않는다. error면 throw → 배치 실패로 Inngest 재시도. vision 쪽(fetchReusableVisionTags)과 동일.
+    if (error) {
+      const m =
+        typeof error === "object" && error && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      throw new Error(`ad_intel dedup 재사용 조회 실패(재시도): ${m}`);
+    }
     for (const r of (data ?? []) as Array<{
       tag_input_hash: string | null;
       ad_intel: AdIntel | null;
