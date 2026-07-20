@@ -484,6 +484,7 @@ export default async function CaseDetailPage({
         }
       } catch (e) {
         console.warn("[yt] active-channel set fail:", e);
+        ytActiveChannels = null; // 조회 실패 시 빈 Set으로 명단 전멸 방지 — 무필터 폴백
       }
     }
     const ytInPeriod = (channel: string | null | undefined) =>
@@ -715,6 +716,7 @@ export default async function CaseDetailPage({
         }
       } catch (e) {
         console.warn("[ig] active-username set fail:", e);
+        igActiveUsernames = null; // 조회 실패 시 빈 Set으로 명단 전멸 방지 — 무필터 폴백
       }
     }
     const igInPeriod = (username: string | null | undefined) =>
@@ -2577,8 +2579,8 @@ export default async function CaseDetailPage({
           <PeriodScopeToggle case_id={c.id} current={periodScope} />
           {periodScope && (
             <span style={{ fontSize: 10, color: "#6b7280" }}>
-              <b style={{ color: "#5b21b6" }}>{periodLabel(periodScope)}</b> 적용 중 — TikTok 영상·인플·Meta 광고·클러스터 멤버·BSR·주간뷰는 기간 재집계 ·
-              IG/YT 명단·클러스터 정의문·USP·매출 30d 스냅샷은 전 기간 기준
+              <b style={{ color: "#5b21b6" }}>{periodLabel(periodScope)}</b> 적용 중 — TikTok 영상·인플·IG/YT 명단·Meta 광고·클러스터 멤버·BSR·주간뷰는 기간 재집계 ·
+              클러스터 정의문·USP·매출 30d 스냅샷은 전 기간 기준
             </span>
           )}
         </div>

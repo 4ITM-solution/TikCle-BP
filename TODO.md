@@ -18,9 +18,10 @@
 | BE-11 | ✅ d5367f1 [CX1-F4·F5] fail-open 2건 — ①비용 가드(shared.ts): sumPaged 쿼리에러 throw로 표면화 + 조회 실패 시 fail-closed(emergency cap $5 정책, BudgetExceededError `budget_guard_unavailable`), dev는 `BP_BUDGET_FAILOPEN=1` 통과. ②vision dedup(phase4b-vision.ts): fetchReusableVisionTags error throw → 배치 실패로 Inngest 재시도(전량 재태깅 과금 차단). tsc 통과. ⚠️ phase4a-intel fetchReusableAdIntel도 동일 패턴(보고서 플래그) | CX 재감사 F4·F5 | tsc |
 | BE-12 | ✅ [CX1-F2] phase 의존 DAG — 설계 확정본 그대로. `PHASE_DOWNSTREAM` 상수 + `enqueueDownstream`(체인 threading — collect-meta는 tag→serve-stats로 cluster/sku 건너뜀) in shared.ts, `case/phase.requested`에 cascade/cascade_chain 필드, 오케스트레이터 invoke는 cascade:false(이중실행 차단), 10개 phase 실작업 성공 return 직전 hook(serve-stats 종단 제외, interpret-tag는 partial 보류). spec/02 §3.1+§7 갱신. tsc 통과. **라이브 cascade 검증 통과**(08cc: sku→serve-stats 자동 동반 실측, 2026-07-08) | BE12_DAG_설계.md | tsc + 소형 케이스 cascade 검증(ORCH) |
 
-| BE-13 | ✅ [BE-11 후속] phase4a-intel `fetchReusableAdIntel` — 광고 dedup 조회 error throw로 표면화(빈 맵→전량 재태깅 과금 차단). vision 쪽(BE-11)과 동일 처리. tsc 통과 | WS5_REPORT BE-11 플래그 | tsc |
+| BE-13 | ✅ [BE-11 후속] phase4a-intel `fetchReusableAdIntel` — 광고 dedup 조회 error throw로 표면화(빈 맵→전량 재태깅 과금 차단). vision 쪽(BE-11)과 동일 처리. tsc 통과 — **ORCH 게이트·머지·배포 완료(2026-07-20)** | WS5_REPORT BE-11 플래그 | tsc |
 | BE-14 | Helium10 Sales History(일별 판매 추정) 적재 파서 — Amazon 케이스 기간 정확 매출 시계열. 새 업로드 포맷+파서+period 필터 연동 | ⏸ 사용자 보류(2026-07-19 "일단 아니야") — 승인 시 착수 | 기간 필터 v1(54acafc 이후) 논의 | 파서+tsc+실적재 1케이스 |
-| BE-15 | ✅ 기간 필터 IG/YT 확장 — ig_posts.posted_at/yt_videos.uploaded_at로 "기간 내 활동 작성자/채널" 집합 산출 → 명단(top authors·tier·pool) membership 필터(followers·tier enrich 보존) + 직접 post 리스트(월별·소스·top-paid·해시태그/타입)에 게시일 WHERE. 기간 미설정=무필터(무회귀). period-filter.ts 주석 갱신. tsc 통과 + 실데이터 판별 검증(IG 270→70·YT 103→16 for 4/1~7/19). **실화면 QA는 ORCH**(기간 토글 후 명단 렌더) | period-filter.ts v1 주석 | tsc + 실화면 |
+| BE-15 | ✅ 기간 필터 IG/YT 확장 — ig_posts.posted_at/yt_videos.uploaded_at로 "기간 내 활동 작성자/채널" 집합 산출 → 명단(top authors·tier·pool) membership 필터(followers·tier enrich 보존) + 직접 post 리스트(월별·소스·top-paid·해시태그/타입)에 게시일 WHERE. 기간 미설정=무필터(무회귀). period-filter.ts 주석 갱신. tsc 통과 + 실데이터 판별 검증(IG 270→70·YT 103→16 for 4/1~7/19). **실화면 QA는 ORCH**(기간 토글 후 명단 렌더) — **ORCH 게이트·머지·배포 완료(2026-07-20)**: 정정 2건(배너 문구 IG/YT 재집계로 이동 · membership 조회 실패 시 무필터 폴백), 잔여는 BE-16 | period-filter.ts v1 주석 | tsc + 실화면 |
+| BE-16 | [BE-15 잔여] 기간 필터 IG 완전 확장 — `allIgCreators`(B 섹션 전체 IG 리스트)와 `monthlyTierByChannel` IG 월별 티어도 igActiveUsernames membership 적용 (현재 top25·tier/pool·post 리스트만 적용됨) | ⬜ | BE-15 게이트 리뷰 2026-07-20 | tsc + B 섹션 IG 카운트 기간 반응 |
 
 ## QA 레인
 
