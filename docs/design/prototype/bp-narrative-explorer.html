@@ -155,6 +155,7 @@
     margin-left:6px;vertical-align:middle}
   .badge.shop{background:var(--ok);color:#fff}
   .badge.amz{background:var(--line-2);color:var(--muted)}
+  .badge.ig{background:var(--info);color:#fff}
   .badge.rev{background:var(--ok);color:#fff;font-size:10px}
   .na{color:var(--faint)}
 
@@ -235,7 +236,7 @@
   <div class="panel"><div id="tiers"></div></div>
 
   <h2 class="sec">내러티브</h2>
-  <p class="sec-note">클릭하면 소속 영상이 펼쳐집니다. 아래 정렬은 <b>내러티브 카드의 순서</b>를 바꿉니다.</p>
+  <p class="sec-note">클릭하면 소속 영상이 펼쳐집니다. <b>채널</b>을 인스타그램으로 바꾸면 IG 앵글 기준으로 전환됩니다 (IG는 아직 클러스터 미편입 — 앵글 단위로 표시).</p>
   <div class="bar">
     <span class="bar-lab">카드 정렬</span>
     <div class="seg" id="ssort" role="group" aria-label="내러티브 카드 정렬">
@@ -244,22 +245,13 @@
       <button data-k="rx" aria-pressed="false">반응률</button>
     </div>
     <span class="bar-lab">채널</span>
-    <select id="f-shop"><option value="">전체</option><option value="shop">TT샵 영상</option><option value="amz">비샵(아마존)</option></select>
+    <select id="f-shop"><option value="">전체 통합</option><option value="ig">인스타그램</option><option value="shop">틱톡샵</option><option value="amz">비틱톡샵</option></select>
     <span class="bar-lab">앵글</span>
     <select id="f-angle"><option value="">전체</option></select>
   </div>
   <div id="list"></div>
 
-  <h2 class="sec" style="margin-top:30px">인스타그램</h2>
-  <p class="sec-note">IG는 <b>릴스·영상만 조회수를 공개</b>합니다(이미지·캐러셀은 원래 조회수 개념 없음). 영상 기준 <b>1만뷰당 댓글</b>로 TikTok과 동일 비교 · <span id="ig-n"></span></p>
-  <div class="panel">
-    <div style="font-size:12px;font-weight:700;margin-bottom:10px">앵글별 반응률</div>
-    <div id="ig-angles"></div>
-    <div style="font-size:12px;font-weight:700;margin:18px 0 8px">반응 상위 게시물</div>
-    <div class="tbl-scroll" id="ig-posts"></div>
-  </div>
-
-  <h2 class="sec" style="margin-top:30px">틱톡 앵글별 반응률</h2>
+  <h2 class="sec" style="margin-top:30px">앵글별 반응률 (틱톡)</h2>
   <p class="sec-note">1만뷰당 댓글 수 · 조회 1,000회 이상 · 댓글 미측정 영상 제외</p>
   <div class="panel"><div id="angles"></div></div>
 
@@ -537,26 +529,20 @@ function drawTiers(){
     </div>`).join("");
 }
 
-function drawIG(){
-  const A=IGA[CASE]||[], P=IGP[CASE]||[];
-  const mx=Math.max(...A.map(a=>a[1]),1);
-  document.getElementById("ig-n").textContent=`${CASE==="kundal"?"영상 290/320건 조회수 확보":"영상 342/350건 조회수 확보"}`;
-  document.getElementById("ig-angles").innerHTML=A.map(([n,r,c,av])=>`
-    <div class="arow">
-      <div><div class="aname">${n}</div><div class="acnt">${c}건 · 평균 ${nf(av)}뷰</div></div>
-      <div class="atrack"><div class="afill ${c<5?"dim":""}" style="width:${Math.max(2,r/mx*100)}%"></div></div>
-      <div class="aval ${rxCls(r)}">${r}</div></div>`).join("");
-  document.getElementById("ig-posts").innerHTML=`<table>
+function igRows(ang){
+  const P=(IGP[CASE]||[]).filter(v=>v[5]===ang);
+  if(!P.length) return `<div class="empty">이 앵글의 대표 게시물 샘플이 없습니다.</div>`;
+  return `<div class="tbl-scroll"><table>
     <thead><tr><th>계정 · 화면 자막</th><th class="num">좋아요</th><th class="num">댓글</th>
     <th class="num">100♥당<br>댓글</th><th>노출 제품</th></tr></thead><tbody>
     ${P.map(v=>`<tr>
       <td><a class="who" href="https://www.instagram.com/p/${v[1]}/" target="_blank" rel="noopener">@${esc(v[0])}<span class="ext">↗</span></a>
-        ${v[9]?`<span class="badge amz">${esc(v[9])}</span>`:""}
+        <span class="badge ig">IG</span>${v[9]?`<span class="badge amz">${esc(v[9])}</span>`:""}
         <div class="ovl ${v[7]?"":"none"}">${v[7]?esc(v[7]):"자막 없음"}</div>
         <div class="tags"><span class="tag ang">${v[5]}</span><span class="tag">${v[6]}</span></div></td>
       <td class="num">${nf(v[2])}</td><td class="num">${nf(v[3])}</td>
       <td class="num ${rxCls(v[4])}"><span class="rx">${v[4]}</span></td>
-      <td class="prods">${v[8].join(" · ")}</td></tr>`).join("")}</tbody></table>`;
+      <td class="prods">${v[8].join(" · ")}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function drawAngles(){
@@ -609,7 +595,7 @@ function render(){
     return `<span class="chip">${esc(m.slice(0,i))} <b>${esc(m.slice(i+1))}</b></span>`;}).join("");
   document.getElementById("callout").innerHTML=d.callout;
   document.getElementById("warn").innerHTML=WARN[CASE];
-  drawMonthly(); drawTiers(); drawIG(); drawAngles();
+  drawMonthly(); drawTiers(); drawAngles();
 
   const sel=document.getElementById("f-angle");
   const cur=sel.value;
@@ -617,29 +603,35 @@ function render(){
     [...new Set(vids().map(v=>v.ang))].sort().map(a=>`<option value="${a}">${a}</option>`).join("");
   sel.value=[...sel.options].some(o=>o.value===cur)?cur:"";
 
-  const mxRx=Math.max(...d.clusters.map(c=>c.rx||0));
+  const igMode = fShop==="ig";
+  const src = igMode
+    ? (IGA[CASE]||[]).map(([ang,rx,n,av])=>({n:ang,c:n,rx,sv:null,rev:null,gpm:null,tot:n,
+        h:`인스타그램 ${ang} 앵글 · 평균 ${nf(av)}뷰 · 1만뷰당 댓글 ${rx}`,ig:true}))
+    : d.clusters;
+  const mxRx=Math.max(...src.map(c=>c.rx||0),1);
   const mxRev=Math.max(...d.clusters.map(c=>c.rev||0),1);
   const k=c=> sortBy==="size"?c.c : sortBy==="rev"?(c.rev??-1) : (c.rx??-1);
-  document.getElementById("list").innerHTML=[...d.clusters].sort((a,b)=>k(b)-k(a)).map(c=>`
+  document.getElementById("list").innerHTML=[...src].sort((a,b)=>k(b)-k(a)).map(c=>`
    <details class="narr">
      <summary>
        <div>
          <div class="n-name"><span class="caret">▶</span>${esc(c.n)}
+           ${c.ig?`<span class="badge ig">IG 앵글</span>`:""}
            ${c.rev?`<span class="badge rev">$${c.rev.toLocaleString()}</span>`:""}</div>
          <div class="n-hook">${esc(c.h)}</div>
        </div>
        <div class="n-stats">
-         <div><div class="v">${c.c}</div>영상</div>
+         <div><div class="v">${c.c}</div>${c.ig?"게시물":"영상"}</div>
          <div><div class="v ${rxCls(c.rx)}">${c.rx??"—"}</div>1만뷰당 댓글
            ${c.rx!=null?`<div class="bar-track"><div class="bar-fill" style="width:${c.rx/mxRx*100}%"></div></div>`:""}</div>
-         <div><div class="v ${rxCls(c.sv)}">${c.sv??"—"}</div>1만뷰당 저장</div>
-         ${d.hasShop?`<div><div class="v">${c.rev!=null?"$"+nf(c.rev):"—"}</div>TT샵 매출
+         ${c.ig?"":`<div><div class="v ${rxCls(c.sv)}">${c.sv??"—"}</div>1만뷰당 저장</div>`}
+         ${(!c.ig&&d.hasShop)?`<div><div class="v">${c.rev!=null?"$"+nf(c.rev):"—"}</div>TT샵 매출
            ${c.rev?`<div class="bar-track"><div class="bar-fill" style="width:${c.rev/mxRev*100}%;background:var(--ok)"></div></div>`:""}</div>`:""}
        </div>
      </summary>
-     <div class="vids">${c.tot===0
+     <div class="vids">${c.ig ? igRows(c.n) : (c.tot===0
         ? `<div class="empty">반응률 측정 가능한 영상이 없습니다 (미측정 또는 표본 부족).</div>`
-        : rows(c.n)}</div>
+        : rows(c.n))}</div>
    </details>`).join("");
 
   document.querySelectorAll(".vseg button").forEach(b=>b.onclick=e=>{
