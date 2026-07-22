@@ -62,7 +62,20 @@
   .mbar-wrap{width:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px;height:100%}
   .mbar{width:46%;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px}
   .mbar.shop{background:var(--ok)}
-  .mbar-wrap{position:relative}
+  .mwrap{position:relative}
+  .mline{position:absolute;inset:8px 0 30px 0;pointer-events:none;z-index:1}
+  .mcol{position:relative}
+  .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:9px 11px;border-radius:7px;
+    font-size:11px;line-height:1.5;white-space:nowrap;opacity:0;pointer-events:none;
+    transition:opacity .12s;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+  .mcol:hover .tip{opacity:1}
+  .tt-h{font-family:var(--mono);font-weight:700;margin-bottom:5px;font-size:11px}
+  .tt-g{display:grid;grid-template-columns:auto auto;gap:1px 12px;font-family:var(--mono);font-size:10.5px}
+  .tt-g b{text-align:right;font-variant-numeric:tabular-nums}
+  .tt-s{margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18);
+    font-size:9.5px;opacity:.75;font-family:var(--mono)}
+  .mbar-wrap{position:relative;z-index:2}
   .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
     border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
   .mlab{font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
@@ -167,7 +180,20 @@
     .narr summary{grid-template-columns:1fr}
     .trow{grid-template-columns:60px 1fr 78px}
     .arow{grid-template-columns:100px 1fr 52px}
-    .mbar-wrap{position:relative}
+    .mwrap{position:relative}
+  .mline{position:absolute;inset:8px 0 30px 0;pointer-events:none;z-index:1}
+  .mcol{position:relative}
+  .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:9px 11px;border-radius:7px;
+    font-size:11px;line-height:1.5;white-space:nowrap;opacity:0;pointer-events:none;
+    transition:opacity .12s;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+  .mcol:hover .tip{opacity:1}
+  .tt-h{font-family:var(--mono);font-weight:700;margin-bottom:5px;font-size:11px}
+  .tt-g{display:grid;grid-template-columns:auto auto;gap:1px 12px;font-family:var(--mono);font-size:10.5px}
+  .tt-g b{text-align:right;font-variant-numeric:tabular-nums}
+  .tt-s{margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18);
+    font-size:9.5px;opacity:.75;font-family:var(--mono)}
+  .mbar-wrap{position:relative;z-index:2}
   .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
     border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
   .mlab{font-size:8px}
@@ -196,11 +222,11 @@
   <h2 class="sec">월별 콘텐츠 트렌드</h2>
   <p class="sec-note" id="mnote"></p><p class="sec-note" style="margin-top:-8px">막대에 마우스를 올리면 <b>티어별 영상 수</b>와 <b>그달 BSR 최고순위</b>가 표시됩니다.</p>
   <div class="panel">
-    <div class="mchart" id="mchart"></div>
+    <div class="mwrap"><div class="mline" id="mline"></div><div class="mchart" id="mchart"></div></div>
     <div class="legend">
       <span><span class="sw" style="background:var(--accent)"></span>전체 영상</span>
       <span><span class="sw" style="background:var(--ok)"></span>TT샵 영상</span>
-      <span><span class="sw" style="background:var(--info);border-radius:50%"></span>대표 SKU BSR(최고순위·로그)</span><span id="mmax" style="margin-left:auto"></span>
+      <span><span class="sw" style="background:var(--info);border-radius:50%"></span>대표 SKU BSR 추이(최고순위·로그)</span><span id="mmax" style="margin-left:auto"></span>
     </div>
   </div>
 
@@ -347,8 +373,7 @@ const DATA = {
   name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 2,000","앵글분석 525","내러티브 24","샵 매출 $2.09M","IG 앵글분석 491"],
   callout:`<b>규모 1위 내러티브가 매출 1위이기도 합니다.</b> 「탈모·두피 고민 공감형」은 230편으로 최대 축이면서 샵 매출 <b>$198,950</b>로도 1위입니다. 다만 반응률은 <b>8.1</b>로 평범하고, 반응률 최상위인 「POV 감성 일상형」(<b>41.7</b>)의 매출은 <b>$1,863</b>에 그칩니다. GPM은 「두피 루틴 튜토리얼」이 <b>44.1</b>로 가장 효율적입니다.`,
   mnote:"2025-12부터 본격 확대(415→1,698편). Kundal 대비 볼륨이 3배 이상이고 조회수도 월 1,800만~4,400만 규모.",
-  monthly:[["25-07",2,0],["25-08",3,0],["25-09",7,0],["25-10",67,0],["25-11",138,0],["25-12",415,0],
-    ["26-01",542,0],["26-02",697,0],["26-03",1174,0],["26-04",1017,0],["26-05",1488,0],["26-06",1698,0],["26-07",843,0]],
+  monthly:[["25-07",2,0],["25-08",3,0],["25-09",7,0],["25-10",67,0],["25-11",138,1],["25-12",415,11],["26-01",542,41],["26-02",697,151],["26-03",1174,239],["26-04",1017,251],["26-05",1488,400],["26-06",1698,594],["26-07",843,312]],
   tiers:[["nano",976,1960,47890780],["micro",879,1879,42454302],["mid",115,424,20107908],
     ["macro",27,34,2258417],["mega",32,38,13856423],["미분류",2302,3689,33063139]],
   angles:[["list_curation",21.3,2],["unboxing",19.3,16],["lifestyle",12.9,10],["review",7.9,139],
@@ -468,20 +493,34 @@ function drawMonthly(){
   const bv=m.map(x=>bsr[x[0]]).filter(Boolean);
   const bMin=Math.min(...bv), bMax=Math.max(...bv);
   const ORD=["mega","macro","mid","micro","nano","미분류"];
-  document.getElementById("mchart").innerHTML=m.map(([lab,tot,shop])=>{
+  const yOf=b=>(1-(Math.log(b)-Math.log(bMin))/(Math.log(bMax)-Math.log(bMin)||1))*70+6;
+  const n=m.length;
+  // BSR 폴리라인 (컬럼 중앙 좌표, %)
+  const pts=m.map((x,idx)=>{const b=bsr[x[0]];
+    return b?`${((idx+0.5)/n*100).toFixed(2)},${(100-yOf(b)).toFixed(2)}`:null;}).filter(Boolean);
+  document.getElementById("mline").innerHTML= pts.length>1
+    ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%">
+         <polyline points="${pts.join(" ")}" fill="none" stroke="var(--info)" stroke-width="0.7"
+           vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+       </svg>` : "";
+  document.getElementById("mchart").innerHTML=m.map(([lab,tot,shop],idx)=>{
     const t=tier[lab]||{}, b=bsr[lab];
-    const tips=ORD.filter(k=>t[k]).map(k=>`${k} ${t[k]}`).join(" · ");
-    const title=`${lab}  전체 ${tot}편${shop?` · TT샵 ${shop}편`:""}`+
-      (tips?`\n티어: ${tips}`:"")+(b?`\n대표 SKU BSR 최고 #${b.toLocaleString()}`:"");
-    const by=b?(1-(Math.log(b)-Math.log(bMin))/(Math.log(bMax)-Math.log(bMin)||1))*72+8:null;
-    return `<div class="mcol" title="${title.replace(/"/g,"&quot;")}">
+    const rows=ORD.filter(k=>t[k]).map(k=>`<span>${k}</span><b>${t[k]}</b>`).join("");
+    const tip=`<div class="tt-h">${lab}</div>
+      <div class="tt-g"><span>전체 영상</span><b>${tot.toLocaleString()}</b>
+      ${shop?`<span>TT샵 영상</span><b>${shop.toLocaleString()}</b>`:""}
+      ${b?`<span>BSR 최고</span><b>#${b.toLocaleString()}</b>`:""}</div>
+      ${rows?`<div class="tt-s">티어별 영상</div><div class="tt-g">${rows}</div>`:""}`;
+    const bd=b?`<div class="bsr-dot" style="bottom:${yOf(b)}%"></div>`:"";
+    return `<div class="mcol">
       <div class="mval">${tot>=1000?(tot/1000).toFixed(1)+"K":tot}</div>
       <div class="mbar-wrap">
         <div class="mbar" style="height:${tot/mx*100}%"></div>
         ${shop>0?`<div class="mbar shop" style="height:${shop/mx*100}%"></div>`:""}
-        ${b?`<div class="bsr-dot" style="bottom:${by}%" data-b="#${(b/1000).toFixed(1)}K"></div>`:""}
+        ${bd}
       </div>
-      <div class="mlab">${lab}</div></div>`;}).join("");
+      <div class="mlab">${lab}</div>
+      <div class="tip">${tip}</div></div>`;}).join("");
   document.getElementById("mmax").textContent=`최대 ${mx.toLocaleString()}편/월 · BSR ${bMin.toLocaleString()}~${bMax.toLocaleString()}위`;
   document.getElementById("mnote").textContent=D().mnote;
 }
