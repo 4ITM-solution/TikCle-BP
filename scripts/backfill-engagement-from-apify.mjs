@@ -55,12 +55,21 @@ const rest = async (p, opt = {}) => {
 const [cs] = await rest(`cases?id=eq.${caseId}&select=brand_id,country`);
 if (!cs) throw new Error("case 없음");
 
-// 2) 인게이지먼트 NULL인 행 수집 (페이지네이션)
+// 2) 백필 대상 수집 (페이지네이션)
+//    --field collect|comments : 어느 컬럼이 NULL인 행을 채울지 (기본 collect_count)
+//    --minviews N             : 조회수 하한 (비용 절감)
+const fieldArg = process.argv.indexOf("--field");
+const NULLCOL = (fieldArg > 0 ? process.argv[fieldArg + 1] : "collect") === "comments"
+  ? "comments" : "collect_count";
+const mvArg = process.argv.indexOf("--minviews");
+const MINV = mvArg > 0 ? Number(process.argv[mvArg + 1]) : 0;
 const targets = [];
 for (let from = 0; ; from += 1000) {
   const page = await rest(
     `contents?brand_id=eq.${cs.brand_id}&country=eq.${cs.country}` +
-      `&comments=is.null&url=not.is.null&select=id,url&order=id&offset=${from}&limit=1000`,
+      `&${NULLCOL}=is.null&url=not.is.null` +
+      (MINV > 0 ? `&views=gte.${MINV}` : "") +
+      `&select=id,url&order=id&offset=${from}&limit=1000`,
   );
   targets.push(...page);
   if (page.length < 1000) break;
