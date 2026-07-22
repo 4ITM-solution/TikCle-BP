@@ -1,4 +1,4 @@
-<title>내러티브 탐색기 — Kundal (프로토)</title>
+<title>내러티브 탐색기 — Kundal · Lilyeve (프로토)</title>
 <style>
   :root{
     --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
@@ -8,62 +8,90 @@
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",Segoe UI,sans-serif;
   }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
-      --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
-      --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
-      --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;
-    }
-  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
+    --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
+    --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
+    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;}}
   :root[data-theme="dark"]{
     --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
     --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
     --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
-    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;
-  }
+    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;}
   :root[data-theme="light"]{
     --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
     --muted:#6b7280; --faint:#9ca3af; --line:#e8e6ea; --line-2:#f2f0f4;
     --accent:#ec4899; --accent-soft:#fdf2f8; --accent-line:#fbcfe8;
-    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;
-  }
+    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;}
 
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
        font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 90px}
-
-  /* ── header ── */
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 90px}
   .proto-tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.09em;
     text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
     border:1px solid var(--accent-line);border-radius:3px;padding:3px 8px;margin-bottom:12px}
   h1{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
-  .sub{color:var(--muted);font-size:13px;margin:0 0 20px;max-width:70ch}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:72ch}
   .sub b{color:var(--ink-2);font-weight:600}
 
-  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+  /* case switcher */
+  .cases{display:flex;gap:8px;margin-bottom:16px}
+  .case-btn{flex:0 0 auto;padding:9px 16px;border:1px solid var(--line);border-radius:9px;
+    background:var(--surface);cursor:pointer;font-family:var(--sans);text-align:left}
+  .case-btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+  .case-btn b{display:block;font-size:14px;font-weight:750;color:var(--ink)}
+  .case-btn span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .case-btn:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
   .chip{font-family:var(--mono);font-size:11px;color:var(--ink-2);background:var(--surface);
     border:1px solid var(--line);border-radius:20px;padding:4px 11px}
   .chip b{color:var(--ink);font-weight:700}
 
-  /* ── controls ── */
-  .bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;
-    padding:12px 14px;background:var(--surface);border:1px solid var(--line);
-    border-radius:10px;margin-bottom:8px;position:sticky;top:0;z-index:20}
-  .bar-lab{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
-    text-transform:uppercase;color:var(--faint)}
+  h2.sec{font-size:12px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 4px;font-weight:600}
+  .sec-note{font-size:12px;color:var(--muted);margin:0 0 12px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:16px 18px;margin-bottom:28px}
+
+  /* monthly chart */
+  .mchart{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;align-items:end;
+    height:150px;padding-top:8px}
+  .mcol{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%}
+  .mbar-wrap{width:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px;height:100%}
+  .mbar{width:46%;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px}
+  .mbar.shop{background:var(--ok)}
+  .mlab{font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
+  .mval{font-family:var(--mono);font-size:9.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--muted);
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  /* tier */
+  .trow{display:grid;grid-template-columns:74px 1fr 96px;gap:12px;align-items:center;
+    padding:7px 0;border-bottom:1px solid var(--line-2)}
+  .trow:last-child{border-bottom:0}
+  .tname{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);font-weight:600}
+  .ttrack{height:9px;background:var(--line-2);border-radius:4px;overflow:hidden;display:flex}
+  .tfill{height:100%}
+  .tval{text-align:right;font-family:var(--mono);font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .tval b{color:var(--ink);font-weight:700}
+
+  /* narrative */
+  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:11px 14px;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+  .bar-lab{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
-  .seg button{font-family:var(--sans);font-size:12px;padding:5px 12px;border:0;
+  .seg button{font-family:var(--sans);font-size:12px;padding:5px 11px;border:0;
     background:var(--surface);color:var(--muted);cursor:pointer;font-weight:600}
   .seg button+button{border-left:1px solid var(--line)}
   .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
   .seg button:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
   select{font-family:var(--sans);font-size:12px;padding:5px 9px;border:1px solid var(--line);
     border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
-  .note{font-size:11px;color:var(--faint);margin:0 0 22px;padding-left:2px}
 
-  /* ── narrative list ── */
   .narr{border:1px solid var(--line);border-radius:11px;background:var(--surface);
     margin-bottom:9px;overflow:hidden}
   .narr[open]{border-color:var(--accent-line)}
@@ -71,26 +99,24 @@
     grid-template-columns:1fr auto;gap:14px;align-items:center}
   .narr summary::-webkit-details-marker{display:none}
   .narr summary:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
-  .n-name{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:flex;
-    align-items:center;gap:8px;flex-wrap:wrap}
+  .n-name{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .n-name .caret{color:var(--faint);font-size:11px;transition:transform .15s}
   .narr[open] .caret{transform:rotate(90deg)}
   .n-hook{font-size:12px;color:var(--muted);margin-top:5px;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .n-stats{display:flex;gap:16px;align-items:baseline;font-family:var(--mono);
-    font-size:11px;color:var(--muted);white-space:nowrap}
+  .n-stats{display:flex;gap:15px;align-items:baseline;font-family:var(--mono);
+    font-size:10.5px;color:var(--muted);white-space:nowrap}
   .n-stats .v{font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
   .rx{font-variant-numeric:tabular-nums;font-weight:800;font-family:var(--mono)}
-  .rx-hi{color:var(--accent)}
-  .rx-mid{color:var(--ink-2)}
-  .rx-lo{color:var(--faint)}
-  .bar-track{width:54px;height:4px;background:var(--line-2);border-radius:2px;overflow:hidden;margin-top:5px}
+  .rx-hi{color:var(--accent)} .rx-mid{color:var(--ink-2)} .rx-lo{color:var(--faint)}
+  .bar-track{width:52px;height:4px;background:var(--line-2);border-radius:2px;overflow:hidden;margin-top:5px}
   .bar-fill{height:100%;background:var(--accent);border-radius:2px}
 
-  /* ── video table ── */
-  .vids{border-top:1px solid var(--line-2);padding:4px 0 8px}
+  .vids{border-top:1px solid var(--line-2);padding:0 0 8px}
+  .vsort{display:flex;gap:8px;align-items:center;padding:9px 14px;background:var(--line-2)}
+  .vsort .bar-lab{color:var(--muted)}
   .tbl-scroll{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:730px}
   th{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
     color:var(--faint);font-weight:600;text-align:left;padding:9px 12px;
     border-bottom:1px solid var(--line-2);white-space:nowrap}
@@ -101,146 +127,141 @@
   .who:hover{color:var(--accent);text-decoration:underline}
   .who:focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:2px}
   .ext{color:var(--faint);font-size:10px;margin-left:3px}
-  .ovl{color:var(--ink-2);font-size:12px;margin-top:3px;max-width:44ch}
-  .ovl:before{content:"“";color:var(--faint)}
-  .ovl:after{content:"”";color:var(--faint)}
+  .ovl{color:var(--ink-2);font-size:12px;margin-top:3px;max-width:46ch}
+  .ovl:before{content:"“";color:var(--faint)} .ovl:after{content:"”";color:var(--faint)}
   .ovl.none{color:var(--faint);font-style:italic}
   .ovl.none:before,.ovl.none:after{content:""}
   .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-  .tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;
-    background:var(--line-2);color:var(--muted)}
+  .tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--line-2);color:var(--muted)}
   .tag.ang{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
-  .badge{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:1px 6px;
-    border-radius:3px;margin-left:6px;vertical-align:middle}
+  .prods{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .badge{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;
+    margin-left:6px;vertical-align:middle}
   .badge.shop{background:var(--ok);color:#fff}
   .badge.amz{background:var(--line-2);color:var(--muted)}
   .badge.rev{background:var(--ok);color:#fff;font-size:10px}
   .na{color:var(--faint)}
-  .prods{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 
-  /* ── angle panel ── */
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:11px;
-    padding:16px 18px;margin-bottom:26px}
-  .panel h2{font-size:13px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
-  .panel p{font-size:12px;color:var(--muted);margin:0 0 14px}
-  .arow{display:grid;grid-template-columns:132px 1fr 62px;gap:12px;align-items:center;
+  /* angle */
+  .arow{display:grid;grid-template-columns:128px 1fr 58px;gap:12px;align-items:center;
     padding:6px 0;border-bottom:1px solid var(--line-2)}
   .arow:last-child{border-bottom:0}
   .aname{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
   .atrack{height:7px;background:var(--line-2);border-radius:4px;overflow:hidden}
   .afill{height:100%;border-radius:4px;background:var(--accent)}
   .afill.dim{background:var(--faint);opacity:.45}
-  .aval{text-align:right;font-family:var(--mono);font-size:12px;font-weight:700;
-    font-variant-numeric:tabular-nums}
+  .aval{text-align:right;font-family:var(--mono);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
   .acnt{font-family:var(--mono);font-size:10px;color:var(--faint)}
 
   .callout{border-left:3px solid var(--accent);background:var(--accent-soft);
-    border-radius:0 8px 8px 0;padding:11px 14px;font-size:12.5px;color:var(--ink-2);
-    margin-bottom:26px}
+    border-radius:0 8px 8px 0;padding:11px 14px;font-size:12.5px;color:var(--ink-2);margin-bottom:26px}
   .callout b{color:var(--ink)}
-
   .warnbox{border:1px dashed var(--warn);border-radius:8px;padding:11px 14px;
-    font-size:12px;color:var(--ink-2);margin-bottom:12px;background:transparent}
+    font-size:12px;color:var(--ink-2);margin-top:22px}
   .warnbox b{color:var(--ink)}
-
-  h2.sec{font-size:12px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
-    color:var(--faint);margin:0 0 11px;font-weight:600}
   .empty{padding:14px;font-size:12px;color:var(--faint);font-style:italic}
-  @media (max-width:720px){
+  @media (max-width:760px){
     .narr summary{grid-template-columns:1fr}
-    .n-stats{gap:12px}
-    .arow{grid-template-columns:104px 1fr 54px}
+    .trow{grid-template-columns:60px 1fr 78px}
+    .arow{grid-template-columns:100px 1fr 52px}
+    .mlab{font-size:8px}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div class="wrap">
-  <span class="proto-tag">Prototype · 실측 데이터</span>
+  <span class="proto-tag">Prototype · 실측 데이터 2026-07-22</span>
   <h1>내러티브 탐색기</h1>
   <p class="sub">
-    <b>Kundal</b> (US · TikTok) — 어떤 <b>USP를 어떤 앵글로</b> 보여주는지를 내러티브 단위로 묶고,
-    각 내러티브의 실제 영상과 <b>반응률·저장률·TT샵 매출</b>을 함께 봅니다.
+    <b>어떤 USP를 어떤 앵글로</b> 보여주는지를 내러티브 단위로 묶고, 각 내러티브의 실제 영상·
+    <b>오디언스 반응률</b>·<b>성과</b>를 함께 봅니다. 기존 대시보드의 월별·티어별 트렌드도 같은 화면에서 확인합니다.
   </p>
 
-  <div class="meta-row">
-    <span class="chip">콘텐츠 <b>3,158</b></span>
-    <span class="chip">측정가능 <b>2,852</b></span>
-    <span class="chip">TT샵 영상 <b>1,154</b></span>
-    <span class="chip">앵글분석 <b>502</b></span>
-    <span class="chip">내러티브 <b>19</b></span>
-    <span class="chip">샵 매출 <b>$50,985</b></span>
+  <div class="cases" role="group" aria-label="케이스 선택">
+    <button class="case-btn" id="cb-kundal" aria-pressed="true">
+      <b>Kundal</b><span>US · 헤어케어 · 3,158편</span></button>
+    <button class="case-btn" id="cb-lilyeve" aria-pressed="false">
+      <b>Lilyeve</b><span>US · 두피/탈모 · 8,091편</span></button>
   </div>
 
-  <div class="callout">
-    <b>반응이 높은 내러티브와 매출을 만든 내러티브가 다릅니다.</b>
-    「리스트·큐레이션 저장 유도형」은 1만뷰당 댓글 <b>115.9</b>로 최고지만 샵 매출은 <b>$170</b>,
-    반대로 「퍼스널 스토리 UGC 리뷰형」은 댓글 <b>17.5</b>에 그치지만 매출 <b>$17,910</b>으로 1위입니다.
-    매출 상위 3종(퍼스널 스토리·소셜프루프·한국 헤어케어 전환)이 전체 샵 매출의 <b>84%</b>를 차지합니다.
-  </div>
+  <div class="meta-row" id="meta"></div>
+  <div class="callout" id="callout"></div>
 
+  <h2 class="sec">월별 콘텐츠 트렌드</h2>
+  <p class="sec-note" id="mnote"></p>
   <div class="panel">
-    <h2>앵글별 반응률</h2>
-    <p>1만뷰당 댓글 수 · 조회 1,000회 이상 · 댓글 미측정 영상 제외</p>
-    <div id="angles"></div>
+    <div class="mchart" id="mchart"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--accent)"></span>전체 영상</span>
+      <span><span class="sw" style="background:var(--ok)"></span>TT샵 영상</span>
+      <span id="mmax" style="margin-left:auto"></span>
+    </div>
   </div>
 
-  <h2 class="sec">내러티브 19종</h2>
+  <h2 class="sec">크리에이터 티어 분포</h2>
+  <p class="sec-note">티어별 크리에이터 수 · 영상 수 · 누적 조회수</p>
+  <div class="panel"><div id="tiers"></div></div>
+
+  <h2 class="sec">내러티브</h2>
+  <p class="sec-note">클릭하면 소속 영상이 펼쳐집니다. 아래 정렬은 <b>내러티브 카드의 순서</b>를 바꿉니다.</p>
   <div class="bar">
-    <span class="bar-lab">내러티브</span>
-    <div class="seg" id="ssort" role="group" aria-label="내러티브 정렬">
+    <span class="bar-lab">카드 정렬</span>
+    <div class="seg" id="ssort" role="group" aria-label="내러티브 카드 정렬">
       <button data-k="size" aria-pressed="true">규모</button>
       <button data-k="rev" aria-pressed="false">샵 매출</button>
       <button data-k="rx" aria-pressed="false">반응률</button>
-    </div>
-    <span class="bar-lab">영상</span>
-    <div class="seg" id="vsort" role="group" aria-label="영상 정렬">
-      <button data-k="cr" aria-pressed="true">댓글률</button>
-      <button data-k="sr" aria-pressed="false">저장률</button>
-      <button data-k="rev" aria-pressed="false">매출</button>
-      <button data-k="view" aria-pressed="false">조회</button>
     </div>
     <span class="bar-lab">채널</span>
     <select id="f-shop"><option value="">전체</option><option value="shop">TT샵 영상</option><option value="amz">비샵(아마존)</option></select>
     <span class="bar-lab">앵글</span>
     <select id="f-angle"><option value="">전체</option></select>
   </div>
-  <p class="note">클릭하면 소속 영상이 펼쳐집니다. 링크는 실제 TikTok 게시물로 연결됩니다.</p>
-
   <div id="list"></div>
 
-  <div class="warnbox" style="margin-top:22px">
-    <b>채널별 성과 지표가 다릅니다</b> — <b>TT샵 영상(1,154건)</b>은 Kalodata 매출·GPM으로 직접 성과 측정이 가능합니다.
-    <b>비샵 영상(2,004건)</b>은 매출 귀속이 불가해 <b>아마존 BSR</b>로 봐야 합니다
-    (Kundal 대표 SKU BSR 최고 <b>2,475위</b> · 2024-07~2026-06 일별). 표의 "샵 매출"이 <span class="na">해당없음</span>인 행이 이에 해당합니다.
-    <br><b>미측정 306건</b>은 좋아요·댓글이 없어(영상 삭제·비공개 추정) 반응률 계산에서 제외했습니다 — 실제 0과 구분하기 위해 0으로 대체하지 않았습니다.
-    저장수는 Apify 백필로 확보했으며, 아직 값이 없는 행은 <span class="na">—</span>로 표시합니다.
-  </div>
+  <h2 class="sec" style="margin-top:30px">앵글별 반응률</h2>
+  <p class="sec-note">1만뷰당 댓글 수 · 조회 1,000회 이상 · 댓글 미측정 영상 제외</p>
+  <div class="panel"><div id="angles"></div></div>
+
+  <div class="warnbox" id="warn"></div>
 </div>
 
 <script>
-const CLUSTERS = [
- {n:"퍼스널 스토리 토킹헤드 UGC 리뷰형",c:199,rx:17.5,sv:866.9,rev:17910,gpm:21.0,shop:31,tot:67,h:"personal_story 단독 또는 social_proof/curiosity_gap 조합으로 '나의 경험'을 직접 언급하며 시작",b:"talking_head 포맷으로 제품 사용 경험·향·효과를 구어체로 설명, 중후반에 shop_link CTA 삽입"},
- {n:"소셜프루프 신뢰 기반 구매 전환형",c:93,rx:37.5,sv:88.0,rev:13511,gpm:14.0,shop:19,tot:45,h:"social_proof를 첫 훅으로 내세워 바이럴·인기·수상 이력을 강조",b:"talking_head 또는 voiceover_pov로 제품 효능·향을 소개하고 shop_link CTA로 마무리"},
- {n:"한국 헤어케어 전환 설득형",c:23,rx:47.4,sv:26.8,rev:11033,gpm:18.1,shop:15,tot:23,h:"curiosity_gap 또는 question으로 '한국 헤어케어를 써봤어?' 류 질문 제기, K-pop 연관성 부각",b:"talking_head로 한국 제품 특징을 설명하고 US 제품과 암묵적 비교 후 구매 유도"},
- {n:"향(Scent) 감각 소구 구매 설득형",c:48,rx:28.8,sv:19.5,rev:3534,gpm:20.8,shop:13,tot:23,h:"social_proof 또는 personal_story로 '향이 미쳤다', '스트레이키즈 샴푸 향' 등 향 관련 감각 표현을 훅으로",b:"talking_head로 향의 지속력·종류·느낌을 상세 묘사하고 구매 필요성 강조"},
- {n:"변신 약속·Before/After 결과 시각화형",c:90,rx:60.9,sv:40.5,rev:1425,gpm:16.2,shop:15,tot:28,h:"transformation_promise 단독 또는 problem_statement와 조합해 '이렇게 달라진다'는 결과 예고",b:"before_after, split_screen, demonstration으로 변화 과정·결과를 시각적으로 증명 후 CTA"},
- {n:"POV 보이스오버 헤어루틴 몰입형",c:33,rx:99.9,sv:197.0,rev:960,gpm:12.1,shop:8,tot:9,h:"curiosity_gap 또는 transformation_promise와 함께 'POV:' 자막 오버레이로 상황 이입 유도",b:"voiceover_pov로 샤워·헤어 루틴 장면을 보여주며 향·질감을 나레이션"},
- {n:"일상 라이프스타일 내러티브 페르소나형",c:28,rx:97.3,sv:null,rev:813,gpm:11.0,shop:2,tot:5,h:"personal_story 단독 또는 vlog 감성 훅으로 일상 장면을 먼저 보여주며 공감대 형성",b:"vlog, narrative로 일상 시퀀스 안에 제품을 삽입, CTA 없거나 watch_more 수준"},
- {n:"문제 제기 솔루션 제시형",c:83,rx:48.7,sv:15.8,rev:753,gpm:19.9,shop:14,tot:21,h:"problem_statement 단독 또는 personal_story와 조합해 구체적 헤어 고민 제기",b:"talking_head 또는 demonstration으로 문제 공감 후 성분·사용법·효과를 솔루션으로 제시"},
- {n:"언박싱·PR 하울 호기심 유발형",c:48,rx:54.9,sv:22.8,rev:590,gpm:18.5,shop:3,tot:11,h:"curiosity_gap 또는 personal_story로 언박싱·하울 예고, '뭘 샀냐면' 또는 'PR 받았다' 서사",b:"demonstration으로 박스 개봉→제품 나열→첫 인상 공유"},
- {n:"가격 비교·할인코드 가성비 소구형",c:14,rx:1.0,sv:null,rev:240,gpm:62.6,shop:1,tot:5,h:"comparison 또는 가격·할인 정보를 훅 상단에 노출해 시선 집중",b:"talking_head로 성분·효능 유사성을 강조하며 가성비 결론 도출"},
- {n:"리스트·큐레이션 저장 유도형",c:84,rx:115.9,sv:35.2,rev:170,gpm:12.2,shop:3,tot:12,h:"list_preview 또는 curiosity_gap으로 'Top N', 시리즈 예고로 끝까지 시청 유도",b:"list 또는 transition_montage로 제품·성분·혜택을 순서대로 소개, save/shop_link CTA"},
- {n:"헤어 루틴·튜토리얼 데모 시연형",c:24,rx:4.2,sv:12.3,rev:46,gpm:17.5,shop:2,tot:6,h:"question, transformation_promise로 '올바른 루틴' 또는 '실수 교정' 니즈 자극",b:"demonstration으로 세정→트리트먼트→마무리 단계를 순서대로 시연"},
- {n:"아마존 프라임데이·할인 긴급 구매 촉구형",c:56,rx:2.8,sv:null,rev:0,gpm:null,shop:0,tot:14,h:"social_proof 훅에 'Amazon Prime Day', '40% off', 카운트다운 등 세일 키워드 오버레이",b:"talking_head로 제품 소개 후 할인율·기간 강조, shop_link CTA"},
- {n:"기브어웨이·이벤트 참여 유도형",c:16,rx:4.5,sv:null,rev:0,gpm:null,shop:0,tot:1,h:"social_proof + curiosity_gap 또는 카운트다운·기념일 예고로 참여 동기 부여",b:"제품·이벤트를 보여주며 참여 방법(follow/comment/tag) 안내"},
- {n:"폴리시드 브랜드 감성 라이프스타일형",c:81,rx:null,sv:null,rev:null,gpm:null,shop:0,tot:0,h:"transformation_promise 또는 lifestyle/감성 카피로 감각적인 첫 장면 제시",b:"voiceover_pov로 브랜드 무드·제품을 감성적으로 연결"},
- {n:"shop_link 고전환 직구매 CTA형",c:60,rx:null,sv:null,rev:null,gpm:null,shop:0,tot:0,h:"social_proof, personal_story 중 하나로 결과 또는 추천 신뢰도를 즉시 제시",b:"talking_head로 효과를 간결하게 증언 후 명확한 shop_link CTA"},
- {n:"성분·기능 교육 정보형",c:50,rx:null,sv:null,rev:null,gpm:null,shop:0,tot:0,h:"question, ingredient_breakdown으로 '왜 이 성분인가' 궁금증 유발",b:"talking_head로 성분 메커니즘·효과를 단계적으로 설명"},
- {n:"신제품·라인 론칭 티저·유통채널형",c:4,rx:null,sv:null,rev:null,gpm:null,shop:0,tot:0,h:"social_proof(입점, 수상, 베스트셀러) 또는 'Introducing/NEW' 예고로 기대감 유발",b:"유통처 정보·라인 컨셉·주요 기능을 전달 후 shop_link CTA"},
- {n:"K뷰티 도매·리셀러 B2B 프로모형",c:4,rx:null,sv:null,rev:null,gpm:null,shop:0,tot:0,h:"wholesale price 또는 local availability를 전면 제시해 사업자 관심 유도",b:"브랜드 라인업·가격 경쟁력·주문 방법 나열, DM·링크 CTA"}
-];
-
-const V = [
+const DATA = {
+ kundal:{
+  name:"Kundal", meta:["콘텐츠 3,158","측정가능 2,852","TT샵 영상 1,154","앵글분석 502","내러티브 19","샵 매출 $50,985"],
+  callout:`<b>반응이 높은 내러티브와 매출을 만든 내러티브가 다릅니다.</b>
+    「리스트·큐레이션 저장 유도형」은 1만뷰당 댓글 <b>115.9</b>로 최고지만 샵 매출은 <b>$170</b>,
+    반대로 「퍼스널 스토리 UGC 리뷰형」은 댓글 <b>17.5</b>에 그치지만 매출 <b>$17,910</b>으로 1위입니다.
+    매출 상위 3종이 전체 샵 매출의 <b>84%</b>를 차지합니다.`,
+  mnote:"2026-02부터 TT샵 영상이 급증(44→422편). 시딩 축이 오가닉에서 샵으로 이동한 시점.",
+  monthly:[["25-07",328,5],["25-08",161,7],["25-09",111,9],["25-10",177,2],["25-11",118,9],["25-12",70,6],
+    ["26-01",75,3],["26-02",316,44],["26-03",236,86],["26-04",293,158],["26-05",603,422],["26-06",648,389]],
+  tiers:[["nano",659,1018,1112522],["micro",343,517,4671837],["mid",42,60,3507548],
+    ["macro",8,13,2782181],["mega",6,8,7667308],["미분류",915,1277,5300991]],
+  angles:[["lifestyle",87.4,6],["before_after",58.4,5],["list_curation",17.2,3],["review",15.1,65],
+    ["unboxing",14.8,9],["tutorial",6.5,7],["testimonial",4.8,29],["comparison",1.8,1],["humor_skit",0.5,2]],
+  hasShop:true,
+  clusters:[
+ {n:"퍼스널 스토리 토킹헤드 UGC 리뷰형",c:199,rx:17.5,sv:866.9,rev:17910,gpm:21.0,tot:67,h:"personal_story 단독 또는 social_proof/curiosity_gap 조합으로 '나의 경험'을 직접 언급하며 시작"},
+ {n:"소셜프루프 신뢰 기반 구매 전환형",c:93,rx:37.5,sv:88.0,rev:13511,gpm:14.0,tot:45,h:"social_proof를 첫 훅으로 내세워 바이럴·인기·수상 이력을 강조"},
+ {n:"한국 헤어케어 전환 설득형",c:23,rx:47.4,sv:26.8,rev:11033,gpm:18.1,tot:23,h:"curiosity_gap 또는 question으로 '한국 헤어케어를 써봤어?' 류 질문 제기, K-pop 연관성 부각"},
+ {n:"향(Scent) 감각 소구 구매 설득형",c:48,rx:28.8,sv:19.5,rev:3534,gpm:20.8,tot:23,h:"'향이 미쳤다', '스트레이키즈 샴푸 향' 등 향 관련 감각 표현을 훅으로 사용"},
+ {n:"변신 약속·Before/After 결과 시각화형",c:90,rx:60.9,sv:40.5,rev:1425,gpm:16.2,tot:28,h:"transformation_promise로 '이렇게 달라진다'는 결과 예고 후 시각적 증명"},
+ {n:"POV 보이스오버 헤어루틴 몰입형",c:33,rx:99.9,sv:197.0,rev:960,gpm:12.1,tot:9,h:"'POV:' 자막 오버레이로 상황 이입 유도, 샤워·헤어 루틴 나레이션"},
+ {n:"일상 라이프스타일 내러티브 페르소나형",c:28,rx:97.3,sv:null,rev:813,gpm:11.0,tot:5,h:"personal_story 또는 vlog 감성 훅으로 일상 장면을 먼저 보여주며 공감대 형성"},
+ {n:"문제 제기 솔루션 제시형",c:83,rx:48.7,sv:15.8,rev:753,gpm:19.9,tot:21,h:"problem_statement로 구체적 헤어 고민 제기 후 성분·사용법을 솔루션으로 제시"},
+ {n:"언박싱·PR 하울 호기심 유발형",c:48,rx:54.9,sv:22.8,rev:590,gpm:18.5,tot:11,h:"'뭘 샀냐면' 또는 'PR 받았다' 서사로 박스 개봉→제품 나열→첫 인상"},
+ {n:"가격 비교·할인코드 가성비 소구형",c:14,rx:1.0,sv:null,rev:240,gpm:62.6,tot:5,h:"가격·할인 정보를 훅 상단에 노출해 시선 집중, 가성비 결론 도출"},
+ {n:"리스트·큐레이션 저장 유도형",c:84,rx:115.9,sv:35.2,rev:170,gpm:12.2,tot:12,h:"'Top N', 시리즈 예고로 끝까지 시청 유도, save/shop_link CTA"},
+ {n:"헤어 루틴·튜토리얼 데모 시연형",c:24,rx:4.2,sv:12.3,rev:46,gpm:17.5,tot:6,h:"'올바른 루틴' 또는 '실수 교정' 니즈 자극 후 단계별 시연"},
+ {n:"아마존 프라임데이·할인 긴급 구매 촉구형",c:56,rx:2.8,sv:null,rev:0,gpm:null,tot:14,h:"'Amazon Prime Day', '40% off', 카운트다운 등 세일 키워드 오버레이"},
+ {n:"기브어웨이·이벤트 참여 유도형",c:16,rx:4.5,sv:null,rev:0,gpm:null,tot:1,h:"카운트다운·기념일 예고로 참여 동기 부여, follow/comment/tag 안내"},
+ {n:"폴리시드 브랜드 감성 라이프스타일형",c:81,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"감성 카피로 감각적인 첫 장면 제시, 브랜드 무드와 제품을 연결"},
+ {n:"shop_link 고전환 직구매 CTA형",c:60,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"결과 또는 추천 신뢰도를 즉시 제시 후 명확한 shop_link CTA"},
+ {n:"성분·기능 교육 정보형",c:50,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"'왜 이 성분인가' 궁금증 유발 후 메커니즘·효과를 단계적으로 설명"},
+ {n:"신제품·라인 론칭 티저·유통채널형",c:4,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"입점·수상·베스트셀러 또는 'Introducing/NEW' 예고로 기대감 유발"},
+ {n:"K뷰티 도매·리셀러 B2B 프로모형",c:4,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"wholesale price 또는 local availability를 전면 제시해 사업자 관심 유도"}],
+  vids:[
 ["POV 보이스오버 헤어루틴 몰입형","redheadholls","7649619564271111437",37024,0,null,1,813,0,null,"testimonial","voiceover_pov","POV: You switch to Korean Haircare 💕",["shampoo"]],
 ["POV 보이스오버 헤어루틴 몰입형","lisacpierce","7653516867268562207",4218,1,null,1,65,2.4,null,"review","voiceover_pov","POV: You finally try the Korean haircare duo that's all over TikTok",["treatment","conditioner"]],
 ["POV 보이스오버 헤어루틴 몰입형","daliadhesi","7652203601497984287",1454,2,1,1,37,13.8,6.9,"review","voiceover_pov","Make your hair feel and smell heavenly",["shampoo","treatment"]],
@@ -278,13 +299,13 @@ const V = [
 ["아마존 프라임데이·할인 긴급 구매 촉구형","jamieluciaperello","7654227540042714369",11474,5,null,0,0,4.4,null,"review","demonstration","Amazon Prime Day",["shampoo"]],
 ["아마존 프라임데이·할인 긴급 구매 촉구형","chiquiitaabellaa","7651622345056013599",11703,3,null,0,0,2.6,null,"testimonial","talking_head","KUNDAL AMAZON PRIME DAY 💙",["conditioner","shampoo"]],
 ["언박싱·PR 하울 호기심 유발형","thatblondeodell21","7654074670437780750",35800,12,70,1,555,3.4,19.6,"unboxing","narrative","Stay Tuned For Updates",["shampoo","treatment"]],
-["언박싱·PR 하울 호기심 유발형","pradipkhadka775","7645279014508154125",923,0,null,1,35,0,null,"unboxing","voiceover_pov","HONEY & MACADAMIA",["hair treatment","shampoo","conditioner"]],
+["언박싱·PR 하울 호기심 유발형","pradipkhadka775","7645279014508154125",923,0,null,1,35,0,null,"unboxing","voiceover_pov","HONEY & MACADAMIA",["hair treatment","shampoo"]],
 ["언박싱·PR 하울 호기심 유발형","w0ah.kimberly","7643991074955889933",2551,5,null,0,0,19.6,null,"unboxing","narrative","PR Unboxing Haul!!",["powder","serum","toner"]],
-["언박싱·PR 하울 호기심 유발형","dakohta.kenworthy","7644336837179313421",1114,2,null,0,0,18,null,"unboxing","talking_head","PR unboxing b4 work",["hairspray","nail polish","powder"]],
-["언박싱·PR 하울 호기심 유발형","taylorcole30","7650939980105141534",1382,2,null,0,0,14.5,null,"unboxing","narrative","TIKTOK SHOP SAMPLE & PR UNBOXING🛍️✨📦😱",["shampoo","supplement","bra"]],
+["언박싱·PR 하울 호기심 유발형","dakohta.kenworthy","7644336837179313421",1114,2,null,0,0,18,null,"unboxing","talking_head","PR unboxing b4 work",["hairspray","nail polish"]],
+["언박싱·PR 하울 호기심 유발형","taylorcole30","7650939980105141534",1382,2,null,0,0,14.5,null,"unboxing","narrative","TIKTOK SHOP SAMPLE & PR UNBOXING🛍️✨📦😱",["shampoo","supplement"]],
 ["일상 라이프스타일 내러티브 페르소나형","redheadholls","7649619564271111437",37024,0,null,1,813,0,null,"testimonial","voiceover_pov","POV: You switch to Korean Haircare 💕",["shampoo"]],
 ["일상 라이프스타일 내러티브 페르소나형","strawberriezsnz","7655845035396648222",1706,52,null,1,0,304.8,null,"lifestyle","voiceover_pov","Let's refresh Our hair This summer",["shampoo"]],
-["일상 라이프스타일 내러티브 페르소나형","yuas_world01","7643868037191322894",1919,21,null,0,0,109.4,null,"lifestyle","transition_montage","Quick morning grwm",["serum","toner","moisturizer"]],
+["일상 라이프스타일 내러티브 페르소나형","yuas_world01","7643868037191322894",1919,21,null,0,0,109.4,null,"lifestyle","transition_montage","Quick morning grwm",["serum","toner"]],
 ["일상 라이프스타일 내러티브 페르소나형","annaakkasveedu","7645336464686927118",4966,1,null,0,0,2,null,"tutorial","demonstration","",["razor"]],
 ["퍼스널 스토리 토킹헤드 UGC 리뷰형","jpjpleeee","7642593226481798430",491347,74,null,1,9142,1.5,null,"review","talking_head","Stray Kids I.N's shampoo",["shampoo","conditioner"]],
 ["퍼스널 스토리 토킹헤드 UGC 리뷰형","jpjpleeee","7647409506544078111",107755,36,null,1,2182,3.3,null,"review","talking_head","I use the Blackberry Bay one and I freaking LOVE IT!!!!!",["treatment","shampoo"]],
@@ -300,70 +321,218 @@ const V = [
 ["향(Scent) 감각 소구 구매 설득형","lovebylexis","7654600762864995615",71676,20,null,1,740,2.8,null,"review","talking_head","Absolute scent obsession A must-have for Amazon Prime Day!",["shampoo"]],
 ["향(Scent) 감각 소구 구매 설득형","jpjpleeee","7645017358561479967",18703,2,null,1,277,1.1,null,"review","talking_head","Stray Kids I.N's shampoo smells so good!",["shampoo"]],
 ["향(Scent) 감각 소구 구매 설득형","jannelle1982","7640145759018568991",4077,0,0,1,240,0,0,"review","talking_head","Do ya'll hate this now? Bc look how cheap they have the Kundal Honey",["shampoo","treatment"]],
-["향(Scent) 감각 소구 구매 설득형","properprice","7656235158693022990",27400,1,6,1,148,0.4,2.2,"humor_skit","talking_head","When the Kundal HONEY & MACADAMIA SHAMPOO & TREATMENT DUO SET goes",["shampoo","conditioner"]],
+["향(Scent) 감각 소구 구매 설득형","properprice","7656235158693022990",27400,1,6,1,148,0.4,2.2,"humor_skit","talking_head","When the Kundal HONEY & MACADAMIA DUO SET goes",["shampoo","conditioner"]],
 ["헤어 루틴·튜토리얼 데모 시연형","yvette_2200","7649115960330276127",1057,0,1,1,24,0,9.5,"tutorial","voiceover_pov","If you want shiny hair, save this routine ✨",[]],
 ["헤어 루틴·튜토리얼 데모 시연형","_coloraddict","7640737751649864990",3980,1,6,1,22,2.5,15.1,"before_after","demonstration","Her hair felt so soft after using this",["serum"]],
-["헤어 루틴·튜토리얼 데모 시연형","justanothermaha","7636399471600864543",8256,9,null,0,0,10.9,null,"tutorial","demonstration","Hair Routine + hair care tips",["hair dryer","serum","mask"]],
-["헤어 루틴·튜토리얼 데모 시연형","meimonte1","7652149153107168525",28718,23,null,0,0,8,null,"tutorial","talking_head","How to wash your hair🫧",["shampoo","conditioner","serum"]],
-["헤어 루틴·튜토리얼 데모 시연형","lau.fam18","7640278577065348383",54643,21,null,0,0,3.8,null,"tutorial","talking_head","EL ERROR QUE ESTÁ DAÑANDO TU CABELLO Mientras Duermes",["shampoo","conditioner","lotion"]]
-].map(r=>({cl:r[0],who:r[1],id:r[2],v:r[3],c:r[4],col:r[5],shop:!!r[6],rev:r[7],cr:r[8],sr:r[9],ang:r[10],fmt:r[11],ovl:r[12],pr:r[13]}));
+["헤어 루틴·튜토리얼 데모 시연형","justanothermaha","7636399471600864543",8256,9,null,0,0,10.9,null,"tutorial","demonstration","Hair Routine + hair care tips",["hair dryer","serum"]],
+["헤어 루틴·튜토리얼 데모 시연형","meimonte1","7652149153107168525",28718,23,null,0,0,8,null,"tutorial","talking_head","How to wash your hair🫧",["shampoo","conditioner"]],
+["헤어 루틴·튜토리얼 데모 시연형","lau.fam18","7640278577065348383",54643,21,null,0,0,3.8,null,"tutorial","talking_head","EL ERROR QUE ESTÁ DAÑANDO TU CABELLO Mientras Duermes",["shampoo","lotion"]]]
+ },
+ lilyeve:{
+  name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 0","앵글분석 525","내러티브 24","크리에이터 4,331"],
+  callout:`<b>탈모·두피 고민 공감이 최대 축(230편)이지만 반응률은 8.1로 평범합니다.</b>
+    반응률 최상위는 「POV·보이스오버 감성 일상형」(<b>41.7</b>)과 「언박싱·PR 하울」(<b>30.2</b>)로,
+    규모가 큰 내러티브와 반응이 좋은 내러티브가 어긋나 있습니다.
+    Lilyeve는 TT샵 영상이 없어 성과는 <b>아마존 BSR</b>로 봐야 합니다.`,
+  mnote:"2025-12부터 본격 확대(415→1,698편). Kundal 대비 볼륨이 3배 이상이고 조회수도 월 1,800만~4,400만 규모.",
+  monthly:[["25-07",2,0],["25-08",3,0],["25-09",7,0],["25-10",67,0],["25-11",138,0],["25-12",415,0],
+    ["26-01",542,0],["26-02",697,0],["26-03",1174,0],["26-04",1017,0],["26-05",1488,0],["26-06",1698,0],["26-07",843,0]],
+  tiers:[["nano",976,1960,47890780],["micro",879,1879,42454302],["mid",115,424,20107908],
+    ["macro",27,34,2258417],["mega",32,38,13856423],["미분류",2302,3689,33063139]],
+  angles:[["list_curation",21.3,2],["unboxing",19.3,16],["lifestyle",12.9,10],["review",7.9,139],
+    ["before_after",7.7,6],["tutorial",6.8,34],["testimonial",5.2,60],["expert_education",4.2,13],["humor_skit",0.1,2]],
+  hasShop:false,
+  clusters:[
+ {n:"탈모·두피 고민 공감 토킹헤드 리뷰형",c:230,rx:8.1,sv:14.0,rev:null,gpm:null,tot:79,h:"problem_statement 또는 personal_story로 두피·탈모 고민을 첫 문장에 직접 제시해 공감 유도"},
+ {n:"개인 서사 변신 약속 증언형",c:124,rx:3.5,sv:13.4,rev:null,gpm:null,tot:32,h:"personal_story + transformation_promise 조합으로 사용 전 고민과 이후 변화를 첫 문장에 제시"},
+ {n:"문제제기 보이스오버 솔루션 연결형",c:82,rx:3.7,sv:null,rev:null,gpm:null,tot:17,h:"problem_statement + transformation_promise 조합으로 시청자 공감 문제 제시"},
+ {n:"언박싱·PR 하울 제품 공개형",c:72,rx:30.2,sv:7.5,rev:null,gpm:null,tot:9,h:"curiosity_gap + social_proof로 패키지 도착·언박싱 상황 연출"},
+ {n:"소셜 프루프·수치 권위 신뢰 구축형",c:71,rx:3.9,sv:7.4,rev:null,gpm:null,tot:17,h:"social_proof(판매량·수상·수치)를 첫 화면 오버레이로 강조"},
+ {n:"두피 루틴 튜토리얼 데모 시연형",c:70,rx:11.2,sv:9.9,rev:null,gpm:null,tot:33,h:"사용법·루틴 기대감을 예고하고 단계별로 시연"},
+ {n:"비포·애프터 변화 시각화 결과 증명형",c:69,rx:10.3,sv:11.2,rev:null,gpm:null,tot:12,h:"transformation_promise로 이전→이후 변화를 첫 화면에 예고"},
+ {n:"K-뷰티 한국 성분·권위 소구형",c:58,rx:6.7,sv:12.8,rev:null,gpm:null,tot:30,h:"curiosity_gap + social_proof로 한국 비법·랭킹·성분을 첫 화면 오버레이로 제시"},
+ {n:"리스트·큐레이션 저장 유도형",c:53,rx:17.0,sv:14.1,rev:null,gpm:null,tot:15,h:"list_preview로 복수 제품·단계 예고"},
+ {n:"할인코드·쇼핑링크 고의도 전환형",c:50,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"오버레이·캡션에 할인코드/링크 명시"},
+ {n:"할인·이벤트 카운트다운 긴급 구매 유도형",c:43,rx:1.7,sv:5.8,rev:null,gpm:null,tot:19,h:"countdown + social_proof로 한정 기간·할인 정보를 첫 화면에 강조"},
+ {n:"성분·기술 교육 신뢰 구축형",c:41,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"성분명·기술명을 첫 문장에 제시해 신뢰 구축"},
+ {n:"호기심 갭·충격 팩트 교육형",c:37,rx:5.0,sv:7.7,rev:null,gpm:null,tot:21,h:"shock_value로 두피·탈모 관련 반전 팩트를 첫 화면에 제시"},
+ {n:"브러시 앰플 특수 어플리케이터 집중 소개형",c:36,rx:20.7,sv:null,rev:null,gpm:null,tot:9,h:"특수 브러시 어플리케이터라는 해결책으로 차별점 즉시 제시"},
+ {n:"POV·보이스오버 감성 일상 페르소나형",c:33,rx:41.7,sv:10.9,rev:null,gpm:null,tot:13,h:"POV 상황 설정 또는 일상 루틴 맥락 연출"},
+ {n:"제품 세트·번들 조합 추천형",c:32,rx:2.7,sv:14.7,rev:null,gpm:null,tot:15,h:"복수 제품 세트 효과를 예고하고 조합을 추천"},
+ {n:"브랜드 폴리시드 라이프스타일 몽타주형",c:30,rx:5.0,sv:null,rev:null,gpm:null,tot:7,h:"감성적 기대감을 형성하는 브랜드 무드 몽타주"},
+ {n:"댓글·팔로우 참여 유도 CTA형",c:24,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"'나도 해당되나?' 반응 욕구 자극으로 댓글·팔로우 유도"},
+ {n:"질문형 훅 고민 공감 증언형",c:22,rx:9.7,sv:10.3,rev:null,gpm:null,tot:22,h:"question + problem_statement 오버레이로 시청자 고민 직접 호명"},
+ {n:"장기 사용 경과 보고 정직 리뷰형",c:22,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"사용 일수·중간 결과를 솔직하게 도입, 다음 경과 예고"},
+ {n:"전문가 스티치 반응 검증형",c:20,rx:1.4,sv:10.6,rev:null,gpm:null,tot:20,h:"'Stitch incoming' 오버레이로 전문가 반응 예고"},
+ {n:"신시장 런칭·B2B 공급 알림형",c:15,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"국가명·유통채널명 + 'Now Available' 또는 'Wholesale' 키워드"},
+ {n:"남성·특정 타깃 두피 케어 세분화형",c:14,rx:1.7,sv:21.1,rev:null,gpm:null,tot:6,h:"특정 타깃(남성·산후 등) 탈모 원인을 직접 언급"},
+ {n:"속눈썹 세럼 듀얼 기능 소개형",c:13,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"2in1·주야 사용 구분·24시간 케어 등 듀얼 기능을 첫 문장에 강조"}],
+  vids:[
+["K-뷰티 한국 성분·권위 소구형","badgalririya","7639905127930875150",2240,11,null,0,0,49.1,null,"review","talking_head","pov: me as soon as I found out your scalp ages faster than you",["ampoule"]],
+["K-뷰티 한국 성분·권위 소구형","senortakito","7660039796999359757",28104,83,null,0,0,29.5,null,"list_curation","talking_head","Haircare Coreano",["ampoule","tonic","serum"]],
+["K-뷰티 한국 성분·권위 소구형","rebeccaxko","7663525725856615694",5202,14,null,0,0,26.9,null,"review","talking_head","THE EASIEST HAIRCARE ROUTINE",["serum"]],
+["POV·보이스오버 감성 일상 페르소나형","yosoy_v","7640317115160939789",14722,61,null,0,0,41.4,null,"lifestyle","narrative","10:00 pm laptop in bed time",["laptop"]],
+["POV·보이스오버 감성 일상 페르소나형","anuska___l","7643226787211791646",12937,38,null,0,0,29.4,null,"lifestyle","voiceover_pov","",["serum"]],
+["POV·보이스오버 감성 일상 페르소나형","ryansunwoo","7642052300369825038",330790,328,null,0,0,9.9,null,"tutorial","demonstration","night time hair care routine",["serum"]],
+["개인 서사 변신 약속 증언형","rebeccaxko","7663525725856615694",5202,14,null,0,0,26.9,null,"review","talking_head","THE EASIEST HAIRCARE ROUTINE",["serum"]],
+["개인 서사 변신 약속 증언형","cosmic.angel777","7645362517086080286",2421,2,null,0,0,8.3,null,"tutorial","talking_head","Beauty & Glamour Magick pt. 2 feat. LilyEve",["serum"]],
+["개인 서사 변신 약속 증언형","aisha.rz7","7647298400630623502",5133,4,null,0,0,7.8,null,"testimonial","talking_head","",["ampoule"]],
+["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7639162361739250974",47300,18,113,0,0,3.8,23.9,"testimonial","talking_head","Your post partum hair loss finally stopped",["shampoo","ampoule"]],
+["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7654793788719762719",186974,48,null,0,0,2.6,null,"testimonial","talking_head","hair loss is so 😳scary😭",["ampule","serum"]],
+["남성·특정 타깃 두피 케어 세분화형","saronthings","7656834127991229726",205700,46,357,0,0,2.2,17.4,"testimonial","talking_head","BRAIDS STOLE MY EDGES ...THIS PRODUCT SAVED ME",["serum"]],
+["두피 루틴 튜토리얼 데모 시연형","ultabeauty","7635039734896545037",2735,13,null,0,0,47.5,null,"tutorial","list","the 5-step ultimate scalp ritual",["serum","treatment","mist"]],
+["두피 루틴 튜토리얼 데모 시연형","heavenlyasmr92","7639923420616068366",2872,8,null,0,0,27.9,null,"tutorial","demonstration","ASMR doing your haircare before bed",["scalp applicator"]],
+["두피 루틴 튜토리얼 데모 시연형","chavelycasanova","7659951941702831390",6835,10,null,0,0,14.6,null,"tutorial","demonstration","Como prepaso Mis RiZoS. Antes de dormir",["ampoule","oil"]],
+["리스트·큐레이션 저장 유도형","ultabeauty","7635039734896545037",2735,13,null,0,0,47.5,null,"tutorial","list","the 5-step ultimate scalp ritual",["serum","treatment","mist"]],
+["리스트·큐레이션 저장 유도형","senortakito","7660039796999359757",28104,83,null,0,0,29.5,null,"list_curation","talking_head","Haircare Coreano",["ampoule","tonic","serum"]],
+["리스트·큐레이션 저장 유도형","rebeccaxko","7663525725856615694",5202,14,null,0,0,26.9,null,"review","talking_head","THE EASIEST HAIRCARE ROUTINE",["serum"]],
+["문제제기 보이스오버 솔루션 연결형","ava.roxana","7658391225443077407",58149,64,null,0,0,11,null,"review","demonstration","Of course, a hydrating hair mask is important.",["serum","hair mask"]],
+["문제제기 보이스오버 솔루션 연결형","inspireheidi","7639858105563548959",2586,2,null,0,0,7.7,null,"testimonial","talking_head","",["serum"]],
+["문제제기 보이스오버 솔루션 연결형","maribel_silva94","7634678740009766175",2805,0,null,0,0,0,null,"testimonial","talking_head","POV: You Just Realized That Korea Has All The Answers",["treatment","serum"]],
+["브랜드 폴리시드 라이프스타일 몽타주형","totallyarii28","7634669838245334286",13757,16,null,0,0,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
+["브랜드 폴리시드 라이프스타일 몽타주형","christxiee","7664820144404761869",2056,2,null,0,0,9.7,null,"expert_education","talking_head","Natural Face Lift",["ampoule"]],
+["브랜드 폴리시드 라이프스타일 몽타주형","illaalvarez","7645724369611951380",110254,99,null,0,0,9,null,"expert_education","talking_head","your scalp could be making your face sag 😭",["serum"]],
+["브러시 앰플 특수 어플리케이터 집중 소개형","angielizxth","7647252735401790750",2361,17,null,0,0,72,null,"review","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
+["브러시 앰플 특수 어플리케이터 집중 소개형","mwaaaaaxx","7639195437534170399",2497,9,null,0,0,36,null,"testimonial","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
+["브러시 앰플 특수 어플리케이터 집중 소개형","donniesdealss","7651410730687712526",2206,1,0,0,0,4.5,0,"unboxing","voiceover_pov","GROW:TURN AMPOULE",["ampoule","serum"]],
+["비포·애프터 변화 시각화 결과 증명형","fururally","7651786233877712141",2351,9,null,0,0,38.3,null,"testimonial","talking_head","how I got my hair from this length",["serum"]],
+["비포·애프터 변화 시각화 결과 증명형","avajustin","7640655426425556237",13174,39,null,0,0,29.6,null,"before_after","talking_head","Scalp glow-up you actually need 🫧🪞✨",["serum"]],
+["비포·애프터 변화 시각화 결과 증명형","raeraeebae","7638396448333139214",2213,5,null,0,0,22.6,null,"testimonial","talking_head","Because having healthy hair is having a healthy scalp🪄",["serum"]],
+["소셜 프루프·수치 권위 신뢰 구축형","carrington.freise04","7652943971659844894",3008,9,null,0,0,29.9,null,"testimonial","demonstration","the #1 hair growth serum in korea",["serum"]],
+["소셜 프루프·수치 권위 신뢰 구축형","tatianacarmen","7653183684723395871",2536,3,null,0,0,11.8,null,"review","talking_head","Okay, you have to see this",["serum"]],
+["소셜 프루프·수치 권위 신뢰 구축형","smileitserin","7652822882212400414",3924,3,null,0,0,7.6,null,"testimonial","talking_head","Grab your LILYEVE GROW:TURN AMPOULE on TikTok shop!",["serum"]],
+["언박싱·PR 하울 제품 공개형","lolaa.bellidoo","7658095519478107414",5811,72,null,0,0,123.9,null,"unboxing","demonstration","PR haul as a microinfluencer w under 15k followers",["serum","supplement"]],
+["언박싱·PR 하울 제품 공개형","carrington.freise04","7659953071946075423",3316,32,null,0,0,96.5,null,"unboxing","demonstration","",["serum","mask","cream"]],
+["언박싱·PR 하울 제품 공개형","talabitwins","7662900029488631060",45373,67,null,0,0,14.8,null,"unboxing","narrative","eveyliI",["serum","shampoo"]],
+["전문가 스티치 반응 검증형","mahhruuu","7636125771504815381",4344,3,null,0,0,6.9,null,"expert_education","talking_head","Korean Anti aging",["serum","applicator"]],
+["전문가 스티치 반응 검증형","oopsthatstorii","7646982765501484318",36900,23,18,0,0,6.2,4.9,"review","talking_head","Changed my mind 🤪",["scalp treatment"]],
+["전문가 스티치 반응 검증형","adamjuwdpk8","7664636419964456223",4075,1,3,0,0,2.5,7.4,"review","talking_head","SCALP:TURN CICA PDRN BRUSH AMPOULE",["ampoule"]],
+["제품 세트·번들 조합 추천형","talabitwins","7662900029488631060",45373,67,null,0,0,14.8,null,"unboxing","narrative","eveyliI",["serum","shampoo"]],
+["제품 세트·번들 조합 추천형","asheleyspam","7642537366413970719",4384,2,null,0,0,4.6,null,"testimonial","narrative","Lilyeve Trio",["shampoo","treatment","serum"]],
+["제품 세트·번들 조합 추천형","jess.ngo.20","7646550092236737822",29900,12,6,0,0,4,2,"review","voiceover_pov","If ur card declines on this then we need to have a serious chat",["ampoule"]],
+["질문형 훅 고민 공감 증언형","lilac__05","7635725958393236749",3244,54,null,0,0,166.5,null,"review","talking_head","Scalp Treatments",["tonic","serum","mist"]],
+["질문형 훅 고민 공감 증언형","bysaritaval","7654300025308122399",29192,46,null,0,0,15.8,null,"review","talking_head","",["serum"]],
+["질문형 훅 고민 공감 증언형","alkania4","7650185986294484238",2612,3,7,0,0,11.5,26.8,"review","talking_head","",["serum"]],
+["탈모·두피 고민 공감 토킹헤드 리뷰형","lilac__05","7635725958393236749",3244,54,null,0,0,166.5,null,"review","talking_head","Scalp Treatments",["tonic","serum","mist"]],
+["탈모·두피 고민 공감 토킹헤드 리뷰형","angielizxth","7647252735401790750",2361,17,null,0,0,72,null,"review","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
+["탈모·두피 고민 공감 토킹헤드 리뷰형",".maletina","7649511279215840526",2071,10,null,0,0,48.3,null,"review","talking_head","",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","gisellee.collazo","7644865760128552223",29181,41,null,0,0,14.1,null,"review","talking_head","El hair growth serum más viral de Corea",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","melissanorman2.0","7644763024284192030",22900,8,23,0,0,3.5,10,"review","talking_head","YOU DONT HAVE TO GO BALD😭😭",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","bellezaycrecimiento","7636273122345241887",25200,5,43,0,0,2,17.1,"review","talking_head","ya no te tienes que quedar calva!😭",["serum"]],
+["호기심 갭·충격 팩트 교육형","badgalririya","7639905127930875150",2240,11,null,0,0,49.1,null,"review","talking_head","pov: me as soon as I found out your scalp ages faster than you",["ampoule"]],
+["호기심 갭·충격 팩트 교육형","totallyarii28","7634669838245334286",13757,16,null,0,0,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
+["호기심 갭·충격 팩트 교육형","christxiee","7664820144404761869",2056,2,null,0,0,9.7,null,"expert_education","talking_head","Natural Face Lift",["ampoule"]]]
+ }
+};
 
-const ANGLES=[["lifestyle",87.4,6],["before_after",58.4,5],["list_curation",17.2,3],["review",15.1,65],
-  ["unboxing",14.8,9],["tutorial",6.5,7],["testimonial",4.8,29],["comparison",1.8,1],["humor_skit",0.5,2]];
+const WARN = {
+ kundal:`<b>채널별 성과 지표가 다릅니다</b> — <b>TT샵 영상(1,154건)</b>은 Kalodata 매출·GPM으로 직접 측정하고,
+   <b>비샵 영상(2,004건)</b>은 매출 귀속이 불가해 <b>아마존 BSR</b>로 봅니다(대표 SKU 최고 <b>2,475위</b> · 2024-07~2026-06 일별).
+   표의 "샵 매출"이 <span class="na">해당없음</span>인 행이 이에 해당합니다.
+   <br><b>미측정 306건</b>은 좋아요·댓글이 없어(영상 삭제·비공개 추정) 반응률에서 제외했습니다 — 실제 0과 구분하려 0으로 대체하지 않았습니다.`,
+ lilyeve:`<b>Lilyeve는 TT샵 영상이 없습니다</b> — Kalodata 매출·GPM이 존재하지 않아 성과는 전량 <b>아마존 BSR</b> 기준으로 봐야 합니다.
+   <br><b>미측정 71건</b>은 반응률에서 제외했습니다. 저장수는 Apify 백필로 확보했으며 값이 없는 행은 <span class="na">—</span>로 표시합니다.`
+};
+
+let CASE="kundal", sortBy="size", fAngle="", fShop="";
+const vSortBy={};   // 내러티브별 영상 정렬 상태 (카드마다 독립)
 
 const nf=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
 const rxCls=r=>r==null?"rx-lo":r>=50?"rx-hi":r>=15?"rx-mid":"rx-lo";
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const D=()=>DATA[CASE];
+const vids=()=>D().vids.map(r=>({cl:r[0],who:r[1],id:r[2],v:r[3],c:r[4],col:r[5],shop:!!r[6],
+  rev:r[7],cr:r[8],sr:r[9],ang:r[10],fmt:r[11],ovl:r[12],pr:r[13]}));
 
-// angle panel
-(()=>{const mx=Math.max(...ANGLES.map(a=>a[1]));
- document.getElementById("angles").innerHTML=ANGLES.map(([n,r,c])=>`
-  <div class="arow">
-    <div><div class="aname">${n}</div><div class="acnt">${c}건</div></div>
-    <div class="atrack"><div class="afill ${c<5?"dim":""}" style="width:${Math.max(2,r/mx*100)}%"></div></div>
-    <div class="aval ${rxCls(r)}">${r}</div>
-  </div>`).join("");})();
+function drawMonthly(){
+  const m=D().monthly, mx=Math.max(...m.map(x=>x[1]));
+  document.getElementById("mchart").innerHTML=m.map(([lab,tot,shop])=>`
+    <div class="mcol">
+      <div class="mval">${tot>=1000?(tot/1000).toFixed(1)+"K":tot}</div>
+      <div class="mbar-wrap">
+        <div class="mbar" style="height:${tot/mx*100}%" title="전체 ${tot}편"></div>
+        ${shop>0?`<div class="mbar shop" style="height:${shop/mx*100}%" title="TT샵 ${shop}편"></div>`:""}
+      </div>
+      <div class="mlab">${lab}</div>
+    </div>`).join("");
+  document.getElementById("mmax").textContent=`최대 ${mx.toLocaleString()}편/월`;
+  document.getElementById("mnote").textContent=D().mnote;
+}
 
-// angle filter options
-[...new Set(V.map(v=>v.ang))].sort().forEach(a=>{
-  const o=document.createElement("option");o.value=a;o.textContent=a;
-  document.getElementById("f-angle").appendChild(o);});
+function drawTiers(){
+  const t=D().tiers, mxC=Math.max(...t.map(x=>x[1]));
+  const order=["mega","macro","mid","micro","nano","미분류"];
+  const sorted=[...t].sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  document.getElementById("tiers").innerHTML=sorted.map(([n,cr,vd,vw])=>`
+    <div class="trow">
+      <div class="tname">${n}</div>
+      <div class="ttrack"><div class="tfill" style="width:${cr/mxC*100}%;background:${n==="미분류"?"var(--faint)":"var(--accent)"}"></div></div>
+      <div class="tval"><b>${cr.toLocaleString()}</b>명 · ${nf(vw)}뷰</div>
+    </div>`).join("");
+}
 
-let sortBy="size", vSort="cr", fAngle="", fShop="";
+function drawAngles(){
+  const A=D().angles, mx=Math.max(...A.map(a=>a[1]));
+  document.getElementById("angles").innerHTML=A.map(([n,r,c])=>`
+    <div class="arow">
+      <div><div class="aname">${n}</div><div class="acnt">${c}건</div></div>
+      <div class="atrack"><div class="afill ${c<5?"dim":""}" style="width:${Math.max(2,r/mx*100)}%"></div></div>
+      <div class="aval ${rxCls(r)}">${r}</div>
+    </div>`).join("");
+}
 
 function rows(cl){
-  let r=V.filter(v=>v.cl===cl);
+  const sort=vSortBy[cl]||"cr";
+  let r=vids().filter(v=>v.cl===cl);
   if(fAngle) r=r.filter(v=>v.ang===fAngle);
   if(fShop==="shop") r=r.filter(v=>v.shop);
   if(fShop==="amz") r=r.filter(v=>!v.shop);
-  const key=v=> vSort==="rev"?v.rev : vSort==="view"?v.v : vSort==="sr"?(v.sr??-1) : v.cr;
+  const key=v=> sort==="rev"?v.rev : sort==="view"?v.v : sort==="sr"?(v.sr??-1) : v.cr;
   r=[...r].sort((a,b)=>key(b)-key(a));
-  if(!r.length) return `<div class="empty">조건에 해당하는 영상이 없습니다.</div>`;
-  return `<div class="tbl-scroll"><table>
+  const shopCol=D().hasShop;
+  const btn=(k,t)=>`<button data-cl="${esc(cl)}" data-k="${k}" aria-pressed="${sort===k}">${t}</button>`;
+  const head=`<div class="vsort">
+      <span class="bar-lab">이 내러티브의 영상 정렬</span>
+      <div class="seg vseg">${btn("cr","댓글률")}${btn("sr","저장률")}${shopCol?btn("rev","매출"):""}${btn("view","조회")}</div>
+    </div>`;
+  if(!r.length) return head+`<div class="empty">조건에 해당하는 영상이 없습니다.</div>`;
+  return head+`<div class="tbl-scroll"><table>
     <thead><tr><th>크리에이터 · 화면 자막</th><th class="num">조회</th><th class="num">댓글</th>
-    <th class="num">1만뷰당<br>댓글</th><th class="num">1만뷰당<br>저장</th><th class="num">샵 매출</th><th>노출 제품</th></tr></thead><tbody>
+    <th class="num">1만뷰당<br>댓글</th><th class="num">1만뷰당<br>저장</th>${shopCol?'<th class="num">샵 매출</th>':""}<th>노출 제품</th></tr></thead><tbody>
     ${r.map(v=>`<tr>
       <td>
         <a class="who" href="https://www.tiktok.com/@${v.who}/video/${v.id}" target="_blank" rel="noopener">@${esc(v.who)}<span class="ext">↗</span></a>
-        ${v.shop?`<span class="badge shop">TT샵</span>`:`<span class="badge amz">아마존</span>`}
+        ${shopCol?(v.shop?`<span class="badge shop">TT샵</span>`:`<span class="badge amz">아마존</span>`):""}
         <div class="ovl ${v.ovl?"":"none"}">${v.ovl?esc(v.ovl):"자막 없음"}</div>
         <div class="tags"><span class="tag ang">${v.ang}</span><span class="tag">${v.fmt}</span></div>
       </td>
-      <td class="num">${nf(v.v)}</td>
-      <td class="num">${v.c}</td>
+      <td class="num">${nf(v.v)}</td><td class="num">${v.c}</td>
       <td class="num ${rxCls(v.cr)}"><span class="rx">${v.cr}</span></td>
-      <td class="num ${v.sr==null?"rx-lo":rxCls(v.sr)}">${v.sr==null?"<span class=na>—</span>":`<span class="rx">${v.sr}</span>`}</td>
-      <td class="num">${v.shop?(v.rev?"$"+v.rev.toLocaleString():"$0"):"<span class=na>해당없음</span>"}</td>
+      <td class="num ${v.sr==null?"rx-lo":rxCls(v.sr)}">${v.sr==null?'<span class="na">—</span>':`<span class="rx">${v.sr}</span>`}</td>
+      ${shopCol?`<td class="num">${v.shop?(v.rev?"$"+v.rev.toLocaleString():"$0"):'<span class="na">해당없음</span>'}</td>`:""}
       <td class="prods">${v.pr.join(" · ")}</td>
     </tr>`).join("")}</tbody></table></div>`;
 }
 
 function render(){
-  const mxRx=Math.max(...CLUSTERS.map(c=>c.rx||0));
-  const mxRev=Math.max(...CLUSTERS.map(c=>c.rev||0));
+  const d=D();
+  document.getElementById("meta").innerHTML=d.meta.map(m=>{
+    const i=m.lastIndexOf(" ");
+    return `<span class="chip">${esc(m.slice(0,i))} <b>${esc(m.slice(i+1))}</b></span>`;}).join("");
+  document.getElementById("callout").innerHTML=d.callout;
+  document.getElementById("warn").innerHTML=WARN[CASE];
+  drawMonthly(); drawTiers(); drawAngles();
+
+  const sel=document.getElementById("f-angle");
+  const cur=sel.value;
+  sel.innerHTML='<option value="">전체</option>'+
+    [...new Set(vids().map(v=>v.ang))].sort().map(a=>`<option value="${a}">${a}</option>`).join("");
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"";
+
+  const mxRx=Math.max(...d.clusters.map(c=>c.rx||0));
+  const mxRev=Math.max(...d.clusters.map(c=>c.rev||0),1);
   const k=c=> sortBy==="size"?c.c : sortBy==="rev"?(c.rev??-1) : (c.rx??-1);
-  const list=[...CLUSTERS].sort((a,b)=>k(b)-k(a));
-  document.getElementById("list").innerHTML=list.map(c=>`
+  document.getElementById("list").innerHTML=[...d.clusters].sort((a,b)=>k(b)-k(a)).map(c=>`
    <details class="narr">
      <summary>
        <div>
@@ -376,24 +545,35 @@ function render(){
          <div><div class="v ${rxCls(c.rx)}">${c.rx??"—"}</div>1만뷰당 댓글
            ${c.rx!=null?`<div class="bar-track"><div class="bar-fill" style="width:${c.rx/mxRx*100}%"></div></div>`:""}</div>
          <div><div class="v ${rxCls(c.sv)}">${c.sv??"—"}</div>1만뷰당 저장</div>
-         <div><div class="v">${c.rev!=null?"$"+nf(c.rev):"—"}</div>TT샵 매출
-           ${c.rev?`<div class="bar-track"><div class="bar-fill" style="width:${c.rev/mxRev*100}%;background:var(--ok)"></div></div>`:""}</div>
-         <div><div class="v">${c.gpm??"—"}</div>GPM</div>
+         ${d.hasShop?`<div><div class="v">${c.rev!=null?"$"+nf(c.rev):"—"}</div>TT샵 매출
+           ${c.rev?`<div class="bar-track"><div class="bar-fill" style="width:${c.rev/mxRev*100}%;background:var(--ok)"></div></div>`:""}</div>`:""}
        </div>
      </summary>
      <div class="vids">${c.tot===0
-        ? `<div class="empty">반응률 측정 가능한 영상이 없습니다 (상위 개념 그룹 또는 미측정).</div>`
+        ? `<div class="empty">반응률 측정 가능한 영상이 없습니다 (미측정 또는 표본 부족).</div>`
         : rows(c.n)}</div>
    </details>`).join("");
+
+  document.querySelectorAll(".vseg button").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); vSortBy[b.dataset.cl]=b.dataset.k;
+    const open=[...document.querySelectorAll(".narr")].map(d=>d.open);
+    render();
+    document.querySelectorAll(".narr").forEach((d,i)=>d.open=open[i]);
+  });
 }
 
-document.querySelectorAll("#vsort button").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll("#vsort button").forEach(x=>x.setAttribute("aria-pressed","false"));
-  b.setAttribute("aria-pressed","true"); vSort=b.dataset.k; render();});
 document.querySelectorAll("#ssort button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#ssort button").forEach(x=>x.setAttribute("aria-pressed","false"));
   b.setAttribute("aria-pressed","true"); sortBy=b.dataset.k; render();});
 document.getElementById("f-shop").onchange=e=>{fShop=e.target.value;render();};
 document.getElementById("f-angle").onchange=e=>{fAngle=e.target.value;render();};
+[["cb-kundal","kundal"],["cb-lilyeve","lilyeve"]].forEach(([id,key])=>{
+  document.getElementById(id).onclick=()=>{
+    CASE=key; fAngle=""; fShop="";
+    document.getElementById("f-shop").value="";
+    document.getElementById("cb-kundal").setAttribute("aria-pressed",String(key==="kundal"));
+    document.getElementById("cb-lilyeve").setAttribute("aria-pressed",String(key==="lilyeve"));
+    render();};
+});
 render();
 </script>
