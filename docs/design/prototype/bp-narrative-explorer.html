@@ -1,0 +1,360 @@
+<title>내러티브 탐색기 — Kundal (프로토)</title>
+<style>
+  :root{
+    --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
+    --muted:#6b7280; --faint:#9ca3af; --line:#e8e6ea; --line-2:#f2f0f4;
+    --accent:#ec4899; --accent-soft:#fdf2f8; --accent-line:#fbcfe8;
+    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",Segoe UI,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
+      --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
+      --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
+      --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
+    --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
+    --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
+    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;
+  }
+  :root[data-theme="light"]{
+    --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
+    --muted:#6b7280; --faint:#9ca3af; --line:#e8e6ea; --line-2:#f2f0f4;
+    --accent:#ec4899; --accent-soft:#fdf2f8; --accent-line:#fbcfe8;
+    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 90px}
+
+  /* ── header ── */
+  .proto-tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+    border:1px solid var(--accent-line);border-radius:3px;padding:3px 8px;margin-bottom:12px}
+  h1{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px;max-width:70ch}
+  .sub b{color:var(--ink-2);font-weight:600}
+
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--ink-2);background:var(--surface);
+    border:1px solid var(--line);border-radius:20px;padding:4px 11px}
+  .chip b{color:var(--ink);font-weight:700}
+
+  /* ── controls ── */
+  .bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+    padding:12px 14px;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;margin-bottom:8px;position:sticky;top:0;z-index:20}
+  .bar-lab{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--faint)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{font-family:var(--sans);font-size:12px;padding:5px 12px;border:0;
+    background:var(--surface);color:var(--muted);cursor:pointer;font-weight:600}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
+  select{font-family:var(--sans);font-size:12px;padding:5px 9px;border:1px solid var(--line);
+    border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
+  .note{font-size:11px;color:var(--faint);margin:0 0 22px;padding-left:2px}
+
+  /* ── narrative list ── */
+  .narr{border:1px solid var(--line);border-radius:11px;background:var(--surface);
+    margin-bottom:9px;overflow:hidden}
+  .narr[open]{border-color:var(--accent-line)}
+  .narr summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;
+    grid-template-columns:1fr auto;gap:14px;align-items:center}
+  .narr summary::-webkit-details-marker{display:none}
+  .narr summary:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
+  .n-name{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:flex;
+    align-items:center;gap:8px;flex-wrap:wrap}
+  .n-name .caret{color:var(--faint);font-size:11px;transition:transform .15s}
+  .narr[open] .caret{transform:rotate(90deg)}
+  .n-hook{font-size:12px;color:var(--muted);margin-top:5px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .n-stats{display:flex;gap:16px;align-items:baseline;font-family:var(--mono);
+    font-size:11px;color:var(--muted);white-space:nowrap}
+  .n-stats .v{font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .rx{font-variant-numeric:tabular-nums;font-weight:800;font-family:var(--mono)}
+  .rx-hi{color:var(--accent)}
+  .rx-mid{color:var(--ink-2)}
+  .rx-lo{color:var(--faint)}
+  .bar-track{width:54px;height:4px;background:var(--line-2);border-radius:2px;overflow:hidden;margin-top:5px}
+  .bar-fill{height:100%;background:var(--accent);border-radius:2px}
+
+  /* ── video table ── */
+  .vids{border-top:1px solid var(--line-2);padding:4px 0 8px}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px}
+  th{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint);font-weight:600;text-align:left;padding:9px 12px;
+    border-bottom:1px solid var(--line-2);white-space:nowrap}
+  th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .who{font-weight:650;color:var(--ink);text-decoration:none}
+  .who:hover{color:var(--accent);text-decoration:underline}
+  .who:focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:2px}
+  .ext{color:var(--faint);font-size:10px;margin-left:3px}
+  .ovl{color:var(--ink-2);font-size:12px;margin-top:3px;max-width:44ch}
+  .ovl:before{content:"“";color:var(--faint)}
+  .ovl:after{content:"”";color:var(--faint)}
+  .ovl.none{color:var(--faint);font-style:italic}
+  .ovl.none:before,.ovl.none:after{content:""}
+  .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;
+    background:var(--line-2);color:var(--muted)}
+  .tag.ang{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+  .prods{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+
+  /* ── angle panel ── */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:16px 18px;margin-bottom:26px}
+  .panel h2{font-size:13px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
+  .panel p{font-size:12px;color:var(--muted);margin:0 0 14px}
+  .arow{display:grid;grid-template-columns:132px 1fr 62px;gap:12px;align-items:center;
+    padding:6px 0;border-bottom:1px solid var(--line-2)}
+  .arow:last-child{border-bottom:0}
+  .aname{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .atrack{height:7px;background:var(--line-2);border-radius:4px;overflow:hidden}
+  .afill{height:100%;border-radius:4px;background:var(--accent)}
+  .afill.dim{background:var(--faint);opacity:.45}
+  .aval{text-align:right;font-family:var(--mono);font-size:12px;font-weight:700;
+    font-variant-numeric:tabular-nums}
+  .acnt{font-family:var(--mono);font-size:10px;color:var(--faint)}
+
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);
+    border-radius:0 8px 8px 0;padding:11px 14px;font-size:12.5px;color:var(--ink-2);
+    margin-bottom:26px}
+  .callout b{color:var(--ink)}
+
+  .warnbox{border:1px dashed var(--warn);border-radius:8px;padding:11px 14px;
+    font-size:12px;color:var(--ink-2);margin-bottom:12px;background:transparent}
+  .warnbox b{color:var(--ink)}
+
+  h2.sec{font-size:12px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 11px;font-weight:600}
+  .empty{padding:14px;font-size:12px;color:var(--faint);font-style:italic}
+  @media (max-width:720px){
+    .narr summary{grid-template-columns:1fr}
+    .n-stats{gap:12px}
+    .arow{grid-template-columns:104px 1fr 54px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <span class="proto-tag">Prototype · 실측 데이터</span>
+  <h1>내러티브 탐색기</h1>
+  <p class="sub">
+    <b>Kundal</b> (US · TikTok) — 어떤 <b>USP를 어떤 앵글로</b> 보여주는지를 내러티브 단위로 묶고,
+    각 내러티브의 실제 영상과 <b>오디언스 반응률</b>을 함께 봅니다.
+  </p>
+
+  <div class="meta-row">
+    <span class="chip">콘텐츠 <b>3,158</b></span>
+    <span class="chip">앵글분석 <b>502</b></span>
+    <span class="chip">내러티브 <b>19</b></span>
+    <span class="chip">크리에이터 <b>1,973</b></span>
+    <span class="chip">분석일 <b>2026-07-22</b></span>
+  </div>
+
+  <div class="callout">
+    <b>반응률(1만뷰당 댓글)</b>은 조회수와 다른 얘기를 합니다. 조회수 최상위는 <b>review·testimonial</b>이지만,
+    실제 댓글 반응은 <b>변신·Before/After(70.1)</b>·<b>리스트 큐레이션(129.9)</b>이 압도적입니다 —
+    <b>도달</b>과 <b>참여</b>를 만드는 내러티브가 서로 다릅니다.
+  </div>
+
+  <div class="panel">
+    <h2>앵글별 반응률</h2>
+    <p>1만뷰당 댓글 수 · 조회 1,000회 이상 · 댓글 미측정 영상 제외</p>
+    <div id="angles"></div>
+  </div>
+
+  <h2 class="sec">내러티브 19종</h2>
+  <div class="bar">
+    <span class="bar-lab">정렬</span>
+    <div class="seg" role="group" aria-label="정렬 기준">
+      <button id="s-size" aria-pressed="true">규모순</button>
+      <button id="s-rx" aria-pressed="false">반응률순</button>
+    </div>
+    <span class="bar-lab">영상 정렬</span>
+    <div class="seg" role="group" aria-label="영상 정렬 기준">
+      <button id="v-rx" aria-pressed="true">반응률순</button>
+      <button id="v-view" aria-pressed="false">조회순</button>
+    </div>
+    <span class="bar-lab">앵글</span>
+    <select id="f-angle"><option value="">전체</option></select>
+  </div>
+  <p class="note">클릭하면 소속 영상이 펼쳐집니다. 링크는 실제 TikTok 게시물로 연결됩니다.</p>
+
+  <div id="list"></div>
+
+  <div class="warnbox" style="margin-top:22px">
+    <b>데이터 주의</b> — 전체 3,158건 중 <b>829건</b>은 좋아요·댓글·공유가 <b>미측정</b>(Exolyt가 아닌 스크래퍼 경로 유입)입니다.
+    실제 댓글 0건(583건)과 구분해 <b>반응률 계산에서 제외</b>했습니다. 0으로 대체하면 반응률이 가짜로 낮아집니다.
+    <br>저장수(view→collect)는 Exolyt export의 <code>favourited</code> 컬럼이 현재 전량 공란이라 <b>미포함</b>입니다.
+  </div>
+</div>
+
+<script>
+const CLUSTERS = [
+ {n:"퍼스널 스토리 토킹헤드 UGC 리뷰형",c:199,rx:19.5,m:54,u:13,top:970670,h:"personal_story 단독 또는 social_proof/curiosity_gap 조합으로 '나의 경험'을 직접 언급하며 시작",b:"talking_head 포맷으로 제품 사용 경험·향·효과를 구어체로 설명, 중후반에 shop_link CTA 삽입"},
+ {n:"소셜프루프 신뢰 기반 구매 전환형",c:93,rx:19.8,m:38,u:7,top:970670,h:"social_proof를 첫 훅으로 내세워 바이럴·인기·수상 이력을 강조, curiosity_gap 또는 personal_story와 조합",b:"talking_head 또는 voiceover_pov로 제품 효능·향을 소개하고 shop_link CTA로 마무리"},
+ {n:"변신 약속·Before/After 결과 시각화형",c:90,rx:70.1,m:22,u:6,top:260330,h:"transformation_promise 단독 또는 problem_statement/curiosity_gap과 조합해 '이렇게 달라진다'는 결과 예고",b:"before_after, split_screen, demonstration으로 변화 과정·결과를 시각적으로 증명 후 CTA"},
+ {n:"리스트·큐레이션 저장 유도형",c:84,rx:129.9,m:10,u:2,top:7671,h:"list_preview 또는 curiosity_gap으로 'Top N', 'N가지 추천', 시리즈 예고로 끝까지 시청 유도",b:"list 또는 transition_montage로 제품·성분·혜택을 순서대로 소개, save/shop_link CTA"},
+ {n:"문제 제기 솔루션 제시형",c:83,rx:59.4,m:16,u:5,top:304908,h:"problem_statement 단독 또는 personal_story/curiosity_gap과 조합해 구체적 헤어 고민 제기",b:"talking_head 또는 demonstration으로 문제 공감 후 성분·사용법·효과를 솔루션으로 제시"},
+ {n:"폴리시드 브랜드 감성 라이프스타일형",c:81,rx:null,m:0,u:0,top:null,h:"transformation_promise 또는 lifestyle/감성 카피로 감각적인 첫 장면 제시",b:"voiceover_pov 또는 transition_montage로 브랜드 무드·제품을 감성적으로 연결"},
+ {n:"shop_link 고전환 직구매 CTA형",c:60,rx:null,m:0,u:0,top:null,h:"social_proof, personal_story, transformation_promise 중 하나로 결과 또는 추천 신뢰도를 즉시 제시",b:"talking_head 또는 voiceover_pov로 효과를 간결하게 증언 후 명확한 shop_link CTA"},
+ {n:"아마존 프라임데이·할인 긴급 구매 촉구형",c:56,rx:2.8,m:14,u:0,top:480502,h:"social_proof 또는 curiosity_gap 훅에 'Amazon Prime Day', '40% off', 카운트다운 등 세일 키워드 오버레이",b:"talking_head 또는 voiceover_pov로 제품 소개 후 할인율·기간 강조, shop_link CTA"},
+ {n:"성분·기능 교육 정보형",c:50,rx:null,m:0,u:0,top:null,h:"question, curiosity_gap, ingredient_breakdown으로 '왜 이 성분인가' 궁금증 유발",b:"talking_head 또는 voiceover_pov로 성분 메커니즘·효과를 단계적으로 설명"},
+ {n:"언박싱·PR 하울 호기심 유발형",c:48,rx:66.7,m:9,u:2,top:460391,h:"curiosity_gap 또는 personal_story로 언박싱·하울 예고, '뭘 샀냐면' 또는 'PR 받았다' 서사",b:"demonstration 또는 transition_montage로 박스 개봉→제품 나열→첫 인상 공유"},
+ {n:"향(Scent) 감각 소구 구매 설득형",c:48,rx:16.5,m:15,u:8,top:347455,h:"social_proof 또는 personal_story로 '향이 미쳤다', '스트레이키즈 샴푸 향' 등 향 관련 감각 표현을 훅으로",b:"talking_head 또는 voiceover_pov로 향의 지속력·종류·느낌을 상세 묘사하고 구매 필요성 강조"},
+ {n:"POV 보이스오버 헤어루틴 몰입형",c:33,rx:55.1,m:7,u:2,top:37024,h:"curiosity_gap 또는 transformation_promise와 함께 'POV:' 자막 오버레이로 상황 이입 유도",b:"voiceover_pov로 샤워·헤어 루틴 장면을 보여주며 향·질감을 나레이션"},
+ {n:"일상 라이프스타일 내러티브 페르소나형",c:28,rx:97.3,m:5,u:0,top:37024,h:"personal_story 단독 또는 vlog 감성 훅으로 일상 장면을 먼저 보여주며 공감대 형성",b:"vlog, narrative로 일상 시퀀스 안에 제품을 삽입, CTA 없거나 watch_more 수준"},
+ {n:"헤어 루틴·튜토리얼 데모 시연형",c:24,rx:5.7,m:4,u:2,top:54643,h:"question, transformation_promise로 '올바른 루틴' 또는 '실수 교정' 니즈 자극",b:"demonstration으로 세정→트리트먼트→마무리 단계를 순서대로 시연, comment/save CTA"},
+ {n:"한국 헤어케어 전환 설득형",c:23,rx:34.5,m:19,u:4,top:491347,h:"curiosity_gap 또는 question으로 '한국 헤어케어를 써봤어?' 류 질문 제기, K-pop 연관성 부각",b:"talking_head로 한국 제품 특징을 설명하고 US 제품과 암묵적 비교 후 구매 유도"},
+ {n:"기브어웨이·이벤트 참여 유도형",c:16,rx:4.5,m:1,u:0,top:460391,h:"social_proof + curiosity_gap 또는 카운트다운·기념일 예고로 참여 동기 부여",b:"제품·이벤트를 보여주며 참여 방법(follow/comment/tag) 안내"},
+ {n:"가격 비교·할인코드 가성비 소구형",c:14,rx:1.2,m:4,u:1,top:480502,h:"comparison 또는 가격·할인 정보를 훅 상단에 노출해 시선 집중",b:"talking_head로 성분·효능 유사성을 강조하며 가성비 결론 도출 또는 코드·링크로 구매 유도"},
+ {n:"신제품·라인 론칭 티저·유통채널형",c:4,rx:null,m:0,u:0,top:null,h:"social_proof(입점 사실, 수상, 베스트셀러) 또는 'Introducing/NEW' 예고로 기대감 유발",b:"유통처 정보·라인 컨셉·주요 기능을 전달 후 shop_link CTA"},
+ {n:"K뷰티 도매·리셀러 B2B 프로모형",c:4,rx:null,m:0,u:0,top:null,h:"wholesale price 또는 local availability를 전면 제시해 사업자 관심 유도",b:"브랜드 라인업·가격 경쟁력·주문 방법 나열, DM·링크 CTA"}
+];
+
+const V = [
+ ["POV 보이스오버 헤어루틴 몰입형","strawberriezsnz","7655845035396648222",1706,52,304.8,"lifestyle","voiceover_pov","Let's refresh Our hair This summer",["shampoo"]],
+ ["POV 보이스오버 헤어루틴 몰입형","jennamichele_irl","7636913332657687838",2243,3,13.4,"tutorial","voiceover_pov","wavy hair experiments",["mousse","serum","mist"]],
+ ["POV 보이스오버 헤어루틴 몰입형","lisacpierce","7653516867268562207",4218,1,2.4,"review","voiceover_pov","POV: You finally try the Korean haircare duo that's all over TikTok.",["treatment","conditioner"]],
+ ["POV 보이스오버 헤어루틴 몰입형","redheadholls","7649619564271111437",37024,0,0,"testimonial","voiceover_pov","POV: You switch to Korean Haircare 💕",["shampoo"]],
+ ["가격 비교·할인코드 가성비 소구형","vivtruong","7651672863627300110",21231,4,1.9,"testimonial","talking_head","Amazon Prime Day is coming",["shampoo","hair mask"]],
+ ["가격 비교·할인코드 가성비 소구형","eldabelle","7632097457110781214",5473,1,1.8,"comparison","talking_head","Glossy Hair for $15.99 or $72",["shampoo"]],
+ ["가격 비교·할인코드 가성비 소구형","blevensbunch","7654417946646727967",480502,35,0.7,"lifestyle","demonstration","Up to 40% off during Amazon Prime!",["shampoo"]],
+ ["가격 비교·할인코드 가성비 소구형","mauuromeroc","7654585470596271380",18644,1,0.5,"review","talking_head","KUNDAL is up to 40% off During Amazon Prime Day!",["shampoo","conditioner"]],
+ ["기브어웨이·이벤트 참여 유도형","madis.lifestyle09","7649543614363667725",460391,206,4.5,"unboxing","demonstration","huge microinfluencer pr unboxing 📦",["box","serum","foundation"]],
+ ["리스트·큐레이션 저장 유도형","ericvkim","7632899133346483469",2418,7,28.9,"list_curation","list","April favorites",["bag","heel"]],
+ ["리스트·큐레이션 저장 유도형","mollsykaee","7645495480868146445",7671,17,22.2,"lifestyle","vlog","shop with me olive young",["shampoo","lotion","lip tint"]],
+ ["리스트·큐레이션 저장 유도형","w0ah.kimberly","7643991074955889933",2551,5,19.6,"unboxing","narrative","PR Unboxing Haul!!",["powder","serum","toner"]],
+ ["리스트·큐레이션 저장 유도형","mollsykaee","7645517522573315359",5778,10,17.3,"unboxing","talking_head","huge olive young haul",["toner","lipstick","shampoo"]],
+ ["문제 제기 솔루션 제시형","hollandktyson","7646999268917562654",1077,6,55.7,"review","talking_head","",["powder"]],
+ ["문제 제기 솔루션 제시형","takara.moore","7634348660079316238",9588,26,27.1,"testimonial","talking_head","It's back in stock!!",["conditioner"]],
+ ["문제 제기 솔루션 제시형","irl_beth","7653463054587399438",2166,2,9.2,"testimonial","talking_head","",["shampoo"]],
+ ["문제 제기 솔루션 제시형","summer.walk","7649963760567831838",10408,8,7.7,"tutorial","demonstration","Reason is you were locking nothing",["serum","oil"]],
+ ["변신 약속·Before/After 결과 시각화형","strawberriezsnz","7655845035396648222",1706,52,304.8,"lifestyle","voiceover_pov","Let's refresh Our hair This summer",["shampoo"]],
+ ["변신 약속·Before/After 결과 시각화형","magdalenabarragan","7649274405838736653",1554,24,154.4,"before_after","talking_head","Textured Hair Spray Kundal",["hairspray"]],
+ ["변신 약속·Before/After 결과 시각화형","ivalila11","7646437083816463623",1891,13,68.7,"before_after","talking_head","Volumizing Ha",["powder"]],
+ ["변신 약속·Before/After 결과 시각화형","hollandktyson","7646999268917562654",1077,6,55.7,"review","talking_head","",["powder"]],
+ ["소셜프루프 신뢰 기반 구매 전환형","createwithme__07","7652025309591653645",2555,64,250.5,"review","talking_head","This is viral Kundal Shampoo and Conditioner",["shampoo","conditioner"]],
+ ["소셜프루프 신뢰 기반 구매 전환형","ladybuttercakes","7649796510497934605",10237,47,45.9,"review","talking_head","",["shampoo","treatment"]],
+ ["소셜프루프 신뢰 기반 구매 전환형","takara.moore","7634348660079316238",9588,26,27.1,"testimonial","talking_head","It's back in stock!!",["conditioner"]],
+ ["소셜프루프 신뢰 기반 구매 전환형","isabellegarciaa","7654713879783640334",10727,13,12.1,"review","talking_head","KUNDAL Honey & Macadamia Shampoo & Treatment– White Musk",["shampoo","conditioner"]],
+ ["아마존 프라임데이·할인 긴급 구매 촉구형","deserae_kay","7653097806852328717",29183,32,11,"testimonial","talking_head","",["shampoo","treatment"]],
+ ["아마존 프라임데이·할인 긴급 구매 촉구형","sidneyrose200228","7652368638736960782",12108,8,6.6,"review","talking_head","KUNDAL is up to 40% off during Amazon Prime Day!",["shampoo","treatment"]],
+ ["아마존 프라임데이·할인 긴급 구매 촉구형","raisingkinleys","7654179161522654494",27937,16,5.7,"review","talking_head","Amazon Prime Day Must have scent Item",["shampoo"]],
+ ["아마존 프라임데이·할인 긴급 구매 촉구형","jamieluciaperello","7654227540042714369",11474,5,4.4,"review","demonstration","Amazon Prime Day",["shampoo"]],
+ ["언박싱·PR 하울 호기심 유발형","w0ah.kimberly","7643991074955889933",2551,5,19.6,"unboxing","narrative","PR Unboxing Haul!!",["powder","serum","toner"]],
+ ["언박싱·PR 하울 호기심 유발형","dakohta.kenworthy","7644336837179313421",1114,2,18,"unboxing","talking_head","PR unboxing b4 work",["hairspray","nail polish","powder"]],
+ ["언박싱·PR 하울 호기심 유발형","taylorcole30","7650939980105141534",1382,2,14.5,"unboxing","narrative","TIKTOK SHOP SAMPLE & PR UNBOXING🛍️✨📦😱",["shampoo","supplement","bra"]],
+ ["언박싱·PR 하울 호기심 유발형","madis.lifestyle09","7649543614363667725",460391,206,4.5,"unboxing","demonstration","huge microinfluencer pr unboxing 📦",["box","serum","foundation"]],
+ ["일상 라이프스타일 내러티브 페르소나형","strawberriezsnz","7655845035396648222",1706,52,304.8,"lifestyle","voiceover_pov","Let's refresh Our hair This summer",["shampoo"]],
+ ["일상 라이프스타일 내러티브 페르소나형","yuas_world01","7643868037191322894",1919,21,109.4,"lifestyle","transition_montage","Quick morning grwm",["serum","toner","moisturizer"]],
+ ["일상 라이프스타일 내러티브 페르소나형","annaakkasveedu","7645336464686927118",4966,1,2,"tutorial","demonstration","",["razor"]],
+ ["일상 라이프스타일 내러티브 페르소나형","redheadholls","7649619564271111437",37024,0,0,"testimonial","voiceover_pov","POV: You switch to Korean Haircare 💕",["shampoo"]],
+ ["퍼스널 스토리 토킹헤드 UGC 리뷰형","lauww1","7653978064052849941",1157,23,198.8,"review","talking_head","",["shampoo","conditioner"]],
+ ["퍼스널 스토리 토킹헤드 UGC 리뷰형","ladybuttercakes","7649796510497934605",10237,47,45.9,"review","talking_head","",["shampoo","treatment"]],
+ ["퍼스널 스토리 토킹헤드 UGC 리뷰형","_.cherryvii._","7644230556531608846",1028,2,19.5,"review","talking_head","Как ты добилась таких гладких и послушных волос??!",["serum"]],
+ ["퍼스널 스토리 토킹헤드 UGC 리뷰형","lizisliving1.0","7645371842345192718",1121,2,17.8,"review","talking_head","Korean HAIRCARE?!?!",["shampoo","conditioner"]],
+ ["한국 헤어케어 전환 설득형","createwithme__07","7652025309591653645",2555,64,250.5,"review","talking_head","This is viral Kundal Shampoo and Conditioner",["shampoo","conditioner"]],
+ ["한국 헤어케어 전환 설득형","lauww1","7653978064052849941",1157,23,198.8,"review","talking_head","",["shampoo","conditioner"]],
+ ["한국 헤어케어 전환 설득형","_.cherryvii._","7644230556531608846",1028,2,19.5,"review","talking_head","Как ты добилась таких гладких и послушных волос??!",["serum"]],
+ ["한국 헤어케어 전환 설득형","lizisliving1.0","7645371842345192718",1121,2,17.8,"review","talking_head","Korean HAIRCARE?!?!",["shampoo","conditioner"]],
+ ["향(Scent) 감각 소구 구매 설득형","raisingkinleys","7654179161522654494",27937,16,5.7,"review","talking_head","Amazon Prime Day Must have scent Item",["shampoo"]],
+ ["향(Scent) 감각 소구 구매 설득형","lovebylexis","7654600762864995615",71676,20,2.8,"review","talking_head","Absolute scent obsession A must-have for Amazon Prime Day!",["shampoo"]],
+ ["향(Scent) 감각 소구 구매 설득형","jpjpleeee","7654469582152830238",4769,1,2.1,"review","talking_head","Kundal haircare scent combos",["shampoo","treatment"]],
+ ["향(Scent) 감각 소구 구매 설득형","shraddhaadh7","7652220077433048350",14704,3,2,"testimonial","talking_head","WHITE MUSK",["shampoo","conditioner"]],
+ ["헤어 루틴·튜토리얼 데모 시연형","justanothermaha","7636399471600864543",8256,9,10.9,"tutorial","demonstration","Hair Routine + hair care tips",["hair dryer","serum","mask"]],
+ ["헤어 루틴·튜토리얼 데모 시연형","meimonte1","7652149153107168525",28718,23,8,"tutorial","talking_head","How to wash your hair🫧",["shampoo","conditioner","serum"]],
+ ["헤어 루틴·튜토리얼 데모 시연형","lau.fam18","7640278577065348383",54643,21,3.8,"tutorial","talking_head","EL ERROR QUE ESTÁ DAÑANDO TU CABELLO Mientras Duermes",["shampoo","conditioner","lotion"]]
+].map(r=>({cl:r[0],who:r[1],id:r[2],v:r[3],c:r[4],rx:r[5],ang:r[6],fmt:r[7],ovl:r[8],pr:r[9]}));
+
+const ANGLES=[["lifestyle",87.4,6],["before_after",58.4,5],["list_curation",17.2,3],["review",15.1,65],
+  ["unboxing",14.8,9],["tutorial",6.5,7],["testimonial",4.8,29],["comparison",1.8,1],["humor_skit",0.5,2]];
+
+const nf=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
+const rxCls=r=>r==null?"rx-lo":r>=50?"rx-hi":r>=15?"rx-mid":"rx-lo";
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+// angle panel
+(()=>{const mx=Math.max(...ANGLES.map(a=>a[1]));
+ document.getElementById("angles").innerHTML=ANGLES.map(([n,r,c])=>`
+  <div class="arow">
+    <div><div class="aname">${n}</div><div class="acnt">${c}건</div></div>
+    <div class="atrack"><div class="afill ${c<5?"dim":""}" style="width:${Math.max(2,r/mx*100)}%"></div></div>
+    <div class="aval ${rxCls(r)}">${r}</div>
+  </div>`).join("");})();
+
+// angle filter options
+[...new Set(V.map(v=>v.ang))].sort().forEach(a=>{
+  const o=document.createElement("option");o.value=a;o.textContent=a;
+  document.getElementById("f-angle").appendChild(o);});
+
+let sortBy="size", vSort="rx", fAngle="";
+
+function rows(cl){
+  let r=V.filter(v=>v.cl===cl);
+  if(fAngle) r=r.filter(v=>v.ang===fAngle);
+  r=[...r].sort((a,b)=> vSort==="rx" ? b.rx-a.rx : b.v-a.v);
+  if(!r.length) return `<div class="empty">이 앵글에 해당하는 영상이 없습니다.</div>`;
+  return `<div class="tbl-scroll"><table>
+    <thead><tr><th>크리에이터 · 화면 자막</th><th class="num">조회</th><th class="num">댓글</th>
+    <th class="num">1만뷰당</th><th>노출 제품</th></tr></thead><tbody>
+    ${r.map(v=>`<tr>
+      <td>
+        <a class="who" href="https://www.tiktok.com/@${v.who}/video/${v.id}" target="_blank" rel="noopener">@${esc(v.who)}<span class="ext">↗</span></a>
+        <div class="ovl ${v.ovl?"":"none"}">${v.ovl?esc(v.ovl):"자막 없음"}</div>
+        <div class="tags"><span class="tag ang">${v.ang}</span><span class="tag">${v.fmt}</span></div>
+      </td>
+      <td class="num">${nf(v.v)}</td>
+      <td class="num">${v.c}</td>
+      <td class="num ${rxCls(v.rx)}"><span class="rx">${v.rx}</span></td>
+      <td class="prods">${v.pr.join(" · ")}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+
+function render(){
+  const mxRx=Math.max(...CLUSTERS.map(c=>c.rx||0));
+  const list=[...CLUSTERS].sort((a,b)=> sortBy==="size" ? b.c-a.c : (b.rx??-1)-(a.rx??-1));
+  document.getElementById("list").innerHTML=list.map(c=>`
+   <details class="narr">
+     <summary>
+       <div>
+         <div class="n-name"><span class="caret">▶</span>${esc(c.n)}</div>
+         <div class="n-hook">${esc(c.h)}</div>
+       </div>
+       <div class="n-stats">
+         <div><div class="v">${c.c}</div>영상</div>
+         <div>
+           <div class="v ${rxCls(c.rx)}">${c.rx??"—"}</div>1만뷰당 댓글
+           ${c.rx!=null?`<div class="bar-track"><div class="bar-fill" style="width:${c.rx/mxRx*100}%"></div></div>`:""}
+         </div>
+       </div>
+     </summary>
+     <div class="vids">${c.m===0
+        ? `<div class="empty">반응률 측정 가능한 영상이 없습니다 ${c.u?`(미측정 ${c.u}건)`:"(상위 개념 그룹)"}.</div>`
+        : rows(c.n)}</div>
+   </details>`).join("");
+}
+
+function seg(a,b,set){
+  const A=document.getElementById(a),B=document.getElementById(b);
+  const go=(el,other,val)=>{el.setAttribute("aria-pressed","true");other.setAttribute("aria-pressed","false");set(val);render();};
+  A.onclick=()=>go(A,B,A.id.split("-")[1]); B.onclick=()=>go(B,A,B.id.split("-")[1]);
+}
+seg("s-size","s-rx",v=>sortBy=v);
+seg("v-rx","v-view",v=>vSort=v);
+document.getElementById("f-angle").onchange=e=>{fAngle=e.target.value;render();};
+render();
+</script>
