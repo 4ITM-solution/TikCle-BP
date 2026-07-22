@@ -181,7 +181,7 @@
     <button class="case-btn" id="cb-kundal" aria-pressed="true">
       <b>Kundal</b><span>US · 헤어케어 · 3,158편</span></button>
     <button class="case-btn" id="cb-lilyeve" aria-pressed="false">
-      <b>Lilyeve</b><span>US · 두피/탈모 · 8,091편</span></button>
+      <b>Lilyeve</b><span>US · 두피/탈모 · 8,091편 · 샵 2,000</span></button>
   </div>
 
   <div class="meta-row" id="meta"></div>
@@ -329,11 +329,8 @@ const DATA = {
 ["헤어 루틴·튜토리얼 데모 시연형","lau.fam18","7640278577065348383",54643,21,null,0,0,3.8,null,"tutorial","talking_head","EL ERROR QUE ESTÁ DAÑANDO TU CABELLO Mientras Duermes",["shampoo","lotion"]]]
  },
  lilyeve:{
-  name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 0","앵글분석 525","내러티브 24","크리에이터 4,331"],
-  callout:`<b>탈모·두피 고민 공감이 최대 축(230편)이지만 반응률은 8.1로 평범합니다.</b>
-    반응률 최상위는 「POV·보이스오버 감성 일상형」(<b>41.7</b>)과 「언박싱·PR 하울」(<b>30.2</b>)로,
-    규모가 큰 내러티브와 반응이 좋은 내러티브가 어긋나 있습니다.
-    Lilyeve는 TT샵 영상이 없어 성과는 <b>아마존 BSR</b>로 봐야 합니다.`,
+  name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 2,000","앵글분석 525","내러티브 24","샵 매출 $2.09M"],
+  callout:`<b>규모 1위 내러티브가 매출 1위이기도 합니다.</b> 「탈모·두피 고민 공감형」은 230편으로 최대 축이면서 샵 매출 <b>$198,950</b>로도 1위입니다. 다만 반응률은 <b>8.1</b>로 평범하고, 반응률 최상위인 「POV 감성 일상형」(<b>41.7</b>)의 매출은 <b>$1,863</b>에 그칩니다. GPM은 「두피 루틴 튜토리얼」이 <b>44.1</b>로 가장 효율적입니다.`,
   mnote:"2025-12부터 본격 확대(415→1,698편). Kundal 대비 볼륨이 3배 이상이고 조회수도 월 1,800만~4,400만 규모.",
   monthly:[["25-07",2,0],["25-08",3,0],["25-09",7,0],["25-10",67,0],["25-11",138,0],["25-12",415,0],
     ["26-01",542,0],["26-02",697,0],["26-03",1174,0],["26-04",1017,0],["26-05",1488,0],["26-06",1698,0],["26-07",843,0]],
@@ -341,31 +338,31 @@ const DATA = {
     ["macro",27,34,2258417],["mega",32,38,13856423],["미분류",2302,3689,33063139]],
   angles:[["list_curation",21.3,2],["unboxing",19.3,16],["lifestyle",12.9,10],["review",7.9,139],
     ["before_after",7.7,6],["tutorial",6.8,34],["testimonial",5.2,60],["expert_education",4.2,13],["humor_skit",0.1,2]],
-  hasShop:false,
+  hasShop:true,
   clusters:[
- {n:"탈모·두피 고민 공감 토킹헤드 리뷰형",c:230,rx:8.1,sv:14.0,rev:null,gpm:null,tot:79,h:"problem_statement 또는 personal_story로 두피·탈모 고민을 첫 문장에 직접 제시해 공감 유도"},
- {n:"개인 서사 변신 약속 증언형",c:124,rx:3.5,sv:13.4,rev:null,gpm:null,tot:32,h:"personal_story + transformation_promise 조합으로 사용 전 고민과 이후 변화를 첫 문장에 제시"},
+ {n:"탈모·두피 고민 공감 토킹헤드 리뷰형",c:230,rx:8.1,sv:14.0,rev:198950,gpm:23.5,tot:79,h:"problem_statement 또는 personal_story로 두피·탈모 고민을 첫 문장에 직접 제시해 공감 유도"},
+ {n:"개인 서사 변신 약속 증언형",c:124,rx:3.5,sv:13.4,rev:57448,gpm:30.2,tot:32,h:"personal_story + transformation_promise 조합으로 사용 전 고민과 이후 변화를 첫 문장에 제시"},
  {n:"문제제기 보이스오버 솔루션 연결형",c:82,rx:3.7,sv:null,rev:null,gpm:null,tot:17,h:"problem_statement + transformation_promise 조합으로 시청자 공감 문제 제시"},
- {n:"언박싱·PR 하울 제품 공개형",c:72,rx:30.2,sv:7.5,rev:null,gpm:null,tot:9,h:"curiosity_gap + social_proof로 패키지 도착·언박싱 상황 연출"},
- {n:"소셜 프루프·수치 권위 신뢰 구축형",c:71,rx:3.9,sv:7.4,rev:null,gpm:null,tot:17,h:"social_proof(판매량·수상·수치)를 첫 화면 오버레이로 강조"},
- {n:"두피 루틴 튜토리얼 데모 시연형",c:70,rx:11.2,sv:9.9,rev:null,gpm:null,tot:33,h:"사용법·루틴 기대감을 예고하고 단계별로 시연"},
- {n:"비포·애프터 변화 시각화 결과 증명형",c:69,rx:10.3,sv:11.2,rev:null,gpm:null,tot:12,h:"transformation_promise로 이전→이후 변화를 첫 화면에 예고"},
- {n:"K-뷰티 한국 성분·권위 소구형",c:58,rx:6.7,sv:12.8,rev:null,gpm:null,tot:30,h:"curiosity_gap + social_proof로 한국 비법·랭킹·성분을 첫 화면 오버레이로 제시"},
- {n:"리스트·큐레이션 저장 유도형",c:53,rx:17.0,sv:14.1,rev:null,gpm:null,tot:15,h:"list_preview로 복수 제품·단계 예고"},
+ {n:"언박싱·PR 하울 제품 공개형",c:72,rx:30.2,sv:7.5,rev:1742,gpm:28.1,tot:9,h:"curiosity_gap + social_proof로 패키지 도착·언박싱 상황 연출"},
+ {n:"소셜 프루프·수치 권위 신뢰 구축형",c:71,rx:3.9,sv:7.4,rev:28920,gpm:17.5,tot:17,h:"social_proof(판매량·수상·수치)를 첫 화면 오버레이로 강조"},
+ {n:"두피 루틴 튜토리얼 데모 시연형",c:70,rx:11.2,sv:9.9,rev:89581,gpm:44.1,tot:33,h:"사용법·루틴 기대감을 예고하고 단계별로 시연"},
+ {n:"비포·애프터 변화 시각화 결과 증명형",c:69,rx:10.3,sv:11.2,rev:67347,gpm:20.5,tot:12,h:"transformation_promise로 이전→이후 변화를 첫 화면에 예고"},
+ {n:"K-뷰티 한국 성분·권위 소구형",c:58,rx:6.7,sv:12.8,rev:72645,gpm:24.7,tot:30,h:"curiosity_gap + social_proof로 한국 비법·랭킹·성분을 첫 화면 오버레이로 제시"},
+ {n:"리스트·큐레이션 저장 유도형",c:53,rx:17.0,sv:14.1,rev:1431,gpm:31.5,tot:15,h:"list_preview로 복수 제품·단계 예고"},
  {n:"할인코드·쇼핑링크 고의도 전환형",c:50,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"오버레이·캡션에 할인코드/링크 명시"},
- {n:"할인·이벤트 카운트다운 긴급 구매 유도형",c:43,rx:1.7,sv:5.8,rev:null,gpm:null,tot:19,h:"countdown + social_proof로 한정 기간·할인 정보를 첫 화면에 강조"},
+ {n:"할인·이벤트 카운트다운 긴급 구매 유도형",c:43,rx:1.7,sv:5.8,rev:18999,gpm:19.0,tot:19,h:"countdown + social_proof로 한정 기간·할인 정보를 첫 화면에 강조"},
  {n:"성분·기술 교육 신뢰 구축형",c:41,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"성분명·기술명을 첫 문장에 제시해 신뢰 구축"},
- {n:"호기심 갭·충격 팩트 교육형",c:37,rx:5.0,sv:7.7,rev:null,gpm:null,tot:21,h:"shock_value로 두피·탈모 관련 반전 팩트를 첫 화면에 제시"},
- {n:"브러시 앰플 특수 어플리케이터 집중 소개형",c:36,rx:20.7,sv:null,rev:null,gpm:null,tot:9,h:"특수 브러시 어플리케이터라는 해결책으로 차별점 즉시 제시"},
- {n:"POV·보이스오버 감성 일상 페르소나형",c:33,rx:41.7,sv:10.9,rev:null,gpm:null,tot:13,h:"POV 상황 설정 또는 일상 루틴 맥락 연출"},
- {n:"제품 세트·번들 조합 추천형",c:32,rx:2.7,sv:14.7,rev:null,gpm:null,tot:15,h:"복수 제품 세트 효과를 예고하고 조합을 추천"},
- {n:"브랜드 폴리시드 라이프스타일 몽타주형",c:30,rx:5.0,sv:null,rev:null,gpm:null,tot:7,h:"감성적 기대감을 형성하는 브랜드 무드 몽타주"},
+ {n:"호기심 갭·충격 팩트 교육형",c:37,rx:5.0,sv:7.7,rev:17016,gpm:22.4,tot:21,h:"shock_value로 두피·탈모 관련 반전 팩트를 첫 화면에 제시"},
+ {n:"브러시 앰플 특수 어플리케이터 집중 소개형",c:36,rx:20.7,sv:null,rev:123,gpm:23.9,tot:9,h:"특수 브러시 어플리케이터라는 해결책으로 차별점 즉시 제시"},
+ {n:"POV·보이스오버 감성 일상 페르소나형",c:33,rx:41.7,sv:10.9,rev:1863,gpm:17.2,tot:13,h:"POV 상황 설정 또는 일상 루틴 맥락 연출"},
+ {n:"제품 세트·번들 조합 추천형",c:32,rx:2.7,sv:14.7,rev:27303,gpm:43.6,tot:15,h:"복수 제품 세트 효과를 예고하고 조합을 추천"},
+ {n:"브랜드 폴리시드 라이프스타일 몽타주형",c:30,rx:5.0,sv:null,rev:286,gpm:7.7,tot:7,h:"감성적 기대감을 형성하는 브랜드 무드 몽타주"},
  {n:"댓글·팔로우 참여 유도 CTA형",c:24,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"'나도 해당되나?' 반응 욕구 자극으로 댓글·팔로우 유도"},
- {n:"질문형 훅 고민 공감 증언형",c:22,rx:9.7,sv:10.3,rev:null,gpm:null,tot:22,h:"question + problem_statement 오버레이로 시청자 고민 직접 호명"},
+ {n:"질문형 훅 고민 공감 증언형",c:22,rx:9.7,sv:10.3,rev:30820,gpm:23.3,tot:22,h:"question + problem_statement 오버레이로 시청자 고민 직접 호명"},
  {n:"장기 사용 경과 보고 정직 리뷰형",c:22,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"사용 일수·중간 결과를 솔직하게 도입, 다음 경과 예고"},
- {n:"전문가 스티치 반응 검증형",c:20,rx:1.4,sv:10.6,rev:null,gpm:null,tot:20,h:"'Stitch incoming' 오버레이로 전문가 반응 예고"},
+ {n:"전문가 스티치 반응 검증형",c:20,rx:1.4,sv:10.6,rev:89237,gpm:15.3,tot:20,h:"'Stitch incoming' 오버레이로 전문가 반응 예고"},
  {n:"신시장 런칭·B2B 공급 알림형",c:15,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"국가명·유통채널명 + 'Now Available' 또는 'Wholesale' 키워드"},
- {n:"남성·특정 타깃 두피 케어 세분화형",c:14,rx:1.7,sv:21.1,rev:null,gpm:null,tot:6,h:"특정 타깃(남성·산후 등) 탈모 원인을 직접 언급"},
+ {n:"남성·특정 타깃 두피 케어 세분화형",c:14,rx:1.7,sv:21.1,rev:26711,gpm:32.4,tot:6,h:"특정 타깃(남성·산후 등) 탈모 원인을 직접 언급"},
  {n:"속눈썹 세럼 듀얼 기능 소개형",c:13,rx:null,sv:null,rev:null,gpm:null,tot:0,h:"2in1·주야 사용 구분·24시간 케어 등 듀얼 기능을 첫 문장에 강조"}],
   vids:[
 ["K-뷰티 한국 성분·권위 소구형","badgalririya","7639905127930875150",2240,11,null,0,0,49.1,null,"review","talking_head","pov: me as soon as I found out your scalp ages faster than you",["ampoule"]],
@@ -376,10 +373,10 @@ const DATA = {
 ["POV·보이스오버 감성 일상 페르소나형","ryansunwoo","7642052300369825038",330790,328,null,0,0,9.9,null,"tutorial","demonstration","night time hair care routine",["serum"]],
 ["개인 서사 변신 약속 증언형","rebeccaxko","7663525725856615694",5202,14,null,0,0,26.9,null,"review","talking_head","THE EASIEST HAIRCARE ROUTINE",["serum"]],
 ["개인 서사 변신 약속 증언형","cosmic.angel777","7645362517086080286",2421,2,null,0,0,8.3,null,"tutorial","talking_head","Beauty & Glamour Magick pt. 2 feat. LilyEve",["serum"]],
-["개인 서사 변신 약속 증언형","aisha.rz7","7647298400630623502",5133,4,null,0,0,7.8,null,"testimonial","talking_head","",["ampoule"]],
-["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7639162361739250974",47300,18,113,0,0,3.8,23.9,"testimonial","talking_head","Your post partum hair loss finally stopped",["shampoo","ampoule"]],
-["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7654793788719762719",186974,48,null,0,0,2.6,null,"testimonial","talking_head","hair loss is so 😳scary😭",["ampule","serum"]],
-["남성·특정 타깃 두피 케어 세분화형","saronthings","7656834127991229726",205700,46,357,0,0,2.2,17.4,"testimonial","talking_head","BRAIDS STOLE MY EDGES ...THIS PRODUCT SAVED ME",["serum"]],
+["개인 서사 변신 약속 증언형","aisha.rz7","7647298400630623502",5133,4,null,1,57,7.8,null,"testimonial","talking_head","",["ampoule"]],
+["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7639162361739250974",47300,18,113,1,4012,3.8,23.9,"testimonial","talking_head","Your post partum hair loss finally stopped",["shampoo","ampoule"]],
+["남성·특정 타깃 두피 케어 세분화형","melissanorman2.0","7654793788719762719",186974,48,null,1,3354,2.6,null,"testimonial","talking_head","hair loss is so 😳scary😭",["ampule","serum"]],
+["남성·특정 타깃 두피 케어 세분화형","saronthings","7656834127991229726",205700,46,357,1,3687,2.2,17.4,"testimonial","talking_head","BRAIDS STOLE MY EDGES ...THIS PRODUCT SAVED ME",["serum"]],
 ["두피 루틴 튜토리얼 데모 시연형","ultabeauty","7635039734896545037",2735,13,null,0,0,47.5,null,"tutorial","list","the 5-step ultimate scalp ritual",["serum","treatment","mist"]],
 ["두피 루틴 튜토리얼 데모 시연형","heavenlyasmr92","7639923420616068366",2872,8,null,0,0,27.9,null,"tutorial","demonstration","ASMR doing your haircare before bed",["scalp applicator"]],
 ["두피 루틴 튜토리얼 데모 시연형","chavelycasanova","7659951941702831390",6835,10,null,0,0,14.6,null,"tutorial","demonstration","Como prepaso Mis RiZoS. Antes de dormir",["ampoule","oil"]],
@@ -389,12 +386,12 @@ const DATA = {
 ["문제제기 보이스오버 솔루션 연결형","ava.roxana","7658391225443077407",58149,64,null,0,0,11,null,"review","demonstration","Of course, a hydrating hair mask is important.",["serum","hair mask"]],
 ["문제제기 보이스오버 솔루션 연결형","inspireheidi","7639858105563548959",2586,2,null,0,0,7.7,null,"testimonial","talking_head","",["serum"]],
 ["문제제기 보이스오버 솔루션 연결형","maribel_silva94","7634678740009766175",2805,0,null,0,0,0,null,"testimonial","talking_head","POV: You Just Realized That Korea Has All The Answers",["treatment","serum"]],
-["브랜드 폴리시드 라이프스타일 몽타주형","totallyarii28","7634669838245334286",13757,16,null,0,0,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
+["브랜드 폴리시드 라이프스타일 몽타주형","totallyarii28","7634669838245334286",13757,16,null,1,156,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
 ["브랜드 폴리시드 라이프스타일 몽타주형","christxiee","7664820144404761869",2056,2,null,0,0,9.7,null,"expert_education","talking_head","Natural Face Lift",["ampoule"]],
 ["브랜드 폴리시드 라이프스타일 몽타주형","illaalvarez","7645724369611951380",110254,99,null,0,0,9,null,"expert_education","talking_head","your scalp could be making your face sag 😭",["serum"]],
 ["브러시 앰플 특수 어플리케이터 집중 소개형","angielizxth","7647252735401790750",2361,17,null,0,0,72,null,"review","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
 ["브러시 앰플 특수 어플리케이터 집중 소개형","mwaaaaaxx","7639195437534170399",2497,9,null,0,0,36,null,"testimonial","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
-["브러시 앰플 특수 어플리케이터 집중 소개형","donniesdealss","7651410730687712526",2206,1,0,0,0,4.5,0,"unboxing","voiceover_pov","GROW:TURN AMPOULE",["ampoule","serum"]],
+["브러시 앰플 특수 어플리케이터 집중 소개형","donniesdealss","7651410730687712526",2206,1,0,1,28,4.5,0,"unboxing","voiceover_pov","GROW:TURN AMPOULE",["ampoule","serum"]],
 ["비포·애프터 변화 시각화 결과 증명형","fururally","7651786233877712141",2351,9,null,0,0,38.3,null,"testimonial","talking_head","how I got my hair from this length",["serum"]],
 ["비포·애프터 변화 시각화 결과 증명형","avajustin","7640655426425556237",13174,39,null,0,0,29.6,null,"before_after","talking_head","Scalp glow-up you actually need 🫧🪞✨",["serum"]],
 ["비포·애프터 변화 시각화 결과 증명형","raeraeebae","7638396448333139214",2213,5,null,0,0,22.6,null,"testimonial","talking_head","Because having healthy hair is having a healthy scalp🪄",["serum"]],
@@ -405,22 +402,22 @@ const DATA = {
 ["언박싱·PR 하울 제품 공개형","carrington.freise04","7659953071946075423",3316,32,null,0,0,96.5,null,"unboxing","demonstration","",["serum","mask","cream"]],
 ["언박싱·PR 하울 제품 공개형","talabitwins","7662900029488631060",45373,67,null,0,0,14.8,null,"unboxing","narrative","eveyliI",["serum","shampoo"]],
 ["전문가 스티치 반응 검증형","mahhruuu","7636125771504815381",4344,3,null,0,0,6.9,null,"expert_education","talking_head","Korean Anti aging",["serum","applicator"]],
-["전문가 스티치 반응 검증형","oopsthatstorii","7646982765501484318",36900,23,18,0,0,6.2,4.9,"review","talking_head","Changed my mind 🤪",["scalp treatment"]],
-["전문가 스티치 반응 검증형","adamjuwdpk8","7664636419964456223",4075,1,3,0,0,2.5,7.4,"review","talking_head","SCALP:TURN CICA PDRN BRUSH AMPOULE",["ampoule"]],
+["전문가 스티치 반응 검증형","oopsthatstorii","7646982765501484318",36900,23,18,1,732,6.2,4.9,"review","talking_head","Changed my mind 🤪",["scalp treatment"]],
+["전문가 스티치 반응 검증형","adamjuwdpk8","7664636419964456223",4075,1,3,1,68,2.5,7.4,"review","talking_head","SCALP:TURN CICA PDRN BRUSH AMPOULE",["ampoule"]],
 ["제품 세트·번들 조합 추천형","talabitwins","7662900029488631060",45373,67,null,0,0,14.8,null,"unboxing","narrative","eveyliI",["serum","shampoo"]],
-["제품 세트·번들 조합 추천형","asheleyspam","7642537366413970719",4384,2,null,0,0,4.6,null,"testimonial","narrative","Lilyeve Trio",["shampoo","treatment","serum"]],
-["제품 세트·번들 조합 추천형","jess.ngo.20","7646550092236737822",29900,12,6,0,0,4,2,"review","voiceover_pov","If ur card declines on this then we need to have a serious chat",["ampoule"]],
+["제품 세트·번들 조합 추천형","asheleyspam","7642537366413970719",4384,2,null,1,258,4.6,null,"testimonial","narrative","Lilyeve Trio",["shampoo","treatment","serum"]],
+["제품 세트·번들 조합 추천형","jess.ngo.20","7646550092236737822",29900,12,6,1,528,4,2,"review","voiceover_pov","If ur card declines on this then we need to have a serious chat",["ampoule"]],
 ["질문형 훅 고민 공감 증언형","lilac__05","7635725958393236749",3244,54,null,0,0,166.5,null,"review","talking_head","Scalp Treatments",["tonic","serum","mist"]],
 ["질문형 훅 고민 공감 증언형","bysaritaval","7654300025308122399",29192,46,null,0,0,15.8,null,"review","talking_head","",["serum"]],
-["질문형 훅 고민 공감 증언형","alkania4","7650185986294484238",2612,3,7,0,0,11.5,26.8,"review","talking_head","",["serum"]],
+["질문형 훅 고민 공감 증언형","alkania4","7650185986294484238",2612,3,7,1,324,11.5,26.8,"review","talking_head","",["serum"]],
 ["탈모·두피 고민 공감 토킹헤드 리뷰형","lilac__05","7635725958393236749",3244,54,null,0,0,166.5,null,"review","talking_head","Scalp Treatments",["tonic","serum","mist"]],
 ["탈모·두피 고민 공감 토킹헤드 리뷰형","angielizxth","7647252735401790750",2361,17,null,0,0,72,null,"review","talking_head","FOR HAIR SCALP CARE",["ampoule"]],
 ["탈모·두피 고민 공감 토킹헤드 리뷰형",".maletina","7649511279215840526",2071,10,null,0,0,48.3,null,"review","talking_head","",["serum"]],
-["할인·이벤트 카운트다운 긴급 구매 유도형","gisellee.collazo","7644865760128552223",29181,41,null,0,0,14.1,null,"review","talking_head","El hair growth serum más viral de Corea",["serum"]],
-["할인·이벤트 카운트다운 긴급 구매 유도형","melissanorman2.0","7644763024284192030",22900,8,23,0,0,3.5,10,"review","talking_head","YOU DONT HAVE TO GO BALD😭😭",["serum"]],
-["할인·이벤트 카운트다운 긴급 구매 유도형","bellezaycrecimiento","7636273122345241887",25200,5,43,0,0,2,17.1,"review","talking_head","ya no te tienes que quedar calva!😭",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","gisellee.collazo","7644865760128552223",29181,41,null,1,535,14.1,null,"review","talking_head","El hair growth serum más viral de Corea",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","melissanorman2.0","7644763024284192030",22900,8,23,1,452,3.5,10,"review","talking_head","YOU DONT HAVE TO GO BALD😭😭",["serum"]],
+["할인·이벤트 카운트다운 긴급 구매 유도형","bellezaycrecimiento","7636273122345241887",25200,5,43,1,380,2,17.1,"review","talking_head","ya no te tienes que quedar calva!😭",["serum"]],
 ["호기심 갭·충격 팩트 교육형","badgalririya","7639905127930875150",2240,11,null,0,0,49.1,null,"review","talking_head","pov: me as soon as I found out your scalp ages faster than you",["ampoule"]],
-["호기심 갭·충격 팩트 교육형","totallyarii28","7634669838245334286",13757,16,null,0,0,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
+["호기심 갭·충격 팩트 교육형","totallyarii28","7634669838245334286",13757,16,null,1,156,11.6,null,"expert_education","talking_head","healthy scalp = good skin aging",["serum"]],
 ["호기심 갭·충격 팩트 교육형","christxiee","7664820144404761869",2056,2,null,0,0,9.7,null,"expert_education","talking_head","Natural Face Lift",["ampoule"]]]
  }
 };
@@ -430,7 +427,7 @@ const WARN = {
    <b>비샵 영상(2,004건)</b>은 매출 귀속이 불가해 <b>아마존 BSR</b>로 봅니다(대표 SKU 최고 <b>2,475위</b> · 2024-07~2026-06 일별).
    표의 "샵 매출"이 <span class="na">해당없음</span>인 행이 이에 해당합니다.
    <br><b>미측정 306건</b>은 좋아요·댓글이 없어(영상 삭제·비공개 추정) 반응률에서 제외했습니다 — 실제 0과 구분하려 0으로 대체하지 않았습니다.`,
- lilyeve:`<b>Lilyeve는 TT샵 영상이 없습니다</b> — Kalodata 매출·GPM이 존재하지 않아 성과는 전량 <b>아마존 BSR</b> 기준으로 봐야 합니다.
+ lilyeve:`<b>TT샵 영상 2,000건 · 샵 매출 $2,093,267</b> — Kundal($50,985)의 41배 규모입니다. 나머지 <b>6,091건</b>은 비샵이라 매출 귀속이 불가해 <b>아마존 BSR</b> 기준으로 봅니다.
    <br><b>미측정 71건</b>은 반응률에서 제외했습니다. 저장수는 Apify 백필로 확보했으며 값이 없는 행은 <span class="na">—</span>로 표시합니다.`
 };
 
