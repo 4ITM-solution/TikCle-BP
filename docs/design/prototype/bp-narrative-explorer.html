@@ -62,6 +62,9 @@
   .mbar-wrap{width:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px;height:100%}
   .mbar{width:46%;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px}
   .mbar.shop{background:var(--ok)}
+  .mbar-wrap{position:relative}
+  .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
+    border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
   .mlab{font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
   .mval{font-family:var(--mono);font-size:9.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
   .legend{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--muted);
@@ -164,7 +167,10 @@
     .narr summary{grid-template-columns:1fr}
     .trow{grid-template-columns:60px 1fr 78px}
     .arow{grid-template-columns:100px 1fr 52px}
-    .mlab{font-size:8px}
+    .mbar-wrap{position:relative}
+  .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
+    border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
+  .mlab{font-size:8px}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -188,13 +194,13 @@
   <div class="callout" id="callout"></div>
 
   <h2 class="sec">월별 콘텐츠 트렌드</h2>
-  <p class="sec-note" id="mnote"></p>
+  <p class="sec-note" id="mnote"></p><p class="sec-note" style="margin-top:-8px">막대에 마우스를 올리면 <b>티어별 영상 수</b>와 <b>그달 BSR 최고순위</b>가 표시됩니다.</p>
   <div class="panel">
     <div class="mchart" id="mchart"></div>
     <div class="legend">
       <span><span class="sw" style="background:var(--accent)"></span>전체 영상</span>
       <span><span class="sw" style="background:var(--ok)"></span>TT샵 영상</span>
-      <span id="mmax" style="margin-left:auto"></span>
+      <span><span class="sw" style="background:var(--info);border-radius:50%"></span>대표 SKU BSR(최고순위·로그)</span><span id="mmax" style="margin-left:auto"></span>
     </div>
   </div>
 
@@ -218,7 +224,16 @@
   </div>
   <div id="list"></div>
 
-  <h2 class="sec" style="margin-top:30px">앵글별 반응률</h2>
+  <h2 class="sec" style="margin-top:30px">인스타그램</h2>
+  <p class="sec-note">IG는 조회수를 제공하지 않아 <b>좋아요 100개당 댓글 수</b>로 반응률을 봅니다 · <span id="ig-n"></span></p>
+  <div class="panel">
+    <div style="font-size:12px;font-weight:700;margin-bottom:10px">앵글별 반응률</div>
+    <div id="ig-angles"></div>
+    <div style="font-size:12px;font-weight:700;margin:18px 0 8px">반응 상위 게시물</div>
+    <div class="tbl-scroll" id="ig-posts"></div>
+  </div>
+
+  <h2 class="sec" style="margin-top:30px">틱톡 앵글별 반응률</h2>
   <p class="sec-note">1만뷰당 댓글 수 · 조회 1,000회 이상 · 댓글 미측정 영상 제외</p>
   <div class="panel"><div id="angles"></div></div>
 
@@ -228,7 +243,7 @@
 <script>
 const DATA = {
  kundal:{
-  name:"Kundal", meta:["콘텐츠 3,158","측정가능 2,852","TT샵 영상 1,154","앵글분석 502","내러티브 19","샵 매출 $50,985"],
+  name:"Kundal", meta:["콘텐츠 3,158","측정가능 2,852","TT샵 영상 1,154","앵글분석 502","내러티브 19","샵 매출 $50,985","IG 앵글분석 489"],
   callout:`<b>반응이 높은 내러티브와 매출을 만든 내러티브가 다릅니다.</b>
     「리스트·큐레이션 저장 유도형」은 1만뷰당 댓글 <b>115.9</b>로 최고지만 샵 매출은 <b>$170</b>,
     반대로 「퍼스널 스토리 UGC 리뷰형」은 댓글 <b>17.5</b>에 그치지만 매출 <b>$17,910</b>으로 1위입니다.
@@ -329,7 +344,7 @@ const DATA = {
 ["헤어 루틴·튜토리얼 데모 시연형","lau.fam18","7640278577065348383",54643,21,null,0,0,3.8,null,"tutorial","talking_head","EL ERROR QUE ESTÁ DAÑANDO TU CABELLO Mientras Duermes",["shampoo","lotion"]]]
  },
  lilyeve:{
-  name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 2,000","앵글분석 525","내러티브 24","샵 매출 $2.09M"],
+  name:"Lilyeve", meta:["콘텐츠 8,091","측정가능 8,020","TT샵 영상 2,000","앵글분석 525","내러티브 24","샵 매출 $2.09M","IG 앵글분석 491"],
   callout:`<b>규모 1위 내러티브가 매출 1위이기도 합니다.</b> 「탈모·두피 고민 공감형」은 230편으로 최대 축이면서 샵 매출 <b>$198,950</b>로도 1위입니다. 다만 반응률은 <b>8.1</b>로 평범하고, 반응률 최상위인 「POV 감성 일상형」(<b>41.7</b>)의 매출은 <b>$1,863</b>에 그칩니다. GPM은 「두피 루틴 튜토리얼」이 <b>44.1</b>로 가장 효율적입니다.`,
   mnote:"2025-12부터 본격 확대(415→1,698편). Kundal 대비 볼륨이 3배 이상이고 조회수도 월 1,800만~4,400만 규모.",
   monthly:[["25-07",2,0],["25-08",3,0],["25-09",7,0],["25-10",67,0],["25-11",138,0],["25-12",415,0],
@@ -422,6 +437,12 @@ const DATA = {
  }
 };
 
+const MTIER={kundal:{"25-07": {"nano": 98, "micro": 33, "mid": 4, "미분류": 193}, "25-08": {"nano": 70, "micro": 24, "mid": 3, "macro": 1, "미분류": 63}, "25-09": {"nano": 39, "micro": 20, "mid": 2, "macro": 1, "mega": 2, "미분류": 47}, "25-10": {"nano": 81, "micro": 25, "mid": 3, "macro": 2, "미분류": 66}, "25-11": {"nano": 64, "micro": 16, "mid": 2, "macro": 1, "미분류": 35}, "25-12": {"nano": 34, "micro": 10, "미분류": 26}, "26-01": {"nano": 21, "micro": 14, "mid": 6, "macro": 1, "mega": 1, "미분류": 32}, "26-02": {"nano": 122, "micro": 35, "mid": 5, "macro": 1, "미분류": 153}, "26-03": {"nano": 61, "micro": 44, "mid": 6, "macro": 1, "mega": 2, "미분류": 122}, "26-04": {"nano": 60, "micro": 57, "mid": 7, "mega": 1, "미분류": 168}, "26-05": {"nano": 167, "micro": 115, "mid": 6, "미분류": 315}, "26-06": {"nano": 198, "micro": 124, "mid": 15, "macro": 5, "mega": 2, "미분류": 304}},lilyeve:{"25-07": {"nano": 2}, "25-08": {"nano": 1, "micro": 1, "macro": 1}, "25-09": {"nano": 2, "micro": 1, "mid": 1, "mega": 1, "미분류": 2}, "25-10": {"nano": 22, "micro": 10, "mid": 2, "macro": 6, "미분류": 27}, "25-11": {"nano": 42, "micro": 22, "mid": 3, "macro": 2, "미분류": 69}, "25-12": {"nano": 123, "micro": 136, "mid": 5, "macro": 1, "mega": 1, "미분류": 149}, "26-01": {"nano": 198, "micro": 130, "mid": 4, "macro": 1, "미분류": 209}, "26-02": {"nano": 206, "micro": 176, "mid": 25, "macro": 2, "mega": 1, "미분류": 287}, "26-03": {"nano": 277, "micro": 339, "mid": 82, "macro": 1, "mega": 3, "미분류": 472}, "26-04": {"nano": 262, "micro": 227, "mid": 74, "macro": 3, "mega": 4, "미분류": 447}, "26-05": {"nano": 297, "micro": 332, "mid": 104, "macro": 3, "mega": 9, "미분류": 743}, "26-06": {"nano": 336, "micro": 338, "mid": 88, "macro": 9, "mega": 16, "미분류": 911}, "26-07": {"nano": 192, "micro": 167, "mid": 36, "macro": 5, "mega": 3, "미분류": 440}}};
+const MBSR={kundal:{"25-07": 2475, "25-08": 4118, "25-09": 4200, "25-10": 3271, "25-11": 3524, "25-12": 3798, "26-01": 3379, "26-02": 3647, "26-03": 3006, "26-04": 2503, "26-05": 2866, "26-06": 2688},lilyeve:{"25-07": 1369, "25-08": 1375, "25-09": 393, "25-10": 426, "25-11": 478, "25-12": 449, "26-01": 366, "26-02": 753, "26-03": 631, "26-04": 662, "26-05": 2015, "26-06": 615, "26-07": 1079}};
+
+const IGA={"kundal": [["lifestyle", 14.7, 133], ["review", 25.8, 122], ["list_curation", 7.2, 33], ["testimonial", 20.3, 26], ["ingredient_breakdown", 7.6, 22], ["unboxing", 25.9, 21], ["tutorial", 20.4, 16], ["before_after", 52.3, 12], ["expert_education", 3.1, 10], ["humor_skit", 29.2, 3]], "lilyeve": [["review", 20.1, 192], ["lifestyle", 12.4, 49], ["testimonial", 15.4, 35], ["unboxing", 41.8, 27], ["expert_education", 19.0, 20], ["before_after", 93.4, 20], ["list_curation", 15.6, 18], ["tutorial", 25.2, 17], ["ingredient_breakdown", 11.4, 16], ["comparison", 21.0, 10], ["humor_skit", 4.0, 4]]};
+const IGP={"kundal": [["kundalus.official", "DYvnyh_zuG3", 684, 1379, 201.6, "lifestyle", "talking_head", "Giveaway", ["shampoo", "conditioner"], null], ["kundalsg.official", "DazKE6mje6z", 279, 761, 272.8, "before_after", "voiceover_pov", "GIVEAWAY", ["treatment", "serum"], null], ["ms.heatherhagie", "DZYYLyeRNLz", 58, 63, 108.6, "review", "talking_head", "", ["hair spray"], "Gifted by"], ["mariiapr.content", "DU6kEN0kjqO", 113, 121, 107.1, "lifestyle", "transition_montage", "My secrets to luxurious hair", ["shampoo", "conditioner"], null], ["redginskaya_ugc", "DUuTF2hjGlH", 113, 95, 84.1, "lifestyle", "voiceover_pov", "", ["shampoo", "scalp massager"], "Gifted by"], ["offthemodel", "DUCfbVKkVT4", 83, 60, 72.3, "review", "talking_head", "", ["conditioner", "shampoo"], "gifted by"], ["mariiapr.content", "DU1cVLSkkYq", 119, 82, 68.9, "review", "voiceover_pov", "", ["shampoo", "conditioner"], "gifted by"], ["glowological", "DYmU2CNR_FW", 110, 69, 62.7, "ingredient_breakdown", "talking_head", "hydration + volume in the same routine 💧", ["shampoo", "treatment"], null], ["kundalus.official", "DH5WSkiy3iY", 57, 32, 56.1, "humor_skit", "voiceover_pov", "NATURE TREATEMENT IS HERE TO STAY!", ["treatment"], null], ["annet.ugc", "DLNJu5HR_VM", 98, 48, 49.0, "testimonial", "talking_head", "", ["shampoo", "conditioner"], null], ["li.lilac__", "DXR0gA7jX8p", 111, 48, 43.2, "list_curation", "list", "HAIR OILS", ["hair oil", "serum"], null], ["jmxxie", "Dap7QMhiMX5", 121, 45, 37.2, "tutorial", "demonstration", "5min humid hair refresh 🌞", ["hair spray"], null], ["kundalus.official", "DLT99yOtOan", 158, 36, 22.8, "unboxing", "voiceover_pov", "🥛SOYMILK🥛 PR BOX GIVEAWAY", ["body care set"], null], ["eclxpsxe_", "DW9QKgqRx60", 32298, 473, 1.5, "before_after", "talking_head", "HAIRLOSS UPDATE 6 Months", ["supplement", "shampoo"], null], ["beautybynori_", "DTLn76VjBga", 2927, 60, 2.0, "expert_education", "list", "Don't buy these products in 2026...", ["shampoo", "serum"], null]], "lilyeve": [["rodrigs.ana", "DaS2picuGUJ", 1367, 2713, 198.5, "review", "talking_head", "ISSO AQUI VAI SURPREENDER VOCÊ", ["scalp massager"], null], ["globalbeautyfinds", "DaJw3afINv0", 2362, 3091, 130.9, "review", "demonstration", "Oil Steaming Brush 😱🤯", ["brush"], null], ["tasnims_ca", "DbBc-EuCb9A", 76, 88, 115.8, "review", "demonstration", "Scalp Wellness", ["brush", "ampoule"], null], ["lilyeve_global", "DXhFjCNgWHI", 776, 860, 110.8, "lifestyle", "voiceover_pov", "Looking for May Creators", ["serum"], null], ["nayeonncake", "DaviY6IjIKN", 96, 102, 106.3, "list_curation", "voiceover_pov", "YS Code: TWICE123", ["shampoo", "hair mask"], null], ["couchboundrealitytv", "DZ8JqKtJN0w", 239, 203, 84.9, "testimonial", "talking_head", "3 month Lily Eve check in", ["serum"], null], ["the_life_of_ingrid", "DaJOWAkMoBB", 62, 52, 83.9, "expert_education", "talking_head", "POV: You just realized your scalp ages faster than your face", ["serum"], null], ["nayeonncake", "DayLdD2MgTV", 130, 108, 83.1, "unboxing", "demonstration", "UNBOXING TODAY'S PR 💗🤩", [], null], ["auraofdebs.ugc_creator", "DZ---I4qzJt", 78, 60, 76.9, "tutorial", "demonstration", "Korean Anti-aging Hack", ["serum"], null], ["mrschiuuu", "Dal1nzSxYQK", 56, 43, 76.8, "lifestyle", "voiceover_pov", "My Creator life is getting out of control", ["serum", "cleanser"], null], ["_sofi_a_f", "Da1rr-1MmUL", 64, 47, 73.4, "expert_education", "talking_head", "¿problema con tu cuero cabelludo?", ["serum"], null], ["alyssamuhlach", "DaBmKRUR-3F", 358, 217, 60.6, "before_after", "demonstration", "DAY 1 Works deep at the roots", ["serum"], null], ["maru.ugcsocial", "DaNMkdiIL3E", 437, 108, 24.7, "expert_education", "talking_head", "✦Korean Anti-aging HACK✦", ["serum"], null], ["dodoskinofficial", "DafSA0SmaO3", 2664, 190, 7.1, "comparison", "list", "Which Brush Ampoule Is Right For You?", ["ampoule"], null], ["stylekorean_global", "Da8D_9OBYr5", 3911, 24, 0.6, "comparison", "split_screen", "THIS OR THAT Viral Products", ["ampoule", "serum"], null]]};
+
 const WARN = {
  kundal:`<b>채널별 성과 지표가 다릅니다</b> — <b>TT샵 영상(1,154건)</b>은 Kalodata 매출·GPM으로 직접 측정하고,
    <b>비샵 영상(2,004건)</b>은 매출 귀속이 불가해 <b>아마존 BSR</b>로 봅니다(대표 SKU 최고 <b>2,475위</b> · 2024-07~2026-06 일별).
@@ -443,16 +464,25 @@ const vids=()=>D().vids.map(r=>({cl:r[0],who:r[1],id:r[2],v:r[3],c:r[4],col:r[5]
 
 function drawMonthly(){
   const m=D().monthly, mx=Math.max(...m.map(x=>x[1]));
-  document.getElementById("mchart").innerHTML=m.map(([lab,tot,shop])=>`
-    <div class="mcol">
+  const tier=MTIER[CASE]||{}, bsr=MBSR[CASE]||{};
+  const bv=m.map(x=>bsr[x[0]]).filter(Boolean);
+  const bMin=Math.min(...bv), bMax=Math.max(...bv);
+  const ORD=["mega","macro","mid","micro","nano","미분류"];
+  document.getElementById("mchart").innerHTML=m.map(([lab,tot,shop])=>{
+    const t=tier[lab]||{}, b=bsr[lab];
+    const tips=ORD.filter(k=>t[k]).map(k=>`${k} ${t[k]}`).join(" · ");
+    const title=`${lab}  전체 ${tot}편${shop?` · TT샵 ${shop}편`:""}`+
+      (tips?`\n티어: ${tips}`:"")+(b?`\n대표 SKU BSR 최고 #${b.toLocaleString()}`:"");
+    const by=b?(1-(Math.log(b)-Math.log(bMin))/(Math.log(bMax)-Math.log(bMin)||1))*72+8:null;
+    return `<div class="mcol" title="${title.replace(/"/g,"&quot;")}">
       <div class="mval">${tot>=1000?(tot/1000).toFixed(1)+"K":tot}</div>
       <div class="mbar-wrap">
-        <div class="mbar" style="height:${tot/mx*100}%" title="전체 ${tot}편"></div>
-        ${shop>0?`<div class="mbar shop" style="height:${shop/mx*100}%" title="TT샵 ${shop}편"></div>`:""}
+        <div class="mbar" style="height:${tot/mx*100}%"></div>
+        ${shop>0?`<div class="mbar shop" style="height:${shop/mx*100}%"></div>`:""}
+        ${b?`<div class="bsr-dot" style="bottom:${by}%" data-b="#${(b/1000).toFixed(1)}K"></div>`:""}
       </div>
-      <div class="mlab">${lab}</div>
-    </div>`).join("");
-  document.getElementById("mmax").textContent=`최대 ${mx.toLocaleString()}편/월`;
+      <div class="mlab">${lab}</div></div>`;}).join("");
+  document.getElementById("mmax").textContent=`최대 ${mx.toLocaleString()}편/월 · BSR ${bMin.toLocaleString()}~${bMax.toLocaleString()}위`;
   document.getElementById("mnote").textContent=D().mnote;
 }
 
@@ -466,6 +496,28 @@ function drawTiers(){
       <div class="ttrack"><div class="tfill" style="width:${cr/mxC*100}%;background:${n==="미분류"?"var(--faint)":"var(--accent)"}"></div></div>
       <div class="tval"><b>${cr.toLocaleString()}</b>명 · ${nf(vw)}뷰</div>
     </div>`).join("");
+}
+
+function drawIG(){
+  const A=IGA[CASE]||[], P=IGP[CASE]||[];
+  const mx=Math.max(...A.map(a=>a[1]),1);
+  document.getElementById("ig-n").textContent=`${CASE==="kundal"?489:491}건 앵글분석`;
+  document.getElementById("ig-angles").innerHTML=A.map(([n,r,c])=>`
+    <div class="arow">
+      <div><div class="aname">${n}</div><div class="acnt">${c}건</div></div>
+      <div class="atrack"><div class="afill ${c<5?"dim":""}" style="width:${Math.max(2,r/mx*100)}%"></div></div>
+      <div class="aval ${rxCls(r)}">${r}</div></div>`).join("");
+  document.getElementById("ig-posts").innerHTML=`<table>
+    <thead><tr><th>계정 · 화면 자막</th><th class="num">좋아요</th><th class="num">댓글</th>
+    <th class="num">100♥당<br>댓글</th><th>노출 제품</th></tr></thead><tbody>
+    ${P.map(v=>`<tr>
+      <td><a class="who" href="https://www.instagram.com/p/${v[1]}/" target="_blank" rel="noopener">@${esc(v[0])}<span class="ext">↗</span></a>
+        ${v[9]?`<span class="badge amz">${esc(v[9])}</span>`:""}
+        <div class="ovl ${v[7]?"":"none"}">${v[7]?esc(v[7]):"자막 없음"}</div>
+        <div class="tags"><span class="tag ang">${v[5]}</span><span class="tag">${v[6]}</span></div></td>
+      <td class="num">${nf(v[2])}</td><td class="num">${nf(v[3])}</td>
+      <td class="num ${rxCls(v[4])}"><span class="rx">${v[4]}</span></td>
+      <td class="prods">${v[8].join(" · ")}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function drawAngles(){
@@ -518,7 +570,7 @@ function render(){
     return `<span class="chip">${esc(m.slice(0,i))} <b>${esc(m.slice(i+1))}</b></span>`;}).join("");
   document.getElementById("callout").innerHTML=d.callout;
   document.getElementById("warn").innerHTML=WARN[CASE];
-  drawMonthly(); drawTiers(); drawAngles();
+  drawMonthly(); drawTiers(); drawIG(); drawAngles();
 
   const sel=document.getElementById("f-angle");
   const cur=sel.value;
