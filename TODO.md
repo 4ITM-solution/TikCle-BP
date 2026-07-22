@@ -66,6 +66,7 @@
 | O-3 | BE-1 검증 → 재게이트 → Haiku 재판정 | ✅ **판정: 티어링 전면 보류, Sonnet 유지** — 영상: Haiku가 핵심필드(앵글 43%·훅 26%·제품 7%)에서 베이스라인(60/56/32%) 대비 붕괴. 광고: origin_class 80→50%. 재도전은 BE-6 후 |
 | O-4 | BE 산출물 게이트 | ✅ 전부 머지·배포 + **migration 020/021 프로덕션 적용·검증**(테이블 6 drop·RLS 전체·status 통일·channel NOT NULL) |
 | O-6 | FE-1 배포 후 재-QA — 019 실데이터로 3케이스 재확인(샵 토글·히트맵·교집합 블록 실렌더) + draft 케이스로 위저드 확인 | ⬜ |
+| O-7 | **[비용] Haiku 앵글분석 재판정 — O-3 "재도전은 BE-6 후"의 미실행 잔여분** (BE-6 ✅ 완료로 선행조건 해소). O-3 당시 Haiku 붕괴(앵글43%·훅26%·제품7%)는 **라벨이 열려있어 자유서술로 어긋난 것**이 원인이었고, BE-6에서 전 라벨 CLOSED enum + tie-break + 정규화(normalizeCta/normalizeProducts)로 전면 개정돼 **Sonnet 자기일치 96.5%** 달성 → 재판정 가치 있음. 실행: `BP_TAGGING_MODEL=claude-haiku-4-5-20251001` + `npm run gate:self -- --videos 40`(코드수정 불필요, env만). **판정 기준: 자기일치 ≥85% AND 핵심필드(content_angle·hook_tags·overlay_text·cta_type) Sonnet 대비 열화 허용범위 내**. ⚠️`overlay_text`(화면자막 verbatim)·`cta_type`(on-screen text 근거)은 판독력 직결이라 별도 대조 필수. **절감 실측근거(2026-07-22)**: 앵글분석 실비 케이스당 **$4.38(Kundal 502건)·$4.64(Lilyeve 525건)** → Haiku(input$1/output$5 = Sonnet 1/3)면 **케이스당 ~$1.5, 건당 $0.01→$0.003**. 게이트 비용 ~$1. 부수효과: Haiku가 빨라 `VISION_CONCURRENCY=5` 병목(분당 17건, 1,000건에 1시간)도 완화 | ⬜ 사용자 요청으로 ORCH 판단 대기 | O-3 판정 · BE-6 완료 · 실비 실측 2026-07-22 |
 | O-5 | 파일럿 D1~D5 종합 | ✅ 파일럿 문서 §결정 기록 — 무차별 재실행 NO. F8 미실행 collect 백필은 **철회(2026-07-07 사용자)** — 케이스를 실제로 쓸 때 + BE 트리거 원인 규명 후 케이스 단위로만 |
 
 ## 결정 대기 (사용자)
