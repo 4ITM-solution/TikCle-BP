@@ -36,7 +36,7 @@
 |---|---|---|---|---|
 | QA-1 | SharkNinja 파일럿 대사 — Q1~Q7+확장질문 5개 화면·뷰·원천 3층 실측, 질문 응답력 매트릭스(D1) | ✅ 4c93d32 (검증 대기 — ORCH) | docs/ws/파일럿_리프레시_SharkNinja.md D1 | docs/ws/QA_파일럿_매트릭스.md |
 | QA-2 | 케이스 위생 전수조사 | ✅ 3c9b049 — ORCH 검증·머지 완료. 45/87 어긋남, 근본원인 F1(ready 게이트 부재). 후속: BE-7·8, U-4 | DATA_감사 F3 | docs/ws/QA_케이스위생_전수조사.md |
-| QA-3 | **분석 기간 필터 v1 실화면 검증** — 이퀄베리 US에 2026-04-01~07-12 걸고 체크 11항 (KPI 3,522·1,711 원천 기준값 대사 포함, 지시서에 선계산됨) | ⬜ | docs/ws/QA3_기간필터_지시서.md | docs/ws/QA_기간필터_검증.md (pass/fail 표+3층 원인) |
+| QA-3 | **분석 기간 필터 v1 실화면 검증** — 이퀄베리 US에 2026-04-01~07-12 걸고 체크 11항 (KPI 3,522·1,711 원천 기준값 대사 포함, 지시서에 선계산됨) | ⬜ **재킥(2026-07-23 ORCH)** — 7/20 착수 후 산출물 미제출·세션 응답 없음. ⚠️주의: 검증 대상에 BE-15(IG/YT 확장) 포함됨(이미 prod 반영) — 지시서 체크 ①⑧ 배너 문구는 "IG/YT 재집계" 신문구 기준 | docs/ws/QA3_기간필터_지시서.md | docs/ws/QA_기간필터_검증.md (pass/fail 표+3층 원인) |
 
 ## CODEX 레인 (세컨드 오피니언 — 구현 금지, 보고서만)
 
@@ -52,6 +52,7 @@
 
 | # | 작업 | 상태 | 근거 문서 | 완료 기준 |
 |---|---|---|---|---|
+| FE-7 | 내러티브 탐색기 프로토 검수·확정 — ANALYST가 Kundal·Lilyeve 실측으로 신규 화면 프로토 제작(월별 티어 호버·BSR 오버레이·IG 섹션·샵/비샵 매출 조인). **PROTOTYPE_PROTOCOL상 사용자 확정 전 구현 금지** — 게시: https://claude.ai/code/artifact/4f56041d-e243-499c-97ce-94037d0277d1 | ⏸ 사용자 검수 대기 | docs/design/prototype/bp-narrative-explorer.html (ANALYST 2026-07-23) | 사용자 확정 → 1:1 구현 배차 |
 | FE-6 | **크리티컬 버그** IG 자동 발굴 완료 후 suggested config 박스 렌더 시 케이스 상세 완전 freeze (이퀄베리·메디테라피 2케이스 재현, 30s+ 무응답) — IgPrepBox 결과 뷰 재렌더 루프 의심. Accept 클릭 불가 수준 | ⬜ | INSIGHT_INBOX 2026-07-20 (ANALYST 재현) | freeze 재현 케이스에서 정상 렌더+Accept 동작 |
 | FE-3 | **오표기 fix(우선)** KPI 카드 "TT Shop GMV (30d)"에 채널 불문 total_revenue가 들어감 — 아마존 온리 케이스에서 아마존 매출이 TT샵 GMV로 표기. 라벨 "매출 (30d)" + sub에 실제 채널 표기 (HeaderMockup KpiStrip + page.tsx 전달부) | ⬜ | INSIGHT_INBOX 2026-07-20 #1 | tsc + 이퀄베리 실화면 |
 | FE-4 | 진행/재실행 UI 3겹 중복 통합 (PhaseProgress 토글+PhaseProgressMockup+11단계 패널+채널 카드 내 재실행) → 진입점 1개 — **프로토 v8 개선#2와 동일 방향, FE-2 구현 시 해소가 정석**. 프로토 확정 지연 시에만 선행 미니 통합 | ⏸ FE-2에 병합 예정 | INSIGHT_INBOX 2026-07-20 #2 | 진입점 1개 |
