@@ -339,7 +339,7 @@ const FX={
   events:[
     {name:"Amazon Prime Day",preset:true,start:"2026-07-08",end:"2026-07-11",
      win:{pre:{label:"전 2주 (6/24~7/7)",seed:612,seedTop:"@glowwithmaya 570K뷰",adsNew:38,adsHook:"문제해결·변화서사 위주",bsr:"#4,100 → #3,600"},
-          dur:{label:"프라임 (7/8~11)",seed:74,seedTop:"@dermdiary.us 320K뷰",adsNew:4,adsHook:"신규 게시 거의 없음 — 활성 91건으로 수확",bsr:"#3,600 → #2,100 ★최고"},
+          dur:{label:"프라임 (7/8~11)",seed:74,seedTop:"@dermdiary.us 320K뷰",adsNew:4,adsHook:"신규 게시 거의 없음 — 활성 91건으로 수확",bsr:"#3,600 → #2,100 (기간 최고)"},
           post:{label:"후 (7/12~)",seed:188,seedTop:"@thejennytest 145K뷰",adsNew:52,adsHook:"price_deal 훅 41% 급증",bsr:"#2,100 → #3,200 안정화"}},
      verdict:"프라임은 새 광고를 켜는 날이 아니라 걸어둔 광고로 수확하는 날 — 사전 빌드업(시딩 정점) + 사후 딜 광고 총공세 패턴"},
     {name:"Black Friday",preset:true,start:"2025-11-28",end:"2025-12-01",
@@ -562,7 +562,7 @@ function sectionA(){
     const promo=FX.promos.find(p=>p.m===mo);
     const segs=S.aShow.tier?TIERS.map((t,ti)=>`<div class="seg" style="height:${tf[ti]/tSum*100}%;background:${t[2]}"></div>`).join(""):`<div class="seg" style="height:100%;background:#e5e7eb;opacity:.5"></div>`;
     return `<div class="stack-bar" data-bar="${i}" style="height:${hPct}%${isPeak?";box-shadow:0 0 0 2px #1f2937;z-index:4":""}" title="${mo} · ${total} 영상${promo?` · 📅 ${promo.name}`:""}">${segs}
-      <div class="sb-label"${isPeak?' style="color:#ec4899;font-weight:700"':""}>${promo?`<span title="${promo.name} (${promo.d})">📅</span>`:""}'${mo.slice(2)}<br>${total}${isPeak?" ★":""}</div></div>`;}).join("");
+      <div class="sb-label"${isPeak?' style="color:#ec4899;font-weight:700"':""}>${promo?`<span title="${promo.name} (${promo.d})">📅</span>`:""}'${mo.slice(2)}<br>${total}${isPeak?" ·":""}</div></div>`;}).join("");
   // 라인들
   let svg="";
   if(S.aShow.vc&&lineEnd>1)svg+=`<polyline points="${RM.slice(0,lineEnd).map((mo,i)=>`${X(i)},${barY(totals[i]/maxV)}`).join(" ")}" stroke="#06b6d4" stroke-width="3" fill="none" vector-effect="non-scaling-stroke"/>`;
@@ -589,7 +589,7 @@ function sectionA(){
     const adPct=total>0?Math.round(rows[i][1]/total*100):0;
     const isInf=Math.abs(vs)>=40||(bsrCh!=null&&Math.abs(bsrCh)>=50);
     const pos=i>=Math.floor(RM.length*2/3)?"left:30px;right:auto":"right:30px;left:auto";
-    tip=`<div class="trend-tooltip" style="${pos}"><div class="tt-h">${mo}${i===RM.length-1&&S.pEnd===11?" ★ 최신":""}${isInf?" ★ 변곡점":""}</div><table><tbody>
+    tip=`<div class="trend-tooltip" style="${pos}"><div class="tt-h">${mo}${i===RM.length-1&&S.pEnd===11?" · 최신":""}${isInf?" · 변곡점":""}</div><table><tbody>
       <tr><td><span class="tt-color" style="background:#06b6d4"></span>총 영상</td><td class="r mono" style="color:#06b6d4"><b>${total}개${vs>0?" ▲":vs<0?" ▼":""}</b></td></tr>
       ${prev>0?`<tr><td colspan="2" style="font-size:9px;color:#9ca3af">vs ${RM[i-1].slice(2)}: ${prev} → ${vs>0?"+":""}${vs}%</td></tr>`:""}
       ${TIERS.map((t,ti)=>tf[ti]>0?`<tr><td><span class="tt-color" style="background:${t[2]}"></span>${t[1]}</td><td class="r mono">${tf[ti]}명 (${Math.round(tf[ti]/tSum*100)}%)</td></tr>`:"").join("")}
@@ -621,11 +621,11 @@ function sectionA(){
     <div class="callout-ok" style="margin-top:12px">💡 <b>판정:</b> ${ev.verdict} <span style="color:#9ca3af;font-size:10px">— 판정 문장은 애널리스트 산출(수동/LLM), 수치는 자동</span></div>
     <div style="font-size:10px;color:var(--g400);margin-top:8px">⚠ 광고 수치는 관측 시점 기준 — 이벤트 중 단기 게시 후 종료된 광고는 누락 가능(BE-20 케이던스 개선 전까지 하한선으로 읽기)</div>`;
   })();
-  return `<div class="section" id="sec-a"><div class="section-h"><span class="letter">A</span><span class="title">콘텐츠 활동</span><span class="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span></div>
+  return `<div class="section" id="sec-a"><div class="section-h"><span class="letter">A</span><span class="title">콘텐츠 활동</span><span class="sub">언제 얼마나 시딩했고, 판매와 함께 움직였나</span></div>
   <div class="conclusion">결론 — 시딩 볼륨은 10개월 연속 우상향(월 120→1,480편), 2026-02 BSR 77% 개선이 최대 변곡점. 광고 비중은 13%로 오가닉 주도.</div>
   <div class="sub-tabs" style="margin-bottom:12px">
     <button data-aview="trend" class="${S.aView==="trend"?"active":""}">월간 트렌드</button>
-    <button data-aview="event" class="${S.aView==="event"?"active":""}">★ 이벤트 윈도우 (전·중·후)${propChip("v9 신규(C5): 프라임 리포트에서 수동 SQL로 만들던 전/중/후 분해를 이벤트 등록만으로 자동화. 데이터는 전부 기존 테이블 — promotion_events 등록이 유일한 선결 조건")}</button></div>
+    <button data-aview="event" class="${S.aView==="event"?"active":""}">이벤트 윈도우 (전·중·후)${propChip("v9 신규(C5): 프라임 리포트에서 수동 SQL로 만들던 전/중/후 분해를 이벤트 등록만으로 자동화. 데이터는 전부 기존 테이블 — promotion_events 등록이 유일한 선결 조건")}</button></div>
   ${S.aView==="event"?evPanel:``+`
   <div style="margin-bottom:14px"><div class="ch-toggle">
     ${[["all",`전체 합산 (${fmtN(T.all)})`],["tk",`TikTok (${fmtN(T.tk)})`],["shop",`틱톡샵 (${fmtN(T.shop)})`],["ig",`Instagram (${fmtN(T.ig)})`],["yt",`YouTube (${fmtN(T.yt)})`]].map(b=>`<button data-ach="${b[0]}" class="${S.aCh===b[0]?"active":""}">${b[1]}</button>`).join("")}</div></div>
@@ -638,13 +638,13 @@ function sectionA(){
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><b style="font-size:12px">월간 인플 · 광고 · BSR 통합 트렌드 (${RM.length}개월${P.active()?` · ${P.label()}`:""})${propChip("배포판: 오버레이 라인이 상단 밴드[28,158]에 갇혀 값과 무관한 높이(라벨 침범 방지용) → 실측 스케일. 영상수 라인=막대 꼭대기 정확 추종, 광고%·BSR=좌/우 축 눈금. 티어×월 스택 주인공은 그대로")}</b>
     <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#6b7280"><span>막대 단위:</span><div class="ch-toggle" style="font-size:10px"><button data-abar="abs" class="${S.aBar==="abs"?"active":""}">절대 영상 수</button><button data-abar="pct" class="${S.aBar==="pct"?"active":""}">비중 (%)</button></div></div></div>
   <div class="trend-chart"><div class="trend-toggles">
-    <button data-atg="tier" class="${S.aShow.tier?"active":""}">인플 티어 stack</button>
-    <button data-atg="ad" class="${S.aShow.ad?"active-ad":""}">광고 비중 line</button>
-    <button data-atg="bsr" class="${S.aShow.bsr?"active-bsr":""}">BSR line (Amazon)</button>
-    <button data-atg="vc" class="${S.aShow.vc?"active-vc":""}">★ 영상 수 line</button></div>
+    <button data-atg="tier" class="${S.aShow.tier?"active":""}">티어 구성</button>
+    <button data-atg="ad" class="${S.aShow.ad?"active-ad":""}">광고 비중 선</button>
+    <button data-atg="bsr" class="${S.aShow.bsr?"active-bsr":""}">BSR 선 (Amazon)</button>
+    <button data-atg="vc" class="${S.aShow.vc?"active-vc":""}">영상 수 선</button></div>
   <div class="stack-bars">${bars}<svg class="overlay-svg" viewBox="0 0 1100 222" preserveAspectRatio="none">${svg}</svg></div>${tip}</div>
   <div class="trend-legend">${TIERS.map(t=>`<span class="lg-item"><span class="lg-sw" style="background:${t[2]}"></span>${t[1]}</span>`).join("")}
-    <span style="margin-left:auto"><span style="color:#06b6d4;font-weight:700">━</span> ★ 총 영상 수</span><span><span style="color:#f59e0b">─ ─</span> 광고 비중 0~100%</span><span><span style="color:#ef4444">─ ─</span> BSR (낮을수록 좋음)</span></div>
+    <span style="margin-left:auto"><span style="color:#06b6d4;font-weight:700">━</span> 총 영상 수</span><span><span style="color:#f59e0b">─ ─</span> 광고 비중 0~100%</span><span><span style="color:#ef4444">─ ─</span> BSR (낮을수록 좋음)</span></div>
   <div class="callout-ok">💡 <b>볼륨 ↔ BSR 상관:</b> ${inf.date} 시점 BSR #${fmtN(inf.before)} → #${fmtN(inf.after)} (${inf.pct}% 개선). 직전 7일 뷰 합계 +${Math.round((inf.viewsRatio-1)*100)}% 동조 (메가 볼륨).</div>
   <details style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb" open><summary style="font-size:12px;font-weight:700;cursor:pointer">변곡점 상세 <span style="color:#9ca3af;font-weight:400">행을 누르면 그 기간 대표 영상 Top 3</span></summary>
     <table class="t" style="margin-top:10px"><thead><tr><th style="width:14px"></th><th>날짜</th><th>제품</th><th class="r">이전 순위</th><th class="r">이후 순위</th><th class="r">개선</th><th class="r">뷰 배수</th></tr></thead><tbody>
@@ -687,7 +687,7 @@ function sectionB(){
     return `<div style="padding:10px;border:1px solid ${active?color:"#e5e7eb"};border-radius:6px;background:${active?"#fafafa":"#fff"}"><div style="font-size:11px;font-weight:700;margin-bottom:8px;color:${color}">${title}</div>
     ${bs.map(b=>`<div class="bucket-row"><span style="color:#6b7280">${b[0]}</span><div class="bucket-bar"><div class="bucket-fill" style="width:${b[1]/mx*100}%;background:${color}"></div></div><span class="r mono">${b[1]}</span></div>`).join("")}</div>`;};
   const hMax=Math.max(...FX.shopHist.buckets.map(b=>b[1]));
-  return `<div class="section" id="sec-b"><div class="section-h"><span class="letter">B</span><span class="title">인플루언서 풀</span><span class="sub">★ 채널 toggle + 월 필터 + cross-channel matrix + Shop creator + GMV 분포</span></div>
+  return `<div class="section" id="sec-b"><div class="section-h"><span class="letter">B</span><span class="title">인플루언서 풀</span><span class="sub">누구를 썼고, 누가 성과를 냈나</span></div>
   <div class="conclusion" style="margin-bottom:10px">마이크로·나노가 풀의 84%를 차지하는 long-tail 시딩 구조 — 1회성 ${FX.poolSummary.oneoff}% vs 반복협업 ${FX.poolSummary.repeat}%, 상위 10%가 조회 ${FX.poolSummary.top10share}% 집중 (소수 검증 인플 재투자 패턴)</div>
   <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
     <div><span style="font-size:11px;color:#6b7280;margin-right:8px">채널:</span><div class="ch-toggle">${[["all",`전체 (${fmtN(4542)}명)`],["tk","TikTok (3,842명)"],["ig","IG (612명)"],["yt","YT (88명)"],["shop",`TT샵 (${fmtN(FX.shopHist.total)}명)`]].map(b=>`<button data-bch="${b[0]}" class="${chFilter===b[0]?"active":""}">${b[1]}</button>`).join("")}</div></div>
@@ -705,7 +705,7 @@ function sectionB(){
     <div style="margin-top:6px">${tierRows}</div>
     ${S.bMonth!=="all"?`<div style="margin-top:6px;font-size:10px;color:#1d4ed8;background:#dbeafe;padding:4px 8px;border-radius:4px"><b>${S.bMonth}</b> 활동 기준 — 티어 분포와 우측 명단 모두 이 달 활동 인플만</div>`:""}
     ${S.bTier?`<div style="margin-top:8px;font-size:10px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;display:flex;gap:6px;align-items:center"><span>⭐ <b>${S.bTier}</b> 티어만 우측 Top 작성자에 표시</span><button data-btier="${S.bTier}" style="margin-left:auto;background:#fff;border:1px solid #d97706;border-radius:3px;padding:1px 6px;font-size:9px;color:#92400e;cursor:pointer">✕ 해제</button></div>`:""}
-    <b style="font-size:12px;display:block;margin-top:18px">★ cross-channel matrix (Top 인플)</b>
+    <b style="font-size:12px;display:block;margin-top:18px">여러 채널에서 뛰는 인플 (Top)</b>
     <table class="matrix-table" style="margin-top:6px"><thead><tr><th></th><th>TK</th><th>IG</th><th>YT</th></tr></thead><tbody>
     ${FX.xMatrix.map(r=>`<tr><td style="text-align:left">${r[0]}</td>${[1,2,3].map(i=>`<td><span class="${r[i]>0?"mt-on":"mt-off"}">${r[i]>0?r[i]:"·"}</span></td>`).join("")}</tr>`).join("")}</tbody></table></div>
   <div><div style="font-size:10px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:4px 8px;margin-bottom:6px">👁 지금 보는 풀: <b>${chFilter==="all"?"전 채널":chFilter==="tk"?"TikTok":chFilter==="ig"?"Instagram":"YouTube"}</b> · 정렬 <b>${{videos:"영상 수",views:"조회수",gmv:"매출"}[S.bSort]}</b>${S.bTier?` · <b>${S.bTier}</b> 티어만`:""}${P.active()?` · <b style="color:#5b21b6">기간 ${P.label()}</b> (기간 내 활동 인플 — 픽스처는 근사)`:""} — 표시 ${visible.length}/${fmtN(shown.length)}명${propChip("배포판: 채널 토글마다 표 소스(phase2/ig_authors/yt_channels)가 조용히 바뀜 → 현재 스코프를 문장으로 상시 표기 + 전역 기간 반영")}</div>
@@ -812,7 +812,7 @@ function sectionC(){
     ${S.cCh==="all"?`<div style="margin-top:8px;font-size:10px;color:#9ca3af">seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)</div>`:""}
     <div style="margin-top:12px;font-size:11px;color:#6b7280">채널별 ad 비중: TK 12% · IG 15% · YT 19%</div>`;
   }
-  return `<div class="section" id="sec-c"><div class="section-h"><span class="letter">C</span><span class="title">콘텐츠 포맷 분석</span><span class="sub">★ 통합 클러스터 (TK + IG + YT) · USP 키워드 인터랙티브 · 시즈널리티 measure 선택</span></div>
+  return `<div class="section" id="sec-c"><div class="section-h"><span class="letter">C</span><span class="title">콘텐츠 포맷 분석</span><span class="sub">무엇을 찍었고, 무엇이 반응과 판매를 만들었나</span></div>
   <div class="conclusion">결론 — "7일 비포애프터"가 avg 1.2M·save 4.8%로 최강 포맷. CTA 키워드(code LUMIVE20·link in bio)가 상위권 — 전환 설계된 시딩.</div>
   <div class="sample-label">🔬 표본 ${fmtN(FX.visionSample)}건(영상 태깅 완료) / 전체 ${fmtN(FX.totalContents)}건 (${Math.round(FX.visionSample/FX.totalContents*100)}%) — 아래 클러스터·태그·앵글 분석은 이 표본 기준</div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"],["paid","광고·시딩 분류"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
@@ -973,7 +973,7 @@ function sectionD(){
     <div style="font-size:10px;color:#6b7280;margin-top:4px">당시 브랜드 영상 (조회 Top ${inf.vids.length}):</div>${inf.vids.map(v=>`<div style="font-size:10px;color:#1d4ed8">${v[0]}뷰 · ${v[1]} ↗</div>`).join("")}</div>`).join("")}</div>`):""}`;
   }
   const heroSkus=[...skus].sort((a,b)=>b.rev-a.rev).slice(0,3);
-  return `<div class="section" id="sec-d"><div class="section-h"><span class="letter">D</span><span class="title">매출 & BSR</span><span class="sub">브랜드 분해 → SKU(채널 통합) → 상세 탭</span></div>
+  return `<div class="section" id="sec-d"><div class="section-h"><span class="letter">D</span><span class="title">매출 & BSR</span><span class="sub">그래서 팔렸나 — 채널, SKU, 영상 단위로</span></div>
   ${allRev===0?"":""}<div class="conclusion">결론 — 30일 GMV $1.28M의 62%가 affiliate(시딩)發, 영상 driven(71%). PDRN 세럼 단일 SKU가 40% — 히어로 SKU 집중 구조.</div>
   ${P.active()?`<div style="font-size:10px;color:#92400e;background:#fffbeb;border-radius:4px;padding:5px 10px;margin-bottom:10px">기간 필터(${P.label()})는 매출에 적용되지 않습니다 — 매출은 스냅샷 축. 아래 매출 기간 선택을 쓰세요.</div>`:""}
   <div style="margin-bottom:14px">
@@ -1019,7 +1019,7 @@ function sectionE(){
   const displayed=ads.slice(0,S.eShow);
   const more=Math.max(0,ads.length-S.eShow);
   const originBy={};for(const k in FX.adOrigin){const o=FX.adOrigin[k];originBy[o.h]=o;} // [v9 C7]
-  return `<div class="section" id="sec-e"><div class="section-h"><span class="letter">E</span><span class="title">Meta 광고 + Partnership</span><span class="sub">★ 필터 + 더보기 + partnership cross-channel · 소재 이미지 카드 1급</span></div>
+  return `<div class="section" id="sec-e"><div class="section-h"><span class="letter">E</span><span class="title">Meta 광고 + Partnership</span><span class="sub">유료 광고는 시딩 자산을 어떻게 재활용했나</span></div>
   <div class="conclusion">결론 — 광고 214건 중 인플 partnership 61건(23명): 시딩에서 검증된 인플(glowwithmaya·dermdiary)을 광고로 증폭하는 whitelisting 패턴. 랜딩은 DTC 44% > Amazon 31%.</div>
   <div class="sample-label">⚠ 운영·활동 기간은 <b>관측 시작일 (${FX.obsStart}) 이후 기준</b>입니다. 그 이전 집행 광고는 실제보다 짧게 보일 수 있습니다(생존편향).</div>
   <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
