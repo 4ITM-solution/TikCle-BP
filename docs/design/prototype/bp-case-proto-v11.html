@@ -235,7 +235,7 @@
 <li><b>Phase 패널</b> 배포판은 PhaseProgress + PhaseRunsPanel 2중 → <b>1패널 통합</b> (phase별 상태·수치·재실행 ↻ 유지) — "한 사건은 화면에 한 번만"</li>
 <li><b>데이터 채널</b> 상시 펼침 7카드 그리드 → <b>기본 접힘 콘솔</b> (요약줄 상시, 클릭 1번에 전체 — 상단 스트립 dot과 중복이라 분석 흐름에서 분리)</li>
 <li><b>A 차트</b> 오버레이 라인이 상단 밴드[28,158]에 갇혀 실제 값과 무관한 높이로 그려짐 → <b>실측 스케일 + 축 라벨</b> (영상수=막대와 동일 축, BSR·광고%=좌/우 축 눈금)</li>
-<li><b>A KPI</b> gifted(시딩) 상시 "-" → C의 seeded regex 집계 <b>연결 표시</b> (추정 라벨 부착)</li>
+<li><b>A KPI</b> gifted(시딩)·"오가닉" 라벨 <b>폐기 (2026-07-25 사용자 확정)</b> — 캡션 표기(#partner 등)가 유료인 경우 많고 미표기 시딩이 오가닉으로 잡혀 라벨이 실제와 다름. 확실한 is_ad만 유지: "광고 집행 / 미집행"</li>
 <li><b>B</b> 채널 토글마다 표 소스가 조용히 바뀜 → 표 위에 <b>현재 스코프 문장 캡션</b> ("지금 보는 풀: …")</li>
 <li><b>B</b> Top 작성자 기본 5명 → <b>기본 10명</b> (더보기 20명 유지 — 정보 증가)</li>
 <li><b>C</b> 탭 7개 이름만으로 구분 어려움 → 활성 탭 아래 <b>"이 탭이 답하는 질문" 한 줄</b> 부착 (탭 수·내용 유지)</li>
@@ -270,7 +270,7 @@ const FX={
     ig:[[18,2],[26,4],[35,5],[58,10],[61,8],[79,12],[102,15],[121,21],[148,26],[169,31],[182,34],[84,15]],
     yt:[[3,0],[5,1],[6,1],[10,2],[11,2],[14,3],[18,3],[21,5],[26,6],[29,7],[31,8],[14,3]]
   },
-  seeded:412,
+
   tierFracByMonth:[ // 월별 티어 명수 비율(합성) — 초반 나노 중심 → 후반 미드·매크로 확대
     [0,1,4,18,52,20,5],[0,1,5,22,58,22,6],[0,2,7,28,66,25,7],[1,3,11,44,92,34,9],[1,3,12,46,90,33,9],
     [1,4,16,58,108,39,11],[2,6,22,74,132,46,13],[2,7,27,88,148,52,15],[3,9,34,106,172,60,17],[3,11,41,122,192,66,19],[4,12,46,134,204,70,21],[2,6,22,62,94,32,10]],
@@ -630,8 +630,7 @@ function sectionA(){
     ${[["all",`전체 합산 (${fmtN(T.all)})`],["tk",`TikTok (${fmtN(T.tk)})`],["shop",`틱톡샵 (${fmtN(T.shop)})`],["ig",`Instagram (${fmtN(T.ig)})`],["yt",`YouTube (${fmtN(T.yt)})`]].map(b=>`<button data-ach="${b[0]}" class="${S.aCh===b[0]?"active":""}">${b[1]}</button>`).join("")}</div></div>
   <div class="kpi-grid" style="margin-bottom:16px">
     <div class="kpi"><div class="kpi-label" title="유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style="color:#9ca3af;font-weight:400">(스파크애즈)</span></div><div class="kpi-val">${Math.round(totalPaid/(totalPaid+totalOrg||1)*100)}%</div><div class="kpi-sub">${fmtN(totalPaid)}건</div></div>
-    <div class="kpi"><div class="kpi-label">organic</div><div class="kpi-val">${Math.round(totalOrg/(totalPaid+totalOrg||1)*100)}%</div><div class="kpi-sub">${fmtN(totalOrg)}건</div></div>
-    <div class="kpi"><div class="kpi-label">gifted (시딩)${propChip("배포판: 상시 '-' 빈 칸. C 섹션에 이미 있는 seeded 집계(캡션 #gifted/#pr regex)를 연결 — 추정 라벨 부착")}</div><div class="kpi-val">${S.aCh==="all"?"~"+Math.round(FX.seeded/T.all*100)+"%":"-"}</div><div class="kpi-sub">${S.aCh==="all"?"~"+fmtN(Math.round(FX.seeded*(totalPaid+totalOrg)/T.all))+"건 · 캡션 regex 추정":"채널별 미집계 —"}</div></div>
+    <div class="kpi"><div class="kpi-label">광고 미집행</div><div class="kpi-val">${Math.round(totalOrg/(totalPaid+totalOrg||1)*100)}%</div><div class="kpi-sub">${fmtN(totalOrg)}건</div></div>
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><b style="font-size:12px">월간 인플 · 광고 · BSR 통합 트렌드 (${RM.length}개월${P.active()?` · ${P.label()}`:""})${propChip("배포판: 오버레이 라인이 상단 밴드[28,158]에 갇혀 값과 무관한 높이(라벨 침범 방지용) → 실측 스케일. 영상수 라인=막대 꼭대기 정확 추종, 광고%·BSR=좌/우 축 눈금. 티어×월 스택 주인공은 그대로")}</b>
     <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#6b7280"><span>막대 단위:</span><div class="ch-toggle" style="font-size:10px"><button data-abar="abs" class="${S.aBar==="abs"?"active":""}">절대 영상 수</button><button data-abar="pct" class="${S.aBar==="pct"?"active":""}">비중 (%)</button></div></div></div>
@@ -796,25 +795,14 @@ function sectionC(){
     panel=`
     <div style="font-size:10px;color:var(--g400);margin-bottom:10px">표본 42편 · 기준: 매칭 SKU 30일 매출 합</div>
     <div style="display:flex;flex-direction:column;gap:4px">${FX.gmvTags.sort((a,b)=>b[2]-a[2]).map(t=>`<div style="display:grid;grid-template-columns:160px 1fr 90px 60px;gap:8px;align-items:center;font-size:11px"><span>${t[0]}</span><div style="background:#f3f4f6;border-radius:3px;height:14px"><div style="width:${t[2]/mx*100}%;height:100%;background:#10b981;border-radius:3px"></div></div><span class="r mono" style="font-weight:700">${fmtUsd(t[2])}</span><span class="r mono" style="color:#9ca3af">${t[1]}편</span></div>`).join("")}</div>`;
-  }else{ // paid
-    const rows=aMonthly(S.cCh==="all"?"all":S.cCh).slice(S.pStart,S.pEnd+1);
-    const paid=sum(rows.map(r=>r[1])),orgRaw=sum(rows.map(r=>r[0]));
-    const seeded=S.cCh==="all"?(P.active()?Math.round(FX.seeded*sum(rows.map(r=>r[0]+r[1]))/T.all):FX.seeded):0;const org=Math.max(0,orgRaw-seeded);const tot=paid+seeded+org||1;
-    const pct=n=>Math.round(n/tot*100);
-    panel=`<div style="font-size:10px;color:var(--g400);margin-bottom:10px">기준: is_ad(광고 집행) · 캡션 규칙(시딩)${S.cCh!=="all"?" · 시딩은 전 채널만 분리 집계":""}</div>
-    <div class="dist-row"><span style="color:#ec4899" title="스파크애즈 등 유료 광고 집행">●광고 집행</span><div class="dist-bar"><div class="dist-fill" style="background:#ec4899;width:${pct(paid)}%"></div></div><span class="r mono">${fmtN(paid)}</span><span class="r" style="color:#9ca3af">${pct(paid)}%</span></div>
-    ${S.cCh==="all"?`<div class="dist-row"><span style="color:#f59e0b">●seeded</span><div class="dist-bar"><div class="dist-fill" style="background:#f59e0b;width:${pct(seeded)}%"></div></div><span class="r mono">${fmtN(seeded)}</span><span class="r" style="color:#9ca3af">${pct(seeded)}%</span></div>`:""}
-    <div class="dist-row"><span style="color:#10b981">●organic</span><div class="dist-bar"><div class="dist-fill" style="background:#10b981;width:${pct(org)}%"></div></div><span class="r mono">${fmtN(org)}</span><span class="r" style="color:#9ca3af">${pct(org)}%</span></div>
-    ${S.cCh==="all"?`<div style="margin-top:8px;font-size:10px;color:#9ca3af">seeded = is_ad=false 이지만 caption 안 #gifted/#pr/#partner 매칭 (regex)</div>`:""}
-    <div style="margin-top:12px;font-size:11px;color:#6b7280">채널별 ad 비중: TK 12% · IG 15% · YT 19%</div>`;
   }
   return `<div class="section" id="sec-c"><div class="section-h"><span class="letter">C</span><span class="title">콘텐츠 포맷 분석</span><span class="sub">무엇을 찍었고, 무엇이 반응과 판매를 만들었나</span></div>
   <div class="conclusion">결론 — "7일 비포애프터"가 avg 1.2M·save 4.8%로 최강 포맷. CTA 키워드(code LUMIVE20·link in bio)가 상위권 — 전환 설계된 시딩.</div>
   <div class="sample-label">🔬 표본 ${fmtN(FX.visionSample)}건(영상 태깅 완료) / 전체 ${fmtN(FX.totalContents)}건 (${Math.round(FX.visionSample/FX.totalContents*100)}%) — 아래 클러스터·태그·앵글 분석은 이 표본 기준</div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"],["paid","광고·시딩 분류"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#6b7280">채널</span><div class="ch-toggle">${[["all","전체"],["tk","TikTok"],["ig","IG"],["yt","YT"]].map(m=>`<button data-cch="${m[0]}" class="${S.cCh===m[0]?"active":""}">${m[1]}</button>`).join("")}</div></div></div>
   <div style="border-bottom:1px solid var(--g200);margin-top:8px"></div>
-  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)",paid:"광고인가 시딩인가 오가닉인가"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
 
   <div class="panel">${panel}</div></div>`;
 }
@@ -1062,7 +1050,7 @@ function sectionE(){
 
 /* ── 용어 사전 ── */
 function glossary(){
-  const terms=[["티어","팔로워 규모 구간. 메가 1M+ · 매크로 500K+ · 미드 100K+ · 마이크로 10K+ · 나노 1K+ · 서브나노 <1K"],["스파크애즈 (광고 집행)","크리에이터 영상을 브랜드가 유료 광고로 부스팅한 것 (is_ad)"],["organic","광고 집행 없이 자연 노출된 영상"],["gifted / seeded (시딩)","제품 무상 제공 대가 콘텐츠. 캡션 #gifted·#pr 매칭으로 추정"],["BSR","Amazon Best Sellers Rank — 낮을수록 잘 팔림"],["GMV","기간 내 총 거래액 (판매가 × 수량)"],["Lifetime GMV","해당 크리에이터가 전 브랜드 통틀어 TikTok Shop에서 만든 누적 매출"],["클러스터 / 앵글","비슷한 hook·구성의 영상 묶음 = 콘텐츠 포맷 패턴 (Vision 자동 분류)"],["USP 키워드","캡션에서 반복 추출된 소구점 키워드"],["partnership 광고","크리에이터 계정 명의로 집행된 브랜드 광고 (whitelisting)"],["landing","광고 클릭 도착지 (Amazon / DTC 자사몰 / IG 등)"],["캐시 스냅샷","화면 수치는 분석 시점 저장값 — 실시간 아님. 추정치는 ~ 표기"],["표본 (Vision)","영상 태깅은 전량이 아닌 표본만 분석 — 각 섹션에 표본 % 라벨"],["변곡점","전월 대비 BSR 40%+ 개선 & 8만위 이내 진입 시점"],["분석 기간 필터","헤더에서 기간 선택 시 영상·광고 지표를 그 기간으로 재집계 (재분석 아님 · $0). 티어·태그는 영상/인플 속성이라 유지, 정의문·매출은 별도 축 라벨"]];
+  const terms=[["티어","팔로워 규모 구간. 메가 1M+ · 매크로 500K+ · 미드 100K+ · 마이크로 10K+ · 나노 1K+ · 서브나노 <1K"],["스파크애즈 (광고 집행)","크리에이터 영상을 브랜드가 유료 광고로 부스팅한 것 (is_ad)"],["광고 미집행","브랜드가 유료 부스팅하지 않은 영상 — 무상/유상 협찬 여부는 판별 불가라 구분하지 않음"],["BSR","Amazon Best Sellers Rank — 낮을수록 잘 팔림"],["GMV","기간 내 총 거래액 (판매가 × 수량)"],["Lifetime GMV","해당 크리에이터가 전 브랜드 통틀어 TikTok Shop에서 만든 누적 매출"],["클러스터 / 앵글","비슷한 hook·구성의 영상 묶음 = 콘텐츠 포맷 패턴 (Vision 자동 분류)"],["USP 키워드","캡션에서 반복 추출된 소구점 키워드"],["partnership 광고","크리에이터 계정 명의로 집행된 브랜드 광고 (whitelisting)"],["landing","광고 클릭 도착지 (Amazon / DTC 자사몰 / IG 등)"],["캐시 스냅샷","화면 수치는 분석 시점 저장값 — 실시간 아님. 추정치는 ~ 표기"],["표본 (Vision)","영상 태깅은 전량이 아닌 표본만 분석 — 각 섹션에 표본 % 라벨"],["변곡점","전월 대비 BSR 40%+ 개선 & 8만위 이내 진입 시점"],["분석 기간 필터","헤더에서 기간 선택 시 영상·광고 지표를 그 기간으로 재집계 (재분석 아님 · $0). 티어·태그는 영상/인플 속성이라 유지, 정의문·매출은 별도 축 라벨"]];
   return `<div class="section" id="sec-gloss"><div class="section-h"><span class="letter">📖</span><span class="title">용어 사전</span><span class="sub">화면 용어 — 영문·내부 코드 노출 방지 (U3)</span></div>
   <dl class="glossary">${terms.map(t=>`<dt>${t[0]}</dt><dd>${t[1]}</dd>`).join("")}</dl></div>`;
 }
