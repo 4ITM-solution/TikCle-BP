@@ -700,7 +700,8 @@ function sectionB(){
     ${chFilter==="yt"?`<div style="font-size:10px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;margin:6px 0">⚠ YouTube follower 데이터 일부 미수집 — tier 분류 제한</div>`:""}
     <div style="margin-top:6px">${tierRows}</div>
     ${S.bTier?`<div style="margin-top:8px;font-size:10px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;display:flex;gap:6px;align-items:center"><span>⭐ <b>${S.bTier}</b> 티어만 우측 Top 작성자에 표시</span><button data-btier="${S.bTier}" style="margin-left:auto;background:#fff;border:1px solid #d97706;border-radius:3px;padding:1px 6px;font-size:9px;color:#92400e;cursor:pointer">✕ 해제</button></div>`:""}
-    <b style="font-size:12px;display:block;margin-top:18px">여러 채널에서 뛰는 인플 (Top)</b>
+    <b style="font-size:12px;display:block;margin-top:18px">여러 채널에서 뛰는 인플</b>
+    <div style="font-size:10px;color:var(--g400);margin-top:2px">같은 사람이 채널별로 몇 편 올렸나 — 2개 채널 이상 활동자만 · 핸들 매칭이라 채널마다 이름이 다르면 누락 가능</div>
     <table class="matrix-table" style="margin-top:6px"><thead><tr><th></th><th>TK</th><th>IG</th><th>YT</th></tr></thead><tbody>
     ${FX.xMatrix.map(r=>`<tr><td style="text-align:left">${r[0]}</td>${[1,2,3].map(i=>`<td><span class="${r[i]>0?"mt-on":"mt-off"}">${r[i]>0?r[i]:"·"}</span></td>`).join("")}</tr>`).join("")}</tbody></table></div>
   <div><div style="font-size:10px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:4px 8px;margin-bottom:6px">👁 지금 보는 풀: <b>${chFilter==="all"?"전 채널":chFilter==="tk"?"TikTok":chFilter==="ig"?"Instagram":"YouTube"}</b> · 정렬 <b>${{videos:"영상 수",views:"조회수",gmv:"매출"}[S.bSort]}</b>${S.bTier?` · <b>${S.bTier}</b> 티어만`:""}${P.active()?` · <b style="color:#5b21b6">기간 ${P.label()}</b> (기간 내 활동 인플 — 픽스처는 근사)`:""} — 표시 ${visible.length}/${fmtN(shown.length)}명${propChip("배포판: 채널 토글마다 표 소스(phase2/ig_authors/yt_channels)가 조용히 바뀜 → 현재 스코프를 문장으로 상시 표기 + 전역 기간 반영")}</div>
