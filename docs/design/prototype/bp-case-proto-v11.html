@@ -795,14 +795,31 @@ function sectionC(){
     panel=`
     <div style="font-size:10px;color:var(--g400);margin-bottom:10px">표본 42편 · 기준: 매칭 SKU 30일 매출 합</div>
     <div style="display:flex;flex-direction:column;gap:4px">${FX.gmvTags.sort((a,b)=>b[2]-a[2]).map(t=>`<div style="display:grid;grid-template-columns:160px 1fr 90px 60px;gap:8px;align-items:center;font-size:11px"><span>${t[0]}</span><div style="background:#f3f4f6;border-radius:3px;height:14px"><div style="width:${t[2]/mx*100}%;height:100%;background:#10b981;border-radius:3px"></div></div><span class="r mono" style="font-weight:700">${fmtUsd(t[2])}</span><span class="r mono" style="color:#9ca3af">${t[1]}편</span></div>`).join("")}</div>`;
+  }else if(tab==="spark"){
+    // [v11.4] 스파크애즈 집행 콘텐츠의 특징 — 브랜드의 광고 선택 vs 매출 정합
+    const rows=[...FX.clusters].sort((a,b)=>b.paid-a.paid);
+    const paidTop=rows[0];
+    const revTop=[...FX.clusters].sort((a,b)=>(b.rev??0)-(a.rev??0))[0];
+    const match=paidTop.id===revTop.id;
+    const maxPaid=Math.max(...rows.map(r=>r.paid),1);
+    panel=`<div style="border-left:3px solid ${match?"#10b981":"#f59e0b"};background:${match?"#ecfdf5":"#fffbeb"};border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:${match?"#065f46":"#92400e"};margin-bottom:12px">
+      ${match?`<b>광고 선택과 매출이 일치합니다.</b> 「${paidTop.name}」에 가장 많이 태웠고 매출도 1위`:`<b>광고를 가장 많이 태운 내러티브와 매출 1위가 다릅니다.</b> 집행 1위 「${paidTop.name}」(${paidTop.paid}%) vs 매출 1위 「${revTop.name}」(${fmtUsd(revTop.rev)})`}</div>
+    <table class="t"><thead><tr><th>내러티브</th><th style="width:30%">광고 집행 비중</th><th class="r">집행 편수</th><th class="r">샵 매출</th><th class="r">반응/1만뷰</th></tr></thead><tbody>
+    ${rows.map(r=>{const tot=r.tk+r.ig+r.yt;const n=Math.round(tot*r.paid/100);
+      return `<tr><td><b>${r.name}</b></td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:var(--g100);border-radius:4px"><div style="height:100%;width:${r.paid/maxPaid*100}%;background:#f59e0b;border-radius:4px"></div></div><span class="mono" style="font-size:11px;width:34px;text-align:right">${r.paid}%</span></div></td>
+      <td class="r mono">${n}</td><td class="r mono" style="color:#10b981">${r.rev==null?"—":fmtUsd(r.rev)}</td><td class="r mono">${r.rx==null?"—":r.rx}</td></tr>`;}).join("")}</tbody></table>
+    <div style="font-size:12px;font-weight:700;margin:14px 0 8px">광고 집행 영상 대표 <span style="font-weight:400;color:var(--g400)">조회 상위</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">${[["가격 비교 하울 — 스파크 부스팅",580000],["7일 비포애프터 — 스파크 부스팅",1200000],["성분 데모 — 스파크 부스팅",840000]].map(v=>vidCard(v[0],{v:v[1],lk:Math.round(v[1]*0.08),c:Math.round(v[1]*0.003),sv:Math.round(v[1]*0.015)})).join("")}</div>
+    <div style="font-size:10px;color:var(--g400);margin-top:6px">기준: is_ad(스파크애즈 집행) · 집행 비중 = 내러티브 내 집행 편수/전체</div>`;
   }
   return `<div class="section" id="sec-c"><div class="section-h"><span class="letter">C</span><span class="title">콘텐츠 포맷 분석</span><span class="sub">무엇을 찍었고, 무엇이 반응과 판매를 만들었나</span></div>
   <div class="conclusion">결론 — "7일 비포애프터"가 avg 1.2M·save 4.8%로 최강 포맷. CTA 키워드(code LUMIVE20·link in bio)가 상위권 — 전환 설계된 시딩.</div>
   <div class="sample-label">🔬 표본 ${fmtN(FX.visionSample)}건(영상 태깅 완료) / 전체 ${fmtN(FX.totalContents)}건 (${Math.round(FX.visionSample/FX.totalContents*100)}%) — 아래 클러스터·태그·앵글 분석은 이 표본 기준</div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"],["spark","광고 집행 콘텐츠"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#6b7280">채널</span><div class="ch-toggle">${[["all","전체"],["tk","TikTok"],["ig","IG"],["yt","YT"]].map(m=>`<button data-cch="${m[0]}" class="${S.cCh===m[0]?"active":""}">${m[1]}</button>`).join("")}</div></div></div>
   <div style="border-bottom:1px solid var(--g200);margin-top:8px"></div>
-  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)",spark:"브랜드는 어떤 콘텐츠에 광고를 태웠고, 그 선택이 팔렸나"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
 
   <div class="panel">${panel}</div></div>`;
 }
