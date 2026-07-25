@@ -720,7 +720,8 @@ function sectionB(){
           <span style="font-size:11px" class="mono">최고 ${c[4]}뷰</span>
           ${h?`<span style="font-size:11px" class="mono">반응률 ${h.rx}/1만뷰</span>
           ${h.pct!=null?`<span style="font-size:11px;font-weight:800;color:#7c3aed">풀 내 상위 ${h.pct}%</span>`:""}
-          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${h.ad?"#fce7f3":"#f3f4f6"};color:${h.ad?"#9d174d":"#6b7280"};font-weight:700">${h.ad?"광고에도 쓰임":"광고 사용 없음"}</span>
+          ${c[3]>0?`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;font-weight:700">스파크애즈 ${c[3]}편</span>`:""}
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${h.ad?"#fce7f3":"#f3f4f6"};color:${h.ad?"#9d174d":"#6b7280"};font-weight:700">${h.ad?"메타 광고에 쓰임":"메타 광고 사용 없음"}</span>
           <span style="font-size:10px;color:#92400e">${h.months}</span>`:""}
         </div>
         ${h?`<div style="font-size:11px;color:#6b7280;margin-bottom:10px">📢 ${h.adInfo}</div>`:""}
