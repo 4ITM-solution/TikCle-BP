@@ -246,7 +246,7 @@
 <li><b>★신규: 전역 분석 기간 필터</b> — 헤더에서 기간 선택 시 A·C·E·KPI가 <b>즉시 재집계 (유료 재실행 $0)</b>. 티어·태그·클러스터 소속은 영상/인플 단위 속성이라 그대로 필터만 됨. 클러스터 정의문·USP 사전 등 "전 기간 코퍼스 산출물"은 라벨로 구분. 매출(D)은 30d 스냅샷/Kalodata 기간 적재 별도 축</li>
 <li><b>★v9 신규 — A 섹션 [이벤트 윈도우] 탭 (C5)</b>: 이벤트 등록 → 전/중/후 3구간 자동 분해(시딩·신규광고·활성광고·BSR). 프라임 리포트에서 수동으로 하던 표를 자동화. 이벤트 미등록 시 빈 상태+등록 유도</li>
 <li><b>★v9 신규 — C 섹션 [성과] 탭 (C4)</b>: 내러티브별 볼륨+반응률(댓글/1만뷰)+샵매출+GPM 병치 — "반응 1위 ≠ 매출 1위" 판정 가능. NULL 인게이지먼트는 분모 제외, "측정가능 n/전체 m" 라벨</li>
-<li><b>★v9 신규 — B 크리에이터 드로어 (C8)</b>: 행 클릭 시 개인 이력 패널(영상·반응률·풀 내 백분위·광고 승격·크로스채널) — 세션마다 수동 percent_rank 하던 것</li>
+<li><b>★v9 신규 — B 크리에이터 드로어 (C8)</b>: 행 클릭 시 개인 이력 패널 — 영상·반응률·풀 내 순위·광고 사용 여부·채널</li>
 <li><b>★v9 신규 — E 원본 후보 배지 (C7)</b>: 인플 광고에 "원본 후보: @핸들·캡션 일치" 자동 표기 (텍스트 대조 $0). 확정은 애널리스트 검증으로 남김</li>
 </ol><div style="font-weight:700">삭제된 정보: 0건 — 배포판에서 읽히던 모든 수치·표·차트·라벨이 그대로 있거나 더 읽기 쉬운 위치로 이동.</div></details></div>
 
@@ -359,12 +359,12 @@ const FX={
     {n:"폴리시드 브랜드 감성",h:"감성 카피 + 브랜드 무드 몽타주",c:81,meas:0,rx:null,rev:null,gpm:null}],
   /* [v9 C8] 크리에이터 개인 이력 (드로어) — 핸들→{pct 백분위, adPromoted, months} */
   creatorHist:{
-    "glowwithmaya":{pct:1,ad:true,adInfo:"파트너십 광고 2건 (6/18·7/16) — 시딩 성과 상위 1%에서 승격",rx:2.8,months:"25-11~26-07 · 9개월 활동"},
-    "dermdiary.us":{pct:1,ad:true,adInfo:"파트너십 광고 3건 + 비라벨 재사용 1건",rx:4.1,months:"25-11~26-07"},
+    "glowwithmaya":{pct:1,ad:true,adInfo:"이 크리에이터 영상이 파트너십 광고 2건에 쓰임 (6/18·7/16) — 시딩 성과 상위 1%",rx:2.8,months:"25-11~26-07 · 9개월 활동"},
+    "dermdiary.us":{pct:1,ad:true,adInfo:"파트너십 광고 3건 + 표기 없는 재사용 1건",rx:4.1,months:"25-11~26-07"},
     "skinbyjules":{pct:2,ad:true,adInfo:"파트너십 1건 (4/28)",rx:1.9,months:"26-01~26-06"},
     "beautyonbudget":{pct:3,ad:true,adInfo:"파트너십 1건 (3/18)",rx:5.5,months:"26-02~26-07"},
     "lumive_official":{pct:null,ad:false,adInfo:"본사 계정 — 광고는 브랜드 명의로 별도",rx:1.2,months:"상시"},
-    "thejennytest":{pct:8,ad:false,adInfo:"미승격 — 시딩 상위 8%, 승격 후보",rx:11.3,months:"26-02~26-07"}},
+    "thejennytest":{pct:8,ad:false,adInfo:"광고 사용 없음 — 시딩 상위 8%, 다음 광고 소재 후보감",rx:11.3,months:"26-02~26-07"}},
   /* [v9 C7] 광고 → 원본 후보 (텍스트 대조 $0 자동) — ads 인덱스 매핑 */
   adOrigin:{1:{h:"glowwithmaya",m:"캡션 일치 (6/12 시딩 영상)",conf:"후보"},4:{h:"dermdiary.us",m:"캡션+ASR 일치 (5/28 영상)",conf:"후보"},6:{h:"skinbyjules",m:"오버레이 문구 일치",conf:"후보"},9:{h:"beautyonbudget",m:"캡션 일치 (3/12 영상)",conf:"후보"}},
   adKpi:{total:214,active:38,brand:96,brandPct:45,retail:22,partner:61,partnerCr:23,amazonPct:31,dtcPct:44,cost:6.2},
@@ -487,7 +487,7 @@ function kpiStrip(){
   const adsInRange=FX.ads.filter(a=>{const mo=a[3].slice(0,7);return mo>=MONTHS[S.pStart]&&mo<=MONTHS[S.pEnd];}).length;
   return `<div class="kpi-strip" id="sec-kpi">
     <div class="ks-item"><div class="ks-label">총 영상${P.active()?` <span style="color:#7c3aed;font-weight:700">${P.label()}</span>`:""}</div><div class="ks-val">${fmtN(allN)}</div><div class="ks-sub">TK ${fmtN(tkN)} · IG ${fmtN(igN)} · YT ${fmtN(ytN)}</div></div>
-    <div class="ks-item"><div class="ks-label">총 인플 풀</div><div class="ks-val">${P.active()?"~"+fmtN(Math.round(4542*frac))+"명":"4,542명"}</div><div class="ks-sub">${P.active()?"기간 내 활동 인플 재집계 (픽스처 근사~)":"TK 3,842 · IG 612 · YT 88"}</div></div>
+    <div class="ks-item"><div class="ks-label">총 인플 풀</div><div class="ks-val">${P.active()?"~"+fmtN(Math.round(4542*frac))+"명":"4,542명"}</div><div class="ks-sub">${P.active()?"기간 내 활동 인플 기준 (근사~)":"TK 3,842 · IG 612 · YT 88"}</div></div>
     <div class="ks-item"><div class="ks-label">총 view</div><div class="ks-val">${P.active()?"~"+Math.round(412*frac)+"M":K.views}</div><div class="ks-sub">top creator 합산 추정</div></div>
     <div class="ks-item"><div class="ks-label">TT Shop GMV (30d)</div><div class="ks-val">${fmtUsd(K.gmv)}</div><div class="ks-sub ks-trend up">${K.gmvTrend}${P.active()?" · 30d 스냅샷(기간 별도 축)":""}</div></div>
     <div class="ks-item"><div class="ks-label">Meta 광고</div><div class="ks-val">${P.active()?adsInRange+" <span style=\"font-size:11px;color:#9ca3af\">/ "+K.ads+"</span>":K.ads}</div><div class="ks-sub">brand ${K.adsBrand} · partner ${K.adsPartner}${P.active()?" · 기간 내 시작 광고":""}</div></div>
@@ -523,7 +523,7 @@ function sectionG(){
   <div class="conclusion" style="margin:8px 0">결론 — 시딩(affiliate) 매출 62%가 주 엔진: 마이크로 중심 대량 시딩 → 7일 비포애프터 포맷이 viral → PDRN 세럼 BSR 77% 개선으로 이어진 케이스.</div>
   <div class="ic-title">${FX.brand} — 자동 종합 분석</div>
   <div class="ic-meta">주력 언어: 영어 78% · 스페인어 9% · 포르투갈어 4%</div>
-  ${P.active()?`<div style="font-size:10px;color:#7c3aed;margin-top:4px;font-weight:600">📆 기간 필터 적용 중 ${P.label()} — A·C·E·KPI는 기간 재집계, 이 카드의 축 요약·정의문은 전 기간 기준</div>`:""}
+  ${P.active()?`<div style="font-size:10px;color:#7c3aed;margin-top:4px;font-weight:600">📆 기간 필터 적용 중 ${P.label()} — 수치는 선택 기간 기준, 이 카드의 요약 문장은 전 기간 기준</div>`:""}
   <div class="axis-grid">${FX.gAxes.map(a=>`<div class="axis-card"><div class="ax-h">${a[0]}</div><div class="ax-val">${a[1]}</div><div class="ax-sub">${a[2]}</div></div>`).join("")}</div>
   <div class="insight-row"><div><div class="ib-h">📊 핵심 발견 (${FX.gFindings.length})</div>${FX.gFindings.map(f=>`<div class="ib-li">${f}</div>`).join("")}</div>
   <div><div class="ib-h">⭐ TK+IG+YT 통합 인플 (Top 4)</div><table class="t"><thead><tr><th>이름</th><th>채널</th><th class="r">영상</th></tr></thead><tbody>${FX.gCross.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td><td class="r mono">${p[2]}</td></tr>`).join("")}</tbody></table></div></div>
@@ -715,12 +715,12 @@ function sectionB(){
       ${exp?(()=>{const h=FX.creatorHist[c[0]];
         return `<tr><td colspan="6" style="padding:0"><div style="padding:12px 14px;background:#fffbeb;border-top:2px solid #f59e0b">
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <b style="font-size:13px">@${c[0]} 이력${propChip("v9 신규(C8): 세션마다 SQL percent_rank로 수동 조회하던 개인 이력을 드로어로 — 영상·반응률·풀 내 백분위·광고 승격·활동 기간")}</b>
+          <b style="font-size:13px">@${c[0]} 이력</b>
           <span class="ch-pill pill-tk" style="font-size:10px">영상 ${c[2]}편</span>
           <span style="font-size:11px" class="mono">최고 ${c[4]}뷰</span>
           ${h?`<span style="font-size:11px" class="mono">반응률 ${h.rx}/1만뷰</span>
           ${h.pct!=null?`<span style="font-size:11px;font-weight:800;color:#7c3aed">풀 내 상위 ${h.pct}%</span>`:""}
-          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${h.ad?"#fce7f3":"#f3f4f6"};color:${h.ad?"#9d174d":"#6b7280"};font-weight:700">${h.ad?"⭐ 광고 승격됨":"광고 미승격"}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${h.ad?"#fce7f3":"#f3f4f6"};color:${h.ad?"#9d174d":"#6b7280"};font-weight:700">${h.ad?"광고에도 쓰임":"광고 사용 없음"}</span>
           <span style="font-size:10px;color:#92400e">${h.months}</span>`:""}
         </div>
         ${h?`<div style="font-size:11px;color:#6b7280;margin-bottom:10px">📢 ${h.adInfo}</div>`:""}
@@ -819,7 +819,7 @@ function sectionC(){
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="sub-tabs" style="border-bottom:none;padding-bottom:0">${[["clu",`내러티브 (${metas.length})`],["usp",`키워드 (${FX.usp.length})`],["heat","월별 추이"],["tier","티어 교차"],["gmvtag","태그 × 매출"],["spark","광고 집행 콘텐츠"]].map(t=>`<button data-ctab="${t[0]}" class="${tab===t[0]?"active":""}">${t[1]}</button>`).join("")}</div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#6b7280">채널</span><div class="ch-toggle">${[["all","전체"],["tk","TikTok"],["ig","IG"],["yt","YT"]].map(m=>`<button data-cch="${m[0]}" class="${S.cCh===m[0]?"active":""}">${m[1]}</button>`).join("")}</div></div></div>
   <div style="border-bottom:1px solid var(--g200);margin-top:8px"></div>
-  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)",spark:"브랜드는 어떤 콘텐츠에 광고를 태웠고, 그 선택이 팔렸나"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 재집계 중</span>`:""}</div>
+  <div style="font-size:10px;color:#6b7280;margin-top:6px">${({clu:"어떤 내러티브가 반응을 얻고, 어떤 내러티브가 실제로 파는가 — 카드에 반응률·샵매출 병치, 클릭하면 대표 영상",usp:"캡션에서 반복되는 소구점은 뭔가 — 키워드 클릭으로 실제 영상",heat:"어떤 내러티브가 어느 달에 집중됐나",tier:"어떤 티어가 어떤 내러티브를 만드나 — 기간 전체/월별 전환",gmvtag:"어떤 태그가 매출로 이어졌나 (표본 적음 — 참고용)",spark:"브랜드는 어떤 콘텐츠에 광고를 태웠고, 그 선택이 팔렸나"})[tab]}${propChip("배포판: 탭 7개 이름만 나열 → 활성 탭 아래 이 탭이 답하는 질문 한 줄 부착. 탭 수·내용 동일")}${P.active()?` <span style="color:#5b21b6;font-weight:700">· 📆 ${P.label()} 적용 중</span>`:""}</div>
 
   <div class="panel">${panel}</div></div>`;
 }
