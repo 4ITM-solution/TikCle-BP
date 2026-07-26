@@ -344,8 +344,48 @@ export function SectionDMockup({
       <div className="section-h">
         <span className="letter">D</span>
         <span className="title">매출 & BSR</span>
-        <span className="sub">★ SKU 통일 selector · SKU 헬스 · Hero × Mega · TT Shop 깊은 데이터</span>
+        <span className="sub">그래서 팔렸나 — 채널, SKU, 영상 단위로</span>
       </div>
+
+      {/* ★ FE-8 Stage6p2(v12): 브랜드 매출 세일즈 채널 비교 3카드 (TT샵/Amazon/합산) */}
+      {(() => {
+        const bySales = phase2.sku_sales ?? [];
+        const revOf = (chk: (ch: string | undefined) => boolean) =>
+          bySales.reduce((s, x) => (chk(x.asin ? skuChannelMap?.[x.asin] : undefined) ? s + (x.revenue ?? 0) : s), 0);
+        const tt = revOf((ch) => ch === "tiktok_shop");
+        const amz = revOf((ch) => ch === "amazon");
+        const tot = tt + amz;
+        if (tot <= 0) return null;
+        const fmt = (n: number) =>
+          n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${Math.round(n)}`;
+        const pct = (n: number) => Math.round((n / tot) * 100);
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+              브랜드 매출 — 세일즈 채널 비교 <span style={{ fontWeight: 400, color: "#9ca3af" }}>30일 기준</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6b7280" }}>TT샵</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#ec4899" }}>{fmt(tt)}</div>
+                <div style={{ height: 6, background: "#f3f4f6", borderRadius: 3, marginTop: 6 }}><div style={{ height: "100%", width: `${pct(tt)}%`, background: "#ec4899", borderRadius: 3 }} /></div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>{pct(tt)}%</div>
+              </div>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6b7280" }}>Amazon</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#f59e0b" }}>{fmt(amz)}</div>
+                <div style={{ height: 6, background: "#f3f4f6", borderRadius: 3, marginTop: 6 }}><div style={{ height: "100%", width: `${pct(amz)}%`, background: "#f59e0b", borderRadius: 3 }} /></div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>{pct(amz)}%</div>
+              </div>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6b7280" }}>합산</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{fmt(tot)}</div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 10 }}>TT샵 세부 분해(출처·콘텐츠)는 아래 [TT샵 분해] 탭</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ★ 기간 토글 — 기간별 브랜드 KPI가 2개+ 있을 때. 선택 기간의 매출/분해 표시. */}
       {brandPeriodKeys.length > 0 && (
