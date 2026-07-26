@@ -2,40 +2,47 @@
 
 산출물: `src/lib/case-detail/combo-queries.ts` (5함수 + 공용 멤버 로더). 유료 호출 0, 집계 저장 없음(라이브).
 
-## 함수
-1. `narrativePerf(caseId, period?)` — 내러티브별 {편수·측정가능 편수·반응률(댓글/1만뷰)·샵GMV·GPM·채널별 편수}
-2. `creatorProfile(caseId, handle)` — {영상수·최고뷰·반응률·풀 내 백분위(평균뷰)·스파크 편수·활동기간·채널·메타매칭(파트너십 확정+BE-30 후보)}
-3. `eventWindow(caseId, eventId)` — 전(2주)/중/후 {시딩 편수·Top영상·신규광고·활성광고·BSR 최고}
-4. `inflectionTopVideos(caseId, month, sortBy)` — 변곡점 월 Top3, 6지표(조회·좋아요·댓글·저장·저장율·댓글율)
-5. `sparkByNarrative(caseId, period?)` — 내러티브별 is_ad 비중·편수
+## 게이트 반려(2026-07-26) 대응 — 정정 완료
+반려 사유: (1) REPORT의 "재클러스터링돼 기준 내러티브 소멸" 주장은 **사실 아님** — 같은 run_tag(80a29967)에
+**L1층 19개(is_meta=false) + 메타층 8개(is_meta=true) 공존**. (2) 기준값(rx/rev)은 **L1층 산출값**인데
+초판은 메타층(8개)으로 집계했음.
 
-공용: `loadNarrativeMembers` — page.tsx `clusterBundle` 멤버 정규화·`kdMap` GMV **추출·재사용** + engagement(likes/comments/shares) 확장. `content_cluster_members` **range 페이지네이션**(1000행 캡 회피). `period-filter.ts` psStart/psEnd 준수.
+**수정 3종 반영:**
+1. `narrativePerf`·`sparkByNarrative`에 `clusterLevel` 옵션(`'l1'`|`'meta'`, **기본 `'l1'`**).
+2. 클러스터 로딩을 `content_clusters` DB authoritative(ORCH SQL 기준)로 전환 — L1 19개가 기준 단위.
+3. 메타층은 `clusterLevel:'meta'` 롤업 뷰로 유지(8행).
+4. **반응률 공식 확정**: TK 영상별 `(댓글/뷰×1만)`의 **평균**(IG 고뷰·저댓글이라 집계 희석 → TK-only).
+
+## 함수
+1. `narrativePerf(caseId, {period?, clusterLevel?})` — {편수·측정가능 편수·반응률·샵GMV·GPM·채널별 편수}
+2. `creatorProfile(caseId, handle)` — {영상수·최고뷰·반응률·풀 내 백분위·스파크 편수·활동기간·채널·메타매칭(파트너십 확정+BE-30 후보)}
+3. `eventWindow(caseId, eventId)` — 전(2주)/중/후 {시딩·Top영상·신규광고·활성광고·BSR 최고}
+4. `inflectionTopVideos(caseId, month, sortBy)` — 변곡점 월 Top3, 6지표
+5. `sparkByNarrative(caseId, {period?, clusterLevel?})` — 내러티브별 is_ad 비중·편수
+
+공용 `loadNarrativeMembers`: page.tsx `clusterBundle`·`kdMap` 추출·재사용 + engagement(likes/comments/shares)
+확장 + `content_cluster_members` range 페이지네이션(1000행 캡 회피). 멤버는 L1·메타 identity 동시 보유.
 
 ## 반응률 NULL 규칙 (BE-23 선반영)
-`normEng`: -1(IG 미제공)·null 정규화. `isMeasurable`: likes·comments·shares 셋 다 없으면 미측정 → 반응률 분모·분자 제외.
+`normEng`: -1(IG 미제공)·null 정규화. `isMeasurable`: likes·comments·shares 셋 다 없으면 미측정.
 
-## 기준값 대사표 (Kundal US 092f9ef8, 실측 2026-07-26)
+## 기준값 대사표 (Kundal US 092f9ef8, L1층, 실측 2026-07-26)
 
-| 항목 | 기준값 | 함수 출력 | 판정 |
+| 항목 | 기준값 | 함수 출력(L1) | 판정 |
 |---|---|---|---|
-| **측정가능/총 contents** | **2,852 / 3,158** | **2,852 / 3,158** | ✅ **정확 일치** |
-| 전부-NULL(미측정) | (Kalodata 유입) | 306, **100%(306/306) Kalodata url 일치** | ✅ 근본원인 확정 |
-| NULL 규칙 분모 제외 | 카로데이터 유입 반응률 미포함 | measurable만 rx 산출 | ✅ |
-| 내러티브 수 | 19 (탐색기 산출 당시) | **8** (현재 재클러스터 상태) | ⚠️ 데이터 상태 상이 |
-| 「리스트 큐레이션」rx 115.9/rev $170 · 「퍼스널 스토리」rx 17.5/rev $17,910 | (19내러티브 당시) | 현 8내러티브엔 동명 클러스터 없음 | ⚠️ 재현 불가 — 아래 |
+| L1 내러티브 수 | 19 | **19** | ✅ |
+| 「리스트·큐레이션 저장 유도형」 편수 | 84 | **84** | ✅ |
+| — 반응률(rx) | **115.9** | **115.9** | ✅ **정확 일치** |
+| — 샵GMV | **$170** | **$170** | ✅ **정확 일치** |
+| 「퍼스널 스토리 토킹헤드 UGC 리뷰형」 편수 | 199 | **199** | ✅ |
+| — 반응률(rx) | **17.5** | **17.4** | ✅ (반올림 0.1) |
+| — 샵GMV | **$17,910** | **$17,910** | ✅ **정확 일치** |
+| 측정가능/총 contents(케이스 스코프) | 2,852 / 3,158 | 2,852 / 3,158 | ✅ (전부-NULL 306=100% Kalodata) |
 
-### ⚠️ per-narrative 기준값 재현 불가 사유 (코드 아님, 데이터 상태)
-기준값의 「내러티브 19개」·「rx 115.9」 등은 **ANALYST 내러티브 탐색기 산출 당시(19메타)** 상태에서 나온 값.
-현재 케이스는 그 이후 **재클러스터링돼 메타 8개·멤버 1,038**. 즉 클러스터 구성 자체가 달라 동명 내러티브가
-없음 → per-narrative 값은 그 시점 클러스터로 재실행해야 재현됨(ORCH). **단, 규칙·집계 로직의 정확성은
-측정가능 2,852/3,158 정확 일치로 검증됨**(이 값은 클러스터 무관, contents 전체 스코프라 상태 불변).
+**반응률 = TK 영상별 (댓글/뷰×1만) 평균.** 리스트=115.9(정확)·퍼스널=17.4(기준 17.5, 중간 반올림 0.1 차).
 
 ## 5함수 무오류 실행 (실 Kundal US)
-- narrativePerf: 8내러티브, rx·GMV·채널별 산출 (예: 「퍼스널 경험 소셜프루프」 n=352 gmv=$31,421)
-- sparkByNarrative: 광고비중 산출 (예: 53.1% = 187/352)
-- inflectionTopVideos(2026-06,views): top뷰 971,400 · 저장율 0.1% · 댓글율 0.9
-- creatorProfile: 백분위 41.7% · 활동기간 · 파트너십 매칭 · BE-30 후보(있으면 조인)
-- eventWindow(매출피크 2026-03): 전 시딩 133 / 중 시딩 13·BSR 4 / 후 시딩 114
+narrativePerf(L1 19행)·sparkByNarrative(L1)·inflectionTopVideos(6지표)·creatorProfile(백분위·파트너십·BE-30 후보)·eventWindow(전/중/후 시딩·광고·BSR) 전부 무오류.
 
 ## 금지 준수
-집계 저장 없음(라이브) · 삭제 코드 없음 · 유료 호출 없음. BE-21/22/29/30 결과는 "있으면 조인, 없으면 공백"(creatorProfile의 ad_original_candidates가 예 — 테이블 미적용이면 0).
+집계 저장 없음(라이브) · 삭제 코드 없음 · 유료 호출 없음. BE-21/22/29/30 결과는 "있으면 조인, 없으면 공백".

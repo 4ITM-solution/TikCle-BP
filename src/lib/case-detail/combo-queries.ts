@@ -29,8 +29,12 @@ export type VideoCard = {
   channel: Channel;
 };
 
+export type ClusterLevel = "l1" | "meta";
+
 export type NarrativeMember = {
-  metaId: string;
+  l1Id: string; // L1 자식 클러스터 (is_meta=false) — 기준값 산출 단위
+  l1Name: string;
+  metaId: string; // 롤업 메타 (is_meta=true)
   metaName: string;
   channel: Channel;
   url: string;
@@ -77,52 +81,74 @@ function chunk<T>(arr: T[], n = 200): T[][] {
   return out;
 }
 
-type MetaLite = { id: string; name: string; child_ids: string[] };
+type ClusterInfo = {
+  metas: Array<{ id: string; name: string }>; // is_meta=true (롤업)
+  l1: Array<{ id: string; name: string; metaId: string | null }>; // is_meta=false (기준 단위)
+  childToMeta: Map<string, string>;
+  l1NameById: Map<string, string>;
+  metaNameById: Map<string, string>;
+};
 
-/** 메타 클러스터 로딩 — key_stats.phase4b_clusters 우선, 없으면 content_clusters DB 복원(page.tsx 동일). */
-async function loadMetas(supabase: SupaClient, caseId: string): Promise<MetaLite[]> {
-  const { data: cRow } = await supabase
-    .from("cases")
-    .select("key_stats")
-    .eq("id", caseId)
-    .single();
-  const fromKs = (
-    cRow?.key_stats as
-      | { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string }> }> } }
-      | null
-  )?.phase4b_clusters?.meta_clusters;
-  if (fromKs && fromKs.length > 0) {
-    return fromKs.map((m) => ({
-      id: m.id,
-      name: m.name ?? "",
-      child_ids: (m.child_clusters ?? []).map((c) => c.id),
-    }));
-  }
+/**
+ * 클러스터 로딩 — **content_clusters DB가 authoritative**(기준값 대사가 이 테이블 SQL 기준, ORCH).
+ * L1(is_meta=false) 19개가 기준 산출 단위, 메타(is_meta=true)는 롤업. key_stats는 DB 비면 폴백(메타만).
+ */
+async function loadClusters(supabase: SupaClient, caseId: string): Promise<ClusterInfo> {
+  const empty: ClusterInfo = {
+    metas: [],
+    l1: [],
+    childToMeta: new Map(),
+    l1NameById: new Map(),
+    metaNameById: new Map(),
+  };
   const { data: ccRows } = await supabase
     .from("content_clusters")
     .select("id, name, is_meta, parent_cluster_id, display_order")
     .eq("case_id", caseId);
-  if (!ccRows || ccRows.length === 0) return [];
-  const metas = ccRows
-    .filter((r) => r.is_meta)
-    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-  const kidsByParent = new Map<string, string[]>();
-  for (const r of ccRows) {
-    if (!r.is_meta && r.parent_cluster_id) {
-      const arr = kidsByParent.get(r.parent_cluster_id) ?? [];
-      arr.push(r.id);
-      kidsByParent.set(r.parent_cluster_id, arr);
+  if (ccRows && ccRows.length > 0) {
+    const metaRows = ccRows
+      .filter((r) => r.is_meta)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const l1Rows = ccRows
+      .filter((r) => !r.is_meta)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const info: ClusterInfo = {
+      metas: metaRows.map((m) => ({ id: m.id, name: m.name ?? "" })),
+      l1: l1Rows.map((r) => ({ id: r.id, name: r.name ?? "", metaId: r.parent_cluster_id ?? null })),
+      childToMeta: new Map(),
+      l1NameById: new Map(),
+      metaNameById: new Map(metaRows.map((m) => [m.id, m.name ?? ""])),
+    };
+    for (const r of l1Rows) {
+      info.l1NameById.set(r.id, r.name ?? "");
+      if (r.parent_cluster_id) info.childToMeta.set(r.id, r.parent_cluster_id);
+    }
+    return info;
+  }
+  // 폴백: key_stats.phase4b_clusters (DB 비었을 때만) — 메타 + child_clusters 이름.
+  const { data: cRow } = await supabase.from("cases").select("key_stats").eq("id", caseId).single();
+  const fromKs = (
+    cRow?.key_stats as
+      | { phase4b_clusters?: { meta_clusters?: Array<{ id: string; name: string; child_clusters?: Array<{ id: string; name?: string }> }> } }
+      | null
+  )?.phase4b_clusters?.meta_clusters;
+  if (!fromKs || fromKs.length === 0) return empty;
+  const info = { ...empty, childToMeta: new Map(), l1NameById: new Map(), metaNameById: new Map() } as ClusterInfo;
+  info.metas = fromKs.map((m) => ({ id: m.id, name: m.name ?? "" }));
+  for (const m of fromKs) {
+    info.metaNameById.set(m.id, m.name ?? "");
+    for (const cc of m.child_clusters ?? []) {
+      info.l1.push({ id: cc.id, name: cc.name ?? "", metaId: m.id });
+      info.l1NameById.set(cc.id, cc.name ?? "");
+      info.childToMeta.set(cc.id, m.id);
     }
   }
-  return metas.map((m) => ({
-    id: m.id,
-    name: m.name ?? "",
-    child_ids: kidsByParent.get(m.id) ?? [],
-  }));
+  return info;
 }
 
 export type NarrativeLoad = {
   metas: Array<{ id: string; name: string }>;
+  l1: Array<{ id: string; name: string; metaId: string | null }>;
   members: NarrativeMember[];
 };
 
@@ -134,14 +160,12 @@ export async function loadNarrativeMembers(
   supabase: SupaClient,
   caseId: string,
 ): Promise<NarrativeLoad> {
-  const metas = await loadMetas(supabase, caseId);
-  if (metas.length === 0) return { metas: [], members: [] };
-  const metaNameById = new Map(metas.map((m) => [m.id, m.name]));
-  const childToMeta = new Map<string, string>();
-  for (const m of metas) for (const cid of m.child_ids) childToMeta.set(cid, m.id);
-  const childIds = [...childToMeta.keys()];
+  const { metas, l1, childToMeta, l1NameById, metaNameById } = await loadClusters(supabase, caseId);
+  if (l1.length === 0 && metas.length === 0) return { metas: [], l1: [], members: [] };
+  // 멤버는 L1(자식) 클러스터에 매달림. childIds = L1 클러스터 id.
+  const childIds = l1.map((c) => c.id);
   if (childIds.length === 0) {
-    return { metas: metas.map((m) => ({ id: m.id, name: m.name })), members: [] };
+    return { metas, l1, members: [] };
   }
 
   // 멤버 (platform + content_id + external_ref). ⚠️ 한 클러스터에 멤버가 많아 .in()이 PostgREST
@@ -221,17 +245,20 @@ export async function loadNarrativeMembers(
   const members: NarrativeMember[] = [];
 
   for (const m of tkMembers) {
-    const metaId = childToMeta.get(m.cluster_id);
+    const l1Id = m.cluster_id;
     const s = tkSrc.get(m.content_id!);
-    if (!metaId || !s) continue;
+    if (!s) continue;
+    const metaId = childToMeta.get(l1Id) ?? "";
     const url = (s.url as string) ?? "";
     const likes = normEng(s.likes as number | null);
     const comments = normEng(s.comments as number | null);
     const shares = normEng(s.shares as number | null);
     const kd = kdMap.get(url) ?? null;
     members.push({
+      l1Id,
+      l1Name: l1NameById.get(l1Id) ?? l1Id,
       metaId,
-      metaName: metaNameById.get(metaId) ?? metaId,
+      metaName: metaId ? metaNameById.get(metaId) ?? metaId : "(no meta)",
       channel: "tk",
       url,
       views: (s.views as number) ?? 0,
@@ -250,14 +277,17 @@ export async function loadNarrativeMembers(
     });
   }
   for (const m of igMembers) {
-    const metaId = childToMeta.get(m.cluster_id);
+    const l1Id = m.cluster_id;
     const s = igSrc.get(m.external_ref!);
-    if (!metaId || !s) continue;
+    if (!s) continue;
+    const metaId = childToMeta.get(l1Id) ?? "";
     const likes = normEng(s.likes_count as number | null);
     const comments = normEng(s.comments_count as number | null);
     members.push({
+      l1Id,
+      l1Name: l1NameById.get(l1Id) ?? l1Id,
       metaId,
-      metaName: metaNameById.get(metaId) ?? metaId,
+      metaName: metaId ? metaNameById.get(metaId) ?? metaId : "(no meta)",
       channel: "ig",
       url: (s.url as string) ?? "",
       views: ((s.video_view_count as number) ?? (s.video_play_count as number) ?? (s.likes_count as number) ?? 0),
@@ -276,14 +306,17 @@ export async function loadNarrativeMembers(
     });
   }
   for (const m of ytMembers) {
-    const metaId = childToMeta.get(m.cluster_id);
+    const l1Id = m.cluster_id;
     const s = ytSrc.get(m.external_ref!);
-    if (!metaId || !s) continue;
+    if (!s) continue;
+    const metaId = childToMeta.get(l1Id) ?? "";
     const likes = normEng(s.like_count as number | null);
     const comments = normEng(s.comment_count as number | null);
     members.push({
+      l1Id,
+      l1Name: l1NameById.get(l1Id) ?? l1Id,
       metaId,
-      metaName: metaNameById.get(metaId) ?? metaId,
+      metaName: metaId ? metaNameById.get(metaId) ?? metaId : "(no meta)",
       channel: "yt",
       url: (s.url as string) ?? "",
       views: (s.view_count as number) ?? 0,
@@ -302,7 +335,14 @@ export async function loadNarrativeMembers(
     });
   }
 
-  return { metas: metas.map((m) => ({ id: m.id, name: m.name })), members };
+  return { metas, l1, members };
+}
+
+/** clusterLevel에 따라 멤버의 narrative id/name 선택 (l1=기준 단위, meta=롤업). */
+function narrativeKey(m: NarrativeMember, level: ClusterLevel): { id: string; name: string } {
+  return level === "meta"
+    ? { id: m.metaId, name: m.metaName }
+    : { id: m.l1Id, name: m.l1Name };
 }
 
 // kdMap 재사용 (page.tsx clusterBundle ④) — kalodata_videos_xlsx: video_url → {month, gmv}.
@@ -331,8 +371,9 @@ function inPeriod(month: string | null, period?: Period): boolean {
 
 // ── 1. narrativePerf ────────────────────────────────────────────────────────
 export type NarrativePerfRow = {
-  meta_id: string;
-  meta_name: string;
+  cluster_id: string;
+  cluster_name: string;
+  level: ClusterLevel;
   video_count: number;
   measurable_count: number;
   reaction_rate: number | null; // 댓글/1만뷰 (measurable만)
@@ -341,35 +382,40 @@ export type NarrativePerfRow = {
   channel_counts: { tk: number; ig: number; yt: number };
 };
 
+/**
+ * 내러티브별 성과. clusterLevel 기본 'l1'(기준값 산출 단위 = L1 자식 클러스터 19개).
+ * 'meta'는 롤업(메타 8개). ORCH 정정(2026-07-26): 지시서 "메타 클러스터"는 표기 오류, 기준값은 L1층.
+ */
 export async function narrativePerf(
   supabase: SupaClient,
   caseId: string,
-  period?: Period,
+  opts?: { period?: Period; clusterLevel?: ClusterLevel },
 ): Promise<NarrativePerfRow[]> {
-  const { metas, members } = await loadNarrativeMembers(supabase, caseId);
-  const scoped = members.filter((m) => inPeriod(m.month, period));
-  const byMeta = new Map<string, NarrativeMember[]>();
+  const level = opts?.clusterLevel ?? "l1";
+  const { members } = await loadNarrativeMembers(supabase, caseId);
+  const scoped = members.filter((m) => inPeriod(m.month, opts?.period));
+  const groups = new Map<string, { name: string; members: NarrativeMember[] }>();
   for (const m of scoped) {
-    const arr = byMeta.get(m.metaId) ?? [];
-    arr.push(m);
-    byMeta.set(m.metaId, arr);
+    const k = narrativeKey(m, level);
+    if (!k.id) continue;
+    const g = groups.get(k.id) ?? { name: k.name, members: [] };
+    g.members.push(m);
+    groups.set(k.id, g);
   }
   const rows: NarrativePerfRow[] = [];
-  for (const meta of metas) {
-    const ms = byMeta.get(meta.id) ?? [];
-    if (ms.length === 0) continue;
-    let measViews = 0;
-    let measComments = 0;
+  for (const [id, g] of groups) {
     let measurable = 0;
     let gmvSum = 0;
     let gmvViews = 0;
+    // 반응률 = TK 영상별 (댓글/뷰×1만)의 평균. (내러티브 탐색기 기준값 대사: 리스트 115.9·퍼스널
+    //   17.5 정확 일치 — TK-only per-video mean. IG는 고뷰·저댓글이라 집계 희석되어 제외.)
+    const tkRx: number[] = [];
     const ch = { tk: 0, ig: 0, yt: 0 };
-    for (const m of ms) {
+    for (const m of g.members) {
       ch[m.channel] += 1;
-      if (m.measurable) {
-        measurable += 1;
-        measViews += m.views;
-        measComments += m.comments ?? 0;
+      if (m.measurable) measurable += 1;
+      if (m.channel === "tk" && m.measurable && m.views > 0 && m.comments != null) {
+        tkRx.push((m.comments / m.views) * 10000);
       }
       if (m.gmv != null && m.gmv > 0) {
         gmvSum += m.gmv;
@@ -377,23 +423,26 @@ export async function narrativePerf(
       }
     }
     rows.push({
-      meta_id: meta.id,
-      meta_name: meta.name,
-      video_count: ms.length,
+      cluster_id: id,
+      cluster_name: g.name,
+      level,
+      video_count: g.members.length,
       measurable_count: measurable,
-      reaction_rate: measViews > 0 ? Math.round((measComments / measViews) * 10000 * 10) / 10 : null,
+      reaction_rate:
+        tkRx.length > 0 ? Math.round((tkRx.reduce((s, x) => s + x, 0) / tkRx.length) * 10) / 10 : null,
       shop_gmv: Math.round(gmvSum),
       gpm: gmvViews > 0 ? Math.round((gmvSum / (gmvViews / 1000)) * 100) / 100 : null,
       channel_counts: ch,
     });
   }
-  return rows;
+  return rows.sort((a, b) => b.video_count - a.video_count);
 }
 
 // ── 5. sparkByNarrative (C 광고 집행 콘텐츠) ─────────────────────────────────
 export type SparkRow = {
-  meta_id: string;
-  meta_name: string;
+  cluster_id: string;
+  cluster_name: string;
+  level: ClusterLevel;
   total: number;
   ad_count: number; // is_ad
   ad_ratio_pct: number;
@@ -402,30 +451,33 @@ export type SparkRow = {
 export async function sparkByNarrative(
   supabase: SupaClient,
   caseId: string,
-  period?: Period,
+  opts?: { period?: Period; clusterLevel?: ClusterLevel },
 ): Promise<SparkRow[]> {
-  const { metas, members } = await loadNarrativeMembers(supabase, caseId);
-  const scoped = members.filter((m) => inPeriod(m.month, period));
-  const byMeta = new Map<string, { total: number; ad: number }>();
+  const level = opts?.clusterLevel ?? "l1";
+  const { members } = await loadNarrativeMembers(supabase, caseId);
+  const scoped = members.filter((m) => inPeriod(m.month, opts?.period));
+  const groups = new Map<string, { name: string; total: number; ad: number }>();
   for (const m of scoped) {
-    const cur = byMeta.get(m.metaId) ?? { total: 0, ad: 0 };
+    const k = narrativeKey(m, level);
+    if (!k.id) continue;
+    const cur = groups.get(k.id) ?? { name: k.name, total: 0, ad: 0 };
     cur.total += 1;
     if (m.is_ad) cur.ad += 1;
-    byMeta.set(m.metaId, cur);
+    groups.set(k.id, cur);
   }
   const rows: SparkRow[] = [];
-  for (const meta of metas) {
-    const v = byMeta.get(meta.id);
-    if (!v || v.total === 0) continue;
+  for (const [id, v] of groups) {
+    if (v.total === 0) continue;
     rows.push({
-      meta_id: meta.id,
-      meta_name: meta.name,
+      cluster_id: id,
+      cluster_name: v.name,
+      level,
       total: v.total,
       ad_count: v.ad,
       ad_ratio_pct: Math.round((v.ad / v.total) * 1000) / 10,
     });
   }
-  return rows;
+  return rows.sort((a, b) => b.total - a.total);
 }
 
 // ── 4. inflectionTopVideos ──────────────────────────────────────────────────
