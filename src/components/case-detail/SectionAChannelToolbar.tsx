@@ -7,7 +7,7 @@ import { useState } from "react";
  *
  * mockup 형태:
  *   - 채널 toggle: "전체 합산 / TikTok / Instagram / YouTube"
- *   - 5 KPI: 총 영상 / paid 비중 / organic / gifted (시딩) / 총 view
+ *   - 5 KPI: 총 영상 / 광고 집행 비중 / 광고 미집행 / 시딩 / 총 view
  *
  * 현재는 visual prototype — toggle 클릭 시 KPI 값만 변경 (아래 MonthlyTrendChart에
  * prop 전파는 추후 작업). 채널별 데이터는 props로 받음.
@@ -110,9 +110,9 @@ export function SectionAChannelToolbar({
               : ""
           }
         />
-        <Kpi label="paid 비중" value={`${cur.paidPct}%`} />
-        <Kpi label="organic" value={`${cur.organicPct}%`} />
-        <Kpi label="gifted (시딩)" value={`${cur.giftedPct}%`} />
+        <Kpi label="광고 집행 비중" value={`${cur.paidPct}%`} />
+        <Kpi label="광고 미집행" value={`${cur.organicPct}%`} />
+        <Kpi label="시딩" value={`${cur.giftedPct}%`} />
         <Kpi label="총 view" value={cur.totalViewsLabel} />
       </div>
     </div>
