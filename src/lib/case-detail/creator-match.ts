@@ -45,6 +45,7 @@ export type MatchSignals = {
   contradiction_flags: string[];
   verdict: "same" | "maybe" | "diff";
   confidence: "confirmed" | "probable";
+  needs_llm: boolean; // name-only 등 LLM 확정 없이 병합 금지
 };
 
 // 팔로워 규모 괴리 임계 — 100배 이상이면 soft flag (확정은 강신호로만).
@@ -70,22 +71,22 @@ export function scoreCreatorPair(a: CreatorNode, b: CreatorNode): MatchSignals {
     if (ratio >= FOLLOWER_GAP) flags.push("follower_gap");
   }
 
-  // verdict: 강신호(handle 완전일치 or bio 링크) → same/confirmed.
-  //   이름 강함(≥0.5) → same/probable. 이름 약함 → maybe/diff. (follower_gap은 확정 막지 않음 — soft)
+  // verdict (게이트 반려 대응 2026-07-26):
+  //   - same/confirmed는 **강신호(handle 완전일치 or bio 상호링크)만**. 이걸로만 자동 병합·linked_handles.
+  //   - 이름 단독(name-only)은 동명이인 오병합 위험 → verdict='maybe'(LLM 확정 대상)로 강등, confidence='probable'.
+  //   - 이름 약함 → diff. follower_gap은 확정을 막지 않지만(soft) name-only와 겹치면 LLM 필수(needs_llm).
   let verdict: MatchSignals["verdict"];
   let confidence: MatchSignals["confidence"] = "probable";
   if (handle_exact || bio_link) {
     verdict = "same";
     confidence = "confirmed";
-  } else if (name_score >= 0.5) {
-    verdict = "same";
-    confidence = "probable";
   } else if (name_score >= 0.3) {
-    verdict = "maybe";
+    verdict = "maybe"; // name-only는 확정 아님 — LLM으로만 same 승격
   } else {
     verdict = "diff";
   }
-  return { handle_exact, bio_link, name_score, contradiction_flags: flags, verdict, confidence };
+  const needs_llm = verdict === "maybe"; // name-only(±follower_gap)는 LLM 확정 필요
+  return { handle_exact, bio_link, name_score, contradiction_flags: flags, verdict, confidence, needs_llm };
 }
 
 export type CreatorCandidate = { a: CreatorNode; b: CreatorNode; signals: MatchSignals };

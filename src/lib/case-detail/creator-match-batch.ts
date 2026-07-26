@@ -149,8 +149,8 @@ export async function matchCreatorsForCase(
   const now = new Date().toISOString();
   for (const p of pairs) {
     let llmVerdict: string | null = null;
-    if (opts?.withLlm && process.env.ANTHROPIC_API_KEY && p.signals.verdict !== "same") {
-      // 강신호(handle/bio)로 이미 same이면 LLM 생략(비용 절감). 애매(maybe)만 LLM 확정.
+    if (opts?.withLlm && process.env.ANTHROPIC_API_KEY && p.signals.needs_llm) {
+      // 강신호(handle/bio)로 이미 confirmed면 LLM 생략(비용 절감). name-only(maybe·needs_llm)만 LLM 확정.
       const r = await judgeCreatorPairLlm(p.a, p.b, p.signals);
       llmVerdict = r.verdict;
       tIn += r.tokens_input;
@@ -158,11 +158,14 @@ export async function matchCreatorsForCase(
       base.double_judged += 1;
       if (r.verdict === p.signals.verdict) base.agree += 1;
     }
-    const isSame = p.signals.verdict === "same" || llmVerdict === "same";
-    if (isSame) {
+    // ⚠️ 반려 대응: union(→linked_handles 영구 저장)은 **confirmed 강신호(handle/bio)만**.
+    //   name-only는 LLM=same이어도 linked_handles에 자동 병합 안 함(동명이인 오병합 방지) — 화면엔
+    //   creator_match_pairs의 '후보'(probable)로만 표시. LLM-same은 pair verdict 강화에만 기여.
+    if (p.signals.verdict === "same") {
       union(nkey(p.a), nkey(p.b));
-      if (p.signals.confidence === "confirmed") base.confirmed += 1;
-      else base.probable += 1;
+      base.confirmed += 1;
+    } else if (llmVerdict === "same") {
+      base.probable += 1; // 후보(추정) — pair에만 저장, linked_handles 미반영
     }
     rows.push({
       case_id: caseId,
