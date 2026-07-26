@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { CreatorDrawer } from "@/components/case-detail/CreatorDrawer";
 import type {
   Phase2Stats,
   Phase3Stats,
@@ -61,6 +62,7 @@ export function SectionBMockup({
   igTopAuthors,
   ytTopChannels,
   igCountrySignal,
+  caseId,
 }: {
   phase2: Phase2Stats;
   phase3?: Phase3Stats;
@@ -87,6 +89,8 @@ export function SectionBMockup({
   ytTopChannels?: Phase4dChannelPreview[];
   /** ★ C6(WS4b): IG 국가 근사 신호 — v_case_ig_country_signal(019). 언어 기반 근사(추정). */
   igCountrySignal?: { total: number; nonLatin: number; latin: number; nonLatinPct: number } | null;
+  /** ★ FE-8 Stage4(B): 크리에이터 드로어 온디맨드 조회용 case id */
+  caseId: string;
 }) {
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
   // ★ C6: IG 국가 근사 필터 토글 (US 근사 = 비라틴 게시물 제외 추정)
@@ -94,6 +98,7 @@ export function SectionBMockup({
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<TierBucket | null>(null);
   const [expandedHandle, setExpandedHandle] = useState<string | null>(null);
+  const [drawerHandle, setDrawerHandle] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"videos" | "views" | "gmv">("videos");
   const [showAllCreators, setShowAllCreators] = useState(false);
 
@@ -242,6 +247,7 @@ export function SectionBMockup({
     (shopGmvDistribution && shopGmvDistribution.buckets.length > 0);
 
   return (
+    <>
     <div className="section" id="sec-b">
       <div className="section-h">
         <span className="letter">B</span>
@@ -584,6 +590,15 @@ export function SectionBMockup({
                     >
                       <td>
                         <b>{c.handle}</b>
+                        {/* ★ FE-8 Stage4(B, v12): 크리에이터 드로어 열기(백분위·스파크·메타 사용) */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDrawerHandle(c.handle); }}
+                          title="크리에이터 프로필 (백분위·스파크 편수·메타 사용)"
+                          style={{ marginLeft: 6, border: "none", background: "transparent", cursor: "pointer", fontSize: 11, color: "#5b21b6", padding: 0 }}
+                        >
+                          👤
+                        </button>
                         {isOwned && (
                           <span
                             style={{
@@ -823,6 +838,9 @@ export function SectionBMockup({
         </div>
       )}
     </div>
+    {/* ★ FE-8 Stage4(B, v12): 크리에이터 드로어 */}
+    <CreatorDrawer caseId={caseId} handle={drawerHandle} onClose={() => setDrawerHandle(null)} />
+    </>
   );
 }
 

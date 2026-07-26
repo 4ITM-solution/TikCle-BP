@@ -3601,6 +3601,7 @@ export default async function CaseDetailPage({
                           top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
                         igCountrySignal={igCountrySignal}
+                        caseId={c.id}
                       />
                       </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
