@@ -469,6 +469,15 @@ export async function uploadBsr(
   const file = formData.get("file");
   const explicitAsin = formData.get("asin");
 
+  // BE-17: 기본 동작 = append(기존∪신규). 새 export에 없는 날짜의 기존 행은 보존.
+  //   삭제(replace)는 명시적 opt-in(mode=replace + confirm_delete=true)에서만 — 사용자가
+  //   업로드 전 "기존 N일 중 M일 삭제" 경고를 보고 확인한 경우에만 발동(previewBsrReplace).
+  //   Keepa export는 롤링 3년 창이라 replace 기본이면 3년 초과 ASIN 앞부분이 매 업로드마다
+  //   영구 삭제됨(INSIGHT #4). ⚠️ 7/7 WS5의 delete→upsert 순서 손실창 수정과는 별건(의미론 변경).
+  const replaceMode =
+    formData.get("mode") === "replace" &&
+    formData.get("confirm_delete") === "true";
+
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "파일이 첨부되지 않았습니다" };
   }
@@ -572,9 +581,11 @@ export async function uploadBsr(
     }
   }
 
-  // 5. stale 정리 — 새 export에 없는 collected_at만 골라 명시적 id 목록으로 삭제 (R12).
-  // upsert가 이미 성공했으므로 이 단계가 실패해도 데이터 손실은 없다 (잔재만 남음).
-  {
+  // 5. stale 정리 — ⚠️ replace opt-in(사용자 명시 확인)일 때만. 기본 append에서는 절대 삭제 안 함.
+  //   새 export에 없는 collected_at만 골라 명시적 id 목록으로 삭제 (R12).
+  //   upsert가 이미 성공했으므로 이 단계가 실패해도 데이터 손실은 없다 (잔재만 남음).
+  let deletedDays = 0;
+  if (replaceMode) {
     // 컬럼 타입 date → "YYYY-MM-DD"로 반환되지만, 타입이 바뀌어도 오판으로 전량 삭제되지
     // 않게 양쪽 다 날짜부(10자)로 정규화해 비교한다.
     const newDates = new Set(dedupedRows.map((r) => r.collected_at.slice(0, 10)));
@@ -599,6 +610,7 @@ export async function uploadBsr(
           console.warn(`[bsr] stale 정리 실패(데이터 손실 아님): ${delErr.message}`);
           break;
         }
+        deletedDays += staleIds.slice(i, i + BATCH).length;
       }
     }
   }
@@ -606,7 +618,101 @@ export async function uploadBsr(
   revalidatePath(`/cases/${case_id}`);
   const dupCount = rows.length - dedupedRows.length;
   const dupNote = dupCount > 0 ? ` (중복 ${dupCount}건 통합)` : "";
-  return { ok: true, message: `ASIN ${asin} BSR ${dedupedRows.length}일 적재 완료${dupNote}` };
+  const modeNote = replaceMode
+    ? deletedDays > 0
+      ? ` · 교체 모드: 기존 ${deletedDays}일 삭제`
+      : ` · 교체 모드 (삭제 대상 없음)`
+    : " · 병합 모드 (기존 보존)";
+  return {
+    ok: true,
+    message: `ASIN ${asin} BSR ${dedupedRows.length}일 적재 완료${dupNote}${modeNote}`,
+  };
+}
+
+export type BsrPreview =
+  | {
+      ok: true;
+      asin: string;
+      existing_days: number; // 기존 sales_snapshot 일수
+      new_days: number; // 새 export 일수(dedup 후)
+      overlap_days: number; // 양쪽 모두 있는 날 (덮어씀)
+      stale_days: number; // 기존엔 있고 새 export엔 없는 날 = 교체 시 삭제될 날
+      stale_sample: string[]; // 삭제 대상 날짜 앞 5개 (경고 표기용)
+    }
+  | { ok: false; error: string };
+
+/**
+ * BE-17: BSR 업로드 전 SELECT-only 미리보기 — "교체(replace)" 시 삭제될 기존 날짜 수(M)를
+ * 계산해 UI가 "기존 N일 중 M일 삭제" 경고를 띄우게 한다. **쓰기 없음**(uploadBsr와 동일한
+ * asin/product 해석 + 파싱만 수행, DB는 select). 사용자가 이 경고를 보고 확인해야만
+ * uploadBsr(mode=replace, confirm_delete=true)로 실제 삭제가 일어난다.
+ */
+export async function previewBsrReplace(
+  case_id: string,
+  formData: FormData,
+): Promise<BsrPreview> {
+  const file = formData.get("file");
+  const explicitAsin = formData.get("asin");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "파일이 첨부되지 않았습니다" };
+  }
+  const filenameAsin = extractAsinFromFilename(file.name);
+  const slotAsin =
+    typeof explicitAsin === "string" && explicitAsin ? explicitAsin : null;
+  if (slotAsin && filenameAsin && slotAsin !== filenameAsin) {
+    return { ok: false, error: `슬롯 ASIN(${slotAsin})과 파일명 ASIN(${filenameAsin})이 다릅니다.` };
+  }
+  const asin = slotAsin ?? filenameAsin;
+  if (!asin) return { ok: false, error: "ASIN을 식별할 수 없습니다" };
+
+  const { supabase, c } = await getCase(case_id);
+  const explicitCountry = formData.get("country");
+  let productQuery = supabase
+    .from("products")
+    .select("id, country")
+    .eq("case_id", c.id)
+    .eq("asin", asin);
+  if (typeof explicitCountry === "string" && explicitCountry) {
+    productQuery = productQuery.eq("country", explicitCountry);
+  }
+  const { data: prods, error: prodErr } = await productQuery.limit(2);
+  if (prodErr) return { ok: false, error: prodErr.message };
+  if (!prods || prods.length === 0) {
+    return { ok: false, error: `ASIN ${asin}의 product가 없습니다.` };
+  }
+  if (prods.length > 1) {
+    return { ok: false, error: `ASIN ${asin}이 여러 country에 박혀있어요 (${prods.map((p) => p.country).join(", ")}).` };
+  }
+  const prod = prods[0]!;
+
+  const text = await file.text();
+  const { rows } = parseBsr(text);
+  const newDates = new Set(rows.map((r) => r.collected_at.slice(0, 10)));
+
+  const { data: existing, error: exErr } = await supabase
+    .from("sales_snapshot")
+    .select("collected_at")
+    .eq("product_id", prod.id)
+    .eq("channel", "amazon")
+    .limit(10000);
+  if (exErr) return { ok: false, error: exErr.message };
+  const existingDates = new Set(
+    (existing ?? [])
+      .map((r) => (r.collected_at ? String(r.collected_at).slice(0, 10) : null))
+      .filter((d): d is string => !!d),
+  );
+
+  const staleDates = [...existingDates].filter((d) => !newDates.has(d)).sort();
+  const overlap = [...existingDates].filter((d) => newDates.has(d)).length;
+  return {
+    ok: true,
+    asin,
+    existing_days: existingDates.size,
+    new_days: newDates.size,
+    overlap_days: overlap,
+    stale_days: staleDates.length,
+    stale_sample: staleDates.slice(0, 5),
+  };
 }
 
 // =============================================================================
