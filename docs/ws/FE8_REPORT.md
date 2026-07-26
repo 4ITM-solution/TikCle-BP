@@ -64,3 +64,28 @@ branch: ws-fe8-case-v12 (워크트리 .claude/worktrees/ws-fe8)
 
 ## 커밋 (ws-fe8-case-v12)
 S1 6f2e016 · S2 a26e75a · S8 4d8767b · S7 7f52b8d · S6p1 5a9109e
+
+---
+
+## A/B/C 구현 (2026-07-26 저녁, BE-31 완료 후)
+
+BE-31 combo-queries.ts(narrativePerf·sparkByNarrative·inflectionTopVideos·creatorProfile·eventWindow) 완료로 Stage 3~5 착수·구현.
+
+| Stage | 내용 | 커밋 | 검증 |
+|---|---|---|---|
+| 3(A) p1 | 이벤트 윈도우 탭 (eventWindow 전/중/후 프리페치) + EventWindowPanel | 37a6176 | tsc |
+| 3(A) p2 | 변곡점 표(행 클릭→기간 대표영상, inflectionTopVideos 온디맨드) + InflectionTable + VideoCard | 8472d5a | tsc |
+| 4(B) | 크리에이터 드로어(creatorProfile: 백분위·스파크편수·메타사용) + CreatorDrawer | fe46edf | tsc |
+| 5(C) | 내러티브 성과 탭(narrativePerf+sparkByNarrative: 반응률·GPM·GMV·광고집행 병치) | 6a91928 | tsc |
+
+- combo-actions.ts: fetchInflectionVideos·fetchCreatorProfile 서버 액션(온디맨드)
+- 신규 컴포넌트: EventWindowPanel·InflectionTable·CreatorDrawer (모두 VideoCard/BE-31 타입 재사용)
+- 전 커밋 tsc 통과. medicube SSR 200 · combo-query 서버콜 런타임 에러 0 확인.
+
+### A/B/C 잔여 (폴리시/BE 대기)
+- 키 메시지 탭(C): BE-22 미완 → 보류
+- A 차트 실측 스케일 미세조정, B 월 select 삭제·명단 10/50 정밀화: 폴리시
+- **실화면 클릭 QA(이벤트 탭 토글·변곡점 행 확장·드로어·내러티브 탭)**: 브라우저 확장 연결 끊겨 이번엔 tsc+SSR까지만. QA-4에서 blockwise 대사
+
+### 커밋
+S3(A) 37a6176·8472d5a · S4(B) fe46edf · S5(C) 6a91928
