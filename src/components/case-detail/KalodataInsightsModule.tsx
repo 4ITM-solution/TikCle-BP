@@ -574,7 +574,7 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
       >
         <div>
           <div style={{ fontSize: 13, fontWeight: 700 }}>
-            주간 매출 추이 ({buckets.length}주) — 광고 vs 오가닉
+            주간 매출 추이 ({buckets.length}주) — 광고 집행 vs 미집행
           </div>
           <div
             style={{
@@ -689,8 +689,8 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
               <g key={b.weekStart}>
                 {/* tooltip 영역 */}
                 <title>
-                  {b.weekStart} · 매출 {fmtUsd(total)} (광고 {fmtUsd(b.adRev)} +
-                  오가닉 {fmtUsd(b.organicRev)}) · 영상 {b.videoCount} · 광고비{" "}
+                  {b.weekStart} · 매출 {fmtUsd(total)} (광고 집행 {fmtUsd(b.adRev)} +
+                  미집행 {fmtUsd(b.organicRev)}) · 영상 {b.videoCount} · 광고비{" "}
                   {fmtUsd(b.adSpend)}
                 </title>
                 {organicH > 0 && (
@@ -782,7 +782,7 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                 borderRadius: 2,
               }}
             />
-            광고 매출 (ad_spend &gt; 0)
+            광고 집행 매출 (ad_spend &gt; 0)
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <span
@@ -794,7 +794,7 @@ function WeeklyRevenueChart({ videos }: { videos: KalodataVideoXlsxRow[] }) {
                 borderRadius: 2,
               }}
             />
-            오가닉 매출
+            광고 미집행 매출
           </span>
           <span>막대 위 숫자 = 영상 수</span>
         </div>

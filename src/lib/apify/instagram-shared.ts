@@ -131,10 +131,16 @@ export async function runApifyActor(
 }
 
 /**
- * Durable 버전 — Inngest step으로 start/poll/fetch 분리.
+ * Durable 버전 — Inngest step으로 start/poll 분리.
  *   - start는 step.run으로 memoize → 함수 재시도(Vercel maxDuration 초과 등)해도 새 Apify run 안 만듦(중복 과금 X).
  *   - 대기는 step.sleep → 함수 실행시간 소비 안 함 → 18분짜리 5000건 스크랩도 안 죽음.
  * label은 각 스크랩마다 유니크해야 함(step id 충돌 방지).
+ *
+ * ⚠️ BE-18: dataset fetch는 **step.run으로 감싸지 않는다**. 감싸면 스크랩 결과 전체(items)가
+ *   step 출력으로 memoize돼 Inngest step output 상한(>4MB) 초과 → 액터당 500건+에서 함수 즉사
+ *   (실측: 400건↓ 성공/500건↑ 실패). start(run_id·dataset_id)만 memoize하면 중복 Apify 과금은
+ *   막히고, dataset은 run 완료 후 immutable이라 재시도 시 그냥 다시 읽으면 됨(비용 0, 멱등).
+ *   = meta-ads의 run-sync-get-dataset-items(step 밖 fetch)와 동일 원리(collect-meta 패턴).
  */
 export async function runApifyActorDurable(
   step: StepLike,
@@ -155,9 +161,8 @@ export async function runApifyActorDurable(
     );
     if (TERMINAL_STATUSES.includes(status)) break;
   }
-  const items = await step.run(`${label}-fetch`, () =>
-    fetchApifyItems(started.datasetId, token),
-  );
+  // step.run 밖에서 직접 fetch — items를 step 출력으로 반환하지 않기 위함(위 ⚠️ 참고).
+  const items = await fetchApifyItems(started.datasetId, token);
   return {
     items,
     apify_run_id: started.runId,

@@ -30,18 +30,15 @@ import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
 import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
 import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
 import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
-import { CompletenessGauge } from "@/components/case-detail/CompletenessGauge";
 import { FreshnessBadge, daysSince } from "@/components/case-detail/FreshnessBadge";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
   CaseStatusStripMockup,
   KpiStripMockup,
   DataChannelsMockup,
-  PhaseProgressMockup,
   InsightCardMockup,
 } from "@/components/case-detail/mockup/HeaderMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
-import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
 import { listMergeCandidates } from "@/app/cases/[id]/case-actions";
@@ -228,6 +225,37 @@ export default async function CaseDetailPage({
   const psStart = periodScope?.start ?? null;
   const psEnd = periodScope?.end ?? null;
   const psEndTs = psEnd ? `${psEnd}T23:59:59` : null;
+
+  // ★ BE-15/16: 기간 필터 IG membership 집합 — ig_posts.posted_at로 "기간 내 게시한 작성자"
+  //   username 집합을 1회 산출해 IG 명단 전반(top authors·tier·pool + B섹션 allIgCreators)에서
+  //   공유(BE-16: 상위 스코프로 hoist). ig_authors는 전기간 집계라 게시일이 없어 이 조인이 필요.
+  //   기간 미설정/조회 실패 시 null=무필터(무회귀·폴백, BE-15 게이트 정정 유지).
+  let igActiveUsernames: Set<string> | null = null;
+  if (isReady && (psStart || psEndTs)) {
+    igActiveUsernames = new Set<string>();
+    try {
+      const PAGE = 1000;
+      for (let off = 0; off < 100000; off += PAGE) {
+        let q = supabase
+          .from("ig_posts")
+          .select("owner_username, posted_at")
+          .eq("case_id", c.id)
+          .not("posted_at", "is", null);
+        if (psStart) q = q.gte("posted_at", psStart);
+        if (psEndTs) q = q.lte("posted_at", psEndTs);
+        const { data } = await q.range(off, off + PAGE - 1);
+        if (!data || data.length === 0) break;
+        for (const r of data)
+          if (r.owner_username) igActiveUsernames.add(r.owner_username);
+        if (data.length < PAGE) break;
+      }
+    } catch (e) {
+      console.warn("[ig] active-username set fail:", e);
+      igActiveUsernames = null; // 조회 실패 시 명단 전멸 방지 — 무필터 폴백
+    }
+  }
+  const igInPeriod = (username: string | null | undefined) =>
+    !igActiveUsernames || (!!username && igActiveUsernames.has(username));
 
   // 2. 콘텐츠 적재 상태 (brand+country 스코프)
   const { count: contentCount } = brand_id
@@ -692,36 +720,7 @@ export default async function CaseDetailPage({
   const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
 
   if (isReady && phase4cStats && !phase4cStats.skipped_reason) {
-    // ★ BE-15: 기간 필터 IG 확장. ig_authors는 전기간 집계라 게시일이 없어 v1에서 제외됐음
-    //   → ig_posts.posted_at로 "기간 내 게시한 작성자 username 집합"을 만들어 명단(roster)을
-    //   그 집합으로 membership 필터(followers·tier 등 enrich는 보존). 기간 미설정이면 null=무필터.
-    let igActiveUsernames: Set<string> | null = null;
-    if (psStart || psEndTs) {
-      igActiveUsernames = new Set<string>();
-      try {
-        const PAGE = 1000;
-        for (let off = 0; off < 100000; off += PAGE) {
-          let q = supabase
-            .from("ig_posts")
-            .select("owner_username, posted_at")
-            .eq("case_id", c.id)
-            .not("posted_at", "is", null);
-          if (psStart) q = q.gte("posted_at", psStart);
-          if (psEndTs) q = q.lte("posted_at", psEndTs);
-          const { data } = await q.range(off, off + PAGE - 1);
-          if (!data || data.length === 0) break;
-          for (const r of data)
-            if (r.owner_username) igActiveUsernames.add(r.owner_username);
-          if (data.length < PAGE) break;
-        }
-      } catch (e) {
-        console.warn("[ig] active-username set fail:", e);
-        igActiveUsernames = null; // 조회 실패 시 빈 Set으로 명단 전멸 방지 — 무필터 폴백
-      }
-    }
-    const igInPeriod = (username: string | null | undefined) =>
-      !igActiveUsernames || (!!username && igActiveUsernames.has(username));
-
+    // ★ BE-15/16: igActiveUsernames·igInPeriod는 상위 스코프로 hoist됨(B섹션 allIgCreators와 공유).
     // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
     try {
       // region_scope=us-only면 fetch 후 휴리스틱 필터. limit 늘려서 필터 후에도 25개 남게.
@@ -2241,7 +2240,9 @@ export default async function CaseDetailPage({
         .eq("case_id", c.id)
         .range(off, off + 999);
       if (!data || data.length === 0) break;
-      for (const a of data)
+      for (const a of data) {
+        // ★ BE-16: 기간 필터 시 "기간 내 활동 IG 작성자"만 B섹션 전체 명단에 포함(무설정=무필터).
+        if (!igInPeriod(a.username)) continue;
         list.push({
           handle: a.username,
           video_count: a.total_posts ?? 0,
@@ -2252,6 +2253,7 @@ export default async function CaseDetailPage({
           lifetime_gmv_usd: null,
           top_videos: [],
         });
+      }
       if (data.length < 1000) break;
     }
     return list;
@@ -2339,11 +2341,20 @@ export default async function CaseDetailPage({
       for (const a of data ?? []) if (a.username) igTierByUser.set(a.username, tierOf(a.followers));
     }
     // IG 월별 tier → distinct 작성자
+    // ★ BE-16: 기간 필터 시 posted_at WHERE로 기간 내 달·작성자만 집계(date-bucket이라 게시일
+    //   필터가 곧 membership과 동치 — 무설정=무필터). 이것이 없으면 기간 밖 달이 계속 노출됐음.
     const igMonthAuthors = new Map<string, Map<TK3, Set<string>>>();
     {
       let from = 0;
       for (;;) {
-        const { data } = await supabase.from("ig_posts").select("owner_username, posted_at").eq("case_id", c.id).range(from, from + 999);
+        let q = supabase
+          .from("ig_posts")
+          .select("owner_username, posted_at")
+          .eq("case_id", c.id)
+          .not("posted_at", "is", null);
+        if (psStart) q = q.gte("posted_at", psStart);
+        if (psEndTs) q = q.lte("posted_at", psEndTs);
+        const { data } = await q.range(from, from + 999);
         if (!data || data.length === 0) break;
         for (const p of data) {
           if (!p.owner_username || !p.posted_at) continue;
@@ -2561,9 +2572,8 @@ export default async function CaseDetailPage({
             />
           }
         />
-        {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
-        <CompletenessGauge c={caseCompleteness} />
-        {/* ★ 분석 기간 필터 행 — 라이브 집계 WHERE 재적용 (유료 재실행 X) */}
+        {/* ★ FE-8 Stage1(v12): 완결성 게이지 행 삭제(채택 배지·툴팁으로 흡수) +
+            분석 기간 행 + 최신성/스냅샷 행을 유틸 행 1개로 통합 (기간 좌 · 최신성/스냅샷 우) */}
         <div
           style={{
             display: "flex",
@@ -2583,35 +2593,35 @@ export default async function CaseDetailPage({
               클러스터 정의문·USP·매출 30d 스냅샷은 전 기간 기준
             </span>
           )}
+          {/* 우측: 최신성 배지 + 캐시 스냅샷 (구 별도 행 → 유틸 행에 흡수) */}
+          {(() => {
+            const now = new Date();
+            const sources: Array<{ label: string; key: string }> = [
+              { label: "TikTok", key: "tiktok_video" },
+              { label: "광고", key: "meta_ads" },
+              { label: "IG", key: "instagram" },
+              { label: "YT", key: "youtube" },
+            ];
+            const present = sources.filter((s) => dataRanges[s.key]?.max);
+            return (
+              <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                {present.length > 0 && (
+                  <span style={{ fontSize: 10, color: "#9ca3af" }}>최신성</span>
+                )}
+                {present.map((s) => {
+                  const mx = dataRanges[s.key]?.max ?? null;
+                  return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
+                })}
+                {c.analyzed_at && (
+                  <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff" }}
+                    title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
+                    🗄 스냅샷 {String(c.analyzed_at).slice(5, 10)}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
         </div>
-        {/* ★ B4(WS4b): freshness 배지 — source별 최신성(경과일) */}
-        {(() => {
-          const now = new Date();
-          const sources: Array<{ label: string; key: string }> = [
-            { label: "TikTok", key: "tiktok_video" },
-            { label: "광고", key: "meta_ads" },
-            { label: "IG", key: "instagram" },
-            { label: "YT", key: "youtube" },
-          ];
-          const present = sources.filter((s) => dataRanges[s.key]?.max);
-          if (present.length === 0) return null;
-          return (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #e5e7eb" }}>
-              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>데이터 최신성:</span>
-              {present.map((s) => {
-                const mx = dataRanges[s.key]?.max ?? null;
-                return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
-              })}
-              {/* ★ B5(WS4b): 캐시/스냅샷 표기 — 수치는 분석 시점 스냅샷(라이브 아님) */}
-              {c.analyzed_at && (
-                <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff", marginLeft: "auto" }}
-                  title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
-                  🗄 캐시 스냅샷 · 분석 {String(c.analyzed_at).slice(0, 10)}
-                </span>
-              )}
-            </div>
-          );
-        })()}
       </div>
     <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
@@ -3007,16 +3017,13 @@ export default async function CaseDetailPage({
                         marginTop: 4,
                       }}
                     >
-                      {lastError.at} · 아래 PhaseProgress의 "분석 재실행"
-                      또는 개별 phase 재실행 버튼으로 다시 시도하세요
+                      {lastError.at} · 아래 <b>데이터·분석 콘솔</b>을 펼쳐 개별 단계 ↻ 또는
+                      채널별 재실행으로 다시 시도하세요
                     </div>
                   </div>
                 )}
-                <PhaseProgressToggle
-                  case_id={c.id}
-                  keyStats={ks as KeyStats}
-                />
-                <div style={{ height: 14 }} />
+                {/* ★ FE-8 Stage2(v12): PhaseProgressToggle(3번째 중복 패널) 삭제 —
+                    분석 단계는 데이터·분석 콘솔 하단 한 곳으로 일원화 */}
 
                 <div id="sec-kpi" style={{ scrollMarginTop: 80 }} />
                 {/* ★ Phase 5-A: 상단 KpiStrip + 데이터 채널 + Phase Progress — phase2 없어도 데이터 채널 카드 노출 */}
@@ -3090,13 +3097,13 @@ export default async function CaseDetailPage({
                         costBreakdown={"예상 최대"}
                       />
                       </SectionBoundary>
-                      {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
-                      <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
-                      {/* ★ C5(WS4b): phase_runs 직결 신 11-phase 패널 (사용자 언어 라벨·비용·재실행) */}
-                      <PhaseRunsPanel caseId={c.id} runs={phaseRuns} />
-                      {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
+                      {/* ★ FE-8 Stage2(v12): PhaseProgressMockup(2중 패널) 삭제 —
+                          분석 단계는 콘솔 하단 phaseSlot(PhaseRunsPanel) 한 곳으로 일원화 */}
                       <DataChannelsMockup
                         case_id={c.id}
+                        phaseSlot={<PhaseRunsPanel caseId={c.id} runs={phaseRuns} />}
+                        phasesDone={phaseRuns.filter((r) => r.status === "completed").length}
+                        phasesTotal={11}
                         dataChannels={dataChannels}
                         channelDetails={(() => {
                           const tkViews = (ks.phase2?.top_creators ?? []).reduce((s, c) => s + (c.max_views ?? 0), 0);

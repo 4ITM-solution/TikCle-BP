@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { uploadBsr } from "@/app/cases/[id]/upload-actions";
+import { uploadBsr, previewBsrReplace } from "@/app/cases/[id]/upload-actions";
 import type { SkuRow } from "./AmazonSalesSection";
 
 export function BsrSection({
@@ -21,13 +21,35 @@ export function BsrSection({
     null,
   );
 
-  function uploadFor(asin: string, file: File, country?: string | null) {
+  function uploadFor(
+    asin: string,
+    file: File,
+    country?: string | null,
+    hasBsr?: boolean,
+  ) {
     setPendingAsin(`${asin}:${country ?? ""}`);
     start(async () => {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("asin", asin);
       if (country) fd.append("country", country);
+      // BE-17: 기본 = 병합(append). 기존 데이터가 있고 새 파일에 없는 날짜(stale)가 있을 때만
+      //   업로드 전 미리보기로 "기존 M일 삭제" 경고 → 사용자가 명시 확인해야 교체(삭제) 발동.
+      //   취소=병합(보존, 권장). 미리보기 실패해도 안전하게 병합으로 진행.
+      if (hasBsr) {
+        const pv = await previewBsrReplace(case_id, fd);
+        if (pv.ok && pv.stale_days > 0) {
+          const replace = window.confirm(
+            `${asin}: 이 파일에 없는 기존 ${pv.stale_days}일치 BSR이 있습니다 (기존 총 ${pv.existing_days}일).\n\n` +
+              `[확인] 교체 — 기존 ${pv.stale_days}일을 삭제하고 새 파일 기준으로 맞춥니다.\n` +
+              `[취소] 병합 — 기존을 보존하고 새 데이터만 추가합니다 (권장 · 데이터 유실 없음).`,
+          );
+          if (replace) {
+            fd.append("mode", "replace");
+            fd.append("confirm_delete", "true");
+          }
+        }
+      }
       const r = await uploadBsr(case_id, fd);
       setPendingAsin(null);
       if (!r.ok) {
@@ -98,7 +120,7 @@ export function BsrSection({
               key={slotKey}
               sku={r}
               pending={pendingAsin === slotKey && pending}
-              onPick={(file) => uploadFor(r.asin, file, r.country)}
+              onPick={(file) => uploadFor(r.asin, file, r.country, r.hasBsr)}
             />
           );
         })}
@@ -248,7 +270,7 @@ function BsrRow({
         {pending
           ? "업로드 중…"
           : sku.hasBsr
-            ? "✓ 적재됨 · 다시 클릭해 덮어쓰기"
+            ? "✓ 적재됨 · 다시 클릭해 병합 추가"
             : "CSV 업로드"}
       </span>
       <input
@@ -257,19 +279,10 @@ function BsrRow({
         style={{ display: "none" }}
         disabled={pending}
         onChange={(e) => {
+          // BE-17: 기본 병합(append)이라 파괴적 confirm 제거. 삭제가 필요한 경우(stale 존재)만
+          //   uploadFor가 미리보기 후 "기존 M일 삭제" 경고를 띄운다.
           const f = e.target.files?.[0];
-          if (f) {
-            if (
-              sku.hasBsr &&
-              !window.confirm(
-                `${sku.asin}에 이미 BSR 데이터가 있습니다.\n파일: ${f.name}\n\n기존 시계열을 모두 삭제하고 새 파일로 교체합니다. 진행할까요?`,
-              )
-            ) {
-              e.currentTarget.value = "";
-              return;
-            }
-            onPick(f);
-          }
+          if (f) onPick(f);
           e.currentTarget.value = "";
         }}
       />

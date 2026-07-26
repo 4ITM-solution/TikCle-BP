@@ -219,7 +219,7 @@ export function SectionEMockup({
 
       <div
         className="kpi-grid"
-        style={{ marginBottom: 16, gridTemplateColumns: "repeat(5, 1fr)" }}
+        style={{ marginBottom: 16, gridTemplateColumns: "repeat(6, 1fr)" }}
       >
         <div className="kpi">
           <div className="kpi-label">총 광고</div>
@@ -380,9 +380,12 @@ export function SectionEMockup({
               </div>
               <div className="ad-body">
                 {ad.body_text
-                  ? ad.body_text.length > 90
-                    ? `${ad.body_text.slice(0, 90)}…`
-                    : ad.body_text
+                  ? // ★ FE-8: 이모지(surrogate pair) 중간 절단 방지 — code point 단위 truncate
+                    //   (.slice는 UTF-16 code unit 기준이라 90 위치가 이모지 중간이면 lone surrogate → hydration mismatch)
+                    (() => {
+                      const cps = Array.from(ad.body_text);
+                      return cps.length > 90 ? `${cps.slice(0, 90).join("")}…` : ad.body_text;
+                    })()
                   : "—"}
               </div>
             </div>
@@ -425,11 +428,14 @@ export function SectionEMockup({
               </div>
             );
           })}
-          {(phase4a.other_top_domains ?? []).length > 0 && (
-            <div style={{ marginTop: 6, fontSize: 10, color: "#9ca3af" }}>
-              기타 Top: {phase4a.other_top_domains.slice(0, 3).map((d) => d.domain).join(" · ")}
-            </div>
-          )}
+          {/* ★ FE-8 Stage7(v12): 브릿지 행 안내 — 자사몰이지만 버튼이 아마존 직행(어트리뷰션)인 랜딩.
+              BE-21(버튼 목적지 판별) 전엔 '자사몰' 유지 + '버튼 확인 전' 취지의 안내만 노출 */}
+          <div style={{ marginTop: 6, fontSize: 10, color: "#9ca3af" }}>
+            브릿지 = 자사 도메인이지만 버튼이 아마존 직행(어트리뷰션 태그) — 랜딩 페이지 버튼까지 따라가 판별(버튼 확인 전)
+            {(phase4a.other_top_domains ?? []).length > 0
+              ? ` · 기타 Top: ${phase4a.other_top_domains.slice(0, 3).map((d) => d.domain).join(" · ")}`
+              : ""}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>광고 format</div>
@@ -588,6 +594,7 @@ export function SectionEMockup({
                 <th>티어</th>
                 <th style={{ textAlign: "right" }}>팔로워</th>
                 <th style={{ textAlign: "right" }}>광고 수</th>
+                <th>매칭 근거</th>
               </tr>
             </thead>
             <tbody>
@@ -604,11 +611,18 @@ export function SectionEMockup({
                     {formatFollowers(o.follower_count)}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "monospace" }}>{o.ad_count}</td>
+                  {/* ★ FE-8 Stage7(v12): 매칭 근거 — 확정(파트너십 라벨)/후보(캡션·핸들 대조) 구분.
+                      BE-30(라벨 vs 캡션 대조 분리) 전엔 현재 핸들 정규화 매칭이라 전부 '2차 가공(후보)' */}
+                  <td>
+                    <span style={{ fontSize: 10, color: "#5b21b6", background: "#f5f3ff", padding: "1px 6px", borderRadius: 3 }}>
+                      2차 가공 (후보)
+                    </span>
+                  </td>
                 </tr>
               ))}
               {seedingAdOverlap.length > 10 && (
                 <tr style={{ color: "#9ca3af" }}>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 8 }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 8 }}>
                     + {seedingAdOverlap.length - 10}명 더
                   </td>
                 </tr>
@@ -616,6 +630,9 @@ export function SectionEMockup({
             </tbody>
           </table>
         )}
+        <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 6 }}>
+          2차 가공 재사용(비라벨)도 캡션·자막 대조로 자동 포함 — 확정 검증 전은 후보로 표시
+        </div>
       </div>
     </div>
   );

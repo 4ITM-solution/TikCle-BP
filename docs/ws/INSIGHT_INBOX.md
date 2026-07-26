@@ -38,3 +38,6 @@
 - [2026-07-20] [이퀄베리 US 5f106fc6] 매출/BSR 업로드 성공 후 "통계 집계 재실행" 안내가 없어 사용자가 재집계 경로를 못 찾음 (PhaseRunsPanel 기본 접힘 + 라벨만으로 연결 안 됨) — 업로드 성공 토스트에 "통계 집계 재실행" CTA 붙이면 해결 (케이스 상세 > Amazon 카드 업로드 슬롯 → 분석 단계 패널) → **배차 FE-5**
 - [2026-07-20] [이퀄베리 US 5f106fc6] BSR 업로드가 replace 방식(새 export에 없는 날짜는 stale 삭제)인데 Keepa export는 최대 롤링 3년 창 — 히스토리가 3년 넘는 ASIN(예: B0CMC6S4BM 2023-12-31 시작, 2026-12부터 초과)은 업로드할 때마다 앞부분이 무조건 잘리는 구조. merge/append 모드 + 업로드 전 "기존 N일 중 M일 삭제" 경고 필요 (케이스 상세 > Amazon 카드 > BSR 슬롯) → **배차 BE-17 (⚠️유실 위험 — BE 레인 최우선)**
 
+
+## 2026-07-26 (ORCH — BE-21 실검증 중 발견)
+- **classifyLanding DTC 토큰 갭**: brand_keyword "Dr. Althea"가 실제 자사몰 doctoraltheaglobal.com(광고 43건)과 매치 안 됨 — 토큰에 공백·마침표 포함 + 도메인은 다른 표기. 단기 우회: 케이스 brand_keyword에 도메인 별칭 추가(예: "althea"). 근본: 토큰 정규화(비영숫자 제거 변형 병행) 또는 케이스별 dtc_domains 설정. DTC 분류는 BE-21 브릿지·phase4a-intel 랜딩 분포 양쪽의 입구라 영향 범위 있음 → 소형 BE 배차 후보
