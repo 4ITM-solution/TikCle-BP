@@ -136,6 +136,35 @@ export async function runPhase4bSample(
 
   // 6. 통계 산출
   const all = Array.from(picks.values());
+
+  // BE-27 ③: 태깅 우선순위 정렬 — 매출연결(kalodata) → 조회상위 → 저장율 이상치 → 잔여.
+  //   sample_content_ids 순서가 interpret-tag 배치 순서라, 첫 화면에 핵심 영상이 먼저 태깅됨
+  //   (선정 대상은 동일 — 순서만 변경, cluster 등 다운스트림 결과 불변).
+  try {
+    const { data: ksRow } = await supabase
+      .from("cases")
+      .select("key_stats")
+      .eq("id", case_id)
+      .single();
+    const kdUrls = new Set(
+      (
+        ((ksRow?.key_stats as { kalodata_videos_xlsx?: Array<{ video_url: string | null; revenue_usd: number | null }> } | null)
+          ?.kalodata_videos_xlsx) ?? []
+      )
+        .filter((v) => v.video_url && (v.revenue_usd ?? 0) > 0)
+        .map((v) => v.video_url as string),
+    );
+    const prio = (e: SampleEntry): number => {
+      if (e.url && kdUrls.has(e.url)) return 0;
+      if (e.picked_by === "tier_top_views") return 1;
+      if (e.picked_by === "high_save_rate") return 2;
+      return 3;
+    };
+    all.sort((a, b) => prio(a) - prio(b) || (b.views ?? 0) - (a.views ?? 0));
+  } catch {
+    // 우선순위 정렬 실패(대형 key_stats 등)는 무시 — 기존 순서로 진행.
+  }
+
   const by_tier: Record<TierBucket, number> = {
     mega: 0,
     macro: 0,

@@ -225,7 +225,10 @@ export const orchestrateAnalysis = inngest.createFunction(
     }
     await Promise.all(s1);
 
-    // ─── S2 보강 (병렬) ───
+    // ─── S2 보강 (S3 해석과 병렬 — BE-27 ①) ───
+    // enrich(Clockworks/Lemur fans·tier)는 interpret(asr→tag→cluster→sku)에 독립적이고
+    //   serve-stats만 그 결과를 쓴다 → interpret 체인과 동시에 돌려 대기시간 겹침. serve-stats 전에
+    //   둘 다 완료 보장. (interpret 체인 자체는 진짜 의존 사슬이라 순차 유지.)
     const s2: Array<Promise<unknown>> = [
       step.invoke("enrich-creators", {
         function: enrichCreators,
@@ -240,9 +243,9 @@ export const orchestrateAnalysis = inngest.createFunction(
         }),
       );
     }
-    await Promise.all(s2);
+    const enrichDone = Promise.all(s2); // 아직 await 안 함 — interpret과 병렬
 
-    // ─── S3 해석 (순차 — asr → tag → cluster → sku) ───
+    // ─── S3 해석 (순차 — asr → tag → cluster → sku, 진짜 의존 사슬) ───
     await step.invoke("interpret-asr", {
       function: interpretAsr,
       data: invokeData("interpret-asr"),
@@ -259,6 +262,9 @@ export const orchestrateAnalysis = inngest.createFunction(
       function: interpretSku,
       data: invokeData("interpret-sku"),
     });
+
+    // serve-stats는 enrich(tier)·interpret(cluster) 둘 다 필요 → 여기서 enrich 완료 보장.
+    await enrichDone;
 
     // ─── S4 서빙 집계 (WS4 뷰 전환 전까지) ───
     await step.invoke("serve-stats", {
