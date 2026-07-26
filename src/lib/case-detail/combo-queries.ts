@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normEngagement, isMeasurableEngagement } from "./engagement";
 
 /**
  * BE-31 — 조합 데이터 계층 (combo-queries). 프로토 v12 교차 뷰들이 요구하는 조인을 서버 모듈로.
@@ -53,17 +54,10 @@ export type NarrativeMember = {
   tier: TierKey;
 };
 
-// BE-23 NULL 규칙: -1(IG 미제공 sentinel)·null 정규화 후, 세 값 모두 없으면 미측정(Kalodata 유입).
-function normEng(v: number | null | undefined): number | null {
-  return v == null || v === -1 ? null : v;
-}
-function isMeasurable(
-  likes: number | null,
-  comments: number | null,
-  shares: number | null,
-): boolean {
-  return [likes, comments, shares].some((v) => v != null);
-}
+// BE-23 NULL 규칙 — 단일 소스(engagement.ts) 재사용. -1(숨김)·null은 "지표 없음", 셋 다 없으면 미측정.
+const normEng = normEngagement;
+const isMeasurable = (likes: number | null, comments: number | null, shares: number | null): boolean =>
+  isMeasurableEngagement(likes, comments, shares);
 
 function tierOf(n: number | null | undefined): TierKey {
   if (n == null) return "unknown";

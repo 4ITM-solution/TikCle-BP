@@ -1757,7 +1757,8 @@ export async function uploadKalodataVideosXlsx(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `Video xlsx ${parsed.rows.length}개 적재 (누적 ${mergedXlsx.length}) · 제품 ${uniqueProducts.size} · 크리에이터 ${uniqueHandles.length}명 · 광고 ${adVideos.length}/${parsed.rows.length}${avgRoas != null ? ` (ROAS 평균 ${avgRoas.toFixed(2)})` : ""}${periodStr}`,
+    message: `Video xlsx ${parsed.rows.length}개 적재 (누적 ${mergedXlsx.length}) · 제품 ${uniqueProducts.size} · 크리에이터 ${uniqueHandles.length}명 · 광고 ${adVideos.length}/${parsed.rows.length}${avgRoas != null ? ` (ROAS 평균 ${avgRoas.toFixed(2)})` : ""}${periodStr}` +
+      ` · ⚠ Kalodata는 조회수·매출만 제공(좋아요·댓글·공유 없음) → 반응률은 이 영상을 산식에서 제외(NULL, 0 아님) — BE-23`,
   };
 }
 
