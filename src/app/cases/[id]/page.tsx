@@ -229,6 +229,37 @@ export default async function CaseDetailPage({
   const psEnd = periodScope?.end ?? null;
   const psEndTs = psEnd ? `${psEnd}T23:59:59` : null;
 
+  // ★ BE-15/16: 기간 필터 IG membership 집합 — ig_posts.posted_at로 "기간 내 게시한 작성자"
+  //   username 집합을 1회 산출해 IG 명단 전반(top authors·tier·pool + B섹션 allIgCreators)에서
+  //   공유(BE-16: 상위 스코프로 hoist). ig_authors는 전기간 집계라 게시일이 없어 이 조인이 필요.
+  //   기간 미설정/조회 실패 시 null=무필터(무회귀·폴백, BE-15 게이트 정정 유지).
+  let igActiveUsernames: Set<string> | null = null;
+  if (isReady && (psStart || psEndTs)) {
+    igActiveUsernames = new Set<string>();
+    try {
+      const PAGE = 1000;
+      for (let off = 0; off < 100000; off += PAGE) {
+        let q = supabase
+          .from("ig_posts")
+          .select("owner_username, posted_at")
+          .eq("case_id", c.id)
+          .not("posted_at", "is", null);
+        if (psStart) q = q.gte("posted_at", psStart);
+        if (psEndTs) q = q.lte("posted_at", psEndTs);
+        const { data } = await q.range(off, off + PAGE - 1);
+        if (!data || data.length === 0) break;
+        for (const r of data)
+          if (r.owner_username) igActiveUsernames.add(r.owner_username);
+        if (data.length < PAGE) break;
+      }
+    } catch (e) {
+      console.warn("[ig] active-username set fail:", e);
+      igActiveUsernames = null; // 조회 실패 시 명단 전멸 방지 — 무필터 폴백
+    }
+  }
+  const igInPeriod = (username: string | null | undefined) =>
+    !igActiveUsernames || (!!username && igActiveUsernames.has(username));
+
   // 2. 콘텐츠 적재 상태 (brand+country 스코프)
   const { count: contentCount } = brand_id
     ? await supabase
@@ -692,36 +723,7 @@ export default async function CaseDetailPage({
   const igOwnedUsernames = igConfig?.ig_owned_usernames ?? [];
 
   if (isReady && phase4cStats && !phase4cStats.skipped_reason) {
-    // ★ BE-15: 기간 필터 IG 확장. ig_authors는 전기간 집계라 게시일이 없어 v1에서 제외됐음
-    //   → ig_posts.posted_at로 "기간 내 게시한 작성자 username 집합"을 만들어 명단(roster)을
-    //   그 집합으로 membership 필터(followers·tier 등 enrich는 보존). 기간 미설정이면 null=무필터.
-    let igActiveUsernames: Set<string> | null = null;
-    if (psStart || psEndTs) {
-      igActiveUsernames = new Set<string>();
-      try {
-        const PAGE = 1000;
-        for (let off = 0; off < 100000; off += PAGE) {
-          let q = supabase
-            .from("ig_posts")
-            .select("owner_username, posted_at")
-            .eq("case_id", c.id)
-            .not("posted_at", "is", null);
-          if (psStart) q = q.gte("posted_at", psStart);
-          if (psEndTs) q = q.lte("posted_at", psEndTs);
-          const { data } = await q.range(off, off + PAGE - 1);
-          if (!data || data.length === 0) break;
-          for (const r of data)
-            if (r.owner_username) igActiveUsernames.add(r.owner_username);
-          if (data.length < PAGE) break;
-        }
-      } catch (e) {
-        console.warn("[ig] active-username set fail:", e);
-        igActiveUsernames = null; // 조회 실패 시 빈 Set으로 명단 전멸 방지 — 무필터 폴백
-      }
-    }
-    const igInPeriod = (username: string | null | undefined) =>
-      !igActiveUsernames || (!!username && igActiveUsernames.has(username));
-
+    // ★ BE-15/16: igActiveUsernames·igInPeriod는 상위 스코프로 hoist됨(B섹션 allIgCreators와 공유).
     // 4개 fetch 모두 try/catch로 감싸서 일부 fail해도 page는 살아있게.
     try {
       // region_scope=us-only면 fetch 후 휴리스틱 필터. limit 늘려서 필터 후에도 25개 남게.
@@ -2241,7 +2243,9 @@ export default async function CaseDetailPage({
         .eq("case_id", c.id)
         .range(off, off + 999);
       if (!data || data.length === 0) break;
-      for (const a of data)
+      for (const a of data) {
+        // ★ BE-16: 기간 필터 시 "기간 내 활동 IG 작성자"만 B섹션 전체 명단에 포함(무설정=무필터).
+        if (!igInPeriod(a.username)) continue;
         list.push({
           handle: a.username,
           video_count: a.total_posts ?? 0,
@@ -2252,6 +2256,7 @@ export default async function CaseDetailPage({
           lifetime_gmv_usd: null,
           top_videos: [],
         });
+      }
       if (data.length < 1000) break;
     }
     return list;
@@ -2339,11 +2344,20 @@ export default async function CaseDetailPage({
       for (const a of data ?? []) if (a.username) igTierByUser.set(a.username, tierOf(a.followers));
     }
     // IG 월별 tier → distinct 작성자
+    // ★ BE-16: 기간 필터 시 posted_at WHERE로 기간 내 달·작성자만 집계(date-bucket이라 게시일
+    //   필터가 곧 membership과 동치 — 무설정=무필터). 이것이 없으면 기간 밖 달이 계속 노출됐음.
     const igMonthAuthors = new Map<string, Map<TK3, Set<string>>>();
     {
       let from = 0;
       for (;;) {
-        const { data } = await supabase.from("ig_posts").select("owner_username, posted_at").eq("case_id", c.id).range(from, from + 999);
+        let q = supabase
+          .from("ig_posts")
+          .select("owner_username, posted_at")
+          .eq("case_id", c.id)
+          .not("posted_at", "is", null);
+        if (psStart) q = q.gte("posted_at", psStart);
+        if (psEndTs) q = q.lte("posted_at", psEndTs);
+        const { data } = await q.range(from, from + 999);
         if (!data || data.length === 0) break;
         for (const p of data) {
           if (!p.owner_username || !p.posted_at) continue;
