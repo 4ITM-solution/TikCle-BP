@@ -77,7 +77,7 @@ export function YtBrandMonitorSection({
     {
       label: "자발 게시 배수",
       value: `${organicMultiplier.toFixed(1)}×`,
-      sub: `organic ${total - paid} / paid ${paid}`,
+      sub: `광고 미집행 ${total - paid} / 광고 집행 ${paid}`,
       hint: "유료 1건당 자발 게시 N건",
     },
     {

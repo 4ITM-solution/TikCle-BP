@@ -9,7 +9,7 @@ import type { Phase2Stats } from "@/lib/inngest/types";
  *   - organic: 녹색
  *
  * 데이터: phase2.monthly_video_counts.paid/organic 합산.
- * 채널별 ad 비중 line (TK / IG / YT): phase2.monthly_by_channel 합산.
+ * 채널별 광고 집행 비중 line (TK / IG / YT): phase2.monthly_by_channel 합산.
  *
  * NOTE: seeded(gifted) 구분은 phase2 raw에 없어 현재 paid 안 포함.
  *       데이터 모델 확장 시 분리 가능. 지금은 paid + organic 만 표시.
@@ -68,19 +68,19 @@ export function PaidSeededOrganicPanel({ phase2 }: { phase2: Phase2Stats }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: "var(--color-g500)", marginBottom: 10 }}>
-        전 채널 콘텐츠 FTC 자동 분류 (paid_signal · is_ad / promoted 기반)
+        전 채널 콘텐츠 광고 집행/미집행 자동 분류
       </div>
 
       <Row
         color="#ec4899"
-        label="ad"
+        label="광고 집행"
         count={totalPaid}
         pct={adPct}
         max={totalAll}
       />
       <Row
         color="#10b981"
-        label="organic"
+        label="광고 미집행"
         count={totalOrganic}
         pct={organicPct}
         max={totalAll}
@@ -94,7 +94,7 @@ export function PaidSeededOrganicPanel({ phase2 }: { phase2: Phase2Stats }) {
             color: "var(--color-g500)",
           }}
         >
-          채널별 ad 비중: {channelLine}
+          채널별 광고 집행 비중: {channelLine}
         </div>
       )}
     </div>
