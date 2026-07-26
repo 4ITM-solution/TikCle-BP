@@ -75,11 +75,12 @@ export async function runPhase4c(
   supabase: SupaClient,
   case_id: string,
   step?: StepLike,
+  opts?: { force?: boolean },
 ): Promise<Phase4cStats> {
   // 1. case ig_config 읽기
   const { data: c, error: cErr } = await supabase
     .from("cases")
-    .select("id, ig_config")
+    .select("id, brand_id, ig_config")
     .eq("id", case_id)
     .single();
   if (cErr || !c) throw new Error(`case fetch: ${cErr?.message}`);
@@ -93,6 +94,13 @@ export async function runPhase4c(
 
   if (hashtags.length === 0 && owned.length === 0 && seeds.length === 0) {
     return emptyStats("ig_config가 비어있음 (hashtags/owned/seeds 모두 0개)");
+  }
+
+  // BE-24: IG 수집 정책 — 브랜드 첫 케이스가 국가 무관 전량 수집, 이후 같은 브랜드 타 케이스는
+  //   형제 케이스 저장분을 재사용(재수집 0·$0). 이 케이스에 이미 ig_posts 있거나 force면 skip.
+  if (!opts?.force && (c as { brand_id?: string | null }).brand_id) {
+    const reused = await reuseSiblingIg(supabase, case_id, (c as { brand_id: string }).brand_id);
+    if (reused) return reused;
   }
 
   // 2. brand regex 컴파일 (invalid면 skip + 디버그)
@@ -437,6 +445,83 @@ type PostInsert = {
   apify_run_id: string | null;
   raw: unknown;
 };
+
+/**
+ * BE-24: 같은 브랜드 형제 케이스에 IG 저장분이 있으면 이 케이스로 복사(재수집 없이 $0).
+ *   - 이 케이스에 이미 ig_posts 있으면 null(현행 유지). 형제 없거나 데이터 0이면 null(→ 정상 스크랩).
+ *   - 복사: ig_posts(case_id 재키), ig_authors 재집계. IG는 국가 비특정이라 브랜드 단위 공유가 맞다.
+ */
+async function reuseSiblingIg(
+  supabase: SupaClient,
+  case_id: string,
+  brand_id: string,
+): Promise<Phase4cStats | null> {
+  // 이 케이스에 이미 있으면 재사용 안 함(멱등 — 스크랩 캐시 경로가 처리)
+  const { count: own } = await supabase
+    .from("ig_posts")
+    .select("ig_id", { count: "exact", head: true })
+    .eq("case_id", case_id);
+  if ((own ?? 0) > 0) return null;
+
+  // 같은 브랜드 형제 케이스 중 ig_posts 최다 보유 케이스
+  const { data: sibs } = await supabase.from("cases").select("id").eq("brand_id", brand_id).neq("id", case_id);
+  let bestSib: string | null = null;
+  let bestCount = 0;
+  for (const s of sibs ?? []) {
+    const { count } = await supabase
+      .from("ig_posts")
+      .select("ig_id", { count: "exact", head: true })
+      .eq("case_id", s.id as string);
+    if ((count ?? 0) > bestCount) {
+      bestCount = count ?? 0;
+      bestSib = s.id as string;
+    }
+  }
+  if (!bestSib || bestCount === 0) return null;
+
+  // ig_posts 복사 (case_id 재키) — 페이지네이션
+  let copied = 0;
+  for (let off = 0; off < 200000; off += 500) {
+    const { data } = await supabase
+      .from("ig_posts")
+      .select("*")
+      .eq("case_id", bestSib)
+      .range(off, off + 499);
+    if (!data || data.length === 0) break;
+    const rows = data.map((r) => {
+      const { id: _id, created_at: _c, ...rest } = r as Record<string, unknown>;
+      void _id;
+      void _c;
+      return { ...rest, case_id };
+    });
+    const { error } = await supabase.from("ig_posts").upsert(rows as never, { onConflict: "case_id,ig_id" });
+    if (error) throw new Error(`ig reuse copy: ${error.message}`);
+    copied += rows.length;
+    if (data.length < 500) break;
+  }
+
+  // ig_authors 재집계 + stats
+  await recomputeIgAuthors(supabase, case_id);
+  const authorStats = await fetchAuthorStats(supabase, case_id);
+  const { count: uniq } = await supabase
+    .from("ig_posts")
+    .select("ig_id", { count: "exact", head: true })
+    .eq("case_id", case_id);
+
+  return {
+    total_raw: copied,
+    total_unique: uniq ?? copied,
+    total_brand_matched: 0,
+    total_paid_signal: 0,
+    unique_authors: authorStats.unique,
+    top_authors_preview: authorStats.top,
+    by_source: { reused: copied },
+    runs: [],
+    cost_actual_usd: 0,
+    skipped_reason: `형제 케이스(${bestSib.slice(0, 8)}) IG ${copied}건 재사용 (BE-24, 재수집 0·$0)`,
+    computed_at: new Date().toISOString(),
+  };
+}
 
 function emptyStats(skipped_reason: string): Phase4cStats {
   return {
