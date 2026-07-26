@@ -586,6 +586,12 @@ export type UspKeywordEntry = {
   pct: number; // count / total_captions × 100
 };
 
+export type KeyMessage = {
+  message: string; // 브랜드 반복 주장 포지셔닝 문구 (예: "Salmon PDRN", "Derma Clinic")
+  rationale?: string | null; // 근거 요약 (짧게)
+  evidence_urls: string[]; // 근거 영상 URL (최대 3)
+};
+
 export type BsrInflectionVideo = {
   url: string;
   views: number;
@@ -626,6 +632,9 @@ export type Phase5Stats = {
   // USP 키워드 — 캡션 빈도 분석 (1-3 word n-grams)
   usp_keywords: UspKeywordEntry[];
   total_captions: number;
+  // BE-22: 브랜드 키 메시지 — 상투어 제거 코퍼스(캡션+overlay+ASR+products)를 LLM 1회 요약해
+  //   "브랜드가 반복 주장하는 포지셔닝 문구 3~5개 + 근거 영상 URL". usp_keywords(빈도)의 노이즈 보완.
+  key_messages?: KeyMessage[];
   // BSR 급등 시점 + 동반된 콘텐츠 분석 (Amazon 케이스만 채워짐)
   bsr_inflections?: BsrInflection[];
   computed_at: string;
