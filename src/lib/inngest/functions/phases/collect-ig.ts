@@ -66,6 +66,7 @@ export const collectIg = inngest.createFunction(
         supabase,
         case_id,
         step as unknown as StepLike,
+        { force },
       );
       phase4c = sanitizeDeep(stats) as Phase4cStats;
       logger.info("[collect-ig] done", {
