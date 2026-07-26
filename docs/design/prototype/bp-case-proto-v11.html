@@ -875,7 +875,7 @@ function sectionD(){
         if(k.rev>(e.rep.rev??0))e.rep=k; gmap.set(key,e);}
       const groups=[...gmap.values()].sort((a,b)=>(b.tt+b.amz)-(a.tt+a.amz));
       const limit=S.dSkuAll?groups.length:6;
-      panel=`<div style="font-size:11px;color:var(--g500);margin-bottom:8px">같은 제품의 채널별 리스팅을 이름 정규화로 묶어 한 행으로 — 오매칭 시 행에서 분리 가능 (배포판)</div>
+      panel=`<div style="font-size:11px;color:var(--g500);margin-bottom:8px">같은 제품 판정: 이름·용량·이미지 대조 후 확정 저장 (한국어↔영어 리스팅 포함) — 잘못 묶였으면 행에서 해제</div>
       <table class="t"><thead><tr><th>제품</th><th>채널</th><th class="r">TT샵 30d</th><th class="r">Amazon 30d</th><th class="r">합산</th><th class="r">판매</th><th class="r">BSR</th></tr></thead><tbody>
       ${groups.slice(0,limit).map(g=>`<tr><td><b>${shortSku(g.rep.name,40)}</b>${g.n>1?`<span style="margin-left:6px;font-size:9px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px">${g.n}개 리스팅 통합</span>`:""}</td>
       <td>${[...g.chs].map(c=>`<span class="ch-pill ${c==="tiktok_shop"?"pill-tk":"pill-ig"}" style="font-size:9px">${c==="tiktok_shop"?"TT샵":"Amazon"}</span>`).join("")}</td>
