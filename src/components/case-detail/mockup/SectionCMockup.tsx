@@ -74,7 +74,7 @@ export function SectionCMockup({
   /** 채널별 USP 키워드 → 매칭 영상 top3 */
   uspVideosByChannel?: Record<ChannelFilter, Record<string, Array<{ url: string; caption: string; views: number }>>>;
 }) {
-  const [tab, setTab] = useState<"narr" | "clu" | "usp" | "heat" | "tier" | "atm" | "gmvtag" | "paid">(
+  const [tab, setTab] = useState<"narr" | "keymsg" | "clu" | "usp" | "heat" | "tier" | "atm" | "gmvtag" | "paid">(
     (narrativePerf?.length ?? 0) > 0 ? "narr" : "clu",
   );
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -164,6 +164,10 @@ export function SectionCMockup({
             ★ 내러티브 성과 ({narrativePerf!.length})
           </button>
         )}
+        {/* ★ FE-8 Stage5(C, v12): 키 메시지 탭 — BE-22 미완이라 '분석 대기'+원자료 키워드 (계약) */}
+        <button className={tab === "keymsg" ? "active" : ""} onClick={() => setTab("keymsg")}>
+          키 메시지
+        </button>
         <button className={tab === "clu" ? "active" : ""} onClick={() => setTab("clu")}>
           통합 클러스터 ({metas.length})
         </button>
@@ -275,6 +279,28 @@ export function SectionCMockup({
                 </>
               );
             })()
+          )}
+        </div>
+      )}
+
+      {/* ★ FE-8 Stage5(C, v12): 키 메시지 panel — BE-22(LLM 반복 주장 추출) 미완 → 분석 대기 + 원자료 키워드(USP) */}
+      {tab === "keymsg" && (
+        <div className="panel active">
+          <div style={{ padding: 12, background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 6, fontSize: 11, color: "#92400e", marginBottom: 12 }}>
+            분석 대기 — 반복 주장 문구(키 메시지)는 캡션·자막·화면텍스트에서 LLM 1회로 추출됩니다. 아직 산출 전이라 아래는 원자료 키워드(USP)만 표시합니다.
+          </div>
+          {uspKws.length === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              원자료 키워드도 없음 — 포지셔닝 분석(serve-stats) 후 표시됩니다.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {uspKws.map((k) => (
+                <span key={k.keyword} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 12, background: "#f3f4f6", color: "#374151" }}>
+                  {k.keyword} <span style={{ color: "#9ca3af" }}>{k.count}</span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
       )}
