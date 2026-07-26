@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { TikTokEmbed } from "@/components/case-detail/TikTokEmbed";
+import { EventWindowPanel } from "@/components/case-detail/EventWindowPanel";
+import type { EventWindowResult } from "@/lib/case-detail/combo-queries";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -61,6 +63,7 @@ export function SectionAMockup({
   monthlyTierByChannel,
   hasAmazon,
   promotionEvents,
+  eventWindows,
 }: {
   phase2: Phase2Stats;
   phase3?: {
@@ -75,6 +78,8 @@ export function SectionAMockup({
   hasAmazon?: boolean;
   /** ★ A6(WS4b): 프로모션 이벤트(월별) — 차트 상단 마커. 추정 금지, 사실 확인된 날짜만(019 시드). */
   promotionEvents?: Array<{ name: string; month: string; start_date: string; importance?: number | null }>;
+  /** ★ FE-8 Stage3(A, v12): 이벤트 윈도우(전·중·후) — eventWindow(BE-31) 프리페치 결과 */
+  eventWindows?: EventWindowResult[];
 }) {
   // Hydration 안전 — SSR HTML 박힌 placeholder, mount 후 chart 렌더.
   // SVG chart 박힌 SSR/CSR 다른 결과 가능성 (어떤 컴포넌트가 #418 일으키는지 진단 어려움).
@@ -85,6 +90,7 @@ export function SectionAMockup({
   }, []);
 
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
+  const [aView, setAView] = useState<"trend" | "event">("trend");
   const [barMode, setBarMode] = useState<BarMode>("abs");
   // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
   const [show, setShow] = useState({ tier: true, ad: false, bsr: false, vc: true });
@@ -316,8 +322,15 @@ export function SectionAMockup({
       <div className="section-h">
         <span className="letter">A</span>
         <span className="title">콘텐츠 활동</span>
-        <span className="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span>
+        <span className="sub">언제 얼마나 시딩했고, 판매와 함께 움직였나</span>
       </div>
+
+      {/* ★ FE-8 Stage3(A, v12): [월간 트렌드 | 이벤트 윈도우] 탭 */}
+      <div className="sub-tabs" style={{ marginBottom: 12 }}>
+        <button className={aView === "trend" ? "active" : ""} onClick={() => setAView("trend")}>월간 트렌드</button>
+        <button className={aView === "event" ? "active" : ""} onClick={() => setAView("event")}>이벤트 윈도우 (전·중·후)</button>
+      </div>
+      {aView === "event" && <EventWindowPanel windows={eventWindows ?? []} />}
 
       <div style={{ marginBottom: 14 }}>
         <div className="ch-toggle">

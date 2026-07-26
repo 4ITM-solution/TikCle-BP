@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServer } from "@/lib/supabase/server";
+import { eventWindow } from "@/lib/case-detail/combo-queries";
 import { ExolytSection } from "@/components/case-detail/ExolytSection";
 import { BrandViewTrendsSection } from "@/components/case-detail/BrandViewTrendsSection";
 import { YoutubeSeedingSection } from "@/components/case-detail/YoutubeSeedingSection";
@@ -1877,21 +1878,32 @@ export default async function CaseDetailPage({
   // ★ A6(WS4b): 프로모션 이벤트 — case별 + 국가 프리셋(is_preset·country). A섹션 차트 마커용.
   //   월별 버킷(start_date YYYY-MM). 019 시드 적용 후 US 프리셋이 채워짐.
   const promotionEvents = await (async () => {
-    type PromoRow = { name: string; start_date: string | null; end_date: string | null; importance: number | null };
+    type PromoRow = { id: string; name: string; start_date: string | null; end_date: string | null; importance: number | null };
     const resp = await supabase
       .from("promotion_events")
-      .select("name, start_date, end_date, importance, is_preset, country, case_id")
+      .select("id, name, start_date, end_date, importance, is_preset, country, case_id")
       .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`)
       .order("start_date", { ascending: true });
     const data = resp.data as unknown as PromoRow[] | null;
     return (data ?? [])
       .filter((e) => e.start_date)
       .map((e) => ({
+        id: e.id,
         name: e.name,
         month: String(e.start_date).slice(0, 7),
         start_date: String(e.start_date),
         importance: e.importance ?? null,
       }));
+  })();
+
+  // ★ FE-8 Stage3(A, v12): 이벤트 윈도우 — eventWindow(BE-31)로 전/중/후 프리페치.
+  //   과다 쿼리 방지 위해 최대 6건. 클라이언트가 토글해 선택.
+  const eventWindows = await (async () => {
+    const picked = promotionEvents.slice(0, 6);
+    const results = await Promise.all(
+      picked.map((e) => eventWindow(supabase, c.id, e.id).catch(() => null)),
+    );
+    return results.filter((r): r is NonNullable<typeof r> => r != null);
   })();
 
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
@@ -3544,6 +3556,7 @@ export default async function CaseDetailPage({
                         monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                         promotionEvents={promotionEvents}
+                        eventWindows={eventWindows}
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
