@@ -257,6 +257,52 @@ export default async function CaseDetailPage({
   const igInPeriod = (username: string | null | undefined) =>
     !igActiveUsernames || (!!username && igActiveUsernames.has(username));
 
+  // ★ BE-32: YT 기간 활성 channel 집합도 상위 스코프로 hoist(YT 모니터 블록·B 티어분포·A 월별 공유).
+  //   yt_videos.uploaded_at로 "기간 내 업로드 channel_name" 집합. 무설정/조회실패=null(무필터 폴백).
+  let ytActiveChannels: Set<string> | null = null;
+  if (psStart || psEndTs) {
+    ytActiveChannels = new Set<string>();
+    try {
+      const PAGE = 1000;
+      for (let off = 0; off < 100000; off += PAGE) {
+        let q = supabase
+          .from("yt_videos")
+          .select("channel_name, uploaded_at")
+          .eq("case_id", c.id)
+          .not("uploaded_at", "is", null);
+        if (psStart) q = q.gte("uploaded_at", psStart);
+        if (psEndTs) q = q.lte("uploaded_at", psEndTs);
+        const { data } = await q.range(off, off + PAGE - 1);
+        if (!data || data.length === 0) break;
+        for (const r of data) if (r.channel_name) ytActiveChannels.add(r.channel_name);
+        if (data.length < PAGE) break;
+      }
+    } catch (e) {
+      console.warn("[yt] active-channel set fail:", e);
+      ytActiveChannels = null;
+    }
+  }
+  const ytInPeriod = (channel: string | null | undefined) =>
+    !ytActiveChannels || (!!channel && ytActiveChannels.has(channel));
+
+  // ★ BE-32 별건: phase4a.total_ads 캐시 stale(실 meta_ads와 불일치) + 기간 미반영. meta_ads 실집계
+  //   count(기간 활성 시 start_date 필터)로 KPI 배지를 덮는다 → 렌더되는 광고 카드 수와 일치.
+  let metaAdsLiveTotal: number | null = null;
+  if (isReady) {
+    try {
+      let q = supabase
+        .from("meta_ads")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", c.id);
+      if (psStart) q = q.gte("start_date", psStart);
+      if (psEndTs) q = q.lte("start_date", psEndTs);
+      const { count } = await q;
+      metaAdsLiveTotal = count ?? null;
+    } catch {
+      metaAdsLiveTotal = null; // 실패 시 캐시 유지(폴백)
+    }
+  }
+
   // 2. 콘텐츠 적재 상태 (brand+country 스코프)
   const { count: contentCount } = brand_id
     ? await supabase
@@ -489,34 +535,7 @@ export default async function CaseDetailPage({
   let crossPlatformMatches: CrossPlatformMatch[] = [];
 
   if (isReady && phase4dStats && !phase4dStats.skipped_reason) {
-    // ★ BE-15: 기간 필터 YT 확장. yt_channels는 전기간 집계라 게시일 없음 → yt_videos.uploaded_at로
-    //   "기간 내 업로드한 channel_name 집합"을 만들어 명단을 membership 필터(subscriber 등 enrich 보존).
-    let ytActiveChannels: Set<string> | null = null;
-    if (psStart || psEndTs) {
-      ytActiveChannels = new Set<string>();
-      try {
-        const PAGE = 1000;
-        for (let off = 0; off < 100000; off += PAGE) {
-          let q = supabase
-            .from("yt_videos")
-            .select("channel_name, uploaded_at")
-            .eq("case_id", c.id)
-            .not("uploaded_at", "is", null);
-          if (psStart) q = q.gte("uploaded_at", psStart);
-          if (psEndTs) q = q.lte("uploaded_at", psEndTs);
-          const { data } = await q.range(off, off + PAGE - 1);
-          if (!data || data.length === 0) break;
-          for (const r of data)
-            if (r.channel_name) ytActiveChannels.add(r.channel_name);
-          if (data.length < PAGE) break;
-        }
-      } catch (e) {
-        console.warn("[yt] active-channel set fail:", e);
-        ytActiveChannels = null; // 조회 실패 시 빈 Set으로 명단 전멸 방지 — 무필터 폴백
-      }
-    }
-    const ytInPeriod = (channel: string | null | undefined) =>
-      !ytActiveChannels || (!!channel && ytActiveChannels.has(channel));
+    // ★ BE-15/32: ytActiveChannels·ytInPeriod는 상위 스코프로 hoist됨(YT 모니터·B 티어분포·A 월별 공유).
 
     try {
       const { data: chRaw } = await supabase
@@ -2012,11 +2031,13 @@ export default async function CaseDetailPage({
       };
       const out: Record<"tk" | "ig" | "yt", Record<TK2, number>> = { tk: empty(), ig: empty(), yt: empty() };
       const [igAuth, ytCh] = await Promise.all([
-        supabase.from("ig_authors").select("followers").eq("case_id", c.id).limit(10000),
-        supabase.from("yt_channels").select("subscriber_count").eq("case_id", c.id).limit(10000),
+        supabase.from("ig_authors").select("username, followers").eq("case_id", c.id).limit(10000),
+        supabase.from("yt_channels").select("channel_name, subscriber_count").eq("case_id", c.id).limit(10000),
       ]);
-      for (const a of igAuth.data ?? []) out.ig[tierOf(a.followers)] += 1;
-      for (const ch of ytCh.data ?? []) out.yt[tierOf(ch.subscriber_count)] += 1;
+      // ★ BE-32 ⑤: 기간 필터 시 IG/YT 티어분포도 기간 내 활동 작성자/채널만(membership). 무설정=무필터.
+      for (const a of igAuth.data ?? []) if (igInPeriod(a.username)) out.ig[tierOf(a.followers)] += 1;
+      for (const ch of ytCh.data ?? []) if (ytInPeriod(ch.channel_name)) out.yt[tierOf(ch.subscriber_count)] += 1;
+      // tk는 phase3.tier_distribution 캐시(전기간). 기간 설정 시 allTkCreators로 아래에서 override(BE-32).
       const tkTd = (c.key_stats as { phase3?: { tier_distribution?: Record<TK2, number> } })?.phase3?.tier_distribution;
       if (tkTd) out.tk = { ...empty(), ...tkTd };
       return out;
@@ -2117,6 +2138,18 @@ export default async function CaseDetailPage({
       .map(([language, count]) => ({ language, count }));
     return { allTkCreators: list, tkLanguageDist };
   })();
+
+  // ★ BE-32 ⑤: 기간 필터 시 tierDistByChannel.tk를 allTkCreators(기간 내 활동 인플, uploaded_at 필터됨)의
+  //   follower_count로 재계산해 phase3 전기간 캐시를 덮는다(B 티어분포 막대가 기간에 반응). 무설정=캐시 유지.
+  if ((psStart || psEndTs) && allTkCreators.length > 0) {
+    const tkTier: Record<"mega" | "macro" | "mid" | "micro" | "nano" | "sub-nano" | "unknown", number> = {
+      mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0,
+    };
+    const tOf = (n: number | null): keyof typeof tkTier =>
+      n == null ? "unknown" : n >= 1_000_000 ? "mega" : n >= 500_000 ? "macro" : n >= 100_000 ? "mid" : n >= 10_000 ? "micro" : n >= 1_000 ? "nano" : "sub-nano";
+    for (const cr of allTkCreators) tkTier[tOf(cr.follower_count)] += 1;
+    (tierDistByChannel as { tk: typeof tkTier }).tk = tkTier;
+  }
 
   // ★ TK 월별 영상수 라이브 집계 — phase2.monthly_video_counts/total_contents는 분석 시점
   //   스냅샷이라 이후 스크랩분(엑솔릿/카로 추가)을 누락하는 stale undercount.
@@ -2331,7 +2364,15 @@ export default async function CaseDetailPage({
     const tierOf = (n: number | null | undefined): TK3 =>
       n == null ? "unknown" : n >= 1_000_000 ? "mega" : n >= 500_000 ? "macro" : n >= 100_000 ? "mid" : n >= 10_000 ? "micro" : n >= 1_000 ? "nano" : "sub-nano";
     const emptyTd = (): Record<TK3, number> => ({ mega: 0, macro: 0, mid: 0, micro: 0, nano: 0, "sub-nano": 0, unknown: 0 });
-    const tk = ((keyStats.phase3 as { tier_dist_by_month?: Record<string, Record<TK3, number>> } | undefined)?.tier_dist_by_month) ?? {};
+    const tkRaw = ((keyStats.phase3 as { tier_dist_by_month?: Record<string, Record<TK3, number>> } | undefined)?.tier_dist_by_month) ?? {};
+    // ★ BE-32 ④: TK 월별 티어는 phase3 전기간 캐시라, 기간 필터 시 기간 밖 달을 잘라낸다(스택 차트가
+    //   4월 이전 달에 값이 남던 버그). 월 단위라 posted_at 재계산 대신 캐시를 월키로 필터(무설정=전체).
+    const psM = psStart ? psStart.slice(0, 7) : null;
+    const peM = psEndTs ? psEndTs.slice(0, 7) : null;
+    const tk =
+      psM || peM
+        ? Object.fromEntries(Object.entries(tkRaw).filter(([mo]) => (!psM || mo >= psM) && (!peM || mo <= peM)))
+        : tkRaw;
     if (!isReady) return { all: tk, tk, ig: {}, yt: {} as Record<string, Record<TK3, number>> };
 
     // IG 작성자 → tier
@@ -2506,8 +2547,9 @@ export default async function CaseDetailPage({
       channelStats.tiktok_video = n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
     }
   }
-  if (dataChannels.includes("meta_ads") && ksForStrip.phase4a?.total_ads) {
-    channelStats.meta_ads = `${ksForStrip.phase4a.total_ads}`;
+  if (dataChannels.includes("meta_ads") && (metaAdsLiveTotal ?? ksForStrip.phase4a?.total_ads)) {
+    // BE-32 별건: 캐시 대신 meta_ads 실집계 count(기간 반영). 없으면 캐시 폴백.
+    channelStats.meta_ads = `${metaAdsLiveTotal ?? ksForStrip.phase4a?.total_ads}`;
   }
   if (dataChannels.includes("instagram") && ksForStrip.phase4c?.total_posts) {
     channelStats.instagram = `${ksForStrip.phase4c.total_posts}`;
@@ -2939,6 +2981,10 @@ export default async function CaseDetailPage({
                 account_type_filter?: string | null;
               } | null;
             };
+            // ★ BE-32 별건: phase4a.total_ads 캐시 stale → meta_ads 실집계 count로 override(배지=카드 일치).
+            if (ks.phase4a && metaAdsLiveTotal != null) {
+              ks.phase4a = { ...ks.phase4a, total_ads: metaAdsLiveTotal };
+            }
             // ★ phase2 라이브 패치 — total_contents/monthly_video_counts/monthly_by_channel.tk를
             //   contents 실집계로 덮어 stale undercount 제거 (Section A/C·KPI 일관). live가 더 클 때만.
             if (
@@ -3525,9 +3571,10 @@ export default async function CaseDetailPage({
                       <SectionConclusion text={conclusions.A} />
                       <SectionAMockup
                         phase2={
-                          // phase2.bsr_series 가 비었지만 sales_snapshot BSR(bsrSkus)은 있는 경우
-                          // (TT Shop 케이스 + Amazon 제품) → bsrSkus 로 BSR 라인 채워줌.
-                          ks.phase2 && !(ks.phase2.bsr_series?.length) && bsrSkus.length > 0
+                          // phase2.bsr_series 가 비었거나(TT Shop+Amazon) **기간 필터가 활성이면**(BE-32 ⑦:
+                          // phase2.bsr_series는 전기간 캐시라 미반영 → 기간 필터된 bsrSkus로 대체) sales_snapshot
+                          // 기반 bsrSkus(psStart/psEndTs 적용됨)로 BSR 라인을 그린다.
+                          ks.phase2 && bsrSkus.length > 0 && (!(ks.phase2.bsr_series?.length) || psStart || psEndTs)
                             ? {
                                 ...ks.phase2,
                                 bsr_series: bsrSkus.map((s) => ({
