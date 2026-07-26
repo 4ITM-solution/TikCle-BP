@@ -34,7 +34,37 @@ export type Phase4aVisionBatchStats = {
   tokens_input: number;
   tokens_output: number;
   skipped_reason?: string;
+  // BE-19: 실패 원인 구분 (ANALYST 진단용). expired=썸네일 만료/불가(영구, 마킹됨),
+  //   ratelimit=레이트리밋/쿼터(일시, 재시도), other=기타(일시).
+  vision_failed_expired?: number;
+  vision_failed_ratelimit?: number;
+  vision_failed_other?: number;
 };
+
+// BE-19: vision 실패 분류. 만료(영구)로 오분류하면 재시도 가능한 광고를 영구 유실하므로
+//   "expired"는 이미지 URL fetch 실패가 확실할 때만 (보수적). 나머지는 재시도로 남긴다.
+type VisionFailKind = "expired" | "ratelimit" | "other";
+function classifyVisionError(reason: unknown): VisionFailKind {
+  const e = reason as { status?: number; message?: string } | undefined;
+  const status = typeof e?.status === "number" ? e.status : 0;
+  const msg = (e?.message ?? String(reason ?? "")).toLowerCase();
+  if (
+    status === 429 ||
+    status === 529 ||
+    /rate.?limit|overloaded|too many requests|quota|credit balance/.test(msg)
+  ) {
+    return "ratelimit";
+  }
+  // 썸네일 URL을 못 가져온 경우만 영구(만료). Anthropic이 image URL을 fetch하다 실패한 신호.
+  if (
+    /image|url|fetch|download|media|could not (load|process|fetch)|failed to (load|fetch)|not (found|accessible)|forbidden|403|404/.test(
+      msg,
+    )
+  ) {
+    return "expired";
+  }
+  return "other";
+}
 
 /** thumbnail+body 기반 광고 태깅 입력 해시. */
 function adInputHash(thumbnail_url: string, body_text: string | null): string {
@@ -129,13 +159,40 @@ export async function runPhase4aVisionBatch(
     return { ...base, skipped_reason: "ANTHROPIC_API_KEY 미설정" };
   }
 
-  const { data: rows, error } = await supabase
-    .from("meta_ads")
-    .select("id, thumbnail_url, body_text, format, creator_page_name")
-    .eq("case_id", case_id)
-    .is("ad_intel", null)
-    .not("thumbnail_url", "is", null)
-    .limit(limit);
+  // BE-19: 영구 실패(tag_failed_reason 마킹)는 재시도 풀에서 제외. 컬럼 미적용(마이그레이션 022 전)
+  //   이면 그 필터가 에러나므로 필터 없이 재조회(호환). = 적용 후 필터 효력 발생.
+  const selectCols = "id, thumbnail_url, body_text, format, creator_page_name";
+  let rows: Array<{
+    id: string;
+    thumbnail_url: string | null;
+    body_text: string | null;
+    format: string | null;
+    creator_page_name: string | null;
+  }> | null = null;
+  let error: { message: string } | null = null;
+  {
+    const r = await supabase
+      .from("meta_ads")
+      .select(selectCols)
+      .eq("case_id", case_id)
+      .is("ad_intel", null)
+      .not("thumbnail_url", "is", null)
+      .is("tag_failed_reason", null)
+      .limit(limit);
+    rows = r.data as typeof rows;
+    error = r.error;
+    if (error && /tag_failed_reason/i.test(error.message)) {
+      const r2 = await supabase
+        .from("meta_ads")
+        .select(selectCols)
+        .eq("case_id", case_id)
+        .is("ad_intel", null)
+        .not("thumbnail_url", "is", null)
+        .limit(limit);
+      rows = r2.data as typeof rows;
+      error = r2.error;
+    }
+  }
   if (error) return { ...base, skipped_reason: `fetch: ${error.message}` };
   const ads = (rows ?? []) as Array<{
     id: string;
@@ -149,10 +206,22 @@ export async function runPhase4aVisionBatch(
   let vision_tagged = 0;
   let vision_failed = 0;
   let vision_reused = 0;
+  let failExpired = 0; // BE-19: 만료(영구) 실패
+  let failRatelimit = 0;
+  let failOther = 0;
   let tIn = 0,
     tOut = 0,
     tCacheR = 0,
     tCacheW = 0;
+
+  // BE-19: 영구 실패(만료) 마킹 — best-effort. 컬럼 미적용(마이그레이션 022 전)이면 error 무시
+  //   (마킹 안 돼 재시도 풀에 남지만 크래시 없음). 적용 후엔 재시도 풀에서 제외 → 재과금·cascade 차단 해소.
+  const markFailedPermanent = async (adId: string): Promise<void> => {
+    await supabase
+      .from("meta_ads")
+      .update({ tag_failed_reason: "thumbnail_expired" } as never)
+      .eq("id", adId);
+  };
 
   // ── 0. 태깅 입력 해시 + 재사용 맵 (WS3 §3: 동일 입력 재태깅 방지) ──
   const hashById = new Map<string, string>();
@@ -221,14 +290,26 @@ export async function runPhase4aVisionBatch(
       const group = [ad, ...(sharersByHash.get(h) ?? [])];
       const res = results[j];
       if (res?.status !== "fulfilled" || !res.value.intel) {
-        // 실패는 null로 남김(재시도 가능). sentinel 마킹하면 transient 실패가
-        // 영구 실패가 됨(쿼터/레이트리밋 등). run-analysis 루프가 진전 0이면 break.
+        // BE-19: 실패 원인 분류. transient(레이트리밋/기타)는 null로 남겨 재시도.
+        //   만료(썸네일 URL fetch 불가)만 영구로 판정해 tag_failed_reason 마킹 → 재시도 풀에서
+        //   제외(무한 재과금·cascade 영구 차단 해소). fulfilled인데 intel null = parse 실패 → other(재시도).
         vision_failed += group.length;
         if (res?.status === "fulfilled") {
           tIn += res.value.tokens_input;
           tOut += res.value.tokens_output;
           tCacheR += res.value.tokens_cache_read;
           tCacheW += res.value.tokens_cache_write;
+          failOther += group.length; // 응답은 왔으나 파싱 실패 — 일시 취급
+        } else {
+          const kind = classifyVisionError(res?.reason);
+          if (kind === "expired") {
+            failExpired += group.length;
+            for (const gAd of group) await markFailedPermanent(gAd.id);
+          } else if (kind === "ratelimit") {
+            failRatelimit += group.length;
+          } else {
+            failOther += group.length;
+          }
         }
         continue;
       }
@@ -248,19 +329,34 @@ export async function runPhase4aVisionBatch(
     }
   }
 
-  // 남은 미태깅 수
-  const { count: remaining } = await supabase
-    .from("meta_ads")
-    .select("id", { count: "exact", head: true })
-    .eq("case_id", case_id)
-    .is("ad_intel", null)
-    .not("thumbnail_url", "is", null);
+  // 남은 미태깅 수 — 영구 실패(마킹)는 제외(재시도 풀 아님). 컬럼 미적용이면 필터 없이(호환).
+  let remaining = 0;
+  {
+    const r = await supabase
+      .from("meta_ads")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", case_id)
+      .is("ad_intel", null)
+      .not("thumbnail_url", "is", null)
+      .is("tag_failed_reason", null);
+    if (r.error && /tag_failed_reason/i.test(r.error.message)) {
+      const r2 = await supabase
+        .from("meta_ads")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", case_id)
+        .is("ad_intel", null)
+        .not("thumbnail_url", "is", null);
+      remaining = r2.count ?? 0;
+    } else {
+      remaining = r.count ?? 0;
+    }
+  }
 
   return {
     vision_tagged,
     vision_failed,
     vision_reused,
-    remaining: remaining ?? 0,
+    remaining,
     cost_usd: calcVisionCost({
       tokens_input: tIn,
       tokens_output: tOut,
@@ -269,5 +365,8 @@ export async function runPhase4aVisionBatch(
     }),
     tokens_input: tIn,
     tokens_output: tOut,
+    vision_failed_expired: failExpired,
+    vision_failed_ratelimit: failRatelimit,
+    vision_failed_other: failOther,
   };
 }
