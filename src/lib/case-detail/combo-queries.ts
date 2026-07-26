@@ -290,7 +290,9 @@ export async function loadNarrativeMembers(
       metaName: metaId ? metaNameById.get(metaId) ?? metaId : "(no meta)",
       channel: "ig",
       url: (s.url as string) ?? "",
-      views: ((s.video_view_count as number) ?? (s.video_play_count as number) ?? (s.likes_count as number) ?? 0),
+      // BE-26 ③: IG는 영상만 조회수 제공 — 이미지·캐러셀은 조회수 개념 없음. likes_count를 조회수로
+      //   폴백하지 않는다(좋아요를 뷰로 오계산 방지). 영상 뷰 없으면 0 → 뷰기반 지표에서 자연 제외.
+      views: ((s.video_view_count as number) ?? (s.video_play_count as number) ?? 0),
       caption: (s.caption as string | null) ?? null,
       is_ad: !!s.paid_signal,
       month: s.posted_at ? String(s.posted_at).slice(0, 7) : null,
