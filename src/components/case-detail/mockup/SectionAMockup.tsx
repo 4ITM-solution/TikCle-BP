@@ -342,33 +342,17 @@ export function SectionAMockup({
         </div>
       </div>
 
+      {/* ★ FE-8 Stage3(A, v12): KPI 축소 — 광고 집행 비중 / 광고 미집행 2개만 (프로토 A 1:1) */}
       <div className="kpi-grid" style={{ marginBottom: 16 }}>
-        <div className="kpi">
-          <div className="kpi-label">총 영상</div>
-          <div className="kpi-val">{totalForMode.toLocaleString()}</div>
-          <div className="kpi-sub">
-            TK {fmtView(tkVids)} · IG {fmtView(igVids)} · YT {ytVids > 0 ? fmtView(ytVids) : 0}
-          </div>
-        </div>
         <div className="kpi">
           <div className="kpi-label" title="스파크애즈 등 유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style={{ color: "#9ca3af", fontWeight: 400 }}>(스파크애즈)</span></div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalPaid / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalPaid.toLocaleString()}건</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">organic</div>
+          <div className="kpi-label">광고 미집행</div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalOrganic / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalOrganic.toLocaleString()}건</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">gifted (시딩)</div>
-          <div className="kpi-val">-</div>
-          <div className="kpi-sub">—</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">총 view</div>
-          <div className="kpi-val">{fmtView(totalView)}</div>
-          <div className="kpi-sub">top {(phase2.top_creators ?? []).length}명 합계</div>
         </div>
       </div>
 
