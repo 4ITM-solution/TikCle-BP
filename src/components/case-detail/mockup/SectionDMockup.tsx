@@ -30,7 +30,8 @@ import { BsrTrendChart, type WeeklyViewPoint } from "../BsrTrendChart";
  *     Affiliate code conversion / 영상별 매출 / Live 매출
  */
 
-type Tab = "sku" | "rank" | "matrix" | "affiliate" | "vid" | "live" | "bsr";
+// ★ FE-8 Stage6(v12): SKU 매출 표는 탭 밖 '통합 표 상시'로 이동. 탭은 상세 7종(TT샵 분해 포함).
+type Tab = "vid" | "live" | "rank" | "matrix" | "bsr" | "ttdecomp" | "affiliate";
 
 export function SectionDMockup({
   phase2,
@@ -152,7 +153,7 @@ export function SectionDMockup({
       </div>
     );
   };
-  const [tab, setTab] = useState<Tab>("sku");
+  const [tab, setTab] = useState<Tab>("vid");
   const [selectedSku, setSelectedSku] = useState<string>("all");
   // ★ 기간별 브랜드 KPI — 가장 긴 기간(span 최대)을 기본 "전체" 뷰로, 짧은 기간은 드릴다운.
   const brandPeriodsObj = kalodataBrandPeriods ?? {};
@@ -832,36 +833,9 @@ export function SectionDMockup({
         </>
       )}
 
-      {/* sub-tabs */}
-      <div className="sub-tabs" style={{ marginTop: 20 }}>
-        <button className={tab === "sku" ? "active" : ""} onClick={() => setTab("sku")}>
-          SKU 매출 표 ({skus.length})
-        </button>
-        <button className={tab === "rank" ? "active" : ""} onClick={() => setTab("rank")}>
-          ★ 카테고리 ranking 시계열
-        </button>
-        <button className={tab === "matrix" ? "active" : ""} onClick={() => setTab("matrix")}>
-          ★ Creator × SKU GMV matrix
-        </button>
-        <button
-          className={tab === "affiliate" ? "active" : ""}
-          onClick={() => setTab("affiliate")}
-        >
-          ★ Affiliate code conversion
-        </button>
-        <button className={tab === "vid" ? "active" : ""} onClick={() => setTab("vid")}>
-          영상별 매출 (Kalodata)
-        </button>
-        <button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>
-          Live 매출 (Kalodata)
-        </button>
-        <button className={tab === "bsr" ? "active" : ""} onClick={() => setTab("bsr")}>
-          ★ BSR 상승 시점 (옛 MD)
-        </button>
-      </div>
-
-      {/* SKU 매출 표 panel — mockup 컬럼 확장: 카테고리/출시/가격/동반 영상 */}
-      {tab === "sku" && (
+      {/* ★ FE-8 Stage6(v12): SKU 매출 표 — 탭 밖 '통합 표 상시'(항상 표시). 아래 SKU 필터·채널 토글 종속 */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#1f2937", margin: "14px 0 6px" }}>SKU 매출 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 30일 기준</span></div>
+      {(
         <div className="panel active">
           <table>
             <thead>
@@ -966,6 +940,73 @@ export function SectionDMockup({
                 {skuShowAll ? `▲ 5개만 보기` : `▼ 전체 ${groupedSkus.length}개 제품 보기 (현재 5개)`}
               </button>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ★ FE-8 Stage6(v12): 상세 탭 7개 (v12 순서 · TT샵 분해 포함). SKU 표는 위에 상시 노출 */}
+      <div className="sub-tabs" style={{ marginTop: 20 }}>
+        <button className={tab === "vid" ? "active" : ""} onClick={() => setTab("vid")}>
+          영상별 매출
+        </button>
+        <button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>
+          라이브별 매출
+        </button>
+        <button className={tab === "rank" ? "active" : ""} onClick={() => setTab("rank")}>
+          카테고리 순위 추이
+        </button>
+        <button className={tab === "matrix" ? "active" : ""} onClick={() => setTab("matrix")}>
+          크리에이터 × SKU
+        </button>
+        <button className={tab === "bsr" ? "active" : ""} onClick={() => setTab("bsr")}>
+          BSR 상승 시점
+        </button>
+        <button className={tab === "ttdecomp" ? "active" : ""} onClick={() => setTab("ttdecomp")}>
+          TT샵 분해
+        </button>
+        <button className={tab === "affiliate" ? "active" : ""} onClick={() => setTab("affiliate")}>
+          할인코드
+        </button>
+      </div>
+
+      {/* ★ FE-8 Stage6(v12): TT샵 분해 panel — 라이브/영상 매출 + 크리에이터 포맷 분해 */}
+      {tab === "ttdecomp" && (
+        <div className="panel active">
+          {!liveVideoStats ? (
+            <div style={{ padding: 16, background: "#fef3c7", border: "1px dashed #fbbf24", borderRadius: 6, fontSize: 11, color: "#92400e" }}>
+              TT샵 분해 데이터 없음 — Kalodata 크리에이터 xlsx 업로드 시 라이브/영상 매출·크리에이터 포맷 분해가 표시됩니다.
+            </div>
+          ) : (
+            (() => {
+              const lv = liveVideoStats;
+              const total = lv.liveGmv + lv.videoGmv + (lv.productCardGmv ?? 0);
+              const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+              const fmt = (n: number) =>
+                n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${n}`;
+              const rows: Array<{ label: string; val: number; color: string }> = [
+                { label: "🔴 라이브 매출", val: lv.liveGmv, color: "#ef4444" },
+                { label: "🎬 영상 매출", val: lv.videoGmv, color: "#3b82f6" },
+                ...(lv.productCardGmv ? [{ label: "🛍 상품카드 매출", val: lv.productCardGmv, color: "#06b6d4" }] : []),
+              ];
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                    TT샵 GMV를 라이브/영상/상품카드 출처로 분해 (Kalodata 크리에이터 기준)
+                  </div>
+                  {rows.map((r) => (
+                    <div key={r.label} className="dist-row">
+                      <span>{r.label}</span>
+                      <div className="dist-bar"><div className="dist-fill" style={{ width: `${pct(r.val)}%`, background: r.color }} /></div>
+                      <span style={{ textAlign: "right", fontFamily: "monospace" }}>{fmt(r.val)}</span>
+                      <span style={{ textAlign: "right", color: "#9ca3af" }}>{pct(r.val)}%</span>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 10, fontSize: 11, color: "#374151" }}>
+                    크리에이터 포맷: <b style={{ color: "#ef4444" }}>라이브 전문 {lv.liveCount}</b> · <b style={{ color: "#3b82f6" }}>영상 전문 {lv.videoCount}</b> · 혼합 {lv.mixedCount}
+                  </div>
+                </>
+              );
+            })()
           )}
         </div>
       )}
