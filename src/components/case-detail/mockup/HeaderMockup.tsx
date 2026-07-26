@@ -40,22 +40,21 @@ const ALL_CHANNELS: DataChannel[] = [
 export function CaseStatusStripMockup({
   brand,
   country,
-  channel,
   status,
   revenueTier,
-  dataChannels,
-  channelStats,
   analyzedAt,
   actions,
   adoption,
 }: {
   brand: string;
   country: string;
-  channel: string;
+  /** v12: 스트립에서 미사용(콘솔로 이관)이나 호출부 계약 유지 */
+  channel?: string;
   status: string;
   revenueTier?: string | null;
-  dataChannels: DataChannel[];
-  channelStats: Partial<Record<DataChannel, string>>;
+  /** v12: 채널 dot 삭제 — 호출부 계약 유지용(미사용) */
+  dataChannels?: DataChannel[];
+  channelStats?: Partial<Record<DataChannel, string>>;
   analyzedAt: string | null;
   /** 우측 actions (CSV / tier 수정 / region toggle / phase 재실행 / 분석 시작 / 삭제) */
   actions?: React.ReactNode;
@@ -68,7 +67,6 @@ export function CaseStatusStripMockup({
     monitoringReady: boolean;
   };
 }) {
-  const isActive = (c: DataChannel) => dataChannels.includes(c);
   return (
     <div
       className="status-strip"
@@ -101,35 +99,26 @@ export function CaseStatusStripMockup({
                   background: col.bg, color: col.fg, border: `1px solid ${col.border}`,
                 }}
               >
-                {adoption.verdict} · {adoption.filledCount}/{adoption.total}
+                {adoption.verdict} {adoption.filledCount}/{adoption.total}
               </span>
             );
           })()}
           {revenueTier && (
-            <span style={{ fontSize: 11, color: "#9ca3af" }}>매출 tier: {revenueTier}</span>
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>tier {revenueTier}</span>
           )}
+          {/* v12: 채널 dot 행 삭제(콘솔·KPI와 중복). country·status·분석일을 스트립 내 인라인으로 */}
+          <div className="strip-divider" style={{ background: "#374151" }} />
+          <span style={{ fontSize: 11, color: "#9ca3af" }}>
+            {country} · {status}
+            {analyzedAt ? ` · 분석 ${fmtKstDateTime(analyzedAt)}` : ""}
+          </span>
         </div>
-        <div className="strip-divider" style={{ background: "#374151" }} />
-        {ALL_CHANNELS.map((c) => (
-          <div key={c} className="strip-channel" style={{ color: isActive(c) ? "#e5e7eb" : "#6b7280" }}>
-            <span className={`dot ${isActive(c) ? "dot-ok" : "dot-off"}`} />
-            {DATA_CHANNEL_ICONS[c]} {DATA_CHANNEL_LABELS[c]}
-            {channelStats[c] && (
-              <span className="ch-count" style={{ color: "white" }}> {channelStats[c]}</span>
-            )}
-          </div>
-        ))}
         {actions && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
             {actions}
           </div>
         )}
       </div>
-      {analyzedAt && (
-        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4, paddingLeft: 0 }}>
-          {country} · {status} · 분석 {fmtKstDateTime(analyzedAt)}
-        </div>
-      )}
     </div>
   );
 }

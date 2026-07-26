@@ -30,7 +30,6 @@ import { buildSectionConclusions } from "@/lib/case-detail/section-conclusions";
 import { IntakeWizard } from "@/components/case-detail/IntakeWizard";
 import { buildIntakeChecklist } from "@/lib/case-detail/intake-checklist";
 import { PhaseRunsPanel } from "@/components/case-detail/PhaseRunsPanel";
-import { CompletenessGauge } from "@/components/case-detail/CompletenessGauge";
 import { FreshnessBadge, daysSince } from "@/components/case-detail/FreshnessBadge";
 import { SectionDMockup } from "@/components/case-detail/mockup/SectionDMockup";
 import {
@@ -2561,9 +2560,8 @@ export default async function CaseDetailPage({
             />
           }
         />
-        {/* ★ B1(WS4b): 완결성 게이지 헤더 — 6축 + 커머스/모니터링 ready 구분 */}
-        <CompletenessGauge c={caseCompleteness} />
-        {/* ★ 분석 기간 필터 행 — 라이브 집계 WHERE 재적용 (유료 재실행 X) */}
+        {/* ★ FE-8 Stage1(v12): 완결성 게이지 행 삭제(채택 배지·툴팁으로 흡수) +
+            분석 기간 행 + 최신성/스냅샷 행을 유틸 행 1개로 통합 (기간 좌 · 최신성/스냅샷 우) */}
         <div
           style={{
             display: "flex",
@@ -2583,35 +2581,35 @@ export default async function CaseDetailPage({
               클러스터 정의문·USP·매출 30d 스냅샷은 전 기간 기준
             </span>
           )}
+          {/* 우측: 최신성 배지 + 캐시 스냅샷 (구 별도 행 → 유틸 행에 흡수) */}
+          {(() => {
+            const now = new Date();
+            const sources: Array<{ label: string; key: string }> = [
+              { label: "TikTok", key: "tiktok_video" },
+              { label: "광고", key: "meta_ads" },
+              { label: "IG", key: "instagram" },
+              { label: "YT", key: "youtube" },
+            ];
+            const present = sources.filter((s) => dataRanges[s.key]?.max);
+            return (
+              <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                {present.length > 0 && (
+                  <span style={{ fontSize: 10, color: "#9ca3af" }}>최신성</span>
+                )}
+                {present.map((s) => {
+                  const mx = dataRanges[s.key]?.max ?? null;
+                  return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
+                })}
+                {c.analyzed_at && (
+                  <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff" }}
+                    title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
+                    🗄 스냅샷 {String(c.analyzed_at).slice(5, 10)}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
         </div>
-        {/* ★ B4(WS4b): freshness 배지 — source별 최신성(경과일) */}
-        {(() => {
-          const now = new Date();
-          const sources: Array<{ label: string; key: string }> = [
-            { label: "TikTok", key: "tiktok_video" },
-            { label: "광고", key: "meta_ads" },
-            { label: "IG", key: "instagram" },
-            { label: "YT", key: "youtube" },
-          ];
-          const present = sources.filter((s) => dataRanges[s.key]?.max);
-          if (present.length === 0) return null;
-          return (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #e5e7eb" }}>
-              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>데이터 최신성:</span>
-              {present.map((s) => {
-                const mx = dataRanges[s.key]?.max ?? null;
-                return <FreshnessBadge key={s.key} label={s.label} days={daysSince(mx, now)} maxDate={mx} />;
-              })}
-              {/* ★ B5(WS4b): 캐시/스냅샷 표기 — 수치는 분석 시점 스냅샷(라이브 아님) */}
-              {c.analyzed_at && (
-                <span style={{ fontSize: 10, color: "#6b7280", padding: "2px 8px", borderRadius: 9, background: "#eef2ff", marginLeft: "auto" }}
-                  title="화면 수치는 분석 시점의 캐시 스냅샷입니다. 최신 원천과 다를 수 있으며, 추정치는 ~ 로 표기됩니다.">
-                  🗄 캐시 스냅샷 · 분석 {String(c.analyzed_at).slice(0, 10)}
-                </span>
-              )}
-            </div>
-          );
-        })()}
       </div>
     <div style={{ padding: "24px 32px", maxWidth: 1680 }}>
       <nav className="breadcrumb">
