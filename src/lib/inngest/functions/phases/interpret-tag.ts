@@ -81,6 +81,9 @@ export const interpretTag = inngest.createFunction(
     let adCost = 0;
     let adTagged = 0;
     let adReused = 0;
+    let adFailExpired = 0; // BE-19: 만료(영구) 실패 누적
+    let adFailRatelimit = 0;
+    let adFailOther = 0;
     for (let i = 0; i < adBatches; i += 1) {
       const r = await step.run(`ad-vision-${i}`, async () => {
         const v = await runPhase4aVisionBatch(
@@ -92,6 +95,8 @@ export const interpretTag = inngest.createFunction(
           tagged: v.vision_tagged,
           reused: v.vision_reused,
           failed: v.vision_failed,
+          failed_expired: v.vision_failed_expired,
+          failed_ratelimit: v.vision_failed_ratelimit,
           remaining: v.remaining,
           cost: v.cost_usd,
           skipped: v.skipped_reason,
@@ -101,6 +106,9 @@ export const interpretTag = inngest.createFunction(
       adCost += r.cost_usd ?? 0;
       adTagged += r.vision_tagged ?? 0;
       adReused += r.vision_reused ?? 0;
+      adFailExpired += r.vision_failed_expired ?? 0;
+      adFailRatelimit += r.vision_failed_ratelimit ?? 0;
+      adFailOther += r.vision_failed_other ?? 0;
       if (r.skipped_reason) break;
       if (r.remaining === 0) break;
     }
@@ -193,6 +201,11 @@ export const interpretTag = inngest.createFunction(
           ad_tagged: adTagged,
           ad_reused: adReused,
           ad_vision_remaining: adRemaining,
+          // BE-19: 실패 원인 구분 노출 (ANALYST 진단: 만료 vs 레이트리밋). expired는 영구 마킹돼
+          //   remaining에서 빠짐 → 재과금·cascade 차단 해소.
+          ad_failed_expired: adFailExpired,
+          ad_failed_ratelimit: adFailRatelimit,
+          ad_failed_other: adFailOther,
           video_with_tags: phase4bVision.total_with_tags,
           video_reused: phase4bVision.total_reused ?? 0,
           video_vision_failed: videoFailed,
@@ -224,15 +237,31 @@ async function countUntaggedAds(
   supabase: SupaClient,
   case_id: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  // BE-19: 영구 실패(만료 마킹)는 재시도 대상 아님 → remaining에서 제외해야 interpret-tag가
+  //   partial에서 벗어나 cascade가 풀림. 컬럼 미적용(마이그레이션 022 전)이면 필터 없이(호환).
+  const r = await supabase
     .from("meta_ads")
     .select("id", { count: "exact", head: true })
     .eq("case_id", case_id)
     .is("ad_intel", null)
-    .not("thumbnail_url", "is", null);
-  if (error) {
-    console.warn(`[interpret-tag] count 실패(0 처리): ${error.message}`);
+    .not("thumbnail_url", "is", null)
+    .is("tag_failed_reason", null);
+  if (r.error && /tag_failed_reason/i.test(r.error.message)) {
+    const r2 = await supabase
+      .from("meta_ads")
+      .select("id", { count: "exact", head: true })
+      .eq("case_id", case_id)
+      .is("ad_intel", null)
+      .not("thumbnail_url", "is", null);
+    if (r2.error) {
+      console.warn(`[interpret-tag] count 실패(0 처리): ${r2.error.message}`);
+      return 0;
+    }
+    return r2.count ?? 0;
+  }
+  if (r.error) {
+    console.warn(`[interpret-tag] count 실패(0 처리): ${r.error.message}`);
     return 0;
   }
-  return count ?? 0;
+  return r.count ?? 0;
 }
