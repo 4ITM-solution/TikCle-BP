@@ -32,8 +32,146 @@ if (existsSync(envPath)) {
 }
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync as fsRead, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Anthropic from "@anthropic-ai/sdk";
+import { SYSTEM_PROMPT } from "../src/lib/anthropic/vision-tagger";
 
 const COST_CAP_USD = 10;
+const MODEL_ID: Record<string, string> = {
+  sonnet: "claude-sonnet-4-6",
+  haiku: "claude-haiku-4-5-20251001",
+};
+// 대략 단가($/Mtok) — 비용 추적용.
+const RATE: Record<string, { in: number; out: number }> = {
+  sonnet: { in: 3, out: 15 },
+  haiku: { in: 1, out: 5 },
+};
+const FIELDS = ["content_angle", "hook_tags", "overlay_text", "products_visible", "content_format"] as const;
+
+type VisionImage =
+  | { type: "url"; url: string }
+  | { type: "base64"; media_type: string; data: string };
+
+let anthropic: Anthropic | null = null;
+function ai(): Anthropic {
+  if (!anthropic) {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) throw new Error("ANTHROPIC_API_KEY 미설정");
+    anthropic = new Anthropic({ apiKey: key });
+  }
+  return anthropic;
+}
+
+/** 다프레임 vision 호출 — SYSTEM_PROMPT(현행) 재사용, 이미지 N장 + 모델 지정. raw JSON 파싱. */
+async function callVision(
+  images: VisionImage[],
+  caption: string | null,
+  asr: string | null,
+  modelKey: string,
+): Promise<{ tags: Record<string, unknown> | null; cost: number }> {
+  const userText = `Caption:\n${caption ?? "(none)"}\n\nASR transcript:\n${asr ?? "(none)"}`;
+  const content: Anthropic.MessageParam["content"] = [
+    ...images.map((im) =>
+      im.type === "url"
+        ? ({ type: "image", source: { type: "url", url: im.url } } as const)
+        : ({ type: "image", source: { type: "base64", media_type: im.media_type as "image/jpeg", data: im.data } } as const),
+    ),
+    { type: "text", text: userText } as const,
+  ];
+  const res = await ai().messages.create({
+    model: MODEL_ID[modelKey] ?? modelKey,
+    max_tokens: 800,
+    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content }],
+  });
+  const rate = RATE[modelKey] ?? RATE.sonnet!;
+  const cost = ((res.usage.input_tokens ?? 0) * rate.in + (res.usage.output_tokens ?? 0) * rate.out) / 1e6;
+  const tb = res.content.find((c): c is Anthropic.TextBlock => c.type === "text");
+  if (!tb) return { tags: null, cost };
+  try {
+    const j = JSON.parse(tb.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim());
+    return { tags: j as Record<string, unknown>, cost };
+  } catch {
+    return { tags: null, cost };
+  }
+}
+
+/**
+ * 영상 1회 다운로드 → Storage 보관(U-9) → ffmpeg 프레임 추출(3프레임 앞·중·끝 + 딥 장면전환 컷).
+ * 조합마다 재다운로드하지 않도록 프레임셋을 함께 반환. Storage 업로드 실패는 무시(보관은 best-effort).
+ */
+async function prepVideo(
+  sb: SupabaseClient,
+  videoUrl: string,
+  storageKey: string,
+): Promise<{ f3: VisionImage[]; deep: VisionImage[]; storagePath: string | null }> {
+  const dir = mkdtempSync(join(tmpdir(), "exp1-"));
+  const mp4 = join(dir, "v.mp4");
+  try {
+    execFileSync("curl", ["-sL", "--max-time", "90", "-o", mp4, videoUrl], { stdio: "ignore" });
+
+    // Storage 보관(U-9) — case-assets 버킷. 실패해도 진행.
+    let storagePath: string | null = null;
+    try {
+      const buf = fsRead(mp4);
+      const path = `exp1-videos/${storageKey}.mp4`;
+      const up = await sb.storage.from("case-assets").upload(path, buf, { contentType: "video/mp4", upsert: true });
+      if (!up.error) storagePath = path;
+    } catch {
+      /* Storage 업로드 실패 무시 */
+    }
+
+    // 3프레임 (앞·중·끝)
+    const f3: VisionImage[] = [];
+    const dur =
+      parseFloat(
+        execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp4]).toString().trim(),
+      ) || 9;
+    for (const t of [dur * 0.1, dur * 0.5, dur * 0.9]) {
+      const f = join(dir, `f${Math.round(t * 10)}.jpg`);
+      execFileSync("ffmpeg", ["-v", "error", "-ss", String(t), "-i", mp4, "-frames:v", "1", "-q:v", "3", f], { stdio: "ignore" });
+      f3.push({ type: "base64", media_type: "image/jpeg", data: fsRead(f).toString("base64") });
+    }
+
+    // 딥 (장면전환 컷 키프레임, 최대 8)
+    const deep: VisionImage[] = [];
+    const pat = join(dir, "s%03d.jpg");
+    execFileSync("ffmpeg", ["-v", "error", "-i", mp4, "-vf", "select='gt(scene,0.3)',scale=512:-1", "-vsync", "vfr", "-frames:v", "8", "-q:v", "3", pat], { stdio: "ignore" });
+    for (let i = 1; i <= 8; i++) {
+      const f = join(dir, `s${String(i).padStart(3, "0")}.jpg`);
+      try {
+        deep.push({ type: "base64", media_type: "image/jpeg", data: fsRead(f).toString("base64") });
+      } catch {
+        break;
+      }
+    }
+    return { f3, deep: deep.length > 0 ? deep : f3, storagePath };
+  } finally {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* temp 정리 실패 무시 */
+    }
+  }
+}
+
+// 필드 일치: scalar=정확일치, array=Jaccard≥0.5를 일치로.
+function fieldAgree(field: string, a: unknown, b: unknown): boolean {
+  if (field === "hook_tags" || field === "products_visible") {
+    const sa = new Set((Array.isArray(a) ? a : []).map(String));
+    const sb = new Set((Array.isArray(b) ? b : []).map(String));
+    if (sa.size === 0 && sb.size === 0) return true;
+    let inter = 0;
+    for (const x of sa) if (sb.has(x)) inter += 1;
+    const uni = sa.size + sb.size - inter;
+    return uni > 0 && inter / uni >= 0.5;
+  }
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
 const STORAGE_MARK = "/storage/v1/object/"; // R9: 재호스트 URL만 (fbcdn/tiktok CDN 만료 URL 금지)
 
 type Args = { execute: boolean; videos: number; ads: number; brand: string; country: string };
@@ -60,6 +198,7 @@ type SampleVideo = {
   content_id: string;
   url: string;
   cover_url: string | null;
+  video_download_url: string | null;
   views: number;
   save_rate: number | null;
   comment_rate: number | null;
@@ -86,15 +225,19 @@ async function selectVideoSample(
   //   R9 재호스트는 광고 fbcdn(만료)에만 필수. TikTok cover는 Anthropic이 CDN 직접 fetch(vision-tagger
   //   URL source)라 재호스트 불요 → 영상은 non-null cover면 표본 대상(재호스트분 우선은 아님).
   const cvaCovers = new Map<string, string>();
+  const cvaVideo = new Map<string, string>(); // content_id → video_download_url (딥/3프레임용)
   for (let off = 0; off < 100000; off += 1000) {
     const { data } = await sb
       .from("case_video_analyses")
-      .select("content_id, cover_url")
+      .select("content_id, cover_url, video_download_url")
       .eq("case_id", caseId)
       .not("cover_url", "is", null)
       .range(off, off + 999);
     if (!data || data.length === 0) break;
-    for (const r of data) if (r.content_id && r.cover_url) cvaCovers.set(r.content_id as string, r.cover_url as string);
+    for (const r of data) {
+      if (r.content_id && r.cover_url) cvaCovers.set(r.content_id as string, r.cover_url as string);
+      if (r.content_id && r.video_download_url) cvaVideo.set(r.content_id as string, r.video_download_url as string);
+    }
     if (data.length < 1000) break;
   }
   const ids = [...cvaCovers.keys()];
@@ -122,6 +265,7 @@ async function selectVideoSample(
     content_id: r.id,
     url: r.url,
     cover_url: cvaCovers.get(r.id) ?? null,
+    video_download_url: cvaVideo.get(r.id) ?? null,
     views: r.views,
     save_rate: r.views > 0 ? (r.collect / r.views) * 100 : null,
     comment_rate: r.views > 0 ? (r.comments / r.views) * 10000 : null,
@@ -245,15 +389,107 @@ async function main() {
     return;
   }
 
-  // ─── EXECUTE (ORCH 전용) ───
-  // 프레임 준비(1=cover / 3=앞·중·끝 ffmpeg / 딥=장면전환 컷 키프레임) → 6조합 vision 호출 →
-  // 필드 일치율 매트릭스 → docs/ws/EXP1_결과.md. 딥 결과는 case_video_analyses에 별도 run_tag 저장,
-  // 다운로드 영상은 Storage 보관(video_storage_path, U-9). 상한 $10.
-  console.error(
-    "\n[execute] 유료 실행 경로 — ORCH가 프레임 파이프라인(ffmpeg)·API 예산 승인 후 구동. " +
-      "본 하네스는 표본/계획 확정까지 제공. 프레임 추출·6조합 호출·매트릭스 생성은 O-8에서 연결.",
-  );
-  process.exit(3);
+  // ─── EXECUTE (ORCH 전용, 유료) ───
+  if (!apiKeyPresent()) throw new Error("ANTHROPIC_API_KEY 필요(execute)");
+  const runTag = `exp1-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}`;
+  console.log(`\n[execute] run_tag=${runTag} · 상한 $${COST_CAP_USD}`);
+  let spent = 0;
+  const stop = () => spent >= COST_CAP_USD;
+
+  // 1) 영상별 1회 전처리: 다운로드→Storage 보관(U-9)→프레임셋(1/3/deep) 캐시. 영상 없으면 cover 폴백.
+  const frameSets = new Map<string, { "1frame": VisionImage[]; "3frame": VisionImage[]; deep: VisionImage[]; fellBack: boolean; storagePath: string | null }>();
+  let fallbacks = 0;
+  const storageByCid = new Map<string, string>();
+  for (const v of videos) {
+    const cover: VisionImage[] = v.cover_url ? [{ type: "url", url: v.cover_url }] : [];
+    if (!v.video_download_url) {
+      fallbacks += 1;
+      frameSets.set(v.content_id, { "1frame": cover, "3frame": cover, deep: cover, fellBack: true, storagePath: null });
+      continue;
+    }
+    try {
+      const { f3, deep, storagePath } = await prepVideo(sb, v.video_download_url, `${caseId}/${v.content_id}`);
+      if (storagePath) storageByCid.set(v.content_id, storagePath);
+      frameSets.set(v.content_id, { "1frame": cover, "3frame": f3.length ? f3 : cover, deep, fellBack: false, storagePath });
+    } catch {
+      fallbacks += 1;
+      frameSets.set(v.content_id, { "1frame": cover, "3frame": cover, deep: cover, fellBack: true, storagePath: null });
+    }
+  }
+  console.log(`전처리 완료 · 프레임 폴백(영상 없음/실패→cover) ${fallbacks}건 · Storage 보관 ${storageByCid.size}건`);
+
+  // 2) 6조합 호출 (캐시된 프레임셋 재사용 — 재다운로드 없음)
+  const results = new Map<string, Record<string, Record<string, unknown> | null>>();
+  for (const combo of COMBOS) {
+    const key = `${combo.model}_${combo.depth}`;
+    for (const v of videos) {
+      if (stop()) {
+        console.warn(`  ⚠ 비용 상한 $${COST_CAP_USD} 도달 — ${key}에서 중단`);
+        break;
+      }
+      const fs = frameSets.get(v.content_id);
+      const imgs = fs ? fs[combo.depth as "1frame" | "3frame" | "deep"] : [];
+      if (imgs.length === 0) continue;
+      const { tags, cost } = await callVision(imgs, null, null, combo.model);
+      spent += cost;
+      const r = results.get(v.content_id) ?? {};
+      r[key] = tags;
+      results.set(v.content_id, r);
+    }
+    console.log(`  ${key} 완료 (누적 $${spent.toFixed(2)})`);
+  }
+
+  // 매트릭스 — 준정답 = sonnet_deep. 각 조합의 필드별 일치율.
+  const gt = "sonnet_deep";
+  const matrix: Record<string, Record<string, { agree: number; total: number }>> = {};
+  for (const combo of COMBOS) {
+    const key = `${combo.model}_${combo.depth}`;
+    matrix[key] = {};
+    for (const f of FIELDS) matrix[key]![f] = { agree: 0, total: 0 };
+    for (const [, r] of results) {
+      const g = r[gt];
+      const c = r[key];
+      if (!g || !c) continue;
+      for (const f of FIELDS) {
+        matrix[key]![f]!.total += 1;
+        if (fieldAgree(f, g[f], c[f])) matrix[key]![f]!.agree += 1;
+      }
+    }
+  }
+
+  // EXP1_결과.md 초안
+  const lines: string[] = [`# EXP-1 결과 (${runTag})`, "", `표본 영상 ${videos.length} · 준정답=Sonnet 딥 · 폴백 ${fallbacks}`, "", "## 필드 일치율 매트릭스 (vs Sonnet 딥)", "", `| 조합 | ${FIELDS.join(" | ")} |`, `|---|${FIELDS.map(() => "---").join("|")}|`];
+  for (const combo of COMBOS) {
+    const key = `${combo.model}_${combo.depth}`;
+    const cells = FIELDS.map((f) => {
+      const m = matrix[key]![f]!;
+      return m.total > 0 ? `${((100 * m.agree) / m.total).toFixed(0)}%` : "—";
+    });
+    lines.push(`| ${key} | ${cells.join(" | ")} |`);
+  }
+  lines.push("", `## 비용`, `- 실측 $${spent.toFixed(2)} (상한 $${COST_CAP_USD})`, "", `판정선: Haiku 자기일치 ≥85% AND 핵심필드 열화 ≤10%p · 3프레임 채택 +10%p (ORCH).`);
+  writeFileSync("docs/ws/EXP1_결과.md", lines.join("\n"));
+  console.log(`\n✅ docs/ws/EXP1_결과.md 생성 · 실측 $${spent.toFixed(2)}`);
+
+  // case_video_analyses에 딥 결과 별도 컬럼 저장 (기존 vision_tags 미변경, 멱등 upsert). 마이그레이션 026.
+  for (const [cid, r] of results) {
+    const patch: Record<string, unknown> = { exp_vision_tags: r, exp_run_tag: runTag };
+    const sp = storageByCid.get(cid);
+    if (sp) patch.video_storage_path = sp;
+    const { error } = await sb
+      .from("case_video_analyses")
+      .update(patch as never)
+      .eq("case_id", caseId)
+      .eq("content_id", cid);
+    if (error) {
+      console.warn(`[execute] exp 저장 실패(026 미적용?): ${error.message}`);
+      break;
+    }
+  }
+}
+
+function apiKeyPresent(): boolean {
+  return !!process.env.ANTHROPIC_API_KEY;
 }
 
 main().catch((e) => {

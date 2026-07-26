@@ -8,7 +8,8 @@ const MAX_TOKENS = 800;
 // 결정성(자기일치) 최우선: 모든 라벨은 CLOSED enum, 다중 후보 시 명시적 tie-break 규칙으로
 // 항상 같은 값이 나오게 한다. "or similar" 자유토큰을 제거하고 열거 밖 토큰을 금지.
 // (BE-6: Sonnet 자기일치 56%→목표 ≥85%. cta_type·purchase_intent·products_visible 집중.)
-const SYSTEM_PROMPT = `You analyze TikTok content videos for brand performance benchmarking.
+// BE-28(EXP-1): 프레임 수만 바꾼 다입력 실험이 동일 프롬프트를 재사용하도록 export(로직 불변).
+export const SYSTEM_PROMPT = `You analyze TikTok content videos for brand performance benchmarking.
 Given a video cover image, caption text, and ASR transcript, return structured analysis tags
 used for clustering similar content patterns.
 
