@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServer } from "@/lib/supabase/server";
-import { eventWindow } from "@/lib/case-detail/combo-queries";
+import { eventWindow, narrativePerf, sparkByNarrative } from "@/lib/case-detail/combo-queries";
 import { ExolytSection } from "@/components/case-detail/ExolytSection";
 import { BrandViewTrendsSection } from "@/components/case-detail/BrandViewTrendsSection";
 import { YoutubeSeedingSection } from "@/components/case-detail/YoutubeSeedingSection";
@@ -1849,6 +1849,14 @@ export default async function CaseDetailPage({
       .map((r) => ({ tag: r.tag as string, video_count: r.video_count ?? 0, gmv_sum: Number(r.gmv_sum) || 0 }));
   })();
 
+  // ★ FE-8 Stage5(C, v12): 내러티브 성과(narrativePerf) + 광고 집행 비중(sparkByNarrative) — BE-31, L1층 기준.
+  const narrativePerfRows = isReady
+    ? await narrativePerf(supabase, c.id).catch(() => [])
+    : [];
+  const sparkRows = isReady
+    ? await sparkByNarrative(supabase, c.id).catch(() => [])
+    : [];
+
   // ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019). 미적용/무매칭 시 [].
   const seedingAdOverlap = await (async () => {
     type Row = {
@@ -3619,6 +3627,8 @@ export default async function CaseDetailPage({
                         totalContents={ks.phase2.total_contents ?? 0}
                         visionSample={(ks.phase4b_vision?.total_with_tags ?? 0) + (ks.phase4b_vision?.total_reused ?? 0)}
                         gmvTags={gmvTags}
+                        narrativePerf={narrativePerfRows}
+                        sparkByNarrative={sparkRows}
                       />
                       </SectionBoundary>
                       {/* ★ B2(WS4b): 매출 미업로드 배지 — products/SKU 있으나 case_product_sales 0행(F2).

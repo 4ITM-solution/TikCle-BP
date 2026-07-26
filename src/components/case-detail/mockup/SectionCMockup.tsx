@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { NarrativePerfRow, SparkRow } from "@/lib/case-detail/combo-queries";
 import type {
   Phase2Stats,
   Phase4bClusterStats,
@@ -41,6 +42,8 @@ export function SectionCMockup({
   totalContents,
   visionSample,
   gmvTags,
+  narrativePerf,
+  sparkByNarrative,
 }: {
   phase2: Phase2Stats;
   phase4bClusters?: Phase4bClusterStats;
@@ -59,6 +62,9 @@ export function SectionCMockup({
   visionSample?: number;
   /** ★ A7(WS4b): 태그×GMV — v_case_content_gmv_tags(019). 미적용/무데이터 시 null. */
   gmvTags?: Array<{ tag: string; video_count: number; gmv_sum: number }> | null;
+  /** ★ FE-8 Stage5(C, v12): 내러티브 성과(narrativePerf) + 광고 집행 비중(sparkByNarrative) — BE-31 L1층 */
+  narrativePerf?: NarrativePerfRow[];
+  sparkByNarrative?: SparkRow[];
   /** meta_cluster_id → { tk, ig, yt } 멤버 채널 분포 (채널 토글 카운트용) */
   clusterChannelBreakdown?: Record<string, { tk: number; ig: number; yt: number }>;
   /** 채널별(all/tk/ig/yt) 재집계 데이터 — page.tsx server-side */
@@ -68,7 +74,9 @@ export function SectionCMockup({
   /** 채널별 USP 키워드 → 매칭 영상 top3 */
   uspVideosByChannel?: Record<ChannelFilter, Record<string, Array<{ url: string; caption: string; views: number }>>>;
 }) {
-  const [tab, setTab] = useState<"clu" | "usp" | "heat" | "tier" | "atm" | "gmvtag" | "paid">("clu");
+  const [tab, setTab] = useState<"narr" | "clu" | "usp" | "heat" | "tier" | "atm" | "gmvtag" | "paid">(
+    (narrativePerf?.length ?? 0) > 0 ? "narr" : "clu",
+  );
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
   const [heatMeasure, setHeatMeasure] = useState<"count" | "view" | "paid_pct" | "gmv">("count");
@@ -150,6 +158,12 @@ export function SectionCMockup({
       )}
 
       <div className="sub-tabs">
+        {/* ★ FE-8 Stage5(C, v12): 내러티브 성과 탭 (narrativePerf) — 지표 병치 */}
+        {(narrativePerf?.length ?? 0) > 0 && (
+          <button className={tab === "narr" ? "active" : ""} onClick={() => setTab("narr")}>
+            ★ 내러티브 성과 ({narrativePerf!.length})
+          </button>
+        )}
         <button className={tab === "clu" ? "active" : ""} onClick={() => setTab("clu")}>
           통합 클러스터 ({metas.length})
         </button>
@@ -203,6 +217,67 @@ export function SectionCMockup({
           })}
         </div>
       </div>
+
+      {/* ★ FE-8 Stage5(C, v12): 내러티브 성과 panel — 반응률·GPM·GMV·광고 집행 비중 병치 (narrativePerf+sparkByNarrative, BE-31 L1층) */}
+      {tab === "narr" && (
+        <div className="panel active">
+          {(narrativePerf?.length ?? 0) === 0 ? (
+            <div style={{ padding: 16, background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+              데이터 없음 — 영상 클러스터링(interpret-cluster) 후 표시됩니다.
+            </div>
+          ) : (
+            (() => {
+              const sparkById = new Map((sparkByNarrative ?? []).map((s) => [s.cluster_id, s]));
+              const fmtUsd = (n: number) =>
+                n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${Math.round(n)}`;
+              const rows = [...narrativePerf!].sort((a, b) => b.shop_gmv - a.shop_gmv);
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10 }}>
+                    내러티브(콘텐츠 유형)별 반응률·GPM·매출·광고 집행 비중 병치 — L1 클러스터 기준
+                  </div>
+                  <table className="t" style={{ width: "100%", fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ color: "#6b7280", textAlign: "left" }}>
+                        <th>내러티브</th>
+                        <th style={{ textAlign: "right" }}>영상</th>
+                        <th style={{ textAlign: "right" }} title="댓글/1만뷰 (측정가능 영상만)">반응률</th>
+                        <th style={{ textAlign: "right" }} title="GMV per 1000 views">GPM</th>
+                        <th style={{ textAlign: "right" }}>매출(GMV)</th>
+                        <th style={{ textAlign: "right" }} title="클러스터 내 is_ad 비율">광고 집행</th>
+                        <th>채널</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r) => {
+                        const spark = sparkById.get(r.cluster_id);
+                        return (
+                          <tr key={r.cluster_id}>
+                            <td><b>{r.cluster_name}</b> <span style={{ fontSize: 9, color: "#9ca3af" }}>{r.measurable_count}/{r.video_count} 측정</span></td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace" }}>{r.video_count.toLocaleString()}</td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace" }}>{r.reaction_rate != null ? r.reaction_rate.toFixed(1) : "—"}</td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace" }}>{r.gpm != null ? `$${r.gpm.toFixed(1)}` : "—"}</td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>{r.shop_gmv > 0 ? fmtUsd(r.shop_gmv) : "—"}</td>
+                            <td style={{ textAlign: "right", fontFamily: "monospace", color: "#be185d" }}>{spark ? `${spark.ad_ratio_pct}%` : "—"}</td>
+                            <td style={{ fontSize: 10 }}>
+                              {r.channel_counts.tk > 0 && <span className="ch-pill pill-tk">TK{r.channel_counts.tk}</span>}
+                              {r.channel_counts.ig > 0 && <span className="ch-pill pill-ig">IG{r.channel_counts.ig}</span>}
+                              {r.channel_counts.yt > 0 && <span className="ch-pill pill-yt">YT{r.channel_counts.yt}</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 6 }}>
+                    반응률·GPM은 측정가능/GMV 보유 영상 기준. 반응률 측정불가(카로데이터 유입)는 — 표기.
+                  </div>
+                </>
+              );
+            })()
+          )}
+        </div>
+      )}
 
       {/* 통합 클러스터 panel */}
       {tab === "clu" && (
