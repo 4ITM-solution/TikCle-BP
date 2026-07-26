@@ -380,9 +380,12 @@ export function SectionEMockup({
               </div>
               <div className="ad-body">
                 {ad.body_text
-                  ? ad.body_text.length > 90
-                    ? `${ad.body_text.slice(0, 90)}…`
-                    : ad.body_text
+                  ? // ★ FE-8: 이모지(surrogate pair) 중간 절단 방지 — code point 단위 truncate
+                    //   (.slice는 UTF-16 code unit 기준이라 90 위치가 이모지 중간이면 lone surrogate → hydration mismatch)
+                    (() => {
+                      const cps = Array.from(ad.body_text);
+                      return cps.length > 90 ? `${cps.slice(0, 90).join("")}…` : ad.body_text;
+                    })()
                   : "—"}
               </div>
             </div>
