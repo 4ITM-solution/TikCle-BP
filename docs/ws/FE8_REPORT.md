@@ -89,3 +89,9 @@ BE-31 combo-queries.ts(narrativePerf·sparkByNarrative·inflectionTopVideos·cre
 
 ### 커밋
 S3(A) 37a6176·8472d5a · S4(B) fe46edf · S5(C) 6a91928
+
+### A/B/C 실화면 QA (medicube US, 2026-07-26 브라우저 재연결 후)
+- **A**: KPI 2개(광고 집행 비중/광고 미집행, ORGANIC·GIFTED 제거 확인) · 이벤트 윈도우 탭(미등록 빈 상태 정상) · 변곡점 표 5행, 1행 확장→VideoCard 3개(조회 2.8M·좋아요 47K·댓글 769·저장 —·댓글율 0.03%, NULL "—" 정상) ✓
+- **B**: 👤 클릭→크리에이터 드로어(백분위·반응률·스파크 편수·메타 사용 파트너십/원본후보) ✓
+- **C**: 내러티브 성과 탭 35 클러스터 — 반응률·GPM·매출·광고집행(spark join)·채널 병치, 측정불가/무GMV는 "—" ✓
+- 콘솔 에러 0 · A KPI QA fix(010763a)
