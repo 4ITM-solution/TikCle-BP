@@ -2766,7 +2766,7 @@ export async function fetchYoutubeSeeding(
   revalidatePath(`/cases/${case_id}`);
   return {
     ok: true,
-    message: `YouTube ${uniqueByUrl.length}개 영상 적재 (광고 ${classCounts.ad} · 시딩 ${classCounts.seeded} · organic ${classCounts.organic}) · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M`,
+    message: `YouTube ${uniqueByUrl.length}개 영상 적재 (광고 집행 ${classCounts.ad ?? 0} · 광고 미집행 ${(classCounts.seeded ?? 0) + (classCounts.organic ?? 0)}) · ${channelMap.size}개 채널 · 총 조회수 ${(totalViews / 1_000_000).toFixed(1)}M`,
   };
 }
 
