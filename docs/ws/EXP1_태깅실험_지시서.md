@@ -29,6 +29,7 @@ updated: 2026-07-25
 ## 비용·안전
 - 상한 $10 (예상 $4~5). API 호출 스크립트는 dry-run 카운트 출력 후 ORCH가 실행.
 - 딥 태깅 50편 결과는 case_video_analyses에 저장(부산물 실데이터 — 멱등 upsert, 기존 태깅 덮지 말고 별도 컬럼/run_tag).
+- **[U-9 확정 반영] 다운로드한 영상 파일은 Storage 보관** (video_storage_path 기록) — 주요 영상 보관 정책의 시작점. 삭제 금지.
 
 ## BE 산출물 (하네스)
 `scripts/exp1-tagging-matrix.ts` — 표본 추출(층화 쿼리) + 프레임 준비(1/3/딥) + 6조합 호출 + 일치율 리포트 생성. tsc 통과 + dry-run(호출 0회 모드)까지. **실행은 ORCH.**
