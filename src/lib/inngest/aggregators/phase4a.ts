@@ -414,7 +414,7 @@ function extractDomain(url: string): string | null {
  * FB 리다이렉트가 박혀있으면 풀어서 destination 기준으로 분류.
  * brandKeyword (콤마 구분)가 도메인에 substring 매치되면 DTC.
  */
-function classifyLanding(
+export function classifyLanding(
   url: string | null,
   brandKeyword?: string | null,
 ): LandingType {
