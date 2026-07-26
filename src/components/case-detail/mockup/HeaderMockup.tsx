@@ -282,6 +282,10 @@ export function DataChannelsMockup({
   channelDetails,
   channelEntries,
   case_id,
+  phaseSlot,
+  phasesDone,
+  phasesTotal,
+  defaultOpen = false,
 }: {
   dataChannels: DataChannel[];
   /** 채널별 stats + 부가 정보. ex: { tiktok_video: { stat: "1,234 영상", sub: "Exolyt CSV · 5/27" } } */
@@ -291,6 +295,12 @@ export function DataChannelsMockup({
   channelEntries?: Partial<Record<DataChannel, React.ReactNode>>;
   /** 박혔으면 expand footer 에 "분석 재실행" 빠른 버튼 노출. 영향 phase 만 force */
   case_id?: string;
+  /** ★ FE-8 Stage2(v12): 콘솔 하단에 접합할 분석 단계 패널(단일 phase 그리드) */
+  phaseSlot?: React.ReactNode;
+  phasesDone?: number;
+  phasesTotal?: number;
+  /** 콘솔 기본 펼침 여부 (v12: 기본 접힘) */
+  defaultOpen?: boolean;
 }) {
   const isActive = (c: DataChannel) => dataChannels.includes(c);
   const activeCount = ALL_CHANNELS.filter(isActive).length;
@@ -311,13 +321,17 @@ export function DataChannelsMockup({
   }
 
   return (
-    <div className="section" id="sec-channels">
-      <div className="section-h">
-        <span className="letter">📥</span>
-        <span className="title">데이터 채널</span>
-        <span className="sub">{ALL_CHANNELS.length}개 중 {activeCount}개 활성</span>
-      </div>
-      <div className="channels-grid">
+    <details className="section" id="sec-channels" open={defaultOpen}>
+      {/* ★ FE-8 Stage2(v12): 채널 그리드 + 분석 단계를 기본 접힘 콘솔 1개로 통합 */}
+      <summary style={{ cursor: "pointer", display: "flex", alignItems: "baseline", gap: 10, listStyle: "none" }}>
+        <span className="letter" style={{ fontSize: 14, background: "#1f2937", color: "#fff", borderRadius: 6, padding: "2px 9px", fontWeight: 800 }}>📥</span>
+        <b style={{ fontSize: 14 }}>데이터·분석 콘솔</b>
+        <span style={{ fontSize: 11, color: "#9ca3af" }}>
+          채널 {activeCount}/{ALL_CHANNELS.length} 적재
+          {phasesTotal != null ? ` · 분석 ${phasesDone ?? 0}/${phasesTotal} 완료` : ""}
+        </span>
+      </summary>
+      <div className="channels-grid" style={{ marginTop: 12 }}>
         {ALL_CHANNELS.map((c) => {
           const active = isActive(c);
           const d = channelDetails[c];
@@ -546,7 +560,13 @@ export function DataChannelsMockup({
           </div>
         </div>
       )}
-    </div>
+      {/* ★ FE-8 Stage2(v12): 분석 단계 패널을 콘솔 하단에 접합 (별도 상단 패널 삭제 → 한 곳) */}
+      {phaseSlot && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--color-g100, #f3f4f6)" }}>
+          {phaseSlot}
+        </div>
+      )}
+    </details>
   );
 }
 

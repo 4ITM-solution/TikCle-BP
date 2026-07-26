@@ -36,11 +36,9 @@ import {
   CaseStatusStripMockup,
   KpiStripMockup,
   DataChannelsMockup,
-  PhaseProgressMockup,
   InsightCardMockup,
 } from "@/components/case-detail/mockup/HeaderMockup";
 // mockup CSS는 src/app/globals.css 끝에 append 됨 (.bp-mockup scope).
-import { PhaseProgressToggle } from "@/components/case-detail/PhaseProgressToggle";
 import { CaseStatusStrip } from "@/components/case-detail/CaseStatusStrip";
 import { CaseDevFooter } from "@/components/case-detail/CaseDevFooter";
 import { listMergeCandidates } from "@/app/cases/[id]/case-actions";
@@ -3005,16 +3003,13 @@ export default async function CaseDetailPage({
                         marginTop: 4,
                       }}
                     >
-                      {lastError.at} · 아래 PhaseProgress의 "분석 재실행"
-                      또는 개별 phase 재실행 버튼으로 다시 시도하세요
+                      {lastError.at} · 아래 <b>데이터·분석 콘솔</b>을 펼쳐 개별 단계 ↻ 또는
+                      채널별 재실행으로 다시 시도하세요
                     </div>
                   </div>
                 )}
-                <PhaseProgressToggle
-                  case_id={c.id}
-                  keyStats={ks as KeyStats}
-                />
-                <div style={{ height: 14 }} />
+                {/* ★ FE-8 Stage2(v12): PhaseProgressToggle(3번째 중복 패널) 삭제 —
+                    분석 단계는 데이터·분석 콘솔 하단 한 곳으로 일원화 */}
 
                 <div id="sec-kpi" style={{ scrollMarginTop: 80 }} />
                 {/* ★ Phase 5-A: 상단 KpiStrip + 데이터 채널 + Phase Progress — phase2 없어도 데이터 채널 카드 노출 */}
@@ -3088,13 +3083,13 @@ export default async function CaseDetailPage({
                         costBreakdown={"예상 최대"}
                       />
                       </SectionBoundary>
-                      {/* Phase progress — KPI 바로 다음으로 이동 (사용자 요청) */}
-                      <PhaseProgressMockup ks={ks as KeyStats} case_id={c.id} />
-                      {/* ★ C5(WS4b): phase_runs 직결 신 11-phase 패널 (사용자 언어 라벨·비용·재실행) */}
-                      <PhaseRunsPanel caseId={c.id} runs={phaseRuns} />
-                      {/* mockup line 542-559: 데이터 채널 — sub 풍부화 (mockup 형식 일치) */}
+                      {/* ★ FE-8 Stage2(v12): PhaseProgressMockup(2중 패널) 삭제 —
+                          분석 단계는 콘솔 하단 phaseSlot(PhaseRunsPanel) 한 곳으로 일원화 */}
                       <DataChannelsMockup
                         case_id={c.id}
+                        phaseSlot={<PhaseRunsPanel caseId={c.id} runs={phaseRuns} />}
+                        phasesDone={phaseRuns.filter((r) => r.status === "completed").length}
+                        phasesTotal={11}
                         dataChannels={dataChannels}
                         channelDetails={(() => {
                           const tkViews = (ks.phase2?.top_creators ?? []).reduce((s, c) => s + (c.max_views ?? 0), 0);
