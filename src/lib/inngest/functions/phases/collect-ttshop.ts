@@ -71,7 +71,26 @@ export const collectTtshop = inngest.createFunction(
         fetchPhase15Setup(supabase, case_id),
       );
 
-      if (setup.skipped_reason) {
+      // BE-27 ④: Kalodata 업로드가 있으면 TT Shop 액터 스크랩 skip (매출은 Kalodata 우선 —
+      //   중복 스크랩 시간 절약). force여도 kalodata 있으면 skip. env BP_TTSHOP_SKIP_IF_KALODATA=0로 해제.
+      const kalodataPresent =
+        process.env.BP_TTSHOP_SKIP_IF_KALODATA !== "0" &&
+        (await step.run("check-kalodata", async () => {
+          const { data } = await supabase
+            .from("cases")
+            .select("key_stats")
+            .eq("id", case_id)
+            .single();
+          const ks = (data?.key_stats ?? {}) as Record<string, unknown>;
+          return Object.keys(ks).some((k) => k.startsWith("kalodata_"));
+        }));
+
+      if (kalodataPresent) {
+        phase1_5 = (await step.run("skipped-kalodata", async () =>
+          processPhase15Products(supabase, case_id, setup, [], null),
+        )) as NonNullable<KeyStats["phase1_5"]>;
+        phase1_5 = { ...phase1_5, skipped_reason: "Kalodata 업로드 존재 → TT Shop 액터 skip (BE-27)" };
+      } else if (setup.skipped_reason) {
         phase1_5 = (await step.run("skipped", async () =>
           processPhase15Products(supabase, case_id, setup, [], null),
         )) as NonNullable<KeyStats["phase1_5"]>;

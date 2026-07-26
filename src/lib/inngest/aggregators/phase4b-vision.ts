@@ -14,7 +14,8 @@ import type {
 
 type SupaClient = SupabaseClient<Database>;
 
-const VISION_CONCURRENCY = 5; // Anthropic API 동시 호출 수
+// BE-27 ②: Anthropic API 동시 호출 5→10 (사용자 승인 2026-07-25). 레이트리밋 시 env로 낮춤.
+const VISION_CONCURRENCY = Number(process.env.BP_VISION_CONCURRENCY || 10);
 const REHOST_CONCURRENCY = 8; // IG cover re-host 동시 fetch 수
 
 /**

@@ -15,7 +15,8 @@ import { parseCreatorFromUtm } from "../meta-utm";
  *    limit씩 배치**로 처리하고, run-analysis가 batch step을 루프로 호출(멱등·재개 가능).
  */
 
-const VISION_CONCURRENCY = 5;
+// BE-27 ②: 영상/광고 태깅 동시 호출 5→10 (사용자 승인 2026-07-25). 레이트리밋 시 env로 낮춤.
+const VISION_CONCURRENCY = Number(process.env.BP_VISION_CONCURRENCY || 10);
 
 type SupaClient = SupabaseClient;
 
