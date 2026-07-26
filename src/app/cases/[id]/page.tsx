@@ -3557,6 +3557,7 @@ export default async function CaseDetailPage({
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                         promotionEvents={promotionEvents}
                         eventWindows={eventWindows}
+                        caseId={c.id}
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
