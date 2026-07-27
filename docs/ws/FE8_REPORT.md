@@ -64,3 +64,42 @@ branch: ws-fe8-case-v12 (워크트리 .claude/worktrees/ws-fe8)
 
 ## 커밋 (ws-fe8-case-v12)
 S1 6f2e016 · S2 a26e75a · S8 4d8767b · S7 7f52b8d · S6p1 5a9109e
+
+---
+
+## A/B/C 구현 (2026-07-26 저녁, BE-31 완료 후)
+
+BE-31 combo-queries.ts(narrativePerf·sparkByNarrative·inflectionTopVideos·creatorProfile·eventWindow) 완료로 Stage 3~5 착수·구현.
+
+| Stage | 내용 | 커밋 | 검증 |
+|---|---|---|---|
+| 3(A) p1 | 이벤트 윈도우 탭 (eventWindow 전/중/후 프리페치) + EventWindowPanel | 37a6176 | tsc |
+| 3(A) p2 | 변곡점 표(행 클릭→기간 대표영상, inflectionTopVideos 온디맨드) + InflectionTable + VideoCard | 8472d5a | tsc |
+| 4(B) | 크리에이터 드로어(creatorProfile: 백분위·스파크편수·메타사용) + CreatorDrawer | fe46edf | tsc |
+| 5(C) | 내러티브 성과 탭(narrativePerf+sparkByNarrative: 반응률·GPM·GMV·광고집행 병치) | 6a91928 | tsc |
+
+- combo-actions.ts: fetchInflectionVideos·fetchCreatorProfile 서버 액션(온디맨드)
+- 신규 컴포넌트: EventWindowPanel·InflectionTable·CreatorDrawer (모두 VideoCard/BE-31 타입 재사용)
+- 전 커밋 tsc 통과. medicube SSR 200 · combo-query 서버콜 런타임 에러 0 확인.
+
+### A/B/C 잔여 (폴리시/BE 대기)
+- 키 메시지 탭(C): BE-22 미완 → 보류
+- A 차트 실측 스케일 미세조정, B 월 select 삭제·명단 10/50 정밀화: 폴리시
+- **실화면 클릭 QA(이벤트 탭 토글·변곡점 행 확장·드로어·내러티브 탭)**: 브라우저 확장 연결 끊겨 이번엔 tsc+SSR까지만. QA-4에서 blockwise 대사
+
+### 커밋
+S3(A) 37a6176·8472d5a · S4(B) fe46edf · S5(C) 6a91928
+
+### A/B/C 실화면 QA (medicube US, 2026-07-26 브라우저 재연결 후)
+- **A**: KPI 2개(광고 집행 비중/광고 미집행, ORGANIC·GIFTED 제거 확인) · 이벤트 윈도우 탭(미등록 빈 상태 정상) · 변곡점 표 5행, 1행 확장→VideoCard 3개(조회 2.8M·좋아요 47K·댓글 769·저장 —·댓글율 0.03%, NULL "—" 정상) ✓
+- **B**: 👤 클릭→크리에이터 드로어(백분위·반응률·스파크 편수·메타 사용 파트너십/원본후보) ✓
+- **C**: 내러티브 성과 탭 35 클러스터 — 반응률·GPM·매출·광고집행(spark join)·채널 병치, 측정불가/무GMV는 "—" ✓
+- 콘솔 에러 0 · A KPI QA fix(010763a)
+
+### 잔여 폴리시 처리 (2026-07-26 밤)
+- **C 키 메시지 탭** ✅ — BE-22 미완이라 '분석 대기' + 원자료 키워드(USP) 표시(데이터계약). v12 탭 순서에 편입 (5754c94)
+- **D Kalodata 분해 top→ttdecomp 이관** ✅ — 매출 출처 분해(Self/Aff/Mall)+콘텐츠 분해(Live/Video) 142줄을 TT샵 분해 탭으로 이관, 상단은 3카드 채널비교만. **Foodology 실화면 QA: top 중복 제거 확인(hasDecompInTop=false)·TT샵 분해 탭에 두 박스 정상 렌더·콘솔 에러 0** (5754c94)
+- **A 차트 실측 스케일** — 현행 차트 이미 실측 추종(영상수 line=total/maxVids 밴드로 막대 top 근사, 광고%=0~100, BSR=정규화). v12 "실측 스케일" 기능 충족. 좌/우 축 눈금 라벨(cosmetic)만 미세 잔여 — 동작 중 차트 회귀 위험 대비 가치 낮아 보류(프로토 propChip도 refinement로 표기)
+
+## 최종 상태
+FE-8 v12 전 스테이지(헤더·콘솔·A·B·C·D·E·영상카드) 구현 완료 + BE-31 5함수 배선 + 실화면 QA(medicube·Foodology). 미해소: C 키메시지 실데이터(BE-22 대기)·A 차트 축눈금 cosmetic. 검증·머지·배포 ORCH.

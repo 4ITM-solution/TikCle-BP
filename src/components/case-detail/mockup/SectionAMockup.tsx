@@ -2,6 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { TikTokEmbed } from "@/components/case-detail/TikTokEmbed";
+import { EventWindowPanel } from "@/components/case-detail/EventWindowPanel";
+import { InflectionTable } from "@/components/case-detail/InflectionTable";
+import type { EventWindowResult } from "@/lib/case-detail/combo-queries";
 import type {
   BsrSeries,
   MonthlyVideoCount,
@@ -37,22 +40,6 @@ const TIERS: { key: TierBucket; label: string; color: string }[] = [
 type ChannelMode = "all" | "tk" | "ig" | "yt" | "shop";
 type BarMode = "abs" | "pct";
 
-// 변곡점 동반 viral 정렬 축 설정 (조회수/공유/댓글). 옛 케이스는 shares/comments 미채움→0.
-type TlVid = { views?: number; shares?: number; comments?: number };
-const TL_METRIC_CFG: Record<
-  "views" | "shares" | "comments",
-  { label: string; get: (v: TlVid) => number }
-> = {
-  views: { label: "조회수", get: (v) => v.views ?? 0 },
-  shares: { label: "공유", get: (v) => v.shares ?? 0 },
-  comments: { label: "댓글", get: (v) => v.comments ?? 0 },
-};
-
-function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${Math.round(n / 1000)}K`;
-  return String(n);
-}
 
 export function SectionAMockup({
   phase2,
@@ -61,6 +48,8 @@ export function SectionAMockup({
   monthlyTierByChannel,
   hasAmazon,
   promotionEvents,
+  eventWindows,
+  caseId,
 }: {
   phase2: Phase2Stats;
   phase3?: {
@@ -75,6 +64,10 @@ export function SectionAMockup({
   hasAmazon?: boolean;
   /** ★ A6(WS4b): 프로모션 이벤트(월별) — 차트 상단 마커. 추정 금지, 사실 확인된 날짜만(019 시드). */
   promotionEvents?: Array<{ name: string; month: string; start_date: string; importance?: number | null }>;
+  /** ★ FE-8 Stage3(A, v12): 이벤트 윈도우(전·중·후) — eventWindow(BE-31) 프리페치 결과 */
+  eventWindows?: EventWindowResult[];
+  /** ★ FE-8 Stage3(A part2): 변곡점 표 온디맨드 영상 조회용 case id */
+  caseId: string;
 }) {
   // Hydration 안전 — SSR HTML 박힌 placeholder, mount 후 chart 렌더.
   // SVG chart 박힌 SSR/CSR 다른 결과 가능성 (어떤 컴포넌트가 #418 일으키는지 진단 어려움).
@@ -85,13 +78,10 @@ export function SectionAMockup({
   }, []);
 
   const [channelMode, setChannelMode] = useState<ChannelMode>("all");
+  const [aView, setAView] = useState<"trend" | "event">("trend");
   const [barMode, setBarMode] = useState<BarMode>("abs");
   // line overlay 기본 off — 막대 차트 위 너무 겹쳐서 가독성 X. 사용자가 토글 클릭해서 필요한 것만 봄.
   const [show, setShow] = useState({ tier: true, ad: false, bsr: false, vc: true });
-  // 변곡점 타임라인 동반 viral 정렬 축 — 조회수/공유/댓글
-  const [tlMetric, setTlMetric] = useState<"views" | "shares" | "comments">(
-    "views",
-  );
   // BSR 데이터 있으면 자동 ON (오버레이 기본 off라 데이터 있어도 안 보이던 문제).
   //   최초 1회만 켜고 이후 사용자 토글은 존중.
   const [bsrAutoOn, setBsrAutoOn] = useState(false);
@@ -316,8 +306,15 @@ export function SectionAMockup({
       <div className="section-h">
         <span className="letter">A</span>
         <span className="title">콘텐츠 활동</span>
-        <span className="sub">★ 월간 인플 티어 · 광고 비중 · BSR 통합 트렌드 (호버 시 디테일)</span>
+        <span className="sub">언제 얼마나 시딩했고, 판매와 함께 움직였나</span>
       </div>
+
+      {/* ★ FE-8 Stage3(A, v12): [월간 트렌드 | 이벤트 윈도우] 탭 */}
+      <div className="sub-tabs" style={{ marginBottom: 12 }}>
+        <button className={aView === "trend" ? "active" : ""} onClick={() => setAView("trend")}>월간 트렌드</button>
+        <button className={aView === "event" ? "active" : ""} onClick={() => setAView("event")}>이벤트 윈도우 (전·중·후)</button>
+      </div>
+      {aView === "event" && <EventWindowPanel windows={eventWindows ?? []} />}
 
       <div style={{ marginBottom: 14 }}>
         <div className="ch-toggle">
@@ -345,33 +342,17 @@ export function SectionAMockup({
         </div>
       </div>
 
+      {/* ★ FE-8 Stage3(A, v12): KPI 축소 — 광고 집행 비중 / 광고 미집행 2개만 (프로토 A 1:1) */}
       <div className="kpi-grid" style={{ marginBottom: 16 }}>
-        <div className="kpi">
-          <div className="kpi-label">총 영상</div>
-          <div className="kpi-val">{totalForMode.toLocaleString()}</div>
-          <div className="kpi-sub">
-            TK {fmtView(tkVids)} · IG {fmtView(igVids)} · YT {ytVids > 0 ? fmtView(ytVids) : 0}
-          </div>
-        </div>
         <div className="kpi">
           <div className="kpi-label" title="스파크애즈 등 유료 광고로 집행된 영상 비중 (is_ad)">광고 집행 비중 <span style={{ color: "#9ca3af", fontWeight: 400 }}>(스파크애즈)</span></div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalPaid / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalPaid.toLocaleString()}건</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">organic</div>
+          <div className="kpi-label">광고 미집행</div>
           <div className="kpi-val">{totalForMode > 0 ? Math.round((totalOrganic / (totalPaid + totalOrganic || 1)) * 100) : 0}%</div>
           <div className="kpi-sub">{totalOrganic.toLocaleString()}건</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">gifted (시딩)</div>
-          <div className="kpi-val">-</div>
-          <div className="kpi-sub">—</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">총 view</div>
-          <div className="kpi-val">{fmtView(totalView)}</div>
-          <div className="kpi-sub">top {(phase2.top_creators ?? []).length}명 합계</div>
         </div>
       </div>
 
@@ -722,164 +703,23 @@ export function SectionAMockup({
 
       {/* 1인당 영상 분포 → B(인플 풀)의 활동 3축 분포로 이관 (Part2 A) */}
 
-      {/* ★ C3(WS4b): 서술(topInflection 콜아웃) 먼저, 상세 timeline 은 접어둠(기본 닫힘).
-          A·D 중복은 D 섹션이 주(主) — 여기선 요약 서술 + 접힌 상세만. */}
-      {hasAmazon &&
-        phase5?.bsr_inflections &&
-        phase5.bsr_inflections.some((inf) => inf.top_videos.length > 0) && (
-        <details style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e5e7eb" }}>
-          <summary style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, cursor: "pointer" }}>
-            ✨ 변곡점 상세 timeline 펼치기 (주요{" "}
-            {Math.min(phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0).length, 15)}개){" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 매출 급등 상세는 D(매출·SKU) 섹션과 동일</span>
-          </summary>
-          {/* 동반 viral 정렬 축 토글 — 조회수/공유/댓글 */}
-          {phase5.bsr_inflections.some((inf) =>
-            inf.top_videos.some((v) => v.shares != null || v.comments != null),
-          ) && (
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-                marginTop: 10,
-                marginBottom: 2,
-              }}
-            >
-              <span style={{ fontSize: 10, color: "#9ca3af", fontFamily: "monospace" }}>
-                동반 viral 정렬
-              </span>
-              {(["views", "shares", "comments"] as const).map((m) => {
-                const on = tlMetric === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setTlMetric(m)}
-                    style={{
-                      fontSize: 11,
-                      fontFamily: "monospace",
-                      padding: "3px 9px",
-                      borderRadius: 5,
-                      border: `1px solid ${on ? "#ec4899" : "#e5e7eb"}`,
-                      background: on ? "#ec4899" : "#fff",
-                      color: on ? "#fff" : "#6b7280",
-                      cursor: "pointer",
-                      fontWeight: on ? 700 : 400,
-                    }}
-                  >
-                    {TL_METRIC_CFG[m].label}순
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-            {[...phase5.bsr_inflections.filter((inf) => inf.top_videos.length > 0)]
-              .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
-              .slice(0, 15) // 줄줄이 방지 — 개선폭 큰 주요 급등 15개만
-              .sort((a, b) => a.date.localeCompare(b.date))
-              .map((inf, i) => {
-                const cfg = TL_METRIC_CFG[tlMetric];
-                // 선택 지표의 window / 직전7일 compare / ratio
-                const mWindow =
-                  tlMetric === "views"
-                    ? inf.views_window
-                    : tlMetric === "shares"
-                      ? inf.shares_window ?? 0
-                      : inf.comments_window ?? 0;
-                const mCompare =
-                  tlMetric === "views"
-                    ? inf.views_compare
-                    : tlMetric === "shares"
-                      ? inf.shares_compare ?? 0
-                      : inf.comments_compare ?? 0;
-                const mRatio =
-                  mCompare > 0 ? mWindow / mCompare : mWindow > 0 ? Infinity : 0;
-                const isMega =
-                  tlMetric === "views"
-                    ? inf.is_mega_volume
-                    : mCompare > 0 && mRatio >= 2;
-                const ratioStr =
-                  mCompare > 0
-                    ? `×${mRatio.toFixed(1)}`
-                    : mWindow > 0
-                      ? "신규(직전0)"
-                      : "×0";
-                // 선택 지표 desc top 5
-                const ranked = [...inf.top_videos]
-                  .sort((a, b) => cfg.get(b) - cfg.get(a))
-                  .filter((v) => cfg.get(v) > 0)
-                  .slice(0, 5);
-                return (
-                <div
-                  key={`tl-${i}`}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "100px 1fr",
-                    gap: 12,
-                    padding: 10,
-                    background: "#fff7ed",
-                    border: "1px solid #fed7aa",
-                    borderRadius: 6,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#ec4899" }}>
-                      ★ {inf.date}
-                    </div>
-                    <div style={{ fontSize: 10, color: "#92400e", fontFamily: "monospace", marginTop: 2 }}>
-                      ASIN {inf.asin}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#1f2937", marginBottom: 4 }}>
-                      <b style={{ color: "#ec4899" }}>
-                        BSR #{inf.rank_before.toLocaleString()} → #{inf.rank_after.toLocaleString()}
-                      </b>{" "}
-                      ({inf.rank_improvement_pct > 0 ? "▲" : "▼"}{" "}
-                      {Math.abs(inf.rank_improvement_pct).toFixed(0)}%) ·{" "}
-                      <span style={{ color: isMega ? "#ec4899" : "#6b7280", fontWeight: isMega ? 700 : 400 }}>
-                        {cfg.label} {ratioStr}{isMega ? " 🔥" : ""}
-                      </span>{" "}
-                      ({mWindow.toLocaleString()} vs {mCompare.toLocaleString()})
-                    </div>
-                    {ranked.length > 0 && (
-                      <div style={{ fontSize: 10, color: "#6b7280", display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
-                        <span style={{ color: "#9ca3af" }}>
-                          동반 viral{tlMetric !== "views" ? ` (${cfg.label}순 Top ${ranked.length})` : ` (Top ${ranked.length})`}:
-                        </span>
-                        {/* 각 영상마다 뷰·공유·댓글 3지표 병기 (선택 지표 강조) → 축 간 중복 파악 */}
-                        {ranked.map((v, vi) => (
-                          <span key={vi} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#374151" }}>#{vi + 1}</span>
-                            {(["views", "shares", "comments"] as const).map((m) => {
-                              const on = m === tlMetric;
-                              return (
-                                <span
-                                  key={m}
-                                  style={{
-                                    fontFamily: "monospace",
-                                    color: on ? "#ec4899" : "#9ca3af",
-                                    fontWeight: on ? 800 : 400,
-                                  }}
-                                >
-                                  {m === "views" ? "뷰" : m === "shares" ? "공유" : "댓글"}{" "}
-                                  {fmtCompact(TL_METRIC_CFG[m].get(v))}
-                                </span>
-                              );
-                            })}
-                            <TikTokEmbed url={v.url} title={v.caption ?? undefined} compact />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                );
-              })}
-          </div>
-        </details>
+      {/* ★ FE-8 Stage3(A part2, v12): 변곱점 상세 표 — 행 클릭→기간 대표영상(inflectionTopVideos). 요약 서술(topInflection 콜아웃)은 위에 유지, A·D 중복은 D가 주(主) */}
+      {hasAmazon && phase5?.bsr_inflections && phase5.bsr_inflections.length > 0 && (
+        <InflectionTable
+          caseId={caseId}
+          rows={[...phase5.bsr_inflections]
+            .sort((a, b) => Math.abs(b.rank_improvement_pct) - Math.abs(a.rank_improvement_pct))
+            .slice(0, 5)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((inf) => ({
+              date: inf.date,
+              asin: inf.asin,
+              rank_before: inf.rank_before,
+              rank_after: inf.rank_after,
+              rank_improvement_pct: inf.rank_improvement_pct,
+              views_ratio: inf.views_ratio,
+            }))}
+        />
       )}
     </div>
   );

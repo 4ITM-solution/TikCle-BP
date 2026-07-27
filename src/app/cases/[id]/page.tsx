@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServer } from "@/lib/supabase/server";
+import { eventWindow, narrativePerf, sparkByNarrative } from "@/lib/case-detail/combo-queries";
 import { ExolytSection } from "@/components/case-detail/ExolytSection";
 import { BrandViewTrendsSection } from "@/components/case-detail/BrandViewTrendsSection";
 import { YoutubeSeedingSection } from "@/components/case-detail/YoutubeSeedingSection";
@@ -1867,6 +1868,14 @@ export default async function CaseDetailPage({
       .map((r) => ({ tag: r.tag as string, video_count: r.video_count ?? 0, gmv_sum: Number(r.gmv_sum) || 0 }));
   })();
 
+  // ★ FE-8 Stage5(C, v12): 내러티브 성과(narrativePerf) + 광고 집행 비중(sparkByNarrative) — BE-31, L1층 기준.
+  const narrativePerfRows = isReady
+    ? await narrativePerf(supabase, c.id).catch(() => [])
+    : [];
+  const sparkRows = isReady
+    ? await sparkByNarrative(supabase, c.id).catch(() => [])
+    : [];
+
   // ★ A3(WS4b): 시딩∩광고 교집합 — v_case_seeding_ad_overlap(019). 미적용/무매칭 시 [].
   const seedingAdOverlap = await (async () => {
     type Row = {
@@ -1896,21 +1905,32 @@ export default async function CaseDetailPage({
   // ★ A6(WS4b): 프로모션 이벤트 — case별 + 국가 프리셋(is_preset·country). A섹션 차트 마커용.
   //   월별 버킷(start_date YYYY-MM). 019 시드 적용 후 US 프리셋이 채워짐.
   const promotionEvents = await (async () => {
-    type PromoRow = { name: string; start_date: string | null; end_date: string | null; importance: number | null };
+    type PromoRow = { id: string; name: string; start_date: string | null; end_date: string | null; importance: number | null };
     const resp = await supabase
       .from("promotion_events")
-      .select("name, start_date, end_date, importance, is_preset, country, case_id")
+      .select("id, name, start_date, end_date, importance, is_preset, country, case_id")
       .or(`case_id.eq.${c.id},and(case_id.is.null,country.eq.${c.country})`)
       .order("start_date", { ascending: true });
     const data = resp.data as unknown as PromoRow[] | null;
     return (data ?? [])
       .filter((e) => e.start_date)
       .map((e) => ({
+        id: e.id,
         name: e.name,
         month: String(e.start_date).slice(0, 7),
         start_date: String(e.start_date),
         importance: e.importance ?? null,
       }));
+  })();
+
+  // ★ FE-8 Stage3(A, v12): 이벤트 윈도우 — eventWindow(BE-31)로 전/중/후 프리페치.
+  //   과다 쿼리 방지 위해 최대 6건. 클라이언트가 토글해 선택.
+  const eventWindows = await (async () => {
+    const picked = promotionEvents.slice(0, 6);
+    const results = await Promise.all(
+      picked.map((e) => eventWindow(supabase, c.id, e.id).catch(() => null)),
+    );
+    return results.filter((r): r is NonNullable<typeof r> => r != null);
   })();
 
   // ★ 5개 작은 SQL Promise.all 병렬 (dataRanges / kalodataInOtherCases / relatedCases / tierDistByChannel / igAuthors count)
@@ -3591,6 +3611,8 @@ export default async function CaseDetailPage({
                         monthlyTierByChannel={monthlyTierByChannel}
                         hasAmazon={availableSalesChannels.includes("amazon") || c.channel === "amazon"}
                         promotionEvents={promotionEvents}
+                        eventWindows={eventWindows}
+                        caseId={c.id}
                       />
                       </SectionBoundary>
                       <SectionBoundary name="B 인플루언서 풀">
@@ -3634,6 +3656,7 @@ export default async function CaseDetailPage({
                           top_videos: ytTopChannelVideos.get(c2.channel_name) ?? [],
                         }))}
                         igCountrySignal={igCountrySignal}
+                        caseId={c.id}
                       />
                       </SectionBoundary>
                       {/* IG / YT 별도 디테일 섹션 제거 — A/B/C/D/E mockup 안에 통합 (TikTok 과 동일) */}
@@ -3651,6 +3674,8 @@ export default async function CaseDetailPage({
                         totalContents={ks.phase2.total_contents ?? 0}
                         visionSample={(ks.phase4b_vision?.total_with_tags ?? 0) + (ks.phase4b_vision?.total_reused ?? 0)}
                         gmvTags={gmvTags}
+                        narrativePerf={narrativePerfRows}
+                        sparkByNarrative={sparkRows}
                       />
                       </SectionBoundary>
                       {/* ★ B2(WS4b): 매출 미업로드 배지 — products/SKU 있으나 case_product_sales 0행(F2).
