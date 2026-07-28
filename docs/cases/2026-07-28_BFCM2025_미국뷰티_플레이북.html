@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2025 미국 블랙프라이데이 — K뷰티 시딩 플레이북</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{
+    --pink:#ec4899; --pink-d:#be185d; --pink-bg:#fdf2f8;
+    --blue:#0ea5e9; --blue-bg:#f0f9ff;
+    --ink:#18181b; --g7:#3f3f46; --g6:#52525b; --g5:#71717a; --g4:#a1a1aa;
+    --g2:#e4e4e7; --g1:#f4f4f5; --g05:#fafafa;
+    --pos:#15803d; --pos-bg:#f0fdf4; --warn:#b45309; --warn-bg:#fffbeb;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;
+    color:var(--ink); background:#f7f7f8; margin:0;
+    line-height:1.7; font-size:15px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:32px 20px 80px;}
+  header.top{
+    background:linear-gradient(135deg,#1a1a1f,#2a1622); color:#fff;
+    border-radius:18px; padding:26px 30px; margin-bottom:22px;
+  }
+  header.top h1{margin:0; font-size:25px; font-weight:800; letter-spacing:-.02em;}
+
+  section{background:#fff; border:1px solid var(--g2); border-radius:16px; padding:22px 26px; margin-bottom:16px;}
+  .sec-h{display:flex; align-items:center; gap:12px; margin:0 0 16px;}
+  .sec-num{
+    flex:none; min-width:30px; height:30px; border-radius:9px; background:var(--pink); padding:0 8px;
+    color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;
+  }
+  .sec-num.blue{background:var(--blue);}
+  .sec-h h2{margin:0; font-size:19px; font-weight:800; letter-spacing:-.01em;}
+  .sec-h h2 small{font-weight:600; color:var(--g5); font-size:14px;}
+  .sec-h .tag{margin-left:auto; font-size:11px; color:var(--g4); font-weight:600; text-align:right;}
+
+  .callout{
+    border-left:4px solid var(--pink); background:var(--pink-bg);
+    padding:14px 18px; border-radius:0 10px 10px 0; margin:14px 0;
+    font-size:14.5px; color:var(--g7); line-height:1.75; word-break:keep-all;
+  }
+  .callout.quote{font-weight:600; font-size:15px;}
+  .callout.blue{border-color:var(--blue); background:var(--blue-bg);}
+  .callout.note{border-color:var(--g4); background:var(--g05); color:var(--g6); font-size:13px;}
+
+  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13.5px;}
+  th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--g1); word-break:keep-all;}
+  thead th{background:var(--g05); font-size:11px; color:var(--g5); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--g2);}
+  tbody tr:hover{background:var(--g05);}
+  td.metric{color:var(--g5); font-weight:600; white-space:nowrap;}
+  .num{font-variant-numeric:tabular-nums;}
+  b.pink{color:var(--pink-d);} b.blue{color:#0369a1;}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0;}
+  .stat{background:var(--g05); border:1px solid var(--g1); border-radius:12px; padding:12px 14px;}
+  .stat .v{font-size:20px; font-weight:800; letter-spacing:-.02em;}
+  .stat .k{font-size:11.5px; color:var(--g5); font-weight:600; margin-top:3px; line-height:1.5; word-break:keep-all;}
+  .stat.hi{background:var(--pink-bg); border-color:#fbcfe8;}
+  .stat.hi .v{color:var(--pink-d);}
+  .stat.bl{background:var(--blue-bg); border-color:#bae6fd;}
+  .stat.bl .v{color:#0369a1;}
+
+  .chart{margin:16px 0 6px;}
+  .chart .cap{font-size:12px; color:var(--g5); font-weight:700; margin-bottom:8px;}
+  .bars{display:flex; align-items:flex-end; gap:6px; height:150px; padding:0 2px; border-bottom:2px solid var(--g2);}
+  .bars .bcol{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; position:relative;}
+  .bars .bar{width:100%; max-width:44px; background:#f9a8d4; border-radius:5px 5px 0 0; position:relative;}
+  .bars .bar.hi{background:var(--pink);}
+  .bars .bar.blue{background:#7dd3fc;}
+  .bars .bar.blue.hi{background:var(--blue);}
+  .bars .bv{position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:700; color:var(--g6); white-space:nowrap;}
+  .bars .bsr{position:absolute; bottom:-38px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:800; color:var(--pink-d); white-space:nowrap;}
+  .xlab{display:flex; gap:6px; padding:4px 2px 0; margin-bottom:34px;}
+  .xlab span{flex:1; text-align:center; font-size:10px; color:var(--g4); font-weight:600;}
+  .legend{display:flex; gap:16px; font-size:11.5px; color:var(--g5); margin-top:2px; flex-wrap:wrap;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
+
+  .tierbar{display:flex; height:26px; border-radius:8px; overflow:hidden; margin:6px 0 4px; font-size:11px; font-weight:700; color:#fff;}
+  .tierbar div{display:flex; align-items:center; justify-content:center; white-space:nowrap; overflow:hidden;}
+  .t-nm{background:var(--pink);} .t-mid{background:#f9a8d4; color:var(--pink-d);} .t-big{background:var(--g2); color:var(--g6);}
+  .tb-nm{background:var(--blue);} .tb-mid{background:#7dd3fc; color:#075985;}
+
+  .funnel{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 6px;}
+  .fstep{border:1px solid var(--g2); border-radius:12px; padding:12px; text-align:center; background:var(--g05);}
+  .fstep .fv{font-size:20px; font-weight:800;}
+  .fstep .fk{font-size:11px; color:var(--g5); font-weight:600;}
+  .fstep.hot{background:var(--pink-bg); border-color:#fbcfe8;}
+  .fstep.hot .fv{color:var(--pink-d);}
+
+  .vids{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:14px 0 4px;}
+  .vid{border:1px solid var(--g2); border-radius:14px; overflow:hidden; background:var(--g05);}
+  .vid iframe{width:100%; height:420px; border:0; display:block; background:#000;}
+  .vid .meta{padding:10px 12px;}
+  .vid .meta .h{font-size:13px; font-weight:800;}
+  .vid .meta .d{font-size:11.5px; color:var(--g5); margin-top:2px; line-height:1.6;}
+  .pill{display:inline-block; font-size:10px; font-weight:800; padding:2px 8px; border-radius:99px; margin-right:4px; vertical-align:1px;}
+  .pill.ad{background:var(--pink-bg); color:var(--pink-d); border:1px solid #fbcfe8;}
+  .pill.org{background:var(--pos-bg); color:var(--pos); border:1px solid #bbf7d0;}
+  .pill.tier{background:var(--g1); color:var(--g6); border:1px solid var(--g2);}
+
+  .capline{font-size:12px; color:var(--g5); font-weight:700; margin:18px 0 8px;}
+
+  @media (max-width:640px){
+    .funnel{grid-template-columns:repeat(2,1fr);}
+    .bars{gap:3px;}
+    .bars .bv{display:none;}
+  }
+</style>
+</head>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>2025 미국 블랙프라이데이·사이버먼데이 — 뷰티 시딩 플레이북</h1>
+  <div style="font-size:13px;color:#d4d4d8;margin-top:6px;">미국 뷰티 브랜드 14개 실측 · 틱톡 시딩 46,000여 건 + Amazon BSR 일별 시계열 · 윈도우 2025-11-14 ~ 12-08 (블프 11/28 · 사이버먼데이 12/1)</div>
+</header>
+
+<!-- 0. 한 줄 요약 -->
+<section>
+  <div class="sec-h"><div class="sec-num">0</div><h2>한 줄 요약</h2></div>
+  <div class="callout quote">
+    블프에 이긴 브랜드들의 순위는 <b>블프 당일이 아니라 2주 전에 만들어졌습니다.</b><br>
+    승자의 공통 동작은 두 가지 — <b class="pink">D-14부터 물량·스파크애즈 동반 램프업(케이스 A)</b>, 또는 <b class="blue">물량은 평시 그대로 두고 블프 주에 스파크애즈만 2배(케이스 B)</b>. 스파크 없이 물량만 뿌린 브랜드는 순위가 움직이지 않았습니다.
+  </div>
+</section>
+
+<!-- 1. Case A -->
+<section>
+  <div class="sec-h"><div class="sec-num">A</div><h2>케이스 A. D-14 램프업형 <small>Kahi</small></h2><span class="tag">BSR 163위 → 블프 주 39위</span></div>
+
+  <div class="stats">
+    <div class="stat hi"><div class="v">2.4배</div><div class="k">블프 주 물량 (주 79~124건 → 238건)</div></div>
+    <div class="stat hi"><div class="v">68%</div><div class="k">윈도우 스파크애즈 집행 비중</div></div>
+    <div class="stat"><div class="v">233명</div><div class="k">윈도우 참여 크리에이터</div></div>
+    <div class="stat"><div class="v">39위</div><div class="k">블프 주 Amazon 베스트 BSR (평시 최고 76위)</div></div>
+  </div>
+
+  <div class="callout">
+    <b>운용 패턴.</b> 10월엔 주 79~124건이던 시딩을 블프 2주 전(11/17 주)부터 190건, 블프 주 238건까지 끌어올리고, 스파크애즈도 주 38건에서 168건으로 동반 증량했습니다. 순위는 물량과 정확히 동행합니다 — 램프업 시작 주에 85위에서 42위로 진입했고, 블프 주 39위로 시즌 최고를 찍었습니다.
+  </div>
+
+  <div class="chart">
+    <div class="cap">주간 시딩 물량(막대) × Amazon 베스트 BSR(하단 핑크 숫자) — 10월 첫 주부터 12월 둘째 주</div>
+    <div class="bars">
+      <div class="bcol"><div class="bar" style="height:49%"><span class="bv">116</span><span class="bsr">76</span></div></div>
+      <div class="bcol"><div class="bar" style="height:36%"><span class="bv">86</span><span class="bsr">112</span></div></div>
+      <div class="bcol"><div class="bar" style="height:33%"><span class="bv">79</span><span class="bsr">163</span></div></div>
+      <div class="bcol"><div class="bar" style="height:52%"><span class="bv">124</span><span class="bsr">79</span></div></div>
+      <div class="bcol"><div class="bar" style="height:50%"><span class="bv">120</span><span class="bsr">97</span></div></div>
+      <div class="bcol"><div class="bar" style="height:60%"><span class="bv">143</span><span class="bsr">85</span></div></div>
+      <div class="bcol"><div class="bar hi" style="height:80%"><span class="bv">190</span><span class="bsr">42</span></div></div>
+      <div class="bcol"><div class="bar hi" style="height:100%"><span class="bv">238</span><span class="bsr">39</span></div></div>
+      <div class="bcol"><div class="bar" style="height:95%"><span class="bv">225</span><span class="bsr">71</span></div></div>
+      <div class="bcol"><div class="bar" style="height:81%"><span class="bv">192</span><span class="bsr">161</span></div></div>
+    </div>
+    <div class="xlab"><span>10-06</span><span>10-13</span><span>10-20</span><span>10-27</span><span>11-03</span><span>11-10</span><span>11-17</span><span>블프 주</span><span>12-01</span><span>12-08</span></div>
+    <div class="legend"><span><i style="background:var(--pink)"></i>램프업~블프 주</span><span style="color:var(--pink-d);font-weight:800;">숫자는 그 주 BSR 최고 순위 (낮을수록 상위)</span></div>
+  </div>
+
+  <div class="callout note">블프가 끝나자 물량을 유지(주 192~225건)했는데도 순위가 71→161위로 반락했습니다 — 딜이 꺼진 12월엔 같은 물량으로 같은 순위를 못 삽니다. 램프업의 값어치는 딜 기간 안에서만 유효했습니다.</div>
+
+  <div class="capline">블프 주에 스파크애즈로 밀어올린 영상</div>
+  <div class="vids">
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7575311405323259149" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@reallifewithshannon</div>
+        <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">micro · 3.6만 팔로워</span><br><b>37.9만 뷰</b> · 11.21 게시</div>
+      </div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7575056221623913758" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@kbeautymom75</div>
+        <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">micro · 9.1만 팔로워</span><br><b>37.3만 뷰</b> · 11.21 게시</div>
+      </div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7576093707472997646" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@stef.casallas</div>
+        <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">micro · 2.2만 팔로워</span><br><b>16.5만 뷰</b> · 11.24 게시</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Case B -->
+<section>
+  <div class="sec-h"><div class="sec-num blue">B</div><h2>케이스 B. 상시 유지 + 시즌 스파크 집중형 <small>Summer Fridays</small></h2><span class="tag">BSR 169위 → 12월 9위</span></div>
+
+  <div class="stats">
+    <div class="stat bl"><div class="v">주 155~222건</div><div class="k">10주 내내 물량 플랫 (램프업 없음)</div></div>
+    <div class="stat bl"><div class="v">2.4배</div><div class="k">블프 주 스파크애즈 (주 44건 → 105건)</div></div>
+    <div class="stat"><div class="v">9위</div><div class="k">12월 둘째 주 베스트 BSR (10월 169위)</div></div>
+    <div class="stat"><div class="v">535만 뷰</div><div class="k">블프 직전 무광고 바이럴 1편</div></div>
+  </div>
+
+  <div class="callout blue">
+    <b>운용 패턴.</b> 시딩 물량은 10주 내내 주 155~222건으로 거의 변화가 없습니다. 대신 블프 주에만 스파크애즈를 평시의 2.4배(105건)로 집중했고, 순위는 10월 169위에서 매주 꾸준히 올라 블프 주 52위, 사이버먼데이 주 14위, 12월 둘째 주 9위까지 상승했습니다. 물량이 아니라 <b>이미 깔려 있는 상시 시딩 풀 + 시즌 스파크 부스팅</b>이 만든 곡선입니다.
+  </div>
+
+  <div class="chart">
+    <div class="cap">주간 스파크애즈 집행(막대) × Amazon 베스트 BSR(하단 파랑 숫자)</div>
+    <div class="bars">
+      <div class="bcol"><div class="bar blue" style="height:78%"><span class="bv">82</span><span class="bsr" style="color:#0369a1">169</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:56%"><span class="bv">59</span><span class="bsr" style="color:#0369a1">165</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:46%"><span class="bv">48</span><span class="bsr" style="color:#0369a1">166</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:39%"><span class="bv">41</span><span class="bsr" style="color:#0369a1">155</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:41%"><span class="bv">43</span><span class="bsr" style="color:#0369a1">123</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:42%"><span class="bv">44</span><span class="bsr" style="color:#0369a1">92</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:61%"><span class="bv">64</span><span class="bsr" style="color:#0369a1">58</span></div></div>
+      <div class="bcol"><div class="bar blue hi" style="height:100%"><span class="bv">105</span><span class="bsr" style="color:#0369a1">52</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:50%"><span class="bv">53</span><span class="bsr" style="color:#0369a1">14</span></div></div>
+      <div class="bcol"><div class="bar blue" style="height:39%"><span class="bv">41</span><span class="bsr" style="color:#0369a1">9</span></div></div>
+    </div>
+    <div class="xlab"><span>10-06</span><span>10-13</span><span>10-20</span><span>10-27</span><span>11-03</span><span>11-10</span><span>11-17</span><span>블프 주</span><span>12-01</span><span>12-08</span></div>
+    <div class="legend"><span><i style="background:var(--blue)"></i>블프 주 스파크 집중</span><span style="color:#0369a1;font-weight:800;">숫자는 그 주 BSR 최고 순위</span></div>
+  </div>
+
+  <div class="capline">시즌을 끌고 간 영상 — 무광고 바이럴과 스파크 부스팅</div>
+  <div class="vids">
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7577123672540908813" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@justtkass</div>
+        <div class="d"><span class="pill org">무광고</span><br><b>535만 뷰</b> · 11.26 게시 (블프 이틀 전)</div>
+      </div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7575731058981784863" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@kelliecrowther</div>
+        <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">micro · 1.5만 팔로워</span><br><b>331만 뷰</b> · 11.22 게시</div>
+      </div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7573793234716069133" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta">
+        <div class="h">@brittmarie.x</div>
+        <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">micro · 8.4만 팔로워</span><br><b>165만 뷰</b> · 11.17 게시</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout note">팔로워 1.5만 계정이 스파크애즈로 331만 뷰 — 케이스 A와 마찬가지로, 팔로워 규모가 아니라 반응 온 콘텐츠에 광고를 태워 만든 도달입니다.</div>
+</section>
+
+<!-- 3. 반례 -->
+<section>
+  <div class="sec-h"><div class="sec-num">3</div><h2>반례 — 이렇게 하면 안 움직입니다</h2><span class="tag">같은 기간, 같은 시장</span></div>
+
+  <table>
+    <thead><tr><th>브랜드</th><th>기간 중 동작</th><th>BSR 결과</th><th>교훈</th></tr></thead>
+    <tbody>
+      <tr><td><b>TOSOWOONG</b></td><td>주 290~640건 대량 시딩, <b>스파크애즈 0%</b></td><td class="num">320~855위 정체 (개선 없음)</td><td>물량만으로는 순위가 안 움직임</td></tr>
+      <tr><td><b>Dalba</b></td><td>평시 미국 최상위권(14위)인데 시즌에 물량 <b>감소</b> (주 143→79건)</td><td class="num">14위 → 12월 112위</td><td>평시 1등도 시즌에 물량 빼면 밀림</td></tr>
+      <tr><td><b>Mixsoon</b></td><td>물량·스파크 모두 평시 수준 유지 (주 242~380건, 60%+)</td><td class="num">641~1,998위 등락</td><td>시즌 대응 없는 유지만으론 카테고리 경쟁에서 밀림</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>블프 주간은 전 카테고리 광고·딜 물량이 폭증하는 구간입니다.</b> 14개 뷰티 브랜드 중 블프 당일 구간에 순위가 오른 브랜드보다, <b>블프 전 2주에 이미 순위를 만들어 두고 유지한 브랜드</b>가 승자였습니다. 당일에 시작하면 늦습니다.
+  </div>
+</section>
+
+<!-- 4. 운영 공식 -->
+<section>
+  <div class="sec-h"><div class="sec-num">4</div><h2>2026 블프를 위한 운영 공식</h2><span class="tag">14개 브랜드 실측 종합</span></div>
+
+  <div class="funnel">
+    <div class="fstep"><div class="fv">상시</div><div class="fk">평시 시딩 풀 유지<br>(이게 없으면 시즌 부스팅 불가)</div></div>
+    <div class="fstep hot"><div class="fv">D-14</div><div class="fk">물량 램프업 시작<br>(평시 1.5~2.4배)</div></div>
+    <div class="fstep hot"><div class="fv">블프 주</div><div class="fk">반응 온 영상에<br>스파크애즈 집중 (2배+)</div></div>
+    <div class="fstep"><div class="fv">~12월 초</div><div class="fk">사이버먼데이 주까지 유지<br>이후 자연 반락 수용</div></div>
+  </div>
+
+  <table>
+    <thead><tr><th>단계</th><th>실측 근거</th></tr></thead>
+    <tbody>
+      <tr><td class="metric">순위는 D-14에 만들어진다</td><td>뷰티 14개 중 9개가 시즌 베스트 순위를 <b>블프 전 2주</b>에 기록 (Kahi 42위, Illiyoon 144위, Numbuzin 1,095위 등)</td></tr>
+      <tr><td class="metric">스파크애즈가 지렛대</td><td>승자 그룹 스파크 비중 39~84% vs 0% 브랜드(TOSOWOONG)는 대량 물량에도 정체</td></tr>
+      <tr><td class="metric">시즌은 12월 첫 주까지</td><td>다수 브랜드가 블프 후 1주(12/2~8)에도 물량 유지·증가 — 사이버먼데이~연말을 한 시즌으로 운영</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout note">
+    <b>데이터 한계 고지.</b> 조회수는 수집 시점 누적값(당시 값 아님) · BSR은 브랜드 베스트 SKU 기준 · 당시 메타 광고 소재는 플랫폼 특성상 수집 불가(활성 광고만 조회 가능 — 2026년부터는 이벤트 기간 일별 수집으로 확보 예정) · 스파크애즈 여부는 틱톡 공개 라벨 기준.
+  </div>
+</section>
+
+</div>
+</body>
+</html>
