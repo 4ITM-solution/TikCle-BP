@@ -1,0 +1,443 @@
+<title>BP 진입·리포트 빌더 프로토 v1</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --ink:#1a1b1e; --sub:#61636b; --faint:#8b8d95;
+  --line:#e6e5e0; --line2:#d8d7d1; --accent:#0e7269; --accent-ink:#0a5850;
+  --accent-bg:#edf6f4; --accent-line:#c6e2dd; --warn:#9a6a12; --warn-bg:#faf3e3;
+  --ok:#166534; --ok-bg:#eef7ee; --chip:#f1f1ee;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141519; --card:#1d1e24; --ink:#eceef0; --sub:#a3a5ad; --faint:#7c7e86;
+    --line:#2b2c33; --line2:#3a3b42; --accent:#3cb8ab; --accent-ink:#7fd6cc;
+    --accent-bg:#17332f; --accent-line:#2a5750; --warn:#d9a94a; --warn-bg:#332a17;
+    --ok:#7fc98a; --ok-bg:#1a2e1d; --chip:#26272e; }
+}
+:root[data-theme="dark"]{ --bg:#141519; --card:#1d1e24; --ink:#eceef0; --sub:#a3a5ad; --faint:#7c7e86;
+  --line:#2b2c33; --line2:#3a3b42; --accent:#3cb8ab; --accent-ink:#7fd6cc;
+  --accent-bg:#17332f; --accent-line:#2a5750; --warn:#d9a94a; --warn-bg:#332a17;
+  --ok:#7fc98a; --ok-bg:#1a2e1d; --chip:#26272e; }
+:root[data-theme="light"]{ --bg:#f7f7f5; --card:#ffffff; --ink:#1a1b1e; --sub:#61636b; --faint:#8b8d95;
+  --line:#e6e5e0; --line2:#d8d7d1; --accent:#0e7269; --accent-ink:#0a5850;
+  --accent-bg:#edf6f4; --accent-line:#c6e2dd; --warn:#9a6a12; --warn-bg:#faf3e3;
+  --ok:#166534; --ok-bg:#eef7ee; --chip:#f1f1ee; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+  font-size:14.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
+
+/* 글로벌 바 */
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:26px}
+.topbar .logo{font-weight:800;letter-spacing:-.02em;font-size:15px}
+.topbar .logo small{color:var(--accent);font-weight:800}
+.topbar .crumb{color:var(--sub);font-size:13px}
+.topbar .proto{margin-left:auto;font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+.backlink{background:none;border:0;color:var(--accent-ink);font-weight:700;font-size:13px;cursor:pointer;padding:0}
+.backlink:hover{text-decoration:underline}
+
+h1{font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+.lead{color:var(--sub);margin:0 0 26px;max-width:62ch}
+h2{font-size:16px;font-weight:800;letter-spacing:-.01em;margin:0 0 12px}
+.screen{display:none}
+.screen.on{display:block}
+
+/* 홈 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.action{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px;cursor:pointer;text-align:left;transition:border-color .12s}
+.action:hover,.action:focus-visible{border-color:var(--accent)}
+.action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.action .t{font-size:16.5px;font-weight:800;letter-spacing:-.01em}
+.action .d{color:var(--sub);font-size:13.5px;margin-top:5px;line-height:1.6}
+.action .m{color:var(--accent-ink);font-size:12px;font-weight:700;margin-top:12px}
+.statline{display:flex;gap:26px;margin-top:22px;padding:15px 22px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.statline div b{font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.statline div span{display:block;font-size:11.5px;color:var(--sub);margin-top:1px}
+
+/* 목록 공통 */
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px}
+th{ text-align:left;font-size:11px;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;padding:11px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--card) 60%, var(--bg))}
+td{padding:12px 16px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--accent-bg)}
+.num{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill.done{background:var(--ok-bg);color:var(--ok)}
+.pill.run{background:var(--warn-bg);color:var(--warn)}
+.pill.lens{background:var(--accent-bg);color:var(--accent-ink);border:1px solid var(--accent-line)}
+.pill.scope{background:var(--chip);color:var(--sub)}
+
+/* 위저드·빌더 공통 컨트롤 */
+.steps{display:flex;gap:8px;margin-bottom:20px}
+.steps span{font-size:12px;font-weight:700;color:var(--faint);padding:4px 12px;border:1px solid var(--line);border-radius:99px}
+.steps span.cur{color:var(--accent-ink);border-color:var(--accent);background:var(--accent-bg)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:14px}
+label.f{display:block;font-size:12px;font-weight:700;color:var(--sub);margin:0 0 6px}
+input[type=text],select{width:100%;max-width:360px;padding:9px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:14px}
+input[type=text]:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.optrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.opt{border:1px solid var(--line);border-radius:10px;padding:13px 15px;cursor:pointer;background:var(--card);text-align:left;font:inherit}
+.opt:hover{border-color:var(--line2)}
+.opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opt.sel{border-color:var(--accent);background:var(--accent-bg)}
+.opt .t{font-weight:800;font-size:14px}
+.opt .d{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.55}
+.opt .src{font-size:11px;color:var(--accent-ink);font-weight:700;margin-top:7px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:5px 13px;font-size:13px;cursor:pointer;font:inherit;color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chip.sel{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+:root[data-theme="dark"] .chip.sel{color:#10211e}
+.btn{display:inline-block;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:11px 22px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+:root[data-theme="dark"] .btn{color:#10211e}
+.btn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.btn.ghost{background:var(--card);color:var(--accent-ink);border:1px solid var(--accent-line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.note{font-size:12.5px;color:var(--sub);background:var(--chip);border-radius:8px;padding:9px 13px;margin-top:10px}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+
+/* 빌더 2컬럼 */
+.builder{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+.preview{position:sticky;top:14px;background:var(--card);border:1px solid var(--accent-line);border-radius:12px;padding:18px 20px}
+.preview .cap{font-size:11px;font-weight:800;color:var(--accent-ink);letter-spacing:.05em;text-transform:uppercase}
+.preview .title{font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin:7px 0 3px;line-height:1.45;text-wrap:balance}
+.preview .meta{font-size:12px;color:var(--sub);margin-bottom:12px}
+.toc{list-style:none;margin:0 0 14px;padding:0;border-top:1px solid var(--line)}
+.toc li{padding:8px 2px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:9px}
+.toc li i{font-style:normal;color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:14px;padding-top:1px}
+.toc li.add{color:var(--accent-ink);font-weight:700}
+.est{display:flex;gap:16px;font-size:12px;color:var(--sub);margin-bottom:14px}
+.est b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* 생성 진행 */
+.genlog{list-style:none;margin:16px 0;padding:0;max-width:480px}
+.genlog li{padding:9px 0 9px 26px;position:relative;color:var(--faint);font-size:13.5px;border-bottom:1px dashed var(--line)}
+.genlog li::before{content:"";position:absolute;left:2px;top:14px;width:9px;height:9px;border-radius:99px;border:2px solid var(--line2)}
+.genlog li.doing{color:var(--ink);font-weight:700}
+.genlog li.doing::before{border-color:var(--accent);background:var(--accent-bg)}
+.genlog li.did{color:var(--sub)}
+.genlog li.did::before{background:var(--accent);border-color:var(--accent)}
+
+@media (max-width:860px){ .grid2,.builder{grid-template-columns:1fr} .preview{position:static} }
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div class="wrap">
+<div class="topbar">
+  <span class="logo">TIKCLE <small>BP</small></span>
+  <span class="crumb" id="crumb">홈</span>
+  <span class="proto">프로토타입 v1 · 화면 기획용 — 수치는 실측, 동작은 시늉</span>
+</div>
+
+<!-- ─── 홈 ─── -->
+<section class="screen on" id="s-home">
+  <h1>브랜드 플레이북</h1>
+  <p class="lead">적재된 케이스 데이터로 브랜드가 "왜 팔렸는지"를 확인하고, 검증된 양식의 리포트를 바로 만듭니다.</p>
+  <div class="grid2">
+    <button class="action" onclick="go('cases')">
+      <div class="t">브랜드 케이스 확인</div>
+      <div class="d">적재·분석된 케이스를 열어 시딩·콘텐츠·광고·매출을 봅니다.</div>
+      <div class="m">케이스 97개 →</div>
+    </button>
+    <button class="action" onclick="go('newcase')">
+      <div class="t">신규 케이스 생성</div>
+      <div class="d">브랜드·국가를 정하고 데이터를 올리면 분석이 자동으로 돕니다.</div>
+      <div class="m">약 1.5시간 · $10~20 →</div>
+    </button>
+    <button class="action" onclick="go('reports')">
+      <div class="t">기존 리포트 확인</div>
+      <div class="d">만들어 둔 리포트를 다시 열람하고 팀에 공유합니다.</div>
+      <div class="m">리포트 4개 →</div>
+    </button>
+    <button class="action" onclick="go('builder')">
+      <div class="t">신규 리포트 생성</div>
+      <div class="d">대상과 질문을 고르면 검증된 양식으로 리포트를 자동 생성합니다.</div>
+      <div class="m">약 3분 · 적재 데이터 사용 →</div>
+    </button>
+  </div>
+  <div class="statline">
+    <div><b class="num">97</b><span>적재 케이스</span></div>
+    <div><b class="num">63</b><span>브랜드</span></div>
+    <div><b class="num">12</b><span>국가</span></div>
+    <div><b class="num">4</b><span>리포트</span></div>
+  </div>
+</section>
+
+<!-- ─── ① 케이스 목록 ─── -->
+<section class="screen" id="s-cases">
+  <h1>브랜드 케이스</h1>
+  <p class="lead">행을 클릭하면 케이스 상세(기존 화면)로 이동합니다.</p>
+  <table>
+    <thead><tr><th>브랜드</th><th>국가</th><th>상태</th><th>영상</th><th>최근 갱신</th></tr></thead>
+    <tbody>
+      <tr onclick="fakeDetail('Kundal US')"><td><b>Kundal</b></td><td>US</td><td><span class="pill done">분석 완료</span></td><td class="num">3,158</td><td class="num">07-26</td></tr>
+      <tr onclick="fakeDetail('Meditherapy US')"><td><b>Meditherapy</b></td><td>US</td><td><span class="pill done">분석 완료</span></td><td class="num">4,121</td><td class="num">07-26</td></tr>
+      <tr onclick="fakeDetail('EQQUALBERRY US')"><td><b>EQQUALBERRY</b></td><td>US</td><td><span class="pill done">분석 완료</span></td><td class="num">8,402</td><td class="num">07-20</td></tr>
+      <tr onclick="fakeDetail('d’Alba US')"><td><b>d’Alba</b></td><td>US</td><td><span class="pill done">분석 완료</span></td><td class="num">6,214</td><td class="num">07-12</td></tr>
+      <tr onclick="fakeDetail('Lilyeve GB')"><td><b>Lilyeve</b></td><td>GB</td><td><span class="pill done">분석 완료</span></td><td class="num">2,930</td><td class="num">07-18</td></tr>
+      <tr onclick="fakeDetail('skin1004 US')"><td><b>skin1004</b></td><td>US</td><td><span class="pill run">수집 중</span></td><td class="num">1,204</td><td class="num">07-28</td></tr>
+    </tbody>
+  </table>
+  <div class="note">목록 화면 자체는 기존 것을 쓰고, 진입 메뉴에서 연결만 정리합니다. (프로토에선 6행 예시)</div>
+</section>
+
+<!-- ─── ② 신규 케이스 위저드 ─── -->
+<section class="screen" id="s-newcase">
+  <h1>신규 케이스 생성</h1>
+  <div class="steps" id="nc-steps"><span class="cur">1 브랜드</span><span>2 데이터</span><span>3 시작</span></div>
+
+  <div class="card" id="nc1">
+    <label class="f">브랜드명 (틱톡 검색 키워드 겸용 — 쉼표로 별칭 추가)</label>
+    <input type="text" placeholder="예: EQQUALBERRY, equalberry" id="nc-brand">
+    <div style="height:14px"></div>
+    <label class="f">국가</label>
+    <select id="nc-country"><option>US</option><option>GB</option><option>FR</option><option>PL</option><option>MY</option><option>TH</option><option>JP</option></select>
+    <div style="height:18px"></div>
+    <button class="btn" onclick="ncStep(2)">다음 — 데이터 연결</button>
+  </div>
+
+  <div class="card" id="nc2" style="display:none">
+    <h2>있는 데이터만 올리면 됩니다</h2>
+    <div class="optrow">
+      <button class="opt" onclick="this.classList.toggle('sel')"><div class="t">Kalodata 엑셀</div><div class="d">틱톡샵 영상별 실매출 — 매출 연결 분석의 핵심</div></button>
+      <button class="opt" onclick="this.classList.toggle('sel')"><div class="t">Helium10 / BSR</div><div class="d">아마존 순위·판매 시계열</div></button>
+      <button class="opt" onclick="this.classList.toggle('sel')"><div class="t">자체 시딩 리스트</div><div class="d">집행한 인플 명단 (있으면 매칭 정확도↑)</div></button>
+    </div>
+    <div class="note">지금 없어도 시작할 수 있어요 — 틱톡·IG·광고 수집은 자동이고, 엑셀은 나중에 케이스 화면에서 올려도 됩니다.</div>
+    <div style="height:14px"></div>
+    <button class="btn ghost" onclick="ncStep(1)">이전</button>
+    <button class="btn" onclick="ncStep(3)">다음 — 확인</button>
+  </div>
+
+  <div class="card" id="nc3" style="display:none">
+    <h2 id="nc-summary">EQQUALBERRY · US</h2>
+    <p style="color:var(--sub);margin:4px 0 14px">틱톡 영상·인플루언서·IG·메타 광고를 수집하고 내러티브·SKU 분석까지 자동으로 진행합니다.<br>
+    예상 소요 <b>약 1.5시간</b> · 예상 비용 <b>$10~20</b> (상한 $25에서 자동 중단) · 완료되면 알림</p>
+    <button class="btn ghost" onclick="ncStep(2)">이전</button>
+    <button class="btn" onclick="alert('프로토: 여기서 실제로는 분석 파이프라인이 시작됩니다')">분석 시작</button>
+  </div>
+</section>
+
+<!-- ─── ③ 리포트 라이브러리 ─── -->
+<section class="screen" id="s-reports">
+  <h1>리포트</h1>
+  <p class="lead">생성된 리포트는 여기 쌓이고, 링크로 팀에 공유할 수 있습니다.</p>
+  <table>
+    <thead><tr><th>리포트</th><th>질문 유형</th><th>대상</th><th>생성일</th></tr></thead>
+    <tbody id="rep-rows">
+      <tr onclick="fakeOpen('BFCM 2025 미국 뷰티 플레이북')"><td><b>BFCM 2025 미국 뷰티 플레이북</b></td><td><span class="pill lens">시즈널리티</span></td><td><span class="pill scope">국가 트렌드 · US</span></td><td class="num">07-28</td></tr>
+      <tr onclick="fakeOpen('릴리이브 — 영국 케이스 소개')"><td><b>릴리이브 — 영국 케이스 소개</b></td><td><span class="pill lens">인플루언서 전략</span></td><td><span class="pill scope">브랜드 비교 · GB</span></td><td class="num">07-24</td></tr>
+      <tr onclick="fakeOpen('이퀄베리×메디테라피 프라임 윈도우')"><td><b>이퀄베리×메디테라피 프라임 윈도우</b></td><td><span class="pill lens">시즈널리티</span></td><td><span class="pill scope">브랜드 비교 · US</span></td><td class="num">07-20</td></tr>
+      <tr onclick="fakeOpen('쿤달 내러티브 탐색기')"><td><b>쿤달 내러티브 탐색기</b></td><td><span class="pill lens">콘텐츠 상세</span></td><td><span class="pill scope">단일 브랜드 · US</span></td><td class="num">07-22</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── ④ 리포트 빌더 ─── -->
+<section class="screen" id="s-builder">
+  <h1>신규 리포트 생성</h1>
+  <p class="lead">대상과 질문을 고르면 오른쪽에 목차가 미리 조립됩니다. 지금까지 수동으로 만들던 리포트 3종이 그대로 양식이 됐어요.</p>
+  <div class="builder">
+    <div>
+      <div class="card">
+        <h2>1 · 무엇을 볼까요</h2>
+        <div class="optrow" id="scopeRow">
+          <button class="opt sel" data-scope="single"><div class="t">이 브랜드가 궁금해요</div><div class="d">한 브랜드의 플레이 전체</div></button>
+          <button class="opt" data-scope="compare"><div class="t">브랜드끼리 비교</div><div class="d">2~4개 브랜드 나란히</div></button>
+          <button class="opt" data-scope="country"><div class="t">국가 전체 트렌드</div><div class="d">그 시장의 승자 패턴</div></button>
+          <button class="opt" data-scope="category"><div class="t">카테고리 경향</div><div class="d">예: 립 케어, 선케어</div></button>
+        </div>
+        <div style="height:16px"></div>
+        <div id="pick-brand">
+          <label class="f" id="brandLabel">브랜드 선택</label>
+          <div class="chips" id="brandChips"></div>
+        </div>
+        <div id="pick-country" style="display:none">
+          <label class="f">국가 선택</label>
+          <div class="chips" id="countryChips"></div>
+        </div>
+        <div id="pick-category" style="display:none">
+          <label class="f">카테고리 선택</label>
+          <div class="chips" id="catChips"></div>
+          <div class="note warn">카테고리 매핑이 없는 브랜드는 집계에서 빠집니다 — 리포트에 제외 수를 표기합니다.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2 · 뭐가 궁금하세요</h2>
+        <div class="optrow" id="lensRow">
+          <button class="opt sel" data-lens="influencer"><div class="t">인플루언서 마케팅 전략</div><div class="d">티어 구성 · 물량 · 스파크애즈 운용</div><div class="src">양식: 릴리이브 영국 리포트</div></button>
+          <button class="opt" data-lens="content"><div class="t">콘텐츠를 자세히</div><div class="d">어떤 내러티브가 반응·매출을 만드나</div><div class="src">양식: 내러티브 탐색기</div></button>
+          <button class="opt" data-lens="season"><div class="t">시즈널리티 플레이</div><div class="d">블프·프라임데이 전·중·후 움직임</div><div class="src">양식: BFCM 플레이북</div></button>
+        </div>
+        <div id="pick-event" style="display:none;margin-top:14px">
+          <label class="f">이벤트</label>
+          <div class="chips" id="eventChips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3 · 누구를 위한 리포트인가요</h2>
+        <div class="optrow" id="useRow">
+          <button class="opt sel" data-use="internal"><div class="t">내부 분석용</div><div class="d">팀이 보는 분석 — 사실·패턴 중심</div></button>
+          <button class="opt" data-use="proposal"><div class="t">브랜드 제안용</div><div class="d">특정 브랜드에게 보내는 제안서 — 마지막이 "OO을 위한 제안"으로 끝남</div><div class="src">양식: 릴리이브 영국 제안서</div></button>
+        </div>
+        <div id="pick-client" style="display:none;margin-top:14px">
+          <label class="f">제안 대상 브랜드 (분석 대상과 달라도 됩니다 — 예: GB 시장 사례를 분석해 릴리이브에게 제안)</label>
+          <input type="text" id="clientName" placeholder="예: 릴리이브" value="릴리이브" style="max-width:280px">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4 · 범위</h2>
+        <label class="f">세일즈 채널</label>
+        <div class="chips" id="chanChips"></div>
+        <div style="height:12px"></div>
+        <label class="f">기간</label>
+        <div class="chips" id="periodChips"></div>
+      </div>
+    </div>
+
+    <aside class="preview">
+      <div class="cap">생성될 리포트</div>
+      <div class="title" id="pvTitle">—</div>
+      <div class="meta" id="pvMeta">—</div>
+      <ul class="toc" id="pvToc"></ul>
+      <div class="est">
+        <div>예상 시간 <b>약 3분</b></div>
+        <div>비용 <b>~$1</b></div>
+        <div>소스 <b>적재 데이터</b></div>
+      </div>
+      <div class="note" id="pvAvail" style="margin:0 0 14px"></div>
+      <button class="btn" id="genBtn" style="width:100%">리포트 생성</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ─── 생성 진행 ─── -->
+<section class="screen" id="s-gen">
+  <h1 id="genTitle">리포트 생성 중</h1>
+  <p class="lead" id="genSub">완료되면 리포트 목록에 저장됩니다 — 이 화면을 떠나도 계속 돕니다.</p>
+  <ul class="genlog" id="genLog">
+    <li>적재 데이터 조립 — 시딩·티어·반응률·매출</li>
+    <li>수치 검증 — 기준값 대사·측정 불가 표기</li>
+    <li>서술 생성 — 양식 섹션별 요약·콜아웃</li>
+    <li>리포트 렌더 · 저장</li>
+  </ul>
+  <div id="genDone" style="display:none">
+    <div class="note" style="background:var(--ok-bg);color:var(--ok);font-weight:700">리포트가 만들어졌습니다.</div>
+    <div style="height:14px"></div>
+    <button class="btn" onclick="finishGen()">리포트 열기</button>
+    <button class="btn ghost" onclick="go('home')">홈으로</button>
+  </div>
+</section>
+</div>
+
+<script>
+/* ── 상태 ── */
+const S={scope:'single',lens:'influencer',use:'internal',client:'릴리이브',brands:['EQQUALBERRY'],country:'US',cat:'스킨케어',event:'블랙프라이데이·사이버먼데이',chan:'전체',period:'전체 기간'};
+const BRANDS=['EQQUALBERRY','Meditherapy','Kundal','d’Alba','Anua','Kahi','Illiyoon','Numbuzin','Mixsoon','skin1004','Summer Fridays','Dr. Groot'];
+const COUNTRIES=['US','GB','FR','PL','MY','TH','MX','KR'];
+const CATS=['스킨케어','헤어케어','립 케어','선케어','바디'];
+const EVENTS=['블랙프라이데이·사이버먼데이','프라임데이','발렌타인','전체 시즌'];
+const CHANS=['전체','Amazon','틱톡샵'];
+const PERIODS=['전체 기간','최근 6개월','최근 12개월'];
+
+const SCREENS={home:'홈',cases:'브랜드 케이스',newcase:'신규 케이스',reports:'리포트',builder:'신규 리포트',gen:'생성 중'};
+function go(k){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById('s-'+k).classList.add('on');
+  document.getElementById('crumb').textContent=SCREENS[k];window.scrollTo(0,0);}
+function fakeDetail(n){alert('프로토: "'+n+'" 케이스 상세(기존 v12 화면)로 이동합니다')}
+function fakeOpen(n){alert('프로토: "'+n+'" 리포트를 새 탭으로 엽니다')}
+
+/* ── 위저드 ── */
+function ncStep(n){['nc1','nc2','nc3'].forEach((id,i)=>document.getElementById(id).style.display=(i===n-1)?'':'none');
+  const st=document.getElementById('nc-steps').children;
+  for(let i=0;i<3;i++) st[i].className=(i===n-1)?'cur':'';
+  if(n===3){const b=document.getElementById('nc-brand').value||'EQQUALBERRY';
+    document.getElementById('nc-summary').textContent=b.split(',')[0]+' · '+document.getElementById('nc-country').value;}}
+
+/* ── 칩 렌더 ── */
+function chips(el,items,get,set,multi){const box=document.getElementById(el);box.innerHTML='';
+  items.forEach(v=>{const b=document.createElement('button');b.className='chip'+(get().includes(v)?' sel':'');b.textContent=v;
+    b.onclick=()=>{set(v,multi);chips(el,items,get,set,multi);render();};box.appendChild(b);});}
+function setBrand(v,multi){ if(!multi){S.brands=[v];return;}
+  const i=S.brands.indexOf(v); if(i>=0){if(S.brands.length>1)S.brands.splice(i,1);} else if(S.brands.length<4)S.brands.push(v);}
+function drawPickers(){const multi=S.scope==='compare';
+  document.getElementById('pick-brand').style.display=(S.scope==='single'||S.scope==='compare')?'':'none';
+  document.getElementById('pick-country').style.display=(S.scope==='country')?'':'none';
+  document.getElementById('pick-category').style.display=(S.scope==='category')?'':'none';
+  document.getElementById('brandLabel').textContent=multi?'브랜드 선택 (2~4개)':'브랜드 선택';
+  chips('brandChips',BRANDS,()=>S.brands,setBrand,multi);
+  chips('countryChips',COUNTRIES,()=>[S.country],(v)=>S.country=v,false);
+  chips('catChips',CATS,()=>[S.cat],(v)=>S.cat=v,false);
+  chips('eventChips',EVENTS,()=>[S.event],(v)=>S.event=v,false);
+  chips('chanChips',CHANS,()=>[S.chan],(v)=>S.chan=v,false);
+  chips('periodChips',PERIODS,()=>[S.period],(v)=>S.period=v,false);
+  document.getElementById('pick-event').style.display=(S.lens==='season')?'':'none';}
+
+/* ── 선택 카드 ── */
+document.getElementById('scopeRow').addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b)return;
+  document.querySelectorAll('#scopeRow .opt').forEach(o=>o.classList.remove('sel'));b.classList.add('sel');
+  S.scope=b.dataset.scope; if(S.scope==='compare'&&S.brands.length<2)S.brands=['EQQUALBERRY','Meditherapy'];
+  if(S.scope==='single')S.brands=[S.brands[0]]; drawPickers();render();});
+document.getElementById('useRow').addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b)return;
+  document.querySelectorAll('#useRow .opt').forEach(o=>o.classList.remove('sel'));b.classList.add('sel');
+  S.use=b.dataset.use;document.getElementById('pick-client').style.display=(S.use==='proposal')?'':'none';render();});
+document.getElementById('clientName').addEventListener('input',e=>{S.client=e.target.value||'대상 브랜드';render();});
+document.getElementById('lensRow').addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b)return;
+  document.querySelectorAll('#lensRow .opt').forEach(o=>o.classList.remove('sel'));b.classList.add('sel');
+  S.lens=b.dataset.lens; drawPickers();render();});
+
+/* ── 목차 조립 ── */
+const TOC={
+ influencer:['한 줄 요약 (결론 선행)','케이스 A vs B — 광고 중심형과 오가닉 중심형 대비','월별 시딩 × 매출(BSR) 추이 + 대표 영상','티어 구성 비교','두 케이스의 공통분모 → 운영 공식'],
+ content:['한 줄 요약 (결론 선행)','내러티브별 성과 — 반응률 × 매출 병치','반응 1위 vs 매출 1위 대비 + 근거 영상','키 메시지와 근거','스파크애즈를 태운 콘텐츠의 특징 → 공식'],
+ season:['한 줄 요약 (결론 선행)','시즌 타이밍 — 전·중·후 무엇이 움직였나','주간 물량 티어 스택 × BSR + 대표 영상','승자 vs 반례 분류표','운영 공식']};
+const SCOPE_ADD={compare:'브랜드 나란히 비교표',country:'시장 개요 — 브랜드 전체 분류',category:'카테고리 개요 — 상위 브랜드'};
+const LENSNAME={influencer:'인플루언서 전략',content:'콘텐츠 상세',season:'시즈널리티'};
+
+function render(){
+  let target = S.scope==='single'?S.brands[0]
+    : S.scope==='compare'?S.brands.join(' vs ')
+    : S.scope==='country'?S.country+' 전체'
+    : S.cat+' 카테고리';
+  let title = S.lens==='season' ? target+' — '+S.event+' 플레이'
+    : target+' — '+LENSNAME[S.lens];
+  if(S.use==='proposal') title=(S.client||'대상 브랜드')+' 제안 — '+title;
+  document.getElementById('pvTitle').textContent=title;
+  document.getElementById('pvMeta').textContent=
+    (S.scope==='country'?S.country:(S.scope==='category'?'전 국가':'US'))+' · '+S.chan+' · '+S.period;
+  const ul=document.getElementById('pvToc');ul.innerHTML='';
+  let secs=[...TOC[S.lens]];
+  if(SCOPE_ADD[S.scope]) secs.splice(1,0,SCOPE_ADD[S.scope]);
+  if(S.use==='proposal') secs.push((S.client||'대상 브랜드')+'\uc744 위한 제안 — 사례의 공식을 이 브랜드에 적용하면');
+  secs.forEach((t,i)=>{const li=document.createElement('li');
+    li.innerHTML='<i>'+(i+1)+'</i>'+t;
+    if((SCOPE_ADD[S.scope]&&i===1)||(S.use==='proposal'&&i===secs.length-1))li.classList.add('add');ul.appendChild(li);});
+  const av=document.getElementById('pvAvail');
+  if(S.scope==='category') av.textContent='대상: 카테고리 매핑된 브랜드 (미매핑 제외 수 리포트에 표기)';
+  else if(S.scope==='country') av.textContent='대상: '+S.country+' 케이스 전체 — 소표본 브랜드는 "판정 보류"로 분리 표기';
+  else av.textContent='매출 없는 구간·측정 불가 지표는 "—"로 정직 표기 (지어내지 않음)';
+}
+document.getElementById('genBtn').onclick=()=>{go('gen');runGen();};
+
+/* ── 생성 시뮬레이션 ── */
+let genT=[];
+function runGen(){const lis=[...document.getElementById('genLog').children];
+  lis.forEach(li=>li.className='');document.getElementById('genDone').style.display='none';
+  genT.forEach(clearTimeout);genT=[];
+  lis.forEach((li,i)=>{genT.push(setTimeout(()=>{lis.forEach((x,j)=>x.className=j<i?'did':(j===i?'doing':''));},i*900));});
+  genT.push(setTimeout(()=>{lis.forEach(x=>x.className='did');document.getElementById('genDone').style.display='';},lis.length*900));}
+function finishGen(){
+  const tb=document.getElementById('rep-rows');const tr=document.createElement('tr');
+  tr.onclick=()=>fakeOpen(document.getElementById('pvTitle').textContent);
+  tr.innerHTML='<td><b>'+document.getElementById('pvTitle').textContent+'</b></td>'+
+    '<td><span class="pill lens">'+LENSNAME[S.lens]+'</span></td>'+
+    '<td><span class="pill scope">'+document.getElementById('pvMeta').textContent.split(' · ')[0]+'</span></td>'+
+    '<td class="num">오늘</td>';
+  tb.prepend(tr);go('reports');}
+
+drawPickers();render();
+</script>
