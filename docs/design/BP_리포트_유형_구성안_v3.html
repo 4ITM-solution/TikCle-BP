@@ -1,0 +1,349 @@
+<title>BP 리포트 유형별 구성안 v1</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --ink:#1a1b1e; --sub:#61636b; --faint:#8b8d95;
+  --line:#e6e5e0; --accent:#0e7269; --accent-ink:#0a5850; --accent-bg:#edf6f4; --accent-line:#c6e2dd;
+  --warn:#9a6a12; --warn-bg:#faf3e3; --ok:#166534; --ok-bg:#eef7ee; --chip:#f1f1ee;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141519; --card:#1d1e24; --ink:#eceef0; --sub:#a3a5ad; --faint:#7c7e86;
+    --line:#2b2c33; --accent:#3cb8ab; --accent-ink:#7fd6cc; --accent-bg:#17332f; --accent-line:#2a5750;
+    --warn:#d9a94a; --warn-bg:#332a17; --ok:#7fc98a; --ok-bg:#1a2e1d; --chip:#26272e; }
+}
+:root[data-theme="dark"]{ --bg:#141519; --card:#1d1e24; --ink:#eceef0; --sub:#a3a5ad; --faint:#7c7e86;
+  --line:#2b2c33; --accent:#3cb8ab; --accent-ink:#7fd6cc; --accent-bg:#17332f; --accent-line:#2a5750;
+  --warn:#d9a94a; --warn-bg:#332a17; --ok:#7fc98a; --ok-bg:#1a2e1d; --chip:#26272e; }
+:root[data-theme="light"]{ --bg:#f7f7f5; --card:#ffffff; --ink:#1a1b1e; --sub:#61636b; --faint:#8b8d95;
+  --line:#e6e5e0; --accent:#0e7269; --accent-ink:#0a5850; --accent-bg:#edf6f4; --accent-line:#c6e2dd;
+  --warn:#9a6a12; --warn-bg:#faf3e3; --ok:#166534; --ok-bg:#eef7ee; --chip:#f1f1ee; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+ font-size:14.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:34px 20px 80px}
+h1{font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+.lead{color:var(--sub);margin:0 0 8px;max-width:64ch}
+.meta{font-size:12px;color:var(--faint);margin-bottom:26px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:16px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.sec-h h2{font-size:17px;font-weight:800;letter-spacing:-.01em;margin:0}
+.sec-h .q{font-size:12.5px;color:var(--accent-ink);font-weight:700}
+.who{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+.who b{color:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 2px}
+th{text-align:left;font-size:11px;color:var(--sub);letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n{color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.sec{font-weight:700;min-width:150px}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.pre{background:var(--warn-bg);color:var(--warn)}
+.origin{font-size:11.5px;color:var(--faint);margin-top:10px}
+.origin b{color:var(--accent-ink)}
+.callout{border-left:3px solid var(--accent);background:var(--accent-bg);padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;margin:0 0 18px}
+.callout b{color:var(--accent-ink)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;font-size:13px;margin-top:6px}
+.grid div b{font-weight:700}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.small{font-size:12px;color:var(--sub)}
+
+/* 예시 리포트 토글 */
+details.demo{margin-top:14px;border:1px solid var(--accent-line);border-radius:10px;background:var(--accent-bg);overflow:hidden}
+details.demo>summary{cursor:pointer;padding:11px 16px;font-size:13px;font-weight:800;color:var(--accent-ink);list-style:none;display:flex;align-items:center;gap:8px}
+details.demo>summary::before{content:"▸";transition:transform .12s}
+details.demo[open]>summary::before{transform:rotate(90deg)}
+details.demo>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.rep{background:var(--card);border-top:1px solid var(--accent-line);padding:20px 22px}
+.rep .rt{font-size:16px;font-weight:800;letter-spacing:-.01em;margin:0 0 2px}
+.rep .rm{font-size:11.5px;color:var(--faint);margin-bottom:14px}
+.rep .quote{border-left:3px solid var(--accent);background:var(--accent-bg);padding:11px 14px;border-radius:0 8px 8px 0;font-size:13.5px;font-weight:600;margin:0 0 16px}
+.rep h4{font-size:13px;font-weight:800;margin:18px 0 8px;color:var(--ink)}
+.rep h4 small{color:var(--faint);font-weight:600}
+.rstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
+.rstat{background:var(--chip);border-radius:9px;padding:9px 12px}
+.rstat .v{font-size:16.5px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.rstat .k{font-size:10.5px;color:var(--sub);font-weight:600;margin-top:1px;line-height:1.4}
+.rstat.a .v{color:var(--accent-ink)}
+.rep table{font-size:12.5px}
+.rep td,.rep th{padding:7px 9px}
+.rbars{display:flex;align-items:flex-end;gap:5px;height:90px;border-bottom:2px solid var(--line);padding:0 2px;margin-top:8px}
+.rbars .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative}
+.rbars .c .v{position:absolute;top:-16px;font-size:9.5px;font-weight:700;color:var(--sub)}
+.rbars .c .b{width:100%;max-width:34px;border-radius:4px 4px 0 0}
+.rbars .c .s{position:absolute;bottom:-30px;font-size:9.5px;font-weight:800;color:var(--accent-ink)}
+.rxlab{display:flex;gap:5px;padding:3px 2px 26px}
+.rxlab span{flex:1;text-align:center;font-size:9.5px;color:var(--faint);font-weight:600}
+.vids3{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:8px 0}
+.vph{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--chip)}
+.vph .ph{height:120px;background:linear-gradient(160deg,var(--chip),var(--line));display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:22px}
+.vph .m{padding:7px 9px;font-size:10.5px;line-height:1.5;color:var(--sub)}
+.vph .m b{color:var(--ink);font-size:11.5px}
+.tb2{display:flex;height:20px;border-radius:6px;overflow:hidden;font-size:9.5px;font-weight:700;color:#fff;margin:5px 0}
+.tb2 div{display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.duo .case{border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.duo .case.pk{border-color:#f5b8d0;background:color-mix(in srgb,#fdf2f8 55%,var(--card))}
+.duo .case.bl{border-color:#a8d8f0;background:color-mix(in srgb,#f0f9ff 55%,var(--card))}
+.duo .case .ct{font-weight:800;font-size:13px}
+.duo .case .cd{font-size:11.5px;color:var(--sub);margin-top:4px;line-height:1.6}
+@media(max-width:640px){.duo{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+<h1>BP 리포트 유형별 구성안</h1>
+<p class="lead">7/27 회의 노션의 「운영 단계에서 BP를 사용할 수 있는 방법」 토글 구조를 그대로 따른다 — <b>운영자가 궁금한 것 = 리포트 섹션</b>. CSM이 목차에서 자기 질문을 그대로 발견하게.</p>
+<div class="meta">v2 · 2026-07-29 · 유형 1~5 = 노션 토글 그대로, 유형 6 = 상희님 유형화 답변(인플루언서 방법론) 추가 · 혜원님 확정안 나오면 병합</div>
+
+<div class="callout"><b>모든 유형의 공통 규격 (구조 DNA)</b> — ①한 줄 요약이 결론을 먼저 말한다 ②정보 나열 대신 대비 구조(A vs B, 승자 vs 반례) ③숫자 옆엔 근거 영상 카드 ④"그래서 뭘 하라"는 공식으로 끝난다 ⑤정직 표기: 데이터 기준일·표본 수·측정 불가(—) 상시 노출 ⑥용도 선택 시 마지막이 "OO을 위한 제안"으로 변형.</div>
+
+<!-- 1 -->
+<section>
+  <div class="sec-h"><h2>1 · 카테고리 이해 및 시장 진단</h2><span class="q">"이 시장은 어떻지?"</span></div>
+  <div class="who"><b>상황:</b> "새로운 캠페인을 시작해야 하는데 정보가 부족해" — 무엇을 해야 하는가 이전에 "어떤 시장인가"를 이해하도록 지원. <span class="pill pre">노션 표기: 전체 없음 (현재 불가 유형)</span></div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">0</td><td class="sec">한 줄 요약 — 이 시장의 성격</td><td>아래 종합 (LLM 1회)</td><td>결론 문장 + 핵심 수치</td><td><span class="pill pre">카테고리 매핑 후</span></td></tr>
+      <tr><td class="n">1</td><td class="sec">이 카테고리에서 소비자들은 무엇을 중요하게 생각하는가?</td><td>카테고리 풀의 키 메시지·고반응 앵글 집계</td><td>관심사 리스트 + 근거 영상</td><td><span class="pill pre">매핑 + 키 메시지(API 키)</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">국가별 Pain Point는 무엇이지?</td><td>앵글 중 문제 제기형(고민·비포애프터) 분포 — 국가 간 대비</td><td>국가 열 대비 표</td><td><span class="pill pre">매핑 후</span> <span class="small">국가 2개+ 적재 시</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">어떤 USP가 잘 먹히는 시장인가?</td><td>USP·성분 언급 × 반응률·매출 병치</td><td>USP 랭킹 + 근거 영상</td><td><span class="pill pre">매핑 + 키 메시지</span></td></tr>
+      <tr><td class="n">4</td><td class="sec">지금 들어가기 적합한 시장인가?</td><td>경쟁 밀도(브랜드 수·주간 영상량)·티어 구조·스파크 비중 분포</td><td>판단 근거 스트립 + 가이드 문장</td><td><span class="pill pre">매핑 후</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">US 선케어 시장 진단</div>
+<div class="rm">적재 브랜드 9개 기준 · 데이터 기준일 2026-07-21 · Amazon + 틱톡샵</div>
+<div class="quote">US 선케어는 "백탁 없는 톤업"이 대화를 지배하는 시장입니다 — 상위 브랜드 전원이 화학자차 소구, 시딩은 마이크로 중심(주 40건+)이 기본기입니다.</div>
+<h4>1 · 소비자들이 중요하게 생각하는 것</h4>
+<table><tbody>
+<tr><td class="sec">백탁 없음 (no white cast)</td><td>고반응 앵글 1위 — 언급 영상 214편, 평균 반응률 62</td></tr>
+<tr><td class="sec">톤업·속광</td><td>메이크업 겸용 소구 — 반응률 48</td></tr>
+<tr><td class="sec">재발림 편의 (스틱·쿠션)</td><td>여름 시즌 성장 — 매출 연결 다수</td></tr>
+</tbody></table>
+<h4>2 · 국가별 Pain Point <small>— US vs GB</small></h4>
+<table><thead><tr><th></th><th>US</th><th>GB</th></tr></thead><tbody>
+<tr><td class="sec">문제 제기형 앵글</td><td>백탁·번들거림 (68%)</td><td>민감 자극·트러블 (54%)</td></tr>
+</tbody></table>
+<h4>4 · 진입 적합성 판단 근거</h4>
+<div class="rstats">
+<div class="rstat"><div class="v">9개</div><div class="k">활동 브랜드</div></div>
+<div class="rstat"><div class="v">주 310편</div><div class="k">카테고리 시딩 볼륨</div></div>
+<div class="rstat a"><div class="v">38%</div><div class="k">스파크 비중 중앙값</div></div>
+<div class="rstat"><div class="v">마이크로 52%</div><div class="k">지배 티어</div></div>
+</div>
+</div></details>
+  <div class="origin">BP 역할 매핑: 카테고리 인사이트 제공(1·3) · 국가별 소비자 관심사 요약(2) · 시장 특성 정리(4). ⚠️ <b>정직성</b>: "시장 전체"가 아니라 "적재 브랜드 N개 기준" 헤더 상시 고지. 원형: BFCM §3 분류표(4번).</div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="sec-h"><h2>2 · 레퍼런스 리서치</h2><span class="q">"무엇을 탐색해야 하지?"</span></div>
+  <div class="who"><b>상황:</b> "제품 정보가 부족해 / 익숙치 않은 카테고리야 / 시딩·브리프 작성 전에 감을 잡아야 해" — 가이드라인 생성 이전 단계와 자연스럽게 연결. <span class="pill ok">노션 표기: 개별 브랜드 기준으로는 됨</span></div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">0</td><td class="sec">한 줄 요약 — 이 풀에서 반복적으로 먹히는 것</td><td>아래 종합</td><td>결론 문장</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">1</td><td class="sec">비슷한 브랜드들은 어떤 콘텐츠를 만들고 있지?</td><td>유사 브랜드(같은 카테고리/지정) 고성과 콘텐츠</td><td>브랜드별 열 — 영상 카드 + 패턴 요약</td><td><span class="pill ok">지금 가능</span> <span class="small">유사 브랜드 자동추천은 매핑 후</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">어떤 앵글이 반복적으로 성과를 내지?</td><td>내러티브 클러스터 × 반응률·조회 (검증된 조합 계층)</td><td>반복 앵글 Top 5 — 대표 영상 2~3편씩</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">어떤 크리에이터 사례를 참고하면 되지?</td><td>크리에이터 프로필(백분위·티어·스파크 여부)</td><td>티어별 대표 사례 + 영상</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">+</td><td class="sec">바로 쓸 브리프 힌트 (가이드라인 연결)</td><td>영상 태깅 — 훅·포맷·CTA·오버레이 문구</td><td>훅 유형 × 예시 문구 표</td><td><span class="pill ok">지금 가능</span> <span class="small">태깅 표본 고지</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">EQQUALBERRY 브리프 전 레퍼런스 — US 스킨케어 유사 브랜드</div>
+<div class="rm">유사 브랜드 4개(Anua·skin1004·Numbuzin·Mixsoon) · 데이터 기준일 2026-07-21</div>
+<div class="quote">이 풀에서 반복적으로 터지는 건 "루틴 속 1단계 대체" 앵글입니다 — 신제품 소개가 아니라 기존 루틴의 한 칸을 바꾸는 이야기.</div>
+<h4>2 · 반복 성과 앵글 Top 3</h4>
+<div class="vids3">
+<div class="vph"><div class="ph">▶</div><div class="m"><b>루틴 1단계 대체</b><br>84편 · 반응률 115.9<br>@skincare_yuna · 조회 1.2M</div></div>
+<div class="vph"><div class="ph">▶</div><div class="m"><b>퍼스널 스토리 리뷰</b><br>199편 · 매출 $17.9K<br>@glowwithme · 조회 890K</div></div>
+<div class="vph"><div class="ph">▶</div><div class="m"><b>비포애프터 텍스처</b><br>121편 · 저장율 4.2%<br>@dailyskin.log · 조회 640K</div></div>
+</div>
+<h4>3 · 참고할 크리에이터 사례</h4>
+<table><thead><tr><th>티어</th><th>사례</th><th>왜 참고하나</th></tr></thead><tbody>
+<tr><td>나노 (2천)</td><td>@beemoon00</td><td>무광고로 112만 뷰 — 텍스처 클로즈업 문법</td></tr>
+<tr><td>마이크로 (3만)</td><td>@glambyval</td><td>스파크 태우면 1,000만 뷰까지 — 부스팅 적합형</td></tr>
+</tbody></table>
+<h4>+ 바로 쓸 브리프 힌트</h4>
+<table><thead><tr><th>훅 유형</th><th>예시 문구</th></tr></thead><tbody>
+<tr><td class="sec">문제 선언형</td><td>"토너 세 병 써봤는데 이것만 남음"</td></tr>
+<tr><td class="sec">숫자 검증형</td><td>"2주 썼더니 각질이…"</td></tr>
+</tbody></table>
+</div></details>
+  <div class="origin">BP 역할 매핑: 레퍼런스 추천(1·3) · 고성과 콘텐츠 패턴 요약(1) · 반복 앵글 추출(2). "+브리프 힌트"는 경은님 지적(가이드라인 제작 UX와 연결) 반영 — 가이드라인 도구로 넘기는 출구.</div>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="sec-h"><h2>3 · 콘텐츠 전략 수립</h2><span class="q">"어떤 콘텐츠가 먹힐까?"</span></div>
+  <div class="who"><b>상황:</b> "콘텐츠 KPI를 달성하기 위한 전략 수립이 필요해" — 테스트할 아이디어를 만드는 단계. 경쟁사 콘텐츠 분석이 이 유형 안에 포함.</div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">0</td><td class="sec">한 줄 요약 — 뭘 만들어야 하나</td><td>아래 종합</td><td>결론 문장</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">1</td><td class="sec">경쟁사는 무엇을 바이럴시키고 있지?</td><td>경쟁사별 최근 기간 조회 상위 영상 × 앵글 (기간 필터)</td><td>경쟁사 열 대비 — 바이럴 영상 카드 + 앵글 라벨</td><td><span class="pill ok">지금 가능</span> <span class="small">데이터 기준일 고지 + 갱신 요청 연동</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">어떤 콘텐츠 포맷이 늘고 있지?</td><td>포맷·앵글 태깅의 월별 추이 (증가 기울기 정렬)</td><td>추이 미니 차트 + 성장 포맷 리스트</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">어떤 트렌드를 따라가야 하지?</td><td>성장 앵글 × 반응률·매출 병치 — 반응 1위 vs 매출 1위 대비</td><td>A vs B 대비 + 근거 영상</td><td><span class="pill ok">지금 가능</span> <span class="small">쿤달 기준값 검증 완료</span></td></tr>
+      <tr><td class="n">+</td><td class="sec">틱톡샵 영상 vs 비샵 영상, 앵글이 다른가?</td><td>샵 연동 여부 × 앵글 교차 집계</td><td>2열 교차표</td><td><span class="pill ok">지금 가능</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">Kundal US 콘텐츠 전략 — 경쟁사 3사 대비</div>
+<div class="rm">vs Dr. Groot · Mixsoon · 최근 8주 · 데이터 기준일 2026-07-21</div>
+<div class="quote">반응을 얻는 콘텐츠와 파는 콘텐츠가 다릅니다 — 리스트형은 저장을 만들고(반응률 115.9), 퍼스널 스토리형이 팔며($17.9K), 경쟁사는 지금 향 비교 챌린지로 바이럴 중입니다.</div>
+<h4>1 · 경쟁사는 무엇을 바이럴시키고 있나</h4>
+<table><thead><tr><th>브랜드</th><th>최근 바이럴</th><th>앵글</th></tr></thead><tbody>
+<tr><td><b>Dr. Groot</b></td><td>탈모 비포애프터 (2.1M)</td><td>숫자 검증형</td></tr>
+<tr><td><b>Mixsoon</b></td><td>성분 하나 루틴 (1.4M)</td><td>미니멀 루틴형</td></tr>
+</tbody></table>
+<h4>3 · 반응 1위 vs 매출 1위 <small>— 쿤달 실측 구조의 더미 예시</small></h4>
+<div class="duo">
+<div class="case pk"><div class="ct">반응 1위 — 리스트·큐레이션형</div><div class="cd">84편 · 반응률 <b>115.9</b> · 매출 $170<br>저장을 만들지만 지갑은 안 연다</div></div>
+<div class="case bl"><div class="ct">매출 1위 — 퍼스널 스토리형</div><div class="cd">199편 · 반응률 17.4 · 매출 <b>$17,910</b><br>반응은 낮아도 산다</div></div>
+</div>
+<h4>+ 틱톡샵 영상 vs 비샵 영상</h4>
+<table><thead><tr><th></th><th>틱톡샵 연동</th><th>비연동</th></tr></thead><tbody>
+<tr><td class="sec">지배 앵글</td><td>퍼스널 스토리 · 딜 소구</td><td>리스트 · 텍스처 클로즈업</td></tr>
+<tr><td class="sec">역할</td><td>전환</td><td>저장·인지</td></tr>
+</tbody></table>
+</div></details>
+  <div class="origin">BP 역할 매핑: 경쟁사 콘텐츠 분석(1) · 성장 중인 트렌드(2) · 바이럴 앵글·포맷 요약(3). "+교차"는 혜원님 추가 의견. 원형: <b>내러티브 탐색기</b>(3번) + <b>경쟁사 앵글 비교 리포트</b>(1번).</div>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="sec-h"><h2>4 · SKU 및 제품 믹스 전략</h2><span class="q">"무엇을 밀어야 하지?"</span></div>
+  <div class="who"><b>상황:</b> "분기 캠페인이나 예산 배분을 설계할 때". 이벤트(블프·프라임데이) 선택 시 시즌 중심으로 변형.</div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">0</td><td class="sec">한 줄 요약 — 밀기 전략의 결론</td><td>아래 종합</td><td>결론 문장</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">1</td><td class="sec">상위 브랜드는 SKU를 어떻게 운영하고 있지? — Hero 중심인가, Portfolio인가</td><td>SKU별 매출·BSR 분포 + 콘텐츠 언급 SKU 집중도</td><td>A(단일 히어로) vs B(포트폴리오) 대비</td><td><span class="pill ok">지금 가능</span> <span class="small">채널 통합 표기는 SKU 묶음 실행 후</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">시즌성은 얼마나 영향을 미치지?</td><td>이벤트 전·중·후 물량·티어·BSR (검증 완료)</td><td>주간 티어 스택 × BSR (BFCM 차트)</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">그래서 우리는 뭘 미나 — 추천 SKU 믹스</td><td>위 대비 + 대상 브랜드 SKU 목록</td><td>제안 표 — SKU × 역할(엔진/서브) × 시즌 타이밍</td><td><span class="pill ok">지금 가능</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">d’Alba US SKU 믹스 — 블랙프라이데이 대비</div>
+<div class="rm">vs Kahi · Anua · 이벤트: 블프·사이버먼데이 · 데이터 기준일 2026-07-21</div>
+<div class="quote">이 카테고리 승자들은 블프에 전 채널을 단일 히어로 SKU로 정렬했습니다 — 포트폴리오를 넓히는 건 이벤트가 끝난 뒤였습니다.</div>
+<h4>1 · Hero 중심 vs Portfolio</h4>
+<div class="duo">
+<div class="case pk"><div class="ct">A · Kahi — 단일 히어로</div><div class="cd">멀티밤이 콘텐츠 언급 91%·매출 87%<br>블프 딜·틱톡·미디어 전부 이 SKU 하나로</div></div>
+<div class="case bl"><div class="ct">B · Anua — 포트폴리오</div><div class="cd">어성초 라인 5개 SKU 분산 (최대 34%)<br>신제품을 계속 얹는 확장형</div></div>
+</div>
+<h4>2 · 시즌성 — 블프 전·중·후 <small>주간 시딩(막대) × BSR(하단)</small></h4>
+<div class="rbars">
+<div class="c"><span class="v">120</span><div class="b" style="height:48%;background:#f9a8d4"></div><span class="s">85</span></div>
+<div class="c"><span class="v">190</span><div class="b" style="height:76%;background:#ec4899"></div><span class="s">42</span></div>
+<div class="c"><span class="v">238</span><div class="b" style="height:100%;background:#be185d"></div><span class="s">39</span></div>
+<div class="c"><span class="v">225</span><div class="b" style="height:94%;background:#f9a8d4"></div><span class="s">71</span></div>
+</div>
+<div class="rxlab"><span>D-14</span><span>D-7</span><span>블프 주</span><span>이후</span></div>
+<h4>3 · 추천 SKU 믹스</h4>
+<table><thead><tr><th>SKU</th><th>역할</th><th>타이밍</th></tr></thead><tbody>
+<tr><td><b>화이트 트러플 세럼</b></td><td>엔진 — 딜·시딩·스파크 정렬</td><td>D-14부터</td></tr>
+<tr><td>미스트 세트</td><td>서브 — 기프팅 앵커</td><td>10월 선출시</td></tr>
+</tbody></table>
+</div></details>
+  <div class="origin">BP 역할 매핑: 경쟁사 SKU 전략 분석(1) · Push 방식 비교(1) · 시즌성 반영(2) · 추천 믹스 제안(3). 원형: <b>BFCM 플레이북</b> — "승자는 전 채널을 단일 SKU로 정렬"이 1번의 씨앗. 웹 증거(딜·가격) 딥 모드는 v2 옵션.</div>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="sec-h"><h2>5 · 캠페인 기획 검증</h2><span class="q">"이 방향이 맞나?"</span></div>
+  <div class="who"><b>상황:</b> "이미 아이디어가 있어" — 세운 전략을 시장 데이터에 비춰 확인. <span class="pill pre">회의 의사결정 리스트에서 취소선 — 후순위 유형</span></div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td class="sec">이 방향이 맞는가?</td><td>입력한 전략(앵글·티어·물량) vs 풀의 승자 패턴 대조</td><td>항목별 일치/괴리 표</td><td><span class="pill pre">후순위 — 전략 입력 UI 필요</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">놓친 트렌드는 없는가?</td><td>성장 앵글 중 전략에 없는 것</td><td>누락 리스트</td><td><span class="pill pre">후순위</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">다른 접근도 있나?</td><td>같은 카테고리 반례·대안 플레이</td><td>대안 카드 + 근거</td><td><span class="pill pre">후순위</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">캠페인 기획 검증 — 입력한 전략 vs 시장 승자 패턴</div>
+<div class="rm">구현 보류 유형 — 형태 참고용</div>
+<table><thead><tr><th>내 전략</th><th>승자 패턴</th><th>판정</th></tr></thead><tbody>
+<tr><td>나노 위주 월 300건</td><td>마이크로+미드 믹스 40%+</td><td>⚠ 티어 재배분 검토</td></tr>
+<tr><td>스파크 미집행</td><td>반응 영상에 집중 집행</td><td>⚠ 증폭 장치 부재</td></tr>
+<tr><td>루틴 대체 앵글</td><td>동일 — 반복 성과 1위</td><td>✓ 유지</td></tr>
+</tbody></table>
+</div></details>
+  <div class="origin">구성만 잡아두고 구현은 보류 — 유형 1~4·6이 자리 잡은 뒤 "검증"은 자연스럽게 그 위에 얹힌다.</div>
+</section>
+
+<!-- 6 -->
+<section>
+  <div class="sec-h"><h2>6 · 인플루언서 방법론</h2><span class="q">"인플루언서를 어떻게 쓰지?"</span></div>
+  <div class="who"><b>상황:</b> 캠페인 뼈대(월 물량·티어 구성·스파크 운용)를 설계할 때 — 상희님 유형화 답변의 유형 1. 노션 토글엔 없지만 세일즈 제안서와 겹쳐 쓰는 핵심 유형이라 유지.</div>
+  <table>
+    <thead><tr><th></th><th>섹션 = 운영자의 질문</th><th>데이터</th><th>표현</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="n">0</td><td class="sec">한 줄 요약 — 이 시장의 시딩 공식</td><td>아래 종합</td><td>결론 문장</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">1</td><td class="sec">잘하는 브랜드들은 어떻게 다르게 하나 — 케이스 A vs B</td><td>풀에서 스파크 비중 양극 브랜드 자동 선정</td><td>릴리이브식 2케이스 대비 (핑크/블루)</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">2</td><td class="sec">물량과 순위가 어떻게 동행하나 — 월별 트렌드</td><td>월별 물량·티어 스택 + BSR</td><td>막대 × BSR 차트 + 대표 영상</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">3</td><td class="sec">티어를 어떻게 섞고, 최소 몇 건이 임계인가</td><td>티어 분포 + 성과 임계 (릴리이브 "월 200건" 방식)</td><td>티어바 + 임계 콜아웃</td><td><span class="pill ok">지금 가능</span></td></tr>
+      <tr><td class="n">4</td><td class="sec">공통분모 → 운영 공식</td><td>위 종합</td><td>운영 지표 표 + 공식</td><td><span class="pill ok">지금 가능</span></td></tr>
+    </tbody>
+  </table>
+  <details class="demo"><summary>예시 리포트 미리보기 — 더미 데이터</summary><div class="rep">
+<div class="rt">GB 스킨케어 시딩 방법론 — 릴리이브 제안</div>
+<div class="rm">케이스: Beauty of Joseon vs Dr. Althea · 제안 대상: 릴리이브 · 데이터 기준일 2026-07-21</div>
+<div class="quote">영국에서 성과 내는 브랜드들은 나노·마이크로 무가 시딩을 월 200건 이상 일정하게 깔고, 반응 온 영상 10~15%에 스파크를 태웁니다. 차이는 광고 비중 하나입니다.</div>
+<h4>1 · 케이스 A vs B</h4>
+<div class="duo">
+<div class="case pk"><div class="ct">A · 광고 중심형 (BOJ)</div><div class="cd">누적 9,943건 · 스파크 <b>57%</b><br>물량 올리면 BSR이 따라온다 — 최고 11위</div></div>
+<div class="case bl"><div class="ct">B · 오가닉 중심형 (Dr. Althea)</div><div class="cd">월 250~300건 일정 · 스파크 <b>14%</b><br>ER 2배 — 터진 영상 하나가 순위를 끈다</div></div>
+</div>
+<h4>2 · 월별 시딩 × BSR</h4>
+<div class="rbars">
+<div class="c"><span class="v">308</span><div class="b" style="height:20%;background:#f9a8d4"></div><span class="s">135</span></div>
+<div class="c"><span class="v">730</span><div class="b" style="height:44%;background:#f9a8d4"></div><span class="s">67</span></div>
+<div class="c"><span class="v">1,643</span><div class="b" style="height:96%;background:#ec4899"></div><span class="s">44</span></div>
+<div class="c"><span class="v">1,748</span><div class="b" style="height:100%;background:#be185d"></div><span class="s">11</span></div>
+</div>
+<div class="rxlab"><span>11월</span><span>1월</span><span>2월</span><span>6월</span></div>
+<h4>3 · 티어 구성 · 최소 수량</h4>
+<div class="tb2"><div style="width:96%;background:#ec4899">나노+마이크로 96%</div><div style="width:4%;background:#d8d7d1;color:#61636b">미드+</div></div>
+<div class="small">임계: 월 200건 미만이면 밀리언 바이럴 0 (Kundal 261건/년 반례)</div>
+<h4>5 · 릴리이브를 위한 제안</h4>
+<table><tbody>
+<tr><td class="sec">월 무가 수량</td><td><b>200건+</b> 일정 유지 (나노·마이크로 95%)</td></tr>
+<tr><td class="sec">스파크 운용</td><td>반응 상위 10~15%에 집행 — 비중은 예산에 따라 A/B 택일</td></tr>
+</tbody></table>
+</div></details>
+  <div class="origin">원형: <b>릴리이브 영국 제안서</b> — "가독성 좋다" 피드백을 받은 그 형식 그대로. CSM 내부 언어(무가형/소재수급형) 라벨은 혜원님 확정 후 이 유형의 케이스 라벨로 반영.</div>
+</section>
+
+<!-- 공통 변형 -->
+<section>
+  <div class="sec-h"><h2>스코프·용도별 변형 규칙</h2></div>
+  <div class="grid">
+    <div><b>단일 브랜드</b> — 기본형. 대비는 "이 브랜드 vs 풀 평균" 또는 "잘된 것 vs 안 된 것"</div>
+    <div><b>브랜드 비교(2~4)</b> — 대비 섹션을 선택 브랜드들이 직접 맡음 (나란히 비교표)</div>
+    <div><b>국가 전체</b> — 요약 뒤 "시장 개요 — 브랜드 전체 분류표" 삽입, 소표본은 "판정 보류" 분리</div>
+    <div><b>카테고리</b> — 국가와 동일 + 미매핑 브랜드 제외 수 고지 <span class="pill pre">선행: 카테고리 매핑</span></div>
+    <div><b>내부 분석용</b> — 사실·패턴 중심, CSM 내부 언어(무가형/소재수급형 등) 허용</div>
+    <div><b>브랜드 제안용</b> — 제목 "OO 제안 —", 마지막 "OO을 위한 제안" 섹션, 외부 어투</div>
+  </div>
+</section>
+
+<!-- 선행 작업 -->
+<section>
+  <div class="sec-h"><h2>구현 선행 작업 (배차 후보)</h2></div>
+  <table>
+    <thead><tr><th>작업</th><th>막고 있는 것</th><th>규모</th></tr></thead>
+    <tbody>
+      <tr><td class="sec">브랜드-카테고리 매핑 (63개)</td><td>유형 1 전체 · 카테고리 스코프 · 유사 브랜드 자동 추천 · 라이브러리 메트릭 필터</td><td>소 — LLM 1회 분류 + 검수</td></tr>
+      <tr><td class="sec">키 메시지 실행</td><td>유형 1-1·1-3</td><td>소 — 코드 배포됨, API 키만 대기</td></tr>
+      <tr><td class="sec">리포트 저장 테이블 + 생성 파이프라인</td><td>전 유형 (데이터 조립 → LLM 서술 → HTML 렌더 → 저장)</td><td>중 — BFCM 수동 제작 흐름의 자동화</td></tr>
+      <tr><td class="sec">틱톡샵/비샵 교차 집계</td><td>유형 3-+</td><td>소 — 기존 필드 재조합</td></tr>
+      <tr><td class="sec">포맷·앵글 월별 추이 집계</td><td>유형 3-2</td><td>소 — 태깅 데이터 재조합</td></tr>
+      <tr><td class="sec">종합 뷰 (메트릭별 리포트 묶음)</td><td>라이브러리 "이 조합 종합 뷰"</td><td>중 — v2로 미뤄도 됨</td></tr>
+    </tbody>
+  </table>
+  <div class="origin"><b>유형 2(레퍼런스)·3(콘텐츠)·4(SKU)·6(인플루언서)은 선행 없이 지금 생성 가능.</b> 첫 구현 추천 순서: 6 → 2 → 3 → 4 → 1 → 5. (6=원형 검증 최다·세일즈 겸용, 2=노션 표기 "개별 브랜드 기준으론 됨"을 카테고리로 확장하는 가장 자연스러운 다음 걸음)</div>
+</section>
+
+</div>
