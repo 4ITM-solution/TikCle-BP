@@ -68,9 +68,19 @@ export const enrichCreators = inngest.createFunction(
       }),
     );
 
-    const existing = await step.run("read-key-stats", async () =>
-      readKeyStats(supabase, case_id),
-    );
+    // BE-5 패턴(BE-33): key_stats 전체 반환 금지 — kalodata_*_xlsx 등 대형 blob(실측 5.8MB)이
+    // step 출력 4MB 한도를 넘겨 즉사. 캐시 판정·병합에 쓰는 필드만 반환한다.
+    const existing = await step.run("read-key-stats", async () => {
+      const ks = await readKeyStats(supabase, case_id);
+      return {
+        phase2: ks.phase2
+          ? { top_creators: ks.phase2.top_creators }
+          : undefined,
+        phase3: ks.phase3 ?? undefined,
+        phase35: ks.phase35 ?? undefined,
+        phase37: ks.phase37 ?? undefined,
+      };
+    });
 
     // ─── phase2 선계산 (phase3 입력, 무료 SQL — 항상 fresh) ───
     const phase2 = (await step.run("phase-2-precompute", async () => {
