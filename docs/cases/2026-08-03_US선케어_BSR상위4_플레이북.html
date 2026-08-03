@@ -102,6 +102,18 @@
   .pill.tier{background:var(--g1); color:var(--g6); border:1px solid var(--g2);}
 
   .capline{font-size:12px; color:var(--g5); font-weight:700; margin:18px 0 8px;}
+  .bhead{display:flex;align-items:baseline;gap:10px;margin:26px 0 10px;padding-top:18px;border-top:1px solid var(--g2);}
+  .bhead .bn{font-size:16px;font-weight:800;}
+  .bhead .bs{font-size:12px;color:var(--g5);}
+  .angles{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:14px;margin:10px 0 4px;}
+  .acard{border:1px solid var(--g2);border-radius:14px;overflow:hidden;background:var(--g05);}
+  .acard .ah{padding:10px 12px 8px;}
+  .acard .ah .an{font-size:13px;font-weight:800;line-height:1.45;}
+  .acard .am{display:flex;gap:10px;padding:0 12px 9px;font-size:11px;color:var(--g5);font-weight:600;}
+  .acard .am b{color:var(--ink,#18181b);font-variant-numeric:tabular-nums;}
+  .acard .am .hi{color:var(--pink-d);font-weight:800;}
+  .acard iframe{width:100%;height:400px;border:0;display:block;background:#000;}
+  .acard .af{padding:8px 12px;font-size:11px;color:var(--g5);line-height:1.5;}
 
   @media (max-width:640px){
     .funnel{grid-template-columns:repeat(2,1fr);}
@@ -161,21 +173,149 @@
 
 <!-- 3 -->
 <section>
-  <div class="sec-h"><div class="sec-num">3</div><h2>먹히는 콘텐츠 앵글</h2><span class="tag">내러티브 클러스터 실측 · 표본 태깅 기반</span></div>
+  <div class="sec-h"><div class="sec-num">3</div><h2>먹히는 콘텐츠 앵글 — 브랜드별 전체 지도</h2><span class="tag">내러티브 클러스터 실측 · 앵글마다 근거 영상</span></div>
 
-  <div class="capline">조회를 만드는 앵글 vs 반응을 만드는 앵글 — 브랜드별 상위 클러스터</div>
-  <table>
-    <thead><tr><th>브랜드</th><th>조회 견인 1위 앵글</th><th>평균 조회</th><th>반응(댓글/1만뷰) 강자 앵글</th></tr></thead>
-    <tbody>
-      <tr><td><b>eltaMD</b></td><td>선크림 개인 체험·간증 토킹헤드 (71편)</td><td class="num">941K</td><td>메이크업 튜토리얼 rx 115.7 · GRWM rx 39.1</td></tr>
-      <tr><td><b>라로슈포제</b></td><td>공병·페이버릿 업데이트 리뷰 (18편)</td><td class="num">462K</td><td>일상 브이로그 rx 25.1 · 전문가 교육 rx 20.3</td></tr>
-      <tr><td><b>스킨1004</b></td><td>스티치·듀엣 반응 증폭 (15편)</td><td class="num"><b class="pink">2,137K</b></td><td>커뮤니티 참여형 rx 39.7</td></tr>
-      <tr><td><b>아비브</b></td><td>선크림 비교·쇼크 바이럴 (9편)</td><td class="num">358K</td><td>소셜 증거 멀티 리뷰 rx 85.3 · GRWM rx 18.7</td></tr>
-    </tbody>
-  </table>
-  <div class="callout">
-    <b>공통 문법이 선명합니다.</b> ①조회는 <b>개인 간증·체험(1인칭 토킹헤드)</b>이 견인 — "더마가 추천해서 바꿨다"(eltaMD), "이거 쓰고 백탁 없어짐"(아비브 비교·쇼크). ②저장·댓글 같은 <b>반응은 루틴 문맥(GRWM·메이크업·리스트)</b>이 만듦. ③챌린저의 무기는 <b>증폭 장치</b> — 스킨1004는 터진 영상을 스티치·듀엣으로 재증폭해 평균 213만 뷰를 만들었습니다.
+  <div class="callout quote">
+    네 브랜드 공통 문법: <b>조회는 1인칭 간증·체험이 견인하고, 저장·댓글은 루틴 문맥(GRWM·메이크업·리스트)이 만들며, 챌린저는 터진 영상을 증폭 장치(스티치·스파크)로 재활용합니다.</b> 반응률(rx) = 댓글/1만뷰.
   </div>
+
+  <div class="bhead"><span class="bn">eltaMD</span><span class="bs">간증의 왕국 — 태깅 262편 중 선케어 앵글이 조회 상위 독점</span></div>
+  <div class="angles">
+    <div class="acard">
+      <div class="ah"><div class="an">선크림 개인 체험·간증 토킹헤드형</div></div>
+      <div class="am"><span>71편</span><span>평균 <b>94.1만</b></span><span class="">반응률 <b>19.3</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7642056261923523853" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,147만 뷰 · "더마가 추천한 그 선크림" 1인칭 간증</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">소셜 프루프 강조 직접 전환형</div></div>
+      <div class="am"><span>19편</span><span>평균 <b>89.1만</b></span><span class="">반응률 <b>9.4</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7646196700310179103" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 996만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">리스트·큐레이션 저장 유도형</div></div>
+      <div class="am"><span>34편</span><span>평균 <b>34.6만</b></span><span class="">반응률 <b>14.4</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7648818315904748830" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 451만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">메이크업 튜토리얼 데모형</div></div>
+      <div class="am"><span>13편</span><span>평균 <b>22.5만</b></span><span class="hi">반응률 <b>115.7</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7643551758656048397" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 183만 뷰 · 반응률 전 브랜드 1위 — 메이크업 문맥에 얹힌 선크림</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">선크림 문제 제기·설득 교육형</div></div>
+      <div class="am"><span>10편</span><span>평균 <b>49.1만</b></span><span class="">반응률 <b>2.0</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7646564105381268767" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 322만 뷰</div>
+    </div>
+  </div>
+  <div class="callout note">이외 GRWM·모닝루틴형 66편(평균 15.6만·rx 39.1) — 간증으로 발견되고 루틴으로 안착하는 이중 구조.</div>
+
+  <div class="bhead"><span class="bn">라로슈포제</span><span class="bs">셀럽·더마 권위 + 일상 페르소나 — 선케어는 브랜드 서사의 한 축</span></div>
+  <div class="angles">
+    <div class="acard">
+      <div class="ah"><div class="an">위클리·공병 페이버릿 리뷰형</div></div>
+      <div class="am"><span>18편</span><span>평균 <b>46.2만</b></span><span class="">반응률 <b>30.7</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7644668682769075469" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 681만 뷰 · "다 쓴 것만 보여줄게" — 공병이 곧 증거</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">선크림·성분 특화 루틴 경과형</div></div>
+      <div class="am"><span>11편</span><span>평균 <b>43.2만</b></span><span class="">반응률 <b>8.7</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7642034107362463006" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 238만 뷰 · 더마 닥터(@drwhitneybowe) 권위 소구</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">숍링크·고의도 구매전환 CTA형</div></div>
+      <div class="am"><span>13편</span><span>평균 <b>22.5만</b></span><span class="">반응률 <b>9.6</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7641277220991913237" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 183만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">호기심 갭 비교·리뷰형</div></div>
+      <div class="am"><span>13편</span><span>평균 <b>17.8만</b></span><span class="">반응률 <b>18.2</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7644247817799683358" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 77만 뷰 · 케케 팔머 — 셀럽 캐스팅</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">개인 서사 GRWM·일상 페르소나형</div></div>
+      <div class="am"><span>55편</span><span>평균 <b>17.7만</b></span><span class="">반응률 <b>14.8</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7643504655548353806" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 210만 뷰</div>
+    </div>
+  </div>
+
+  <div class="bhead"><span class="bn">스킨1004 (선세럼)</span><span class="bs">간증 → 스티치 증폭의 설계 — 신제품을 4개월 만에 3위로</span></div>
+  <div class="angles">
+    <div class="acard">
+      <div class="ah"><div class="an">스티치·듀엣 반응 신뢰 증폭형</div></div>
+      <div class="am"><span>15편</span><span>평균 <b>213.7만</b></span><span class="hi">반응률 <b>0.4</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7606455053095816461" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,570만 뷰 · 터진 간증을 스티치로 2차 증폭 — 평균 조회 전 브랜드 1위</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">토킹헤드 리뷰·증언 구매 유도형</div></div>
+      <div class="am"><span>99편</span><span>평균 <b>31.3만</b></span><span class="">반응률 <b>3.8</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7624655813038050573" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 2,006만 뷰 · 최다 물량 앵글 — 증폭의 원료</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">K뷰티 입문·전환 서사 큐레이션형</div></div>
+      <div class="am"><span>15편</span><span>평균 <b>71.5만</b></span><span class="">반응률 <b>9.1</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7606094024130202911" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,050만 뷰 · "미국 제품에서 K뷰티로 갈아탄 이유"</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">댓글·소셜반응 커뮤니티 참여형</div></div>
+      <div class="am"><span>10편</span><span>평균 <b>6.3만</b></span><span class="hi">반응률 <b>39.7</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7604886631232982302" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 34만 뷰 · 반응률 브랜드 1위 — 댓글로 다음 콘텐츠를 만듦</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">데모·튜토리얼 루틴 저장 유도형</div></div>
+      <div class="am"><span>33편</span><span>평균 <b>5.1만</b></span><span class="">반응률 <b>10.8</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7605003183273856287" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 43만 뷰</div>
+    </div>
+  </div>
+
+  <div class="bhead"><span class="bn">아비브 (선스틱)</span><span class="bs">비교·쇼크와 사회적 증거 — 물량전의 앵글 구성</span></div>
+  <div class="angles">
+    <div class="acard">
+      <div class="ah"><div class="an">선크림 비교·쇼크 바이럴형</div></div>
+      <div class="am"><span>9편</span><span>평균 <b>35.8만</b></span><span class="">반응률 <b>13.9</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7665360350300130590" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 251만 뷰 · "내가 쓰던 선크림 vs 이것" 충격 대비</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">선크림 사회적 증거·구매 전환형</div></div>
+      <div class="am"><span>21편</span><span>평균 <b>22.6만</b></span><span class="">반응률 <b>2.0</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7645157991305465101" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 264만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">스킨케어·K뷰티 루틴 튜토리얼형</div></div>
+      <div class="am"><span>30편</span><span>평균 <b>11.3만</b></span><span class="">반응률 <b>9.7</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7639472868673277214" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 118만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">Before/After 변환 결과 시각화형</div></div>
+      <div class="am"><span>31편</span><span>평균 <b>10.0만</b></span><span class="">반응률 <b>12.6</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7644724671346183457" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 64만 뷰</div>
+    </div>
+    <div class="acard">
+      <div class="ah"><div class="an">질문·비교 선택 가이드형</div></div>
+      <div class="am"><span>17편</span><span>평균 <b>10.2만</b></span><span class="">반응률 <b>9.9</b></span></div>
+      <iframe src="https://www.tiktok.com/embed/v2/7648473485487934727" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="af"><span class="pill org">무광고</span> 대표 영상 88만 뷰 · "Airy vs Quick 뭐 사?" — 선택지 자체가 콘텐츠</div>
+    </div>
+  </div>
+  <div class="callout note">아비브의 숨은 강자: 소셜 증거 멀티 리뷰형 23편 — 평균 8.5만 뷰지만 반응률 85.3으로 브랜드 최고. 저장·댓글용 앵글은 따로 있습니다.</div>
 
   <div class="capline">운용 방식 대비 — 기성 vs 챌린저 (선케어 콘텐츠, 25-06~26-07)</div>
   <table>
@@ -188,30 +328,6 @@
     </tbody>
   </table>
   <div class="callout note">기성 2사는 스파크 25%대 — 간증이 자연 발생하는 브랜드 자산 위에서 놉니다. 챌린저 2사는 스파크 65% — 나노·마이크로 풀에 광고를 태워 인지를 삽니다. 아비브의 평균 조회 14K가 낮아 보이지만, 이 물량전이 3년 만에 102위→2위를 만들었습니다.</div>
-
-  <div class="capline">브랜드별 대표 영상</div>
-  <div class="vids">
-    <div class="vid">
-      <iframe src="https://www.tiktok.com/embed/v2/7629895478766734623" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="meta"><div class="h">@dermdoctor</div>
-      <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">메가 · 1,776만</span><br><b>1,632만 뷰</b> · eltaMD · 더마 권위 간증</div></div>
-    </div>
-    <div class="vid">
-      <iframe src="https://www.tiktok.com/embed/v2/7616808166889622798" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="meta"><div class="h">@grandma_droniak</div>
-      <div class="d"><span class="pill ad">SPARK ADS</span><br><b>4,465만 뷰</b> · 라로슈포제 · 페르소나 일상 문맥</div></div>
-    </div>
-    <div class="vid">
-      <iframe src="https://www.tiktok.com/embed/v2/7624655813038050573" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="meta"><div class="h">@brandon.dkim</div>
-      <div class="d"><span class="pill org">무광고</span><span class="pill tier">매크로 · 94만</span><br><b>2,006만 뷰</b> · 스킨1004 선세럼 · 간증→스티치 증폭의 원점</div></div>
-    </div>
-    <div class="vid">
-      <iframe src="https://www.tiktok.com/embed/v2/7645157991305465101" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="meta"><div class="h">@clarahyee</div>
-      <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">마이크로 · 6.6만</span><br><b>264만 뷰</b> · 아비브 선스틱 · 비교·쇼크</div></div>
-    </div>
-  </div>
 </section>
 
 <!-- 4 -->
