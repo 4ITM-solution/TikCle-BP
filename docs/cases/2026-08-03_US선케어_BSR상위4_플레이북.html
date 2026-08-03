@@ -1,387 +1,414 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>US 선케어 플레이북 — BSR 상위 4개 브랜드</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<title>US 선케어 플레이북 — Facial Sunscreens 상위 4개 브랜드</title>
 <style>
   :root{
-    --pink:#ec4899; --pink-d:#be185d; --pink-bg:#fdf2f8;
-    --blue:#0ea5e9; --blue-bg:#f0f9ff;
-    --ink:#18181b; --g7:#3f3f46; --g6:#52525b; --g5:#71717a; --g4:#a1a1aa;
-    --g2:#e4e4e7; --g1:#f4f4f5; --g05:#fafafa;
-    --pos:#15803d; --pos-bg:#f0fdf4; --warn:#b45309; --warn-bg:#fffbeb;
+    --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
+    --muted:#6b7280; --faint:#9ca3af; --line:#e8e6ea; --line-2:#f2f0f4;
+    --accent:#ec4899; --accent-soft:#fdf2f8; --accent-line:#fbcfe8;
+    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",Segoe UI,sans-serif;
   }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
+    --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
+    --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
+    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;}}
+  :root[data-theme="dark"]{
+    --bg:#131117; --surface:#1b1920; --ink:#f0eef2; --ink-2:#c9c5d0;
+    --muted:#9b95a6; --faint:#6f6979; --line:#2e2b36; --line-2:#252231;
+    --accent:#f472b6; --accent-soft:#2a1723; --accent-line:#5b2a42;
+    --ok:#34d399; --warn:#fbbf24; --info:#60a5fa;}
+  :root[data-theme="light"]{
+    --bg:#fbfbfc; --surface:#ffffff; --ink:#1f2937; --ink-2:#4b5563;
+    --muted:#6b7280; --faint:#9ca3af; --line:#e8e6ea; --line-2:#f2f0f4;
+    --accent:#ec4899; --accent-soft:#fdf2f8; --accent-line:#fbcfe8;
+    --ok:#10b981; --warn:#f59e0b; --info:#3b82f6;}
+
   *{box-sizing:border-box}
-  body{
-    font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;
-    color:var(--ink); background:#f7f7f8; margin:0;
-    line-height:1.7; font-size:15px; -webkit-font-smoothing:antialiased;
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 90px}
+  .proto-tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+    border:1px solid var(--accent-line);border-radius:3px;padding:3px 8px;margin-bottom:12px}
+  h1{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:72ch}
+  .sub b{color:var(--ink-2);font-weight:600}
+
+  /* case switcher */
+  .cases{display:flex;gap:8px;margin-bottom:16px}
+  .case-btn{flex:0 0 auto;padding:9px 16px;border:1px solid var(--line);border-radius:9px;
+    background:var(--surface);cursor:pointer;font-family:var(--sans);text-align:left}
+  .case-btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+  .case-btn b{display:block;font-size:14px;font-weight:750;color:var(--ink)}
+  .case-btn span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .case-btn:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--ink-2);background:var(--surface);
+    border:1px solid var(--line);border-radius:20px;padding:4px 11px}
+  .chip b{color:var(--ink);font-weight:700}
+
+  h2.sec{font-size:12px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 4px;font-weight:600}
+  .sec-note{font-size:12px;color:var(--muted);margin:0 0 12px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:16px 18px;margin-bottom:28px}
+
+  /* monthly chart */
+  .mchart{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;align-items:end;
+    height:150px;padding-top:8px}
+  .mcol{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%}
+  .mbar-wrap{width:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px;height:100%}
+  .mbar{width:46%;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px}
+  .mbar.shop{background:var(--ok)}
+  .mwrap{position:relative}
+  .mline{position:absolute;inset:8px 0 30px 0;pointer-events:none;z-index:1}
+  .mcol{position:relative}
+  .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:9px 11px;border-radius:7px;
+    font-size:11px;line-height:1.5;white-space:nowrap;opacity:0;pointer-events:none;
+    transition:opacity .12s;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+  .mcol:hover .tip{opacity:1}
+  .tt-h{font-family:var(--mono);font-weight:700;margin-bottom:5px;font-size:11px}
+  .tt-g{display:grid;grid-template-columns:auto auto;gap:1px 12px;font-family:var(--mono);font-size:10.5px}
+  .tt-g b{text-align:right;font-variant-numeric:tabular-nums}
+  .tt-s{margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18);
+    font-size:9.5px;opacity:.75;font-family:var(--mono)}
+  .mbar-wrap{position:relative;z-index:2}
+  .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
+    border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
+  .mlab{font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
+  .mval{font-family:var(--mono);font-size:9.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--muted);
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  /* tier */
+  .trow{display:grid;grid-template-columns:74px 1fr 96px;gap:12px;align-items:center;
+    padding:7px 0;border-bottom:1px solid var(--line-2)}
+  .trow:last-child{border-bottom:0}
+  .tname{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);font-weight:600}
+  .ttrack{height:9px;background:var(--line-2);border-radius:4px;overflow:hidden;display:flex}
+  .tfill{height:100%}
+  .tval{text-align:right;font-family:var(--mono);font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .tval b{color:var(--ink);font-weight:700}
+
+  /* narrative */
+  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:11px 14px;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+  .bar-lab{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{font-family:var(--sans);font-size:12px;padding:5px 11px;border:0;
+    background:var(--surface);color:var(--muted);cursor:pointer;font-weight:600}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
+  select{font-family:var(--sans);font-size:12px;padding:5px 9px;border:1px solid var(--line);
+    border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
+
+  .narr{border:1px solid var(--line);border-radius:11px;background:var(--surface);
+    margin-bottom:9px;overflow:hidden}
+  .narr[open]{border-color:var(--accent-line)}
+  .narr summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;
+    grid-template-columns:1fr auto;gap:14px;align-items:center}
+  .narr summary::-webkit-details-marker{display:none}
+  .narr summary:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
+  .n-name{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .n-name .caret{color:var(--faint);font-size:11px;transition:transform .15s}
+  .narr[open] .caret{transform:rotate(90deg)}
+  .n-hook{font-size:12px;color:var(--muted);margin-top:5px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .n-stats{display:flex;gap:15px;align-items:baseline;font-family:var(--mono);
+    font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .n-stats .v{font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .rx{font-variant-numeric:tabular-nums;font-weight:800;font-family:var(--mono)}
+  .rx-hi{color:var(--accent)} .rx-mid{color:var(--ink-2)} .rx-lo{color:var(--faint)}
+  .bar-track{width:52px;height:4px;background:var(--line-2);border-radius:2px;overflow:hidden;margin-top:5px}
+  .bar-fill{height:100%;background:var(--accent);border-radius:2px}
+
+  .vids{border-top:1px solid var(--line-2);padding:0 0 8px}
+  .vsort{display:flex;gap:8px;align-items:center;padding:9px 14px;background:var(--line-2)}
+  .vsort .bar-lab{color:var(--muted)}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:730px}
+  th{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint);font-weight:600;text-align:left;padding:9px 12px;
+    border-bottom:1px solid var(--line-2);white-space:nowrap}
+  th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .who{font-weight:650;color:var(--ink);text-decoration:none}
+  .who:hover{color:var(--accent);text-decoration:underline}
+  .who:focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:2px}
+  .ext{color:var(--faint);font-size:10px;margin-left:3px}
+  .ovl{color:var(--ink-2);font-size:12px;margin-top:3px;max-width:46ch}
+  .ovl:before{content:"“";color:var(--faint)} .ovl:after{content:"”";color:var(--faint)}
+  .ovl.none{color:var(--faint);font-style:italic}
+  .ovl.none:before,.ovl.none:after{content:""}
+  .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--line-2);color:var(--muted)}
+  .tag.ang{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+  .prods{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .badge{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;
+    margin-left:6px;vertical-align:middle}
+  .badge.shop{background:var(--ok);color:#fff}
+  .badge.amz{background:var(--line-2);color:var(--muted)}
+  .badge.ig{background:var(--info);color:#fff}
+  .badge.rev{background:var(--ok);color:#fff;font-size:10px}
+  .na{color:var(--faint)}
+
+  /* angle */
+  .arow{display:grid;grid-template-columns:128px 1fr 58px;gap:12px;align-items:center;
+    padding:6px 0;border-bottom:1px solid var(--line-2)}
+  .arow:last-child{border-bottom:0}
+  .aname{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .atrack{height:7px;background:var(--line-2);border-radius:4px;overflow:hidden}
+  .afill{height:100%;border-radius:4px;background:var(--accent)}
+  .afill.dim{background:var(--faint);opacity:.45}
+  .aval{text-align:right;font-family:var(--mono);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+  .acnt{font-family:var(--mono);font-size:10px;color:var(--faint)}
+
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);
+    border-radius:0 8px 8px 0;padding:11px 14px;font-size:12.5px;color:var(--ink-2);margin-bottom:26px}
+  .callout b{color:var(--ink)}
+  .warnbox{border:1px dashed var(--warn);border-radius:8px;padding:11px 14px;
+    font-size:12px;color:var(--ink-2);margin-top:22px}
+  .warnbox b{color:var(--ink)}
+  .empty{padding:14px;font-size:12px;color:var(--faint);font-style:italic}
+  @media (max-width:760px){
+    .narr summary{grid-template-columns:1fr}
+    .trow{grid-template-columns:60px 1fr 78px}
+    .arow{grid-template-columns:100px 1fr 52px}
+    .mwrap{position:relative}
+  .mline{position:absolute;inset:8px 0 30px 0;pointer-events:none;z-index:1}
+  .mcol{position:relative}
+  .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:9px 11px;border-radius:7px;
+    font-size:11px;line-height:1.5;white-space:nowrap;opacity:0;pointer-events:none;
+    transition:opacity .12s;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+  .mcol:hover .tip{opacity:1}
+  .tt-h{font-family:var(--mono);font-weight:700;margin-bottom:5px;font-size:11px}
+  .tt-g{display:grid;grid-template-columns:auto auto;gap:1px 12px;font-family:var(--mono);font-size:10.5px}
+  .tt-g b{text-align:right;font-variant-numeric:tabular-nums}
+  .tt-s{margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18);
+    font-size:9.5px;opacity:.75;font-family:var(--mono)}
+  .mbar-wrap{position:relative;z-index:2}
+  .bsr-dot{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;
+    border-radius:50%;background:var(--info);border:1.5px solid var(--surface);z-index:2}
+  .mlab{font-size:8px}
   }
-  .wrap{max-width:920px; margin:0 auto; padding:32px 20px 80px;}
-  header.top{
-    background:linear-gradient(135deg,#1a1a1f,#2a1622); color:#fff;
-    border-radius:18px; padding:26px 30px; margin-bottom:22px;
-  }
-  header.top h1{margin:0; font-size:25px; font-weight:800; letter-spacing:-.02em;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
-  section{background:#fff; border:1px solid var(--g2); border-radius:16px; padding:22px 26px; margin-bottom:16px;}
-  .sec-h{display:flex; align-items:center; gap:12px; margin:0 0 16px;}
-  .sec-num{
-    flex:none; min-width:30px; height:30px; border-radius:9px; background:var(--pink); padding:0 8px;
-    color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;
-  }
-  .sec-num.blue{background:var(--blue);}
-  .sec-h h2{margin:0; font-size:19px; font-weight:800; letter-spacing:-.01em;}
-  .sec-h h2 small{font-weight:600; color:var(--g5); font-size:14px;}
-  .sec-h .tag{margin-left:auto; font-size:11px; color:var(--g4); font-weight:600; text-align:right;}
-
-  .callout{
-    border-left:4px solid var(--pink); background:var(--pink-bg);
-    padding:14px 18px; border-radius:0 10px 10px 0; margin:14px 0;
-    font-size:14.5px; color:var(--g7); line-height:1.75; word-break:keep-all;
-  }
-  .callout.quote{font-weight:600; font-size:15px;}
-  .callout.blue{border-color:var(--blue); background:var(--blue-bg);}
-  .callout.note{border-color:var(--g4); background:var(--g05); color:var(--g6); font-size:13px;}
-
-  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13.5px;}
-  th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--g1); word-break:keep-all;}
-  thead th{background:var(--g05); font-size:11px; color:var(--g5); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--g2);}
-  tbody tr:hover{background:var(--g05);}
-  td.metric{color:var(--g5); font-weight:600; white-space:nowrap;}
-  .num{font-variant-numeric:tabular-nums;}
-  b.pink{color:var(--pink-d);} b.blue{color:#0369a1;}
-
-  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0;}
-  .stat{background:var(--g05); border:1px solid var(--g1); border-radius:12px; padding:12px 14px;}
-  .stat .v{font-size:20px; font-weight:800; letter-spacing:-.02em;}
-  .stat .k{font-size:11.5px; color:var(--g5); font-weight:600; margin-top:3px; line-height:1.5; word-break:keep-all;}
-  .stat.hi{background:var(--pink-bg); border-color:#fbcfe8;}
-  .stat.hi .v{color:var(--pink-d);}
-  .stat.bl{background:var(--blue-bg); border-color:#bae6fd;}
-  .stat.bl .v{color:#0369a1;}
-
-  .chart{margin:16px 0 6px;}
-  .chart .cap{font-size:12px; color:var(--g5); font-weight:700; margin-bottom:8px;}
-  .bars{display:flex; align-items:flex-end; gap:6px; height:150px; padding:0 2px; border-bottom:2px solid var(--g2);}
-  .bars .bcol{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; position:relative;}
-  .bars .bar{width:100%; max-width:44px; background:#f9a8d4; border-radius:5px 5px 0 0; position:relative;}
-  .bars .bar.hi{background:var(--pink);}
-  .bars .bar.blue{background:#7dd3fc;}
-  .bars .bar.blue.hi{background:var(--blue);}
-  .bars .bv{position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:700; color:var(--g6); white-space:nowrap;}
-  .bars .bsr{position:absolute; bottom:-38px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:800; color:var(--pink-d); white-space:nowrap;}
-  .xlab{display:flex; gap:6px; padding:4px 2px 0; margin-bottom:34px;}
-  .xlab span{flex:1; text-align:center; font-size:10px; color:var(--g4); font-weight:600;}
-  .legend{display:flex; gap:16px; font-size:11.5px; color:var(--g5); margin-top:2px; flex-wrap:wrap;}
-  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
-
-  .tierbar{display:flex; height:26px; border-radius:8px; overflow:hidden; margin:6px 0 4px; font-size:11px; font-weight:700; color:#fff;}
-  .tierbar div{display:flex; align-items:center; justify-content:center; white-space:nowrap; overflow:hidden;}
-  .t-nm{background:var(--pink);} .t-mid{background:#f9a8d4; color:var(--pink-d);} .t-big{background:var(--g2); color:var(--g6);}
-  .tb-nm{background:var(--blue);} .tb-mid{background:#7dd3fc; color:#075985;}
-
-  .funnel{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 6px;}
-  .fstep{border:1px solid var(--g2); border-radius:12px; padding:12px; text-align:center; background:var(--g05);}
-  .fstep .fv{font-size:20px; font-weight:800;}
-  .fstep .fk{font-size:11px; color:var(--g5); font-weight:600;}
-  .fstep.hot{background:var(--pink-bg); border-color:#fbcfe8;}
-  .fstep.hot .fv{color:var(--pink-d);}
-
-  .vids{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:14px 0 4px;}
-  .vid{border:1px solid var(--g2); border-radius:14px; overflow:hidden; background:var(--g05);}
-  .vid iframe{width:100%; height:420px; border:0; display:block; background:#000;}
-  .vid .meta{padding:10px 12px;}
-  .vid .meta .h{font-size:13px; font-weight:800;}
-  .vid .meta .d{font-size:11.5px; color:var(--g5); margin-top:2px; line-height:1.6;}
-  .pill{display:inline-block; font-size:10px; font-weight:800; padding:2px 8px; border-radius:99px; margin-right:4px; vertical-align:1px;}
-  .pill.ad{background:var(--pink-bg); color:var(--pink-d); border:1px solid #fbcfe8;}
-  .pill.org{background:var(--pos-bg); color:var(--pos); border:1px solid #bbf7d0;}
-  .pill.tier{background:var(--g1); color:var(--g6); border:1px solid var(--g2);}
-
-  .capline{font-size:12px; color:var(--g5); font-weight:700; margin:18px 0 8px;}
-  .bhead{display:flex;align-items:baseline;gap:10px;margin:26px 0 10px;padding-top:18px;border-top:1px solid var(--g2);}
-  .bhead .bn{font-size:16px;font-weight:800;}
-  .bhead .bs{font-size:12px;color:var(--g5);}
-  .angles{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:14px;margin:10px 0 4px;}
-  .acard{border:1px solid var(--g2);border-radius:14px;overflow:hidden;background:var(--g05);}
-  .acard .ah{padding:10px 12px 8px;}
-  .acard .ah .an{font-size:13px;font-weight:800;line-height:1.45;}
-  .acard .am{display:flex;gap:10px;padding:0 12px 9px;font-size:11px;color:var(--g5);font-weight:600;}
-  .acard .am b{color:var(--ink,#18181b);font-variant-numeric:tabular-nums;}
-  .acard .am .hi{color:var(--pink-d);font-weight:800;}
-  .acard iframe{width:100%;height:400px;border:0;display:block;background:#000;}
-  .acard .af{padding:8px 12px;font-size:11px;color:var(--g5);line-height:1.5;}
-
-  @media (max-width:640px){
-    .funnel{grid-template-columns:repeat(2,1fr);}
-    .bars{gap:3px;}
-    .bars .bv{display:none;}
-  }
+  .stitle{font-size:15px;font-weight:800;margin:34px 0 4px;letter-spacing:-.01em}
+  .stbl th,.stbl td{font-size:12.5px}
+  .stbl td:first-child{font-weight:700;white-space:nowrap}
+  .pinkb{color:var(--accent);font-weight:800}
+  .fnl{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0}
+  .fst{border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;background:var(--surface)}
+  .fst.hot{background:var(--accent-soft);border-color:var(--accent-line)}
+  .fst .fv{font-size:17px;font-weight:800}
+  .fst .fk{font-size:11px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .tstack{width:60%;display:flex;flex-direction:column-reverse;border-radius:2px 2px 0 0;overflow:hidden;min-height:2px}
+  .tseg{width:100%}
 </style>
-</head>
-<body>
+
 <div class="wrap">
-
-<header class="top">
+  <span class="proto-tag">실측 · 데이터 기준 2026-08-01 · 선케어 서브셋(캡션 기준)</span>
   <h1>US 선케어 플레이북 — Facial Sunscreens 상위 4개 브랜드는 어떻게 노나</h1>
-  <div style="font-size:13px;color:#d4d4d8;margin-top:6px;">eltaMD(1위) · La Roche-Posay(11위) · SKIN1004 선세럼(4위) · Abib 선스틱(9위) — 틱톡 65,833편 중 선케어 13,098편 실측 + 아마존 하위 카테고리 BSR 3년 · 데이터 기준 2026-08-01</div>
-</header>
+  <p class="sub">eltaMD(1위) · 라로슈포제(11위) · SKIN1004 선세럼(4위) · Abib 선스틱(9위) —
+   틱톡 65,833편 중 선케어 13,098편 + 아마존 하위 카테고리 BSR 3년(Keepa).
+   <b>§3 시계열·§4 내러티브는 아래 브랜드 탭으로 전환됩니다.</b></p>
 
-<!-- 0 -->
-<section>
-  <div class="sec-h"><div class="sec-num">0</div><h2>한 줄 요약</h2></div>
-  <div class="callout quote">
-    같은 순위표 위에서 두 개의 다른 게임이 진행 중입니다. <b>기성 강자(eltaMD·라로슈포제)는 간증·권위 콘텐츠 위에서 3년 내내 상위권을 지키고</b>, <b class="pink">K뷰티 챌린저(스킨1004·아비브)는 선세럼·선스틱이라는 폼팩터 차별화 + 스파크애즈 65% 물량전으로 사다리를 오릅니다.</b><br>
-    그리고 시즌의 진실: <b>여름 순위는 여름에 만들어지지 않습니다 — 3월에 만들어집니다.</b>
-  </div>
-</section>
+  <div class="callout"><b>한 줄 요약.</b> 같은 순위표 위에서 두 개의 다른 게임 —
+   기성(eltaMD·라로슈포제)은 <b>간증·권위 콘텐츠와 상시 1위</b>,
+   K뷰티 챌린저(스킨1004·아비브)는 <b class="pinkb">폼팩터 차별화(선세럼·선스틱) + 스파크 65% 물량전</b>으로 사다리를 오릅니다.
+   그리고 <b>여름 순위는 여름에 만들어지지 않습니다 — 3월에 만들어집니다.</b></div>
 
-<!-- 1 -->
-<section>
-  <div class="sec-h"><div class="sec-num">1</div><h2>같은 순위표, 다른 게임 <small>3년 BSR 궤적</small></h2><span class="tag">Facial Sunscreens 순위 · 웨이백 아닌 Keepa 실측</span></div>
-  <table>
+  <div class="stitle">1 · 같은 순위표, 다른 게임 — 3년 BSR 궤적</div>
+  <p class="sec-note">Facial Sunscreens(하위 카테고리) 순위 — 뷰티 전체 BSR로는 보이지 않는 움직임</p>
+  <div class="panel tbl-scroll"><table class="stbl">
     <thead><tr><th>브랜드 · 히어로</th><th>순위 궤적 (2023-08 → 2026-08)</th><th>게임 유형</th></tr></thead>
     <tbody>
-      <tr><td><b>eltaMD</b> UV Clear</td><td class="num">1~2위 → <b>1위 고정</b> (36개월 연속 1위권)</td><td>상시 지배 — 계절도 경쟁도 순위를 못 흔듦</td></tr>
-      <tr><td><b>라로슈포제</b> Anthelios</td><td class="num">7~10위 → 2~13위 안정 순환</td><td>상시 상위권 — 멀티 카테고리 대형 브랜드의 한 축</td></tr>
-      <tr><td><b>아비브</b> Airy 선스틱</td><td class="num"><b class="pink">102위 → 44위 → 4위(25-03) → 2위(26-07)</b></td><td>3년 계단식 등반 — 시즌마다 한 계단씩</td></tr>
-      <tr><td><b>스킨1004</b> Water-Fit 선세럼</td><td class="num"><b class="pink">출시(25-12) 27위 → 4개월 만에 7위 → 3위(26-06)</b></td><td>신제품 런칭 직선 상승</td></tr>
-    </tbody>
-  </table>
-  <div class="callout note">하위 카테고리(Facial Sunscreens) 랭크 기준 — 뷰티 전체 BSR(수만 위 단위)로는 보이지 않는 움직임입니다. 스킨1004 선세럼은 출시 이전 데이터 없음.</div>
-</section>
+      <tr><td>eltaMD UV Clear</td><td class="num">1~2위 → <b>1위 고정</b> (36개월 연속 1위권)</td><td>상시 지배 — 계절도 경쟁도 순위를 못 흔듦</td></tr>
+      <tr><td>라로슈포제 Anthelios</td><td class="num">7~10위 → 2~13위 안정 순환</td><td>상시 상위권 — 대형 브랜드의 한 축</td></tr>
+      <tr><td>아비브 Airy 선스틱</td><td class="num"><span class="pinkb">102위 → 44위 → 4위(25-03) → 2위(26-07)</span></td><td>3년 계단식 등반 — 시즌마다 한 계단</td></tr>
+      <tr><td>스킨1004 Water-Fit 선세럼</td><td class="num"><span class="pinkb">출시(25-12) 27위 → 7위(26-04) → 3위(26-06)</span></td><td>신제품 런칭 직선 상승</td></tr>
+    </tbody></table></div>
 
-<!-- 2 -->
-<section>
-  <div class="sec-h"><div class="sec-num">2</div><h2>SKU 구성 — 하나를 미는가, 종합으로 미는가</h2><span class="tag">아마존 리스팅 + 순위 실측</span></div>
-  <table>
+  <div class="stitle">2 · SKU 구성 — 하나를 미는가, 종합으로 미는가</div>
+  <p class="sec-note">아마존 리스팅 + 하위 카테고리 순위 실측</p>
+  <div class="panel tbl-scroll"><table class="stbl">
     <thead><tr><th>브랜드</th><th>선케어 SKU 구성</th><th>판정</th></tr></thead>
     <tbody>
-      <tr><td><b>eltaMD</b></td><td>리스팅 37개+가 전부 선케어 — 그런데 실체는 <b>UV Clear · UV Daily 두 패밀리의 변형 도배</b>(틴트/무틴트 × 3사이즈 × 1·2팩). 변형 전원이 서브카테고리 1위권</td><td><b>단일 히어로 패밀리 극대화</b> — "한 제품"을 선택지 폭탄으로 확장</td></tr>
-      <tr><td><b>라로슈포제</b></td><td>Anthelios 우산 아래 <b>세부 니즈별 광폭 포트폴리오</b> — SPF100·키즈·스포츠·미네랄·세럼형·톤 보정(46위권 신제품 군단) + 비선케어 라인 별도</td><td><b>포트폴리오 종합 푸시</b> — 니즈마다 SKU 하나씩</td></tr>
-      <tr><td><b>스킨1004</b></td><td>선케어는 <b>Water-Fit 선세럼 단 하나</b>에 집중 (구형 Air-fit 선크림은 100위권 방치). 본업 센텔라 앰플(Serums 9위)과 투트랙</td><td><b>신설 폼팩터 단일 집중</b></td></tr>
-      <tr><td><b>아비브</b></td><td><b>선스틱 히어로 패밀리</b>(Airy·Quick·DUO 전원 2위권) → 폼팩터 확장(젤·튜브 SPF30, 틴티드 신규 346위) → 기프트세트 → <b>선스틱 전용 키체인 액세서리까지</b></td><td><b>히어로 중심 계열화</b> — 하나를 이긴 뒤 옆으로 확장</td></tr>
-    </tbody>
-  </table>
-  <div class="callout">
-    <b>"메인 하나 vs 종합 푸시"의 답은 포지션에 따라 다릅니다.</b> 이미 이긴 자(eltaMD)는 한 패밀리를 변형으로 도배해 진열대를 독점하고, 대형 브랜드(라로슈포제)는 니즈별로 넓히며, <b class="pink">도전자(스킨1004·아비브)는 기성 선크림과 정면승부하지 않고 폼팩터를 새로 만들어(선세럼·선스틱) 그 안에서 1위를 차지한 뒤 계열화</b>했습니다. 챌린저의 공통점: 시작은 반드시 단일 히어로.
+      <tr><td>eltaMD</td><td>리스팅 37개+가 전부 선케어 — 실체는 <b>UV Clear·UV Daily 두 패밀리의 변형 도배</b>(틴트/무틴트×사이즈×팩). 변형 전원 1위권</td><td><b>단일 히어로 패밀리 극대화</b></td></tr>
+      <tr><td>라로슈포제</td><td>Anthelios 우산 아래 <b>니즈별 광폭 포트폴리오</b> — SPF100·키즈·스포츠·미네랄·세럼형·톤 보정</td><td><b>포트폴리오 종합 푸시</b></td></tr>
+      <tr><td>스킨1004</td><td>선케어는 <b>Water-Fit 선세럼 하나</b>에 집중 (구형 선크림 100위권 방치). 본업 센텔라 앰플과 투트랙</td><td><b>신설 폼팩터 단일 집중</b></td></tr>
+      <tr><td>아비브</td><td><b>선스틱 히어로 패밀리</b>(Airy·Quick·DUO 전원 2위권) → 젤·튜브·틴티드 확장 → 기프트세트 → <b>선스틱 키체인 액세서리</b></td><td><b>히어로 중심 계열화</b></td></tr>
+    </tbody></table></div>
+  <div class="callout">챌린저의 공통점: <b>기성 '선크림'과 정면승부하지 않고 폼팩터를 새로 만들어 그 안에서 1위</b>를 차지한 뒤 계열화. 시작은 반드시 단일 히어로.</div>
+
+  <div class="cases" role="group" aria-label="브랜드 선택" style="margin-top:34px">
+    <button class="case-btn" id="cb-eltamd" aria-pressed="true">
+      <b>eltaMD</b><span>선케어 전문 · 3,683편</span></button>
+    <button class="case-btn" id="cb-lrp" aria-pressed="false">
+      <b>라로슈포제</b><span>멀티 카테고리 · 2,409편</span></button>
+    <button class="case-btn" id="cb-skin1004" aria-pressed="false">
+      <b>SKIN1004</b><span>선세럼 · 4,220편</span></button>
+    <button class="case-btn" id="cb-abib" aria-pressed="false">
+      <b>Abib</b><span>선스틱 · 2,786편</span></button>
   </div>
-</section>
+  <div class="meta-row" id="meta"></div>
+  <div class="callout" id="callout"></div>
 
-<!-- 3 -->
-<section>
-  <div class="sec-h"><div class="sec-num">3</div><h2>먹히는 콘텐츠 앵글 — 브랜드별 전체 지도</h2><span class="tag">내러티브 클러스터 실측 · 앵글마다 근거 영상</span></div>
-
-  <div class="callout quote">
-    네 브랜드 공통 문법: <b>조회는 1인칭 간증·체험이 견인하고, 저장·댓글은 루틴 문맥(GRWM·메이크업·리스트)이 만들며, 챌린저는 터진 영상을 증폭 장치(스티치·스파크)로 재활용합니다.</b> 반응률(rx) = 댓글/1만뷰.
-  </div>
-
-  <div class="bhead"><span class="bn">eltaMD</span><span class="bs">간증의 왕국 — 태깅 262편 중 선케어 앵글이 조회 상위 독점</span></div>
-  <div class="angles">
-    <div class="acard">
-      <div class="ah"><div class="an">선크림 개인 체험·간증 토킹헤드형</div></div>
-      <div class="am"><span>71편</span><span>평균 <b>94.1만</b></span><span class="">반응률 <b>19.3</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7642056261923523853" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,147만 뷰 · "더마가 추천한 그 선크림" 1인칭 간증</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">소셜 프루프 강조 직접 전환형</div></div>
-      <div class="am"><span>19편</span><span>평균 <b>89.1만</b></span><span class="">반응률 <b>9.4</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7646196700310179103" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 996만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">리스트·큐레이션 저장 유도형</div></div>
-      <div class="am"><span>34편</span><span>평균 <b>34.6만</b></span><span class="">반응률 <b>14.4</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7648818315904748830" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 451만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">메이크업 튜토리얼 데모형</div></div>
-      <div class="am"><span>13편</span><span>평균 <b>22.5만</b></span><span class="hi">반응률 <b>115.7</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7643551758656048397" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 183만 뷰 · 반응률 전 브랜드 1위 — 메이크업 문맥에 얹힌 선크림</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">선크림 문제 제기·설득 교육형</div></div>
-      <div class="am"><span>10편</span><span>평균 <b>49.1만</b></span><span class="">반응률 <b>2.0</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7646564105381268767" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 322만 뷰</div>
-    </div>
-  </div>
-  <div class="callout note">이외 GRWM·모닝루틴형 66편(평균 15.6만·rx 39.1) — 간증으로 발견되고 루틴으로 안착하는 이중 구조.</div>
-
-  <div class="bhead"><span class="bn">라로슈포제</span><span class="bs">셀럽·더마 권위 + 일상 페르소나 — 선케어는 브랜드 서사의 한 축</span></div>
-  <div class="angles">
-    <div class="acard">
-      <div class="ah"><div class="an">위클리·공병 페이버릿 리뷰형</div></div>
-      <div class="am"><span>18편</span><span>평균 <b>46.2만</b></span><span class="">반응률 <b>30.7</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7644668682769075469" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 681만 뷰 · "다 쓴 것만 보여줄게" — 공병이 곧 증거</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">선크림·성분 특화 루틴 경과형</div></div>
-      <div class="am"><span>11편</span><span>평균 <b>43.2만</b></span><span class="">반응률 <b>8.7</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7642034107362463006" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 238만 뷰 · 더마 닥터(@drwhitneybowe) 권위 소구</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">숍링크·고의도 구매전환 CTA형</div></div>
-      <div class="am"><span>13편</span><span>평균 <b>22.5만</b></span><span class="">반응률 <b>9.6</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7641277220991913237" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 183만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">호기심 갭 비교·리뷰형</div></div>
-      <div class="am"><span>13편</span><span>평균 <b>17.8만</b></span><span class="">반응률 <b>18.2</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7644247817799683358" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 77만 뷰 · 케케 팔머 — 셀럽 캐스팅</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">개인 서사 GRWM·일상 페르소나형</div></div>
-      <div class="am"><span>55편</span><span>평균 <b>17.7만</b></span><span class="">반응률 <b>14.8</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7643504655548353806" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 210만 뷰</div>
+  <div class="stitle">3 · 월별 선케어 시딩 — 티어 스택 × 틱톡샵 연동 × BSR</div>
+  <p class="sec-note">막대 = 티어별 스택(나노→마이크로→미드+), 녹색 = 틱톡샵 연동 영상, 파란 점 = 그달 Facial Sunscreens 최고 순위(로그). 인스타그램은 이번 수집 범위 아님(비용 절약안) — 필요 시 추가 수집.</p>
+  <div class="panel">
+    <div class="mwrap"><div class="mchart" id="mchart"></div></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--accent-line)"></span>나노</span>
+      <span><span class="sw" style="background:var(--accent)"></span>마이크로</span>
+      <span><span class="sw" style="background:#9d174d"></span>미드+</span>
+      <span><span class="sw" style="background:var(--line)"></span>팔로워 미확인</span>
+      <span><span class="sw" style="background:var(--ok)"></span>틱톡샵 연동</span>
+      <span><span class="sw" style="background:var(--info);border-radius:50%"></span>BSR 최고 순위</span>
+      <span id="mmax" style="margin-left:auto"></span>
     </div>
   </div>
 
-  <div class="bhead"><span class="bn">스킨1004 (선세럼)</span><span class="bs">간증 → 스티치 증폭의 설계 — 신제품을 4개월 만에 3위로</span></div>
-  <div class="angles">
-    <div class="acard">
-      <div class="ah"><div class="an">스티치·듀엣 반응 신뢰 증폭형</div></div>
-      <div class="am"><span>15편</span><span>평균 <b>213.7만</b></span><span class="hi">반응률 <b>0.4</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7606455053095816461" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,570만 뷰 · 터진 간증을 스티치로 2차 증폭 — 평균 조회 전 브랜드 1위</div>
+  <h2 class="sec">크리에이터 티어 분포 (선케어 콘텐츠 누적)</h2>
+  <div class="panel"><div id="tiers"></div></div>
+
+  <div class="stitle">4 · 내러티브 — 어떤 얘기가 먹히나</div>
+  <p class="sec-note">클릭하면 소속 영상이 펼쳐집니다. 반응률 = V→댓글(%), 저장률 = V→저장(%). 훅 패턴은 영상 태깅에서 귀납.</p>
+  <div class="bar">
+    <span class="bar-lab">카드 정렬</span>
+    <div class="seg" id="ssort" role="group">
+      <button data-k="size" aria-pressed="true">규모</button>
+      <button data-k="rx" aria-pressed="false">반응률</button>
+      <button data-k="sv" aria-pressed="false">저장률</button>
     </div>
-    <div class="acard">
-      <div class="ah"><div class="an">토킹헤드 리뷰·증언 구매 유도형</div></div>
-      <div class="am"><span>99편</span><span>평균 <b>31.3만</b></span><span class="">반응률 <b>3.8</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7624655813038050573" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 2,006만 뷰 · 최다 물량 앵글 — 증폭의 원료</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">K뷰티 입문·전환 서사 큐레이션형</div></div>
-      <div class="am"><span>15편</span><span>평균 <b>71.5만</b></span><span class="">반응률 <b>9.1</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7606094024130202911" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 1,050만 뷰 · "미국 제품에서 K뷰티로 갈아탄 이유"</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">댓글·소셜반응 커뮤니티 참여형</div></div>
-      <div class="am"><span>10편</span><span>평균 <b>6.3만</b></span><span class="hi">반응률 <b>39.7</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7604886631232982302" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 34만 뷰 · 반응률 브랜드 1위 — 댓글로 다음 콘텐츠를 만듦</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">데모·튜토리얼 루틴 저장 유도형</div></div>
-      <div class="am"><span>33편</span><span>평균 <b>5.1만</b></span><span class="">반응률 <b>10.8</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7605003183273856287" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 43만 뷰</div>
-    </div>
+    <span class="bar-lab">앵글</span>
+    <select id="f-angle"><option value="">전체</option></select>
+  </div>
+  <div id="list"></div>
+
+  <h2 class="sec" style="margin-top:30px">앵글별 평균 조회수 (태깅 표본)</h2>
+  <div class="panel"><div id="angles"></div></div>
+
+  <div class="stitle">5 · 토코보를 위한 제안 — 선케어 진입 공식</div>
+  <div class="fnl">
+    <div class="fst"><div class="fv">폼팩터</div><div class="fk">기성 선크림 정면승부 금지<br>형태로 차별화 (선스틱·선세럼 선례)</div></div>
+    <div class="fst hot"><div class="fv">D-90</div><div class="fk">3월 램프업 개시<br>여름 순위는 3월에 만들어짐</div></div>
+    <div class="fst hot"><div class="fv">스파크 65%</div><div class="fk">나노+마이크로 80% 풀에 집중<br>(챌린저 2사 검증값)</div></div>
+    <div class="fst"><div class="fv">앵글 3종</div><div class="fk">간증 토킹헤드(조회) + 비교·쇼크(바이럴)<br>+ GRWM(저장) 믹스</div></div>
+    <div class="fst"><div class="fv">런칭 결합</div><div class="fk">신제품과 결합 시 최속<br>(스킨1004 4개월 만에 3위)</div></div>
   </div>
 
-  <div class="bhead"><span class="bn">아비브 (선스틱)</span><span class="bs">비교·쇼크와 사회적 증거 — 물량전의 앵글 구성</span></div>
-  <div class="angles">
-    <div class="acard">
-      <div class="ah"><div class="an">선크림 비교·쇼크 바이럴형</div></div>
-      <div class="am"><span>9편</span><span>평균 <b>35.8만</b></span><span class="">반응률 <b>13.9</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7665360350300130590" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 251만 뷰 · "내가 쓰던 선크림 vs 이것" 충격 대비</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">선크림 사회적 증거·구매 전환형</div></div>
-      <div class="am"><span>21편</span><span>평균 <b>22.6만</b></span><span class="">반응률 <b>2.0</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7645157991305465101" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 264만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">스킨케어·K뷰티 루틴 튜토리얼형</div></div>
-      <div class="am"><span>30편</span><span>평균 <b>11.3만</b></span><span class="">반응률 <b>9.7</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7639472868673277214" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 118만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">Before/After 변환 결과 시각화형</div></div>
-      <div class="am"><span>31편</span><span>평균 <b>10.0만</b></span><span class="">반응률 <b>12.6</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7644724671346183457" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill ad">SPARK ADS</span> 대표 영상 64만 뷰</div>
-    </div>
-    <div class="acard">
-      <div class="ah"><div class="an">질문·비교 선택 가이드형</div></div>
-      <div class="am"><span>17편</span><span>평균 <b>10.2만</b></span><span class="">반응률 <b>9.9</b></span></div>
-      <iframe src="https://www.tiktok.com/embed/v2/7648473485487934727" allow="encrypted-media" loading="lazy"></iframe>
-      <div class="af"><span class="pill org">무광고</span> 대표 영상 88만 뷰 · "Airy vs Quick 뭐 사?" — 선택지 자체가 콘텐츠</div>
-    </div>
-  </div>
-  <div class="callout note">아비브의 숨은 강자: 소셜 증거 멀티 리뷰형 23편 — 평균 8.5만 뷰지만 반응률 85.3으로 브랜드 최고. 저장·댓글용 앵글은 따로 있습니다.</div>
-
-  <div class="capline">운용 방식 대비 — 기성 vs 챌린저 (선케어 콘텐츠, 25-06~26-07)</div>
-  <table>
-    <thead><tr><th></th><th>선케어 영상</th><th>스파크애즈</th><th>나노+마이크로 / 미드+</th><th>평균 조회</th></tr></thead>
-    <tbody>
-      <tr><td><b>eltaMD</b></td><td class="num">3,683</td><td class="num">25%</td><td class="num">70% / 30%</td><td class="num">67K</td></tr>
-      <tr><td><b>라로슈포제</b></td><td class="num">2,409</td><td class="num">26%</td><td class="num">58% / 42%</td><td class="num">185K</td></tr>
-      <tr><td><b>스킨1004</b></td><td class="num">4,220</td><td class="num"><b class="pink">65%</b></td><td class="num">83% / 17%</td><td class="num">107K</td></tr>
-      <tr><td><b>아비브</b></td><td class="num">2,786</td><td class="num"><b class="pink">65%</b></td><td class="num">86% / 13%</td><td class="num">14K</td></tr>
-    </tbody>
-  </table>
-  <div class="callout note">기성 2사는 스파크 25%대 — 간증이 자연 발생하는 브랜드 자산 위에서 놉니다. 챌린저 2사는 스파크 65% — 나노·마이크로 풀에 광고를 태워 인지를 삽니다. 아비브의 평균 조회 14K가 낮아 보이지만, 이 물량전이 3년 만에 102위→2위를 만들었습니다.</div>
-</section>
-
-<!-- 4 -->
-<section>
-  <div class="sec-h"><div class="sec-num">4</div><h2>시즈널리티 — 여름 순위는 3월에 만들어진다</h2><span class="tag">월별 시딩 × BSR 동행 실측</span></div>
-
-  <div class="capline">아비브 — 월별 선케어 시딩(막대) × Facial Sunscreens 베스트 BSR(하단 핑크)</div>
-  <div class="bars">
-    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">63</span><span class="bsr">16</span></div></div>
-    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">65</span><span class="bsr">14</span></div></div>
-    <div class="bcol"><div class="bar" style="height:12%"><span class="bv">61</span><span class="bsr">14</span></div></div>
-    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">64</span><span class="bsr">16</span></div></div>
-    <div class="bcol"><div class="bar" style="height:12%"><span class="bv">61</span><span class="bsr">16</span></div></div>
-    <div class="bcol"><div class="bar" style="height:11%"><span class="bv">55</span><span class="bsr">15</span></div></div>
-    <div class="bcol"><div class="bar hi" style="height:55%"><span class="bv">273</span><span class="bsr">7</span></div></div>
-    <div class="bcol"><div class="bar hi" style="height:58%"><span class="bv">284</span><span class="bsr">7</span></div></div>
-    <div class="bcol"><div class="bar hi" style="height:66%"><span class="bv">323</span><span class="bsr">5</span></div></div>
-    <div class="bcol"><div class="bar hi" style="height:100%"><span class="bv">493</span><span class="bsr">4</span></div></div>
-    <div class="bcol"><div class="bar hi" style="height:55%"><span class="bv">271</span><span class="bsr">2</span></div></div>
-  </div>
-  <div class="xlab"><span>25-09</span><span>10</span><span>11</span><span>12</span><span>26-01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span>26-07</span></div>
-  <div class="legend"><span><i style="background:var(--pink)"></i>시즌 램프업 (3월 개시)</span><span style="color:var(--pink-d);font-weight:800;">하단 숫자 = 그 달 베스트 BSR</span></div>
-
-  <div class="callout">
-    <b>공급(시딩)은 시즌을 탑니다 — 수요보다 90일 먼저.</b> 아비브는 겨울 내내 월 55~65편으로 명맥만 유지하다 <b class="pink">3월에 273편(4.5배)으로 점화</b>, 6월 493편 피크 — 그리고 순위는 램프업과 동행해 15위권→7→5→4→<b>2위</b>. 스킨1004는 선세럼 12월 출시 후 2~4월에 월 546~697편을 쏟아 4월 7위에 진입시켰습니다. eltaMD는 반대로 겨울에도 월 163편+을 유지하는 상시형 — <b>이미 1위인 자는 시즌이 필요 없고, 오르려는 자는 시즌 전에 움직입니다.</b>
-  </div>
-  <div class="callout note">수요 자체는 상시입니다 — eltaMD가 12월에도 1위인 게 증거 (미국 선케어는 "여름 용품"이 아니라 사계절 스킨케어 단계로 자리 잡음). 시즌을 타는 건 수요가 아니라 <b>순위 변동의 기회</b> — 검색·트래픽이 불어나는 3~7월에 새 플레이어가 밀고 들어갈 틈이 열립니다.
-  </div>
-</section>
-
-<!-- 5 -->
-<section>
-  <div class="sec-h"><div class="sec-num">5</div><h2>토코보를 위한 제안 — 선케어 진입 공식</h2><span class="tag">4개 브랜드 실측 종합</span></div>
-  <div class="funnel">
-    <div class="fstep"><div class="fv">폼팩터</div><div class="fk">기성 선크림과 정면승부 금지<br>선스틱·선세럼처럼 형태로 차별화</div></div>
-    <div class="fstep hot"><div class="fv">D-90</div><div class="fk">3월 램프업 개시<br>(여름 순위는 3월에 만들어짐)</div></div>
-    <div class="fstep hot"><div class="fv">65%</div><div class="fk">나노+마이크로 80% 풀에<br>스파크 집중 (챌린저 검증값)</div></div>
-    <div class="fstep"><div class="fv">간증 앵글</div><div class="fk">1인칭 체험 토킹헤드 + 비교·쇼크<br>+ GRWM 3종 믹스</div></div>
-  </div>
-  <table>
-    <thead><tr><th>제안</th><th>근거 (이 리포트 실측)</th></tr></thead>
-    <tbody>
-      <tr><td class="metric">① 단일 히어로 폼팩터로 진입</td><td>스킨1004(선세럼)·아비브(선스틱) — 기성이 점유한 '선크림'을 피해 새 폼팩터에서 1위 → 계열 확장. 시작은 반드시 SKU 하나</td></tr>
-      <tr><td class="metric">② 시딩 캘린더는 D-90</td><td>아비브 3월 4.5배 증량→2위 도달 · 스킨1004 2~4월 폭증→7위. 6월 시작은 늦음</td></tr>
-      <tr><td class="metric">③ 물량 + 스파크 65%</td><td>챌린저 2사 공통값. 월 250~500편 시딩(나노·마이크로 83~86%)에 스파크를 태워 인지 구매</td></tr>
-      <tr><td class="metric">④ 앵글 브리프</td><td>조회=간증 토킹헤드·비교쇼크(아비브 36만·eltaMD 94만) / 반응=GRWM·메이크업 문맥(rx 18~116) / 증폭=터진 영상 스티치·듀엣 재활용(스킨1004 213만)</td></tr>
-      <tr><td class="metric">⑤ 신제품 런칭과 결합 시 최속</td><td>스킨1004 선세럼: 12월 출시 → 시딩 결합 → 4개월 만에 서브카테고리 3위</td></tr>
-    </tbody>
-  </table>
-  <div class="callout note">
-    <b>데이터 한계 고지.</b> 선케어 콘텐츠 분리는 캡션 키워드 기준(브랜드별 전체의 13~37%) — 캡션에 무언급인 선케어 영상은 누락될 수 있음. 앵글은 태깅 표본(브랜드당 216~343편) 기반. 조회수는 수집 시점 누적. 아비브 클러스터는 재산출 직후 값. BSR은 Keepa 3년 실측(하위 카테고리 기준).
-  </div>
-</section>
-
+  <div class="warnbox"><b>데이터 한계.</b> 선케어 분리는 캡션 키워드 기준(브랜드 전체의 13~37%) — 캡션 무언급 영상은 누락될 수 있습니다.
+   앵글·포맷 태그는 표본(브랜드당 216~343편), 조회·저장은 수집 시점 누적, 인스타그램·틱톡샵 매출은 이번 수집 범위 아님.
+   BSR은 Keepa 3년 실측(Facial Sunscreens 하위 카테고리 기준).</div>
 </div>
-</body>
-</html>
+<script>
+const DATA = {"eltamd": {"name": "eltaMD", "totalContents": 9921, "sunCount": 3683, "monthly": [["25-06", 352, 0], ["25-07", 364, 0], ["25-08", 292, 0], ["25-09", 185, 0], ["25-10", 179, 0], ["25-11", 172, 0], ["25-12", 163, 0], ["26-01", 169, 0], ["26-02", 172, 0], ["26-03", 244, 0], ["26-04", 242, 0], ["26-05", 429, 0], ["26-06", 281, 0], ["26-07", 439, 0]], "tiers": [["nano", 50, 58, 13264], ["micro", 14, 14, 3283], ["mid", 3, 3, 746], ["macro", 2, 2, 516], ["mega", 1, 1, 210], ["미분류", 2206, 3605, 247967097]], "angles": [["review", 120.9, 55], ["comparison", 100.3, 3], ["before_after", 76.8, 2], ["list_curation", 50.2, 12], ["testimonial", 33.9, 21], ["lifestyle", 23.5, 13], ["tutorial", 16.4, 18], ["expert_education", 11.7, 11]], "clusters": [{"n": "선크림 개인 체험·간증 토킹헤드형", "c": 71, "c2v": 0.19, "s2v": 0.26, "rev": null, "gpm": null, "tot": 71, "h": "personal_story + problem_statement 또는 transformation_promise/social_proof 조합으로 피부 고민 공감 유도"}, {"n": "GRWM·모닝루틴 일상 브이로그형", "c": 66, "c2v": 0.39, "s2v": 0.44, "rev": null, "gpm": null, "tot": 66, "h": "personal_story 또는 curiosity_gap으로 일상 맥락(요일·장소·이벤트) 제시, 시간대 오버레이 활용"}, {"n": "리스트·큐레이션 저장 유도형", "c": 34, "c2v": 0.14, "s2v": 1.29, "rev": null, "gpm": null, "tot": 34, "h": "list_preview 단독 또는 personal_story/social_proof 결합으로 '몇 가지' 예고, 가치 판단 선언 포함"}, {"n": "Before/After 변화 증명·전환 유도형", "c": 24, "c2v": 0.28, "s2v": 0.72, "rev": null, "gpm": null, "tot": 24, "h": "transformation_promise + problem_statement 또는 shock_value로 변화 서사 시작, '거부한다/바뀌었다/달라졌다' 프레임"}, {"n": "스킨케어 루틴 튜토리얼 데모형", "c": 23, "c2v": 0.18, "s2v": 1.15, "rev": null, "gpm": null, "tot": 23, "h": "list_preview 또는 personal_story로 '내 루틴 공개' 예고, 루틴 오버레이 텍스트 선제 노출"}, {"n": "라이프스타일 내러티브·페르소나 브이로그형", "c": 20, "c2v": 0.33, "s2v": 0.29, "rev": null, "gpm": null, "tot": 20, "h": "personal_story + curiosity_gap 또는 question 결합, 시간대·장소 오버레이로 현장감 부여, 정체성 선언 포함"}, {"n": "소셜 프루프 강조 선크림 직접 전환형", "c": 19, "c2v": 0.09, "s2v": 0.35, "rev": null, "gpm": null, "tot": 19, "h": "social_proof가 hook 선두, 또는 다양한 hook 조합이지만 공통적으로 high intent 신호 포함"}, {"n": "전문가 권위·교육 큐레이션형", "c": 17, "c2v": 0.35, "s2v": 0.98, "rev": null, "gpm": null, "tot": 17, "h": "social_proof + list_preview 또는 shock_value/problem_statement로 전문가 권위 또는 SPF 미사용 문제 강조"}, {"n": "호기심 갭 선크림 반전 간증형", "c": 14, "c2v": 0.08, "s2v": 0.36, "rev": null, "gpm": null, "tot": 14, "h": "curiosity_gap + personal_story 또는 shock_value로 불완전 정보·반전 상황 제시"}, {"n": "메이크업 튜토리얼 데모형", "c": 13, "c2v": 1.16, "s2v": 1.23, "rev": null, "gpm": null, "tot": 13, "h": "list_preview 또는 personal_story + transformation_promise로 완성 룩 기대감 유도"}, {"n": "먼슬리·엠티즈 총결산 리뷰형", "c": 11, "c2v": 1.27, "s2v": 0.96, "rev": null, "gpm": null, "tot": 11, "h": "list_preview + personal_story로 '이번 달 최애' 또는 소진 제품 목록 예고"}, {"n": "선크림 문제 제기·설득 교육형", "c": 10, "c2v": 0.02, "s2v": 0.09, "rev": null, "gpm": null, "tot": 10, "h": "problem_statement 또는 question 선행, curiosity_gap 결합으로 '왜 이 선크림인가' 의문 유발"}, {"n": "언박싱·호기심 유발 내러티브형", "c": 9, "c2v": 0.19, "s2v": 0.23, "rev": null, "gpm": null, "tot": 9, "h": "curiosity_gap 단독 또는 personal_story 결합, '📦 열어봐요' 언박싱 오버레이"}], "vids": [["GRWM·모닝루틴 일상 브이로그형", "", "7644262136281173262", 7114692, 3754, 40, 456, 0, 0.01, true, 0, "review", "", "", ["sunscreen"]], ["GRWM·모닝루틴 일상 브이로그형", "", "7639484718710361375", 853970, 114519, 278, 2021, 0.03, 0.24, false, 0, "lifestyle", "", "", []], ["GRWM·모닝루틴 일상 브이로그형", "", "7650526198732180750", 304861, 29260, 1360, 1821, 0.45, 0.6, false, 0, "lifestyle", "", "", []], ["GRWM·모닝루틴 일상 브이로그형", "", "7664796547791572254", 225943, 43418, 32, 1074, 0.01, 0.48, true, 0, "tutorial", "", "", ["sunscreen", "lip liner", "blush"]], ["GRWM·모닝루틴 일상 브이로그형", "", "7642443909150297358", 119989, 12993, 93, 249, 0.08, 0.21, false, 0, "lifestyle", "", "", []], ["라이프스타일 내러티브·페르소나 브이로그형", "", "7645455019818487071", 788415, 1296, 15, 156, 0, 0.02, true, 0, "lifestyle", "", "", ["sunscreen"]], ["라이프스타일 내러티브·페르소나 브이로그형", "", "7644694834560683277", 294555, 17428, 134, 501, 0.05, 0.17, true, 0, "lifestyle", "", "", ["sunscreen"]], ["라이프스타일 내러티브·페르소나 브이로그형", "", "7638399302502501662", 220715, 46531, 155, 786, 0.07, 0.36, false, 0, "lifestyle", "", "", []], ["라이프스타일 내러티브·페르소나 브이로그형", "", "7647080248021896478", 101682, 3659, 53, 870, 0.05, 0.86, false, 0, "tutorial", "", "", ["sunscreen", "mascara", "lip oil"]], ["라이프스타일 내러티브·페르소나 브이로그형", "", "7659814015065001246", 87583, 412, 10, 8, 0.01, 0.01, false, 0, "lifestyle", "", "", ["purse", "sunscreen", "sunglasses"]], ["선크림 개인 체험·간증 토킹헤드형", "", "7642056261923523853", 11476631, 89491, 214, 2553, 0, 0.02, true, 0, "review", "", "", ["sunscreen"]], ["선크림 개인 체험·간증 토킹헤드형", "", "7646196700310179103", 9963463, 37317, 190, 6297, 0, 0.06, true, 0, "review", "", "", ["sunscreen"]], ["선크림 개인 체험·간증 토킹헤드형", "", "7643587122141678862", 8835956, 49621, 372, 3908, 0, 0.04, true, 0, "review", "", "", ["sunscreen"]], ["선크림 개인 체험·간증 토킹헤드형", "", "7642551337514732831", 7482006, 16800, 137, 2782, 0, 0.04, true, 0, "review", "", "", ["sunscreen"]], ["선크림 개인 체험·간증 토킹헤드형", "", "7641681827622702367", 6524730, 26371, 61, 1175, 0, 0.02, true, 0, "review", "", "", ["sunscreen"]], ["Before/After 변화 증명·전환 유도형", "", "7646507884720786719", 877111, 77375, 103, 9691, 0.01, 1.1, false, 0, "before_after", "", "", ["toner", "serum", "sunscreen"]], ["Before/After 변화 증명·전환 유도형", "", "7643180586978282782", 785898, 7564, 50, 1047, 0.01, 0.13, true, 0, "testimonial", "", "", ["sunscreen"]], ["Before/After 변화 증명·전환 유도형", "", "7646596767340940558", 658137, 702, 16, 198, 0, 0.03, true, 0, "before_after", "", "", ["sunscreen"]], ["Before/After 변화 증명·전환 유도형", "", "7646459664430877983", 435431, 126, 5, 23, 0, 0.01, true, 0, "testimonial", "", "", ["sunscreen"]], ["Before/After 변화 증명·전환 유도형", "", "7665042711044427022", 260882, 13260, 72, 582, 0.03, 0.22, true, 0, "review", "", "", ["sunscreen"]], ["호기심 갭 선크림 반전 간증형", "", "7642066714812796174", 775221, 3103, 4, 109, 0, 0.01, true, 0, "review", "", "", ["sunscreen"]], ["호기심 갭 선크림 반전 간증형", "", "7641703916077452575", 572401, 1056, 40, 75, 0.01, 0.01, true, 0, "testimonial", "", "", ["sunscreen"]], ["호기심 갭 선크림 반전 간증형", "", "7661991349721337102", 441867, 4738, 24, 109, 0.01, 0.02, true, 0, "testimonial", "", "", ["sunscreen"]], ["호기심 갭 선크림 반전 간증형", "", "7662199968081464606", 428420, 15731, 364, 2686, 0.08, 0.63, false, 0, "humor_skit", "", "", ["sunscreen"]], ["호기심 갭 선크림 반전 간증형", "", "7665493288589331725", 338492, 8855, 89, 470, 0.03, 0.14, true, 0, "testimonial", "", "", ["sunscreen"]], ["리스트·큐레이션 저장 유도형", "", "7648818315904748830", 4513376, 86739, 1875, 7073, 0.04, 0.16, false, 0, "list_curation", "", "", ["moisturizer", "spray", "sunscreen"]], ["리스트·큐레이션 저장 유도형", "", "7646485320929774879", 2996582, 2551, 88, 1118, 0, 0.04, true, 0, "comparison", "", "", ["sunscreen"]], ["리스트·큐레이션 저장 유도형", "", "7645314035675680030", 1122075, 1008, 32, 441, 0, 0.04, true, 0, "expert_education", "", "", ["sunscreen"]], ["리스트·큐레이션 저장 유도형", "", "7645135388343848223", 1112336, 5242, 34, 575, 0, 0.05, true, 0, "list_curation", "", "", []], ["리스트·큐레이션 저장 유도형", "", "7642366027325590798", 1094175, 12500, 18, 721, 0, 0.07, true, 0, "testimonial", "", "", ["sunscreen"]], ["메이크업 튜토리얼 데모형", "", "7643551758656048397", 1834320, 73491, 2660, 3970, 0.15, 0.22, false, 0, "tutorial", "", "", ["primer", "concealer", "bronzer"]], ["메이크업 튜토리얼 데모형", "", "7664680356288810271", 495564, 62981, 147, 25679, 0.03, 5.18, false, 0, "tutorial", "", "", ["concealer", "powder", "blush"]], ["메이크업 튜토리얼 데모형", "", "7639508994469530894", 316232, 10861, 643, 582, 0.2, 0.18, false, 0, "tutorial", "", "", ["blush", "primer", "concealer"]], ["메이크업 튜토리얼 데모형", "", "7662436186706726175", 96384, 4862, 54, 96, 0.06, 0.1, true, 0, "tutorial", "", "", ["earring"]], ["메이크업 튜토리얼 데모형", "", "7646500881759833358", 45421, 1265, 24, 89, 0.05, 0.2, false, 0, "tutorial", "", "", ["cleanser", "moisturizer", "sunscreen"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7645314035675680030", 1122075, 1008, 32, 441, 0, 0.04, true, 0, "expert_education", "", "", ["sunscreen"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7646507884720786719", 877111, 77375, 103, 9691, 0.01, 1.1, false, 0, "before_after", "", "", ["toner", "serum", "sunscreen"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7638745109567114509", 325097, 17190, 104, 1927, 0.03, 0.59, false, 0, "tutorial", "", "", ["serum", "deodorant", "supplement"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7659961794370358542", 141406, 15103, 230, 6678, 0.16, 4.72, false, 0, "tutorial", "", "", ["cleanser", "serum", "sunscreen"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7666548107227761933", 137050, 15000, 79, 2892, 0.06, 2.11, false, 0, "tutorial", "", "", ["sunscreen", "moisturizer", "blush"]], ["먼슬리·엠티즈 총결산 리뷰형", "", "7645122615736012053", 70027, 2921, 69, 1846, 0.1, 2.64, false, 0, "list_curation", "", "", ["serum"]], ["먼슬리·엠티즈 총결산 리뷰형", "", "7636429617070345485", 23668, 914, 63, 270, 0.27, 1.14, false, 0, "review", "", "", ["cleanser", "serum", "moisturizer"]], ["먼슬리·엠티즈 총결산 리뷰형", "", "7642437372646559007", 9660, 315, 16, 141, 0.17, 1.46, false, 0, "review", "", "", ["sunscreen", "spf"]], ["먼슬리·엠티즈 총결산 리뷰형", "", "7653963109710728479", 8577, 105, 6, 29, 0.07, 0.34, false, 0, "list_curation", "", "", ["sunscreen"]], ["먼슬리·엠티즈 총결산 리뷰형", "", "7637924478307093791", 8490, 376, 20, 72, 0.24, 0.85, false, 0, "review", "", "", ["toner", "moisturizer", "cleanser"]], ["전문가 권위·교육 큐레이션형", "", "7645314035675680030", 1122075, 1008, 32, 441, 0, 0.04, true, 0, "expert_education", "", "", ["sunscreen"]], ["전문가 권위·교육 큐레이션형", "", "7665493288589331725", 338492, 8855, 89, 470, 0.03, 0.14, true, 0, "testimonial", "", "", ["sunscreen"]], ["전문가 권위·교육 큐레이션형", "", "7639546127510949150", 76264, 6706, 82, 2475, 0.11, 3.25, false, 0, "expert_education", "", "", ["cleanser", "serum", "shampoo"]], ["전문가 권위·교육 큐레이션형", "", "7657322606927875359", 63679, 2435, 17, 1104, 0.03, 1.73, false, 0, "expert_education", "", "", ["sunscreen", "power bank", "luggage"]], ["전문가 권위·교육 큐레이션형", "", "7646851408821619999", 39149, 2218, 67, 899, 0.17, 2.3, false, 0, "expert_education", "", "", ["moisturizer", "serum", "cleanser"]], ["언박싱·호기심 유발 내러티브형", "", "7647381128793328926", 500083, 16973, 62, 1312, 0.01, 0.26, false, 0, "lifestyle", "", "", ["tumbler"]], ["언박싱·호기심 유발 내러티브형", "", "7659814015065001246", 87583, 412, 10, 8, 0.01, 0.01, false, 0, "lifestyle", "", "", ["purse", "sunscreen", "sunglasses"]], ["언박싱·호기심 유발 내러티브형", "", "7652039892955909389", 29881, 3391, 49, 53, 0.16, 0.18, false, 0, "lifestyle", "", "", ["serum", "fragrance", "drinkware"]], ["언박싱·호기심 유발 내러티브형", "", "7663620972192206094", 19847, 1938, 22, 109, 0.11, 0.55, false, 0, "lifestyle", "", "", ["moisturizer", "shampoo", "toothpaste"]], ["언박싱·호기심 유발 내러티브형", "", "7656940080732409101", 16470, 475, 11, 16, 0.07, 0.1, false, 0, "unboxing", "", "", ["package", "mascara", "sunscreen"]], ["선크림 문제 제기·설득 교육형", "", "7646564105381268767", 3218055, 5740, 114, 1399, 0, 0.04, true, 0, "review", "", "", ["sunscreen"]], ["선크림 문제 제기·설득 교육형", "", "7641762791774244109", 527000, 3988, 25, 510, 0, 0.1, true, 0, "review", "", "", ["sunscreen"]], ["선크림 문제 제기·설득 교육형", "", "7664594664313441550", 413281, 6261, 23, 250, 0.01, 0.06, true, 0, "testimonial", "", "", ["sunscreen"]], ["선크림 문제 제기·설득 교육형", "", "7666284965130145038", 288582, 2712, 17, 178, 0.01, 0.06, false, 0, "testimonial", "", "", ["sunscreen"]], ["선크림 문제 제기·설득 교육형", "", "7666582335827021070", 225175, 1451, 41, 65, 0.02, 0.03, false, 0, "review", "", "", ["sunscreen"]], ["소셜 프루프 강조 선크림 직접 전환형", "", "7646196700310179103", 9963463, 37317, 190, 6297, 0, 0.06, true, 0, "review", "", "", ["sunscreen"]], ["소셜 프루프 강조 선크림 직접 전환형", "", "7646485320929774879", 2996582, 2551, 88, 1118, 0, 0.04, true, 0, "comparison", "", "", ["sunscreen"]], ["소셜 프루프 강조 선크림 직접 전환형", "", "7650962513193962783", 1433919, 6646, 199, 647, 0.01, 0.05, false, 0, "review", "", "", ["sunscreen"]], ["소셜 프루프 강조 선크림 직접 전환형", "", "7645455019818487071", 788415, 1296, 15, 156, 0, 0.02, true, 0, "lifestyle", "", "", ["sunscreen"]], ["소셜 프루프 강조 선크림 직접 전환형", "", "7643180586978282782", 785898, 7564, 50, 1047, 0.01, 0.13, true, 0, "testimonial", "", "", ["sunscreen"]]], "monthlyTier": [["25-06", 4, 5, 0, 343, 0], ["25-07", 4, 3, 0, 357, 0], ["25-08", 6, 1, 0, 285, 0], ["25-09", 8, 0, 0, 177, 0], ["25-10", 2, 1, 0, 176, 0], ["25-11", 1, 1, 0, 170, 0], ["25-12", 3, 1, 0, 159, 0], ["26-01", 5, 1, 0, 163, 0], ["26-02", 4, 1, 0, 167, 0], ["26-03", 4, 0, 0, 240, 0], ["26-04", 5, 0, 0, 237, 0], ["26-05", 0, 0, 2, 427, 0], ["26-06", 6, 0, 1, 274, 0], ["26-07", 6, 0, 3, 430, 0]]}, "lrp": {"name": "라로슈포제", "totalContents": 17795, "sunCount": 2409, "monthly": [["25-06", 228, 0], ["25-07", 184, 0], ["25-08", 168, 0], ["25-09", 130, 0], ["25-10", 160, 0], ["25-11", 156, 0], ["25-12", 142, 0], ["26-01", 140, 0], ["26-02", 125, 0], ["26-03", 194, 0], ["26-04", 195, 0], ["26-05", 219, 0], ["26-06", 176, 0], ["26-07", 192, 0]], "tiers": [["nano", 85, 97, 228325], ["micro", 84, 95, 221820], ["mid", 25, 26, 62941], ["mega", 1, 1, 2258], ["미분류", 1318, 2190, 446058143]], "angles": [["expert_education", 80, 3], ["review", 39, 4], ["lifestyle", 27.2, 11], ["tutorial", 7.7, 14], ["list_curation", 7.6, 7], ["comparison", 1.7, 2]], "clusters": [{"n": "일상 브이로그 라이프스타일형", "c": 55, "c2v": 0.25, "s2v": 0.83, "rev": null, "gpm": null, "tot": 55, "h": "personal_story 단독 또는 curiosity_gap+personal_story 조합으로 '내 하루를 따라와' 유도, vlog 오프닝으로 오늘의 일정 소개"}, {"n": "개인 서사 GRWM·일상 페르소나형", "c": 55, "c2v": 0.15, "s2v": 0.49, "rev": null, "gpm": null, "tot": 55, "h": "personal_story 단독 또는 curiosity_gap 결합, 직업·상황·감정 구체 언급으로 공감 유도"}, {"n": "리스트·큐레이션 저장 유도형", "c": 51, "c2v": 0.12, "s2v": 1.76, "rev": null, "gpm": null, "tot": 51, "h": "list_preview 단독 또는 personal_story·curiosity_gap·social_proof 결합으로 '이것들을 보여줄게/이 리스트 꼭 봐야 해' 예고"}, {"n": "스킨케어 루틴 튜토리얼 데모형", "c": 39, "c2v": 0.13, "s2v": 1.2, "rev": null, "gpm": null, "tot": 39, "h": "personal_story + problem_statement 또는 transformation_promise로 피부 고민·루틴 공개 예고"}, {"n": "트랜스포메이션·결과 증명형", "c": 19, "c2v": 0.09, "s2v": 1.6, "rev": null, "gpm": null, "tot": 19, "h": "transformation_promise 단독 또는 problem_statement·social_proof·list_preview 결합으로 변화 결과 예고"}, {"n": "언박싱·PR 하울 리뷰형", "c": 18, "c2v": 0.17, "s2v": 0.72, "rev": null, "gpm": null, "tot": 18, "h": "curiosity_gap·personal_story·list_preview 결합으로 '뭘 받았나/샀나/같이 보자' 호기심 유발"}, {"n": "위클리·공병 페이버릿 업데이트 리뷰형", "c": 18, "c2v": 0.31, "s2v": 0.61, "rev": null, "gpm": null, "tot": 18, "h": "list_preview + personal_story 또는 social_proof 조합으로 '이번 달 다 쓴 것들/주간 페이버릿' 예고"}, {"n": "전문가·교육 정보 신뢰형", "c": 16, "c2v": 0.2, "s2v": 1.2, "rev": null, "gpm": null, "tot": 16, "h": "expert_education·social_proof·curiosity_gap·comparison 또는 shock_value 결합으로 '틀린 정보 바로잡기/알고 보면 다르다' 예고"}, {"n": "메이크업·바디 튜토리얼 데모형", "c": 15, "c2v": 0.13, "s2v": 1.82, "rev": null, "gpm": null, "tot": 15, "h": "personal_story·question·problem_statement·list_preview 또는 POV 설정으로 룩 목표·루틴 입문 유도"}, {"n": "호기심 갭 비교·리뷰형", "c": 13, "c2v": 0.18, "s2v": 1.2, "rev": null, "gpm": null, "tot": 13, "h": "curiosity_gap 단독 또는 social_proof·comparison·question 결합으로 궁금증 유발"}, {"n": "숍링크·고의도 구매전환 CTA형", "c": 13, "c2v": 0.1, "s2v": 1.09, "rev": null, "gpm": null, "tot": 13, "h": "list_preview·transformation_promise·social_proof·personal_story 결합으로 제품 필요성·가치 강조"}, {"n": "선크림·성분 특화 루틴 경과형", "c": 11, "c2v": 0.09, "s2v": 0.82, "rev": null, "gpm": null, "tot": 11, "h": "personal_story + curiosity_gap·problem_statement·countdown 또는 변화 약속으로 성분 필요성·경과 기대감 형성"}, {"n": "코지·감성 아침·저녁 루틴 브이로그형", "c": 11, "c2v": 0.2, "s2v": 1.55, "rev": null, "gpm": null, "tot": 11, "h": "personal_story + '코지·감성' 분위기 또는 list_preview·transformation_promise 조합으로 루틴 전체 예고"}, {"n": "해외·약국 무스트해브 큐레이션형", "c": 8, "c2v": 0.1, "s2v": 1.67, "rev": null, "gpm": null, "tot": 8, "h": "list_preview + curiosity_gap 또는 question으로 '현지인만 아는 픽/이런 제품 있는 거 알았어?' 호기심 유발"}], "vids": [["스킨케어 루틴 튜토리얼 데모형", "", "7644391821711363358", 453683, 13106, 42, 2516, 0.01, 0.55, false, 0, "tutorial", "", "", ["cleanser", "moisturizer", "exfoliator"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7642848420691987742", 435594, 101783, 158, 13935, 0.04, 3.2, false, 0, "tutorial", "", "", ["led mask", "facial device", "supplement"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7643904556216126733", 433707, 28440, 38, 1822, 0.01, 0.42, false, 0, "tutorial", "", "", ["serum", "cleanser", "toner"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7639019452339588365", 355041, 33407, 288, 1262, 0.08, 0.36, false, 0, "tutorial", "", "", ["moisturizer", "toner", "cleanser"]], ["스킨케어 루틴 튜토리얼 데모형", "", "7639810588436221214", 323953, 24078, 95, 1038, 0.03, 0.32, false, 0, "tutorial", "", "", ["cleanser", "serum", "moisturizer"]], ["언박싱·PR 하울 리뷰형", "", "7641049268400180493", 1018990, 28401, 930, 3113, 0.09, 0.31, false, 0, "unboxing", "", "", ["powder", "palette"]], ["언박싱·PR 하울 리뷰형", "", "7640244015824129293", 363308, 28250, 61, 3286, 0.02, 0.9, false, 0, "lifestyle", "", "", ["petroleum jelly", "lotion", "body oil"]], ["언박싱·PR 하울 리뷰형", "", "7644714032968027423", 168764, 27398, 388, 1873, 0.23, 1.11, false, 0, "unboxing", "", "", ["box", "serum", "shampoo"]], ["언박싱·PR 하울 리뷰형", "", "7642123407068269855", 83348, 7516, 67, 286, 0.08, 0.34, false, 0, "unboxing", "", "", ["brush", "perfume", "makeup"]], ["언박싱·PR 하울 리뷰형", "", "7641649619109219597", 81710, 6238, 14, 257, 0.02, 0.31, false, 0, "review", "", "", ["serum", "moisturizer", "concealer"]], ["선크림·성분 특화 루틴 경과형", "", "7642034107362463006", 2376245, 5167, 70, 825, 0, 0.03, true, 0, "expert_education", "", "", ["sunscreen"]], ["선크림·성분 특화 루틴 경과형", "", "7639404175272545554", 977854, 46784, 349, 1227, 0.04, 0.13, true, 0, "review", "", "", ["sunscreen"]], ["선크림·성분 특화 루틴 경과형", "", "7642822769431825677", 656091, 17690, 55, 453, 0.01, 0.07, false, 0, "lifestyle", "", "", ["sunscreen", "balm", "fruit"]], ["선크림·성분 특화 루틴 경과형", "", "7642848420691987742", 435594, 101783, 158, 13935, 0.04, 3.2, false, 0, "tutorial", "", "", ["led mask", "facial device", "supplement"]], ["선크림·성분 특화 루틴 경과형", "", "7638377031645842702", 177495, 2594, 128, 853, 0.07, 0.48, false, 0, "testimonial", "", "", ["cleanser", "treatment"]], ["호기심 갭 비교·리뷰형", "", "7644247817799683358", 766831, 15877, 301, 553, 0.04, 0.07, true, 0, "review", "", "", ["serum"]], ["호기심 갭 비교·리뷰형", "", "7644599084485037342", 563994, 46401, 508, 7602, 0.09, 1.35, false, 0, "review", "", "", ["sunscreen", "serum", "moisturizer"]], ["호기심 갭 비교·리뷰형", "", "7638337484924996895", 529999, 70100, 317, 12215, 0.06, 2.3, false, 0, "tutorial", "", "", ["gua sha", "cleanser"]], ["호기심 갭 비교·리뷰형", "", "7641702663805013278", 213767, 7885, 33, 333, 0.02, 0.16, false, 0, "testimonial", "", "", ["serum", "moisturizer"]], ["호기심 갭 비교·리뷰형", "", "7641391758978338078", 117364, 3667, 22, 142, 0.02, 0.12, true, 0, "lifestyle", "", "", []], ["메이크업·바디 튜토리얼 데모형", "", "7639095257371544863", 147748, 26571, 22, 443, 0.01, 0.3, false, 0, "tutorial", "", "", ["mask", "teeth whitener", "laser"]], ["메이크업·바디 튜토리얼 데모형", "", "7636918237925608718", 77498, 3760, 25, 2768, 0.03, 3.57, false, 0, "tutorial", "", "", ["powder", "concealer", "foundation"]], ["메이크업·바디 튜토리얼 데모형", "", "7636487446053604638", 42178, 2733, 34, 580, 0.08, 1.38, false, 0, "tutorial", "", "", ["eyeshadow", "blush", "lipstick"]], ["메이크업·바디 튜토리얼 데모형", "", "7644660281980816653", 32256, 5886, 102, 301, 0.32, 0.93, false, 0, "tutorial", "", "", ["concealer", "blush", "bronzer"]], ["메이크업·바디 튜토리얼 데모형", "", "7636209141714930974", 22716, 1919, 31, 535, 0.14, 2.36, true, 0, "tutorial", "", "", ["cleanser", "toner", "serum"]], ["전문가·교육 정보 신뢰형", "", "7638337484924996895", 529999, 70100, 317, 12215, 0.06, 2.3, false, 0, "tutorial", "", "", ["gua sha", "cleanser"]], ["전문가·교육 정보 신뢰형", "", "7642510214607932702", 437821, 32452, 592, 16090, 0.14, 3.68, false, 0, "expert_education", "", "", ["serum", "cream", "gel"]], ["전문가·교육 정보 신뢰형", "", "7644696137215053070", 338736, 48597, 209, 6915, 0.06, 2.04, false, 0, "expert_education", "", "", ["toner", "balm", "mist"]], ["전문가·교육 정보 신뢰형", "", "7641702663805013278", 213767, 7885, 33, 333, 0.02, 0.16, false, 0, "testimonial", "", "", ["serum", "moisturizer"]], ["전문가·교육 정보 신뢰형", "", "7638691401261141278", 87001, 2577, 63, 818, 0.07, 0.94, false, 0, "expert_education", "", "", ["ointment", "petroleum_jelly"]], ["일상 브이로그 라이프스타일형", "", "7639884588231200031", 603037, 90366, 139, 3114, 0.02, 0.52, false, 0, "lifestyle", "", "", []], ["일상 브이로그 라이프스타일형", "", "7636961107306925325", 416812, 84097, 272, 3119, 0.07, 0.75, false, 0, "lifestyle", "", "", ["scrub", "spray", "scrunchie"]], ["일상 브이로그 라이프스타일형", "", "7640244015824129293", 363308, 28250, 61, 3286, 0.02, 0.9, false, 0, "lifestyle", "", "", ["petroleum jelly", "lotion", "body oil"]], ["일상 브이로그 라이프스타일형", "", "7638080124948106527", 293479, 34667, 455, 761, 0.16, 0.26, false, 0, "lifestyle", "", "", ["lamp", "pillow", "plush"]], ["일상 브이로그 라이프스타일형", "", "7643495302736973069", 286873, 27719, 134, 876, 0.05, 0.31, false, 0, "lifestyle", "", "", ["handbag", "sneaker", "jacket"]], ["개인 서사 GRWM·일상 페르소나형", "", "7643504655548353806", 2104616, 40525, 358, 2844, 0.02, 0.14, false, 0, "lifestyle", "", "", ["cream"]], ["개인 서사 GRWM·일상 페르소나형", "", "7638717538158824718", 1628691, 135476, 393, 14595, 0.02, 0.9, false, 0, "lifestyle", "", "", ["lip liner"]], ["개인 서사 GRWM·일상 페르소나형", "", "7643518668978130190", 873789, 145733, 4610, 7341, 0.53, 0.84, false, 0, "testimonial", "", "", []], ["개인 서사 GRWM·일상 페르소나형", "", "7637573529315069204", 708240, 1503, 14, 58, 0, 0.01, true, 0, "testimonial", "", "", ["serum", "cream"]], ["개인 서사 GRWM·일상 페르소나형", "", "7639884588231200031", 603037, 90366, 139, 3114, 0.02, 0.52, false, 0, "lifestyle", "", "", []], ["코지·감성 아침·저녁 루틴 브이로그형", "", "7641834114370440461", 206295, 22476, 147, 5066, 0.07, 2.46, false, 0, "lifestyle", "", "", ["body wash", "shampoo", "scrub"]], ["코지·감성 아침·저녁 루틴 브이로그형", "", "7644318956974509343", 128230, 5145, 71, 3920, 0.06, 3.06, false, 0, "testimonial", "", "", ["cleanser", "serum", "cream"]], ["코지·감성 아침·저녁 루틴 브이로그형", "", "7641799382068677918", 75730, 8198, 90, 808, 0.12, 1.07, false, 0, "lifestyle", "", "", ["bag"]], ["코지·감성 아침·저녁 루틴 브이로그형", "", "7641418518528789790", 60797, 2805, 105, 801, 0.17, 1.32, false, 0, "tutorial", "", "", ["retinoid", "moisturizer", "serum"]], ["코지·감성 아침·저녁 루틴 브이로그형", "", "7639954685473869069", 34989, 4358, 16, 56, 0.05, 0.16, false, 0, "lifestyle", "", "", ["serum", "skincare", "haircare"]], ["리스트·큐레이션 저장 유도형", "", "7644623373363924238", 760301, 132301, 282, 5004, 0.04, 0.66, false, 0, "list_curation", "", "", ["mascara"]], ["리스트·큐레이션 저장 유도형", "", "7641743525305994527", 438646, 48168, 268, 17440, 0.06, 3.98, false, 0, "list_curation", "", "", ["cleanser", "deodorant", "lotion"]], ["리스트·큐레이션 저장 유도형", "", "7644696137215053070", 338736, 48597, 209, 6915, 0.06, 2.04, false, 0, "expert_education", "", "", ["toner", "balm", "mist"]], ["리스트·큐레이션 저장 유도형", "", "7637937485141511454", 147963, 6981, 39, 4530, 0.03, 3.06, false, 0, "list_curation", "", "", ["cleanser", "toner", "serum"]], ["리스트·큐레이션 저장 유도형", "", "7636484655109377294", 116902, 554, 25, 68, 0.02, 0.06, false, 0, "list_curation", "", "", ["moisturizer", "cleanser", "mask"]], ["해외·약국 무스트해브 큐레이션형", "", "7641212749216845086", 80396, 2797, 24, 1583, 0.03, 1.97, false, 0, "unboxing", "", "", ["sunscreen", "serum", "eye cream"]], ["해외·약국 무스트해브 큐레이션형", "", "7639472431639416095", 43148, 1075, 25, 1274, 0.06, 2.95, false, 0, "list_curation", "", "", []], ["해외·약국 무스트해브 큐레이션형", "", "7639160871435930893", 38208, 2718, 51, 307, 0.13, 0.8, false, 0, "list_curation", "", "", ["styling tool", "hair dryer"]], ["해외·약국 무스트해브 큐레이션형", "", "7640907399217319198", 23699, 1109, 1, 361, 0, 1.52, true, 0, "list_curation", "", "", ["tote", "serum", "perfume"]], ["해외·약국 무스트해브 큐레이션형", "", "7664787192258104590", 20185, 3793, 63, 126, 0.31, 0.62, false, 0, "lifestyle", "", "", ["deodorant", "granola", "chip"]], ["위클리·공병 페이버릿 업데이트 리뷰형", "", "7644668682769075469", 6810677, 1072968, 3397, 43449, 0.05, 0.64, false, 0, "testimonial", "", "", []], ["위클리·공병 페이버릿 업데이트 리뷰형", "", "7639404175272545554", 977854, 46784, 349, 1227, 0.04, 0.13, true, 0, "review", "", "", ["sunscreen"]], ["위클리·공병 페이버릿 업데이트 리뷰형", "", "7639810588436221214", 323953, 24078, 95, 1038, 0.03, 0.32, false, 0, "tutorial", "", "", ["cleanser", "serum", "moisturizer"]], ["위클리·공병 페이버릿 업데이트 리뷰형", "", "7636484655109377294", 116902, 554, 25, 68, 0.02, 0.06, false, 0, "list_curation", "", "", ["moisturizer", "cleanser", "mask"]], ["위클리·공병 페이버릿 업데이트 리뷰형", "", "7638269475254471966", 21340, 514, 14, 100, 0.07, 0.47, true, 0, "review", "", "", ["toner", "moisturizer", "serum"]], ["트랜스포메이션·결과 증명형", "", "7644599084485037342", 563994, 46401, 508, 7602, 0.09, 1.35, false, 0, "review", "", "", ["sunscreen", "serum", "moisturizer"]], ["트랜스포메이션·결과 증명형", "", "7644391821711363358", 453683, 13106, 42, 2516, 0.01, 0.55, false, 0, "tutorial", "", "", ["cleanser", "moisturizer", "exfoliator"]], ["트랜스포메이션·결과 증명형", "", "7642848420691987742", 435594, 101783, 158, 13935, 0.04, 3.2, false, 0, "tutorial", "", "", ["led mask", "facial device", "supplement"]], ["트랜스포메이션·결과 증명형", "", "7643904556216126733", 433707, 28440, 38, 1822, 0.01, 0.42, false, 0, "tutorial", "", "", ["serum", "cleanser", "toner"]], ["트랜스포메이션·결과 증명형", "", "7637937485141511454", 147963, 6981, 39, 4530, 0.03, 3.06, false, 0, "list_curation", "", "", ["cleanser", "toner", "serum"]], ["숍링크·고의도 구매전환 CTA형", "", "7641277220991913237", 1834520, 27997, 165, 1368, 0.01, 0.07, true, 0, "lifestyle", "", "", ["sunscreen"]], ["숍링크·고의도 구매전환 CTA형", "", "7644391821711363358", 453683, 13106, 42, 2516, 0.01, 0.55, false, 0, "tutorial", "", "", ["cleanser", "moisturizer", "exfoliator"]], ["숍링크·고의도 구매전환 CTA형", "", "7643904556216126733", 433707, 28440, 38, 1822, 0.01, 0.42, false, 0, "tutorial", "", "", ["serum", "cleanser", "toner"]], ["숍링크·고의도 구매전환 CTA형", "", "7637062867455397136", 83830, 2425, 44, 76, 0.05, 0.09, true, 0, "lifestyle", "", "", ["sunscreen"]], ["숍링크·고의도 구매전환 CTA형", "", "7640649602852539661", 24352, 1627, 11, 540, 0.05, 2.22, false, 0, "list_curation", "", "", ["serum", "cleanser", "sunscreen"]]], "monthlyTier": [["25-06", 4, 13, 2, 209, 0], ["25-07", 10, 9, 2, 163, 0], ["25-08", 3, 4, 2, 159, 0], ["25-09", 3, 5, 1, 121, 0], ["25-10", 11, 8, 1, 140, 0], ["25-11", 4, 8, 1, 143, 0], ["25-12", 5, 6, 2, 129, 0], ["26-01", 5, 4, 2, 129, 0], ["26-02", 7, 2, 1, 115, 0], ["26-03", 6, 4, 3, 181, 0], ["26-04", 11, 7, 1, 176, 0], ["26-05", 13, 8, 6, 192, 0], ["26-06", 7, 13, 2, 154, 0], ["26-07", 8, 4, 1, 179, 0]]}, "skin1004": {"name": "SKIN1004", "totalContents": 27183, "sunCount": 4220, "monthly": [["25-06", 190, 0], ["25-07", 205, 0], ["25-08", 150, 0], ["25-09", 100, 0], ["25-10", 109, 0], ["25-11", 144, 0], ["25-12", 166, 0], ["26-01", 270, 0], ["26-02", 546, 0], ["26-03", 444, 0], ["26-04", 697, 0], ["26-05", 348, 0], ["26-06", 477, 0], ["26-07", 374, 0]], "tiers": [["nano", 58, 62, 1680532], ["micro", 45, 46, 14210403], ["mid", 9, 9, 392759], ["macro", 5, 5, 136302], ["미분류", 1624, 4098, 435101912]], "angles": [["review", 6.2, 11], ["testimonial", 2.1, 7], ["lifestyle", 1.7, 2], ["tutorial", 1.3, 4], ["before_after", 1.1, 2]], "clusters": [{"n": "토킹헤드 리뷰·증언 구매 유도형", "c": 99, "c2v": 0.04, "s2v": 0.13, "rev": null, "gpm": null, "tot": 99, "h": "personal_story·social_proof·problem_statement 조합으로 시청자 공감 및 신뢰 유발"}, {"n": "데모·튜토리얼 루틴 저장 유도형", "c": 32, "c2v": 0.11, "s2v": 0.27, "rev": null, "gpm": null, "tot": 32, "h": "list_preview·problem_statement·countdown 훅으로 '몇 단계 루틴' 구조 예고"}, {"n": "문제-해결 변환 약속형", "c": 29, "c2v": 0.07, "s2v": 0.12, "rev": null, "gpm": null, "tot": 29, "h": "problem_statement + transformation_promise 조합으로 타겟 피부 고민 직접 언급"}, {"n": "SKIN1004·브랜드 루틴 쇼핑 유도형", "c": 28, "c2v": 0.05, "s2v": 0.26, "rev": null, "gpm": null, "tot": 28, "h": "social_proof + 제품 라인업 list_preview로 브랜드 신뢰 형성"}, {"n": "선크림·SPF 특화 전환 설득형", "c": 22, "c2v": 0.03, "s2v": 0.06, "rev": null, "gpm": null, "tot": 22, "h": "transformation_promise·problem_statement·personal_story 훅으로 한국 선크림 전환 서사 설정"}, {"n": "언박싱·리스트 큐레이션 쇼핑 유도형", "c": 21, "c2v": 0.06, "s2v": 0.12, "rev": null, "gpm": null, "tot": 21, "h": "shock_value·curiosity_gap·list_preview·social_proof 훅으로 제품 볼륨·구성 강조"}, {"n": "Before/After 변환 시각화형", "c": 20, "c2v": 0.03, "s2v": 0.22, "rev": null, "gpm": null, "tot": 20, "h": "before_after·transformation_promise·personal_story 훅으로 결과 예고"}, {"n": "라이프스타일·브이로그 감성 일상 노출형", "c": 17, "c2v": 0.21, "s2v": 0.83, "rev": null, "gpm": null, "tot": 17, "h": "personal_story·lifestyle·curiosity_gap 훅으로 '나의 아침/일상' 감성 서두"}, {"n": "할인·플래시세일 긴급 구매 유도형", "c": 16, "c2v": 0.03, "s2v": 0.12, "rev": null, "gpm": null, "tot": 16, "h": "countdown·shock_value·social_proof 훅으로 세일·마감 긴박감 조성"}, {"n": "성분·전문가 교육 정보형", "c": 15, "c2v": 0.05, "s2v": 0.14, "rev": null, "gpm": null, "tot": 15, "h": "curiosity_gap·problem_statement·question 훅으로 '이 성분이 왜 효과적인가' 궁금증 유발"}, {"n": "스티치·듀엣 반응 신뢰 증폭형", "c": 15, "c2v": 0, "s2v": 0.17, "rev": null, "gpm": null, "tot": 15, "h": "duet_reaction·social_proof·transformation_promise 훅으로 원본 크리에이터 신뢰도 차용 및 호기심 자극"}, {"n": "K뷰티 입문·전환 서사 큐레이션형", "c": 15, "c2v": 0.09, "s2v": 0.29, "rev": null, "gpm": null, "tot": 15, "h": "social_proof·curiosity_gap·personal_story·transformation_promise 훅으로 K뷰티 전환 서사 시작"}, {"n": "여드름·민감성 피부 SOS 루틴형", "c": 10, "c2v": 0.09, "s2v": 0.09, "rev": null, "gpm": null, "tot": 10, "h": "problem_statement·transformation_promise·personal_story 훅으로 피부 고민 공감 유발"}, {"n": "댓글·소셜반응 커뮤니티 참여형", "c": 9, "c2v": 0.42, "s2v": 0.63, "rev": null, "gpm": null, "tot": 9, "h": "duet_reaction·social_proof 훅으로 댓글·칭찬 스크린샷 제시"}], "vids": [["문제-해결 변환 약속형", "", "7631402120243121422", 327295, 799, 7, 468, 0, 0.14, true, 0, "testimonial", "", "", ["skin1004 cleansing soap", "water bottle", "pore close-up inset"]], ["문제-해결 변환 약속형", "", "7631035140180905247", 58729, 132, 0, 42, 0, 0.07, true, 0, "tutorial", "", "", ["cleansing oil bottle", "foam cleanser bottle", "toner bottle"]], ["문제-해결 변환 약속형", "", "7604199816477805855", 37866, 158, 6, 91, 0.02, 0.24, true, 0, "tutorial", "", "", ["centella mask box", "centella soap box", "centella gel box"]], ["문제-해결 변환 약속형", "", "7632377236116589837", 22251, 102, 2, 23, 0.01, 0.1, true, 0, "testimonial", "", "", ["Centella cleansing soap bar"]], ["문제-해결 변환 약속형", "", "7605982429374876959", 20340, 49, 0, 17, 0, 0.08, true, 0, "review", "", "", ["SKIN1004 Madagascar Centella Soothing Cream tube", "product box"]], ["SKIN1004·브랜드 루틴 쇼핑 유도형", "", "7605003183273856287", 430490, 42, 3, 17, 0, 0, true, 0, "review", "", "", ["SKIN1004 travel kit", "centella foam cleanser", "centella toner"]], ["SKIN1004·브랜드 루틴 쇼핑 유도형", "", "7605797301566704926", 285564, 915, 1, 157, 0, 0.05, true, 0, "list_curation", "", "", ["Centella Poremizing Clear Toner", "Centella Poremizing Deep Cleansing Foam", "Centella Poremizing Quick-Clay Stick Mask"]], ["SKIN1004·브랜드 루틴 쇼핑 유도형", "", "7605006151834504478", 142310, 576, 1, 140, 0, 0.1, true, 0, "list_curation", "", "", ["Centella BHA foam cleanser", "Centella B5 cream tube", "Centella relief ampoule"]], ["SKIN1004·브랜드 루틴 쇼핑 유도형", "", "7606467457091456269", 82267, 628, 29, 261, 0.04, 0.32, true, 0, "review", "", "", ["Skin1004 Centella cleanser tube", "Skin1004 Centella toner bottle", "Skin1004 face mask pack"]], ["SKIN1004·브랜드 루틴 쇼핑 유도형", "", "7633606385976003870", 68868, 828, 15, 408, 0.02, 0.59, true, 0, "list_curation", "", "", ["Centella moisture cream", "Centella purifying toner", "Centella blue serum"]], ["성분·전문가 교육 정보형", "", "7626811562077981966", 48115, 1562, 20, 324, 0.04, 0.67, false, 0, "expert_education", "", "", ["Skin1004 Madagascar Centella sunscreen", "Centella cream tube"]], ["성분·전문가 교육 정보형", "", "7605396446333897997", 37371, 1557, 95, 85, 0.25, 0.23, false, 0, "ingredient_breakdown", "", "", ["Centella TECA product label"]], ["성분·전문가 교육 정보형", "", "7619012917832224031", 13606, 369, 9, 7, 0.07, 0.05, true, 0, "expert_education", "", "", ["Naturium Retinaldehyde Cream Serum tube"]], ["성분·전문가 교육 정보형", "", "7606212857000185118", 11657, 54, 0, 6, 0, 0.05, true, 0, "expert_education", "", "", ["Skin1004 moisture cream"]], ["성분·전문가 교육 정보형", "", "7607318944633916685", 11367, 50, 12, 15, 0.11, 0.13, true, 0, "ingredient_breakdown", "", "", ["SKIN1004 serum dropper bottle", "niacinamide ampoule", "retinol ampoule"]], ["토킹헤드 리뷰·증언 구매 유도형", "", "7606455053095816461", 15696135, 114538, 261, 22519, 0, 0.14, true, 0, "testimonial", "", "", ["centella foam cleanser tube", "SKIN1004 packaging"]], ["토킹헤드 리뷰·증언 구매 유도형", "", "7606094024130202911", 10499937, 92841, 112, 14550, 0, 0.14, true, 0, "review", "", "", ["Entella cleansing foam tube", "Madagascar Centella Purifying Deep Cleansing Foam"]], ["토킹헤드 리뷰·증언 구매 유도형", "", "7636573823789206814", 1527428, 25590, 87, 3853, 0.01, 0.25, true, 0, "ingredient_breakdown", "", "", ["ampoule bottle", "Matrixyl 10 Boosting Shot Ampoule"]], ["토킹헤드 리뷰·증언 구매 유도형", "", "7605003183273856287", 430490, 42, 3, 17, 0, 0, true, 0, "review", "", "", ["SKIN1004 travel kit", "centella foam cleanser", "centella toner"]], ["토킹헤드 리뷰·증언 구매 유도형", "", "7631402120243121422", 327295, 799, 7, 468, 0, 0.14, true, 0, "testimonial", "", "", ["skin1004 cleansing soap", "water bottle", "pore close-up inset"]], ["선크림·SPF 특화 전환 설득형", "", "7606470946655849742", 272273, 1009, 14, 433, 0.01, 0.16, true, 0, "review", "", "", ["SKIN1004 centella sun serum tube", "SPF50 sunscreen tube"]], ["선크림·SPF 특화 전환 설득형", "", "7606007544242294047", 183743, 137, 2, 11, 0, 0.01, true, 0, "review", "", "", ["SPF sunscreen pump bottle", "Skin1004 Madagascar Centella SPF"]], ["선크림·SPF 특화 전환 설득형", "", "7606193464287497502", 112350, 323, 9, 110, 0.01, 0.1, true, 0, "review", "", "", ["korean sunscreen bottle", "skin1004 sunscreen"]], ["선크림·SPF 특화 전환 설득형", "", "7605716964262087966", 61003, 129, 14, 15, 0.02, 0.02, true, 0, "testimonial", "", "", ["Skin1004 Centella SPF tube", "sunscreen tube"]], ["선크림·SPF 특화 전환 설득형", "", "7616918745260248350", 49858, 160, 1, 9, 0, 0.02, true, 0, "review", "", "", ["HyaluCica sunscreen tube"]], ["스티치·듀엣 반응 신뢰 증폭형", "", "7606455053095816461", 15696135, 114538, 261, 22519, 0, 0.14, true, 0, "testimonial", "", "", ["centella foam cleanser tube", "SKIN1004 packaging"]], ["스티치·듀엣 반응 신뢰 증폭형", "", "7606094024130202911", 10499937, 92841, 112, 14550, 0, 0.14, true, 0, "review", "", "", ["Entella cleansing foam tube", "Madagascar Centella Purifying Deep Cleansing Foam"]], ["스티치·듀엣 반응 신뢰 증폭형", "", "7605813039627111710", 5094703, 27149, 42, 3771, 0, 0.07, true, 0, "review", "", "", ["Madagascar Centella deep cleansing foam", "Centella toner bottle", "Centella clay mask tube"]], ["스티치·듀엣 반응 신뢰 증폭형", "", "7605812009883471135", 269812, 1480, 7, 387, 0, 0.14, true, 0, "review", "", "", ["Centella Poremizing deep-cleansing foam box"]], ["스티치·듀엣 반응 신뢰 증폭형", "", "7605844018206969102", 208380, 2365, 77, 1449, 0.04, 0.7, true, 0, "testimonial", "", "", ["skin barrier cream", "SKIN1004 probio-cica cream"]], ["댓글·소셜반응 커뮤니티 참여형", "", "7604886631232982302", 339044, 37938, 267, 571, 0.08, 0.17, false, 0, "list_curation", "", "", ["Bubble Cosmic Silk Milky Toner", "Facile Brightening Serum", "Bloomeffects Bi Phase Tonic"]], ["댓글·소셜반응 커뮤니티 참여형", "", "7605844018206969102", 208380, 2365, 77, 1449, 0.04, 0.7, true, 0, "testimonial", "", "", ["skin barrier cream", "SKIN1004 probio-cica cream"]], ["댓글·소셜반응 커뮤니티 참여형", "", "7605809688550198559", 33638, 54, 1, 1, 0, 0, true, 0, "testimonial", "", "", ["Madagascar Centella cleansing foam tube"]], ["댓글·소셜반응 커뮤니티 참여형", "", "7625737052058930462", 12508, 810, 30, 119, 0.24, 0.95, false, 0, "review", "", "", ["Biodance collagen peptide serum", "SKIN1004 Tecca soothing toner", "VT matcha ceca layer serum"]], ["댓글·소셜반응 커뮤니티 참여형", "", "7612880431066696990", 12400, 39, 8, 7, 0.06, 0.06, true, 0, "testimonial", "", "", ["SKIN1004 cleanser", "skincare bottles"]], ["여드름·민감성 피부 SOS 루틴형", "", "7605006151834504478", 142310, 576, 1, 140, 0, 0.1, true, 0, "list_curation", "", "", ["Centella BHA foam cleanser", "Centella B5 cream tube", "Centella relief ampoule"]], ["여드름·민감성 피부 SOS 루틴형", "", "7616794589390736654", 16847, 26, 2, 12, 0.01, 0.07, true, 0, "tutorial", "", "", ["cleansing oil", "facial soap", "clay mask"]], ["여드름·민감성 피부 SOS 루틴형", "", "7623083430296833294", 11883, 47, 3, 18, 0.03, 0.15, true, 0, "tutorial", "", "", ["facial mask tube", "toner bottle", "serum ampoule"]], ["여드름·민감성 피부 SOS 루틴형", "", "7615834286222019853", 11832, 546, 19, 32, 0.16, 0.27, false, 0, "tutorial", "", "", ["benzoyl peroxide treatment", "centella toning toner", "tone brightening capsule serum"]], ["여드름·민감성 피부 SOS 루틴형", "", "7634208850173758750", 9821, 26, 1, 3, 0.01, 0.03, true, 0, "tutorial", "", "", ["pore minimizing mask", "deep cleansing foam", "toner"]], ["Before/After 변환 시각화형", "", "7606057343012310285", 46987, 28, 1, 5, 0, 0.01, true, 0, "before_after", "", "", ["centella cleansing oil bottle", "centella soap bar", "centella mask tube"]], ["Before/After 변환 시각화형", "", "7604227337504230670", 25566, 90, 31, 24, 0.12, 0.09, false, 0, "before_after", "", "", ["Skin1004 Madagascar Centella Soothing Cream tube"]], ["Before/After 변환 시각화형", "", "7610536362877472013", 24575, 46, 0, 24, 0, 0.1, true, 0, "before_after", "", "", ["centella asiatica soap", "clay mask", "toner bottle"]], ["Before/After 변환 시각화형", "", "7627294309103979789", 17483, 86, 1, 6, 0.01, 0.03, true, 0, "testimonial", "", "", ["water based sunscreen"]], ["Before/After 변환 시각화형", "", "7610255479918415135", 17397, 1001, 19, 291, 0.11, 1.67, false, 0, "before_after", "", "", ["crystal tiara crown", "makeup setting spray", "skincare bottle"]], ["데모·튜토리얼 루틴 저장 유도형", "", "7605003183273856287", 430490, 42, 3, 17, 0, 0, true, 0, "review", "", "", ["SKIN1004 travel kit", "centella foam cleanser", "centella toner"]], ["데모·튜토리얼 루틴 저장 유도형", "", "7604886631232982302", 339044, 37938, 267, 571, 0.08, 0.17, false, 0, "list_curation", "", "", ["Bubble Cosmic Silk Milky Toner", "Facile Brightening Serum", "Bloomeffects Bi Phase Tonic"]], ["데모·튜토리얼 루틴 저장 유도형", "", "7605797301566704926", 285564, 915, 1, 157, 0, 0.05, true, 0, "list_curation", "", "", ["Centella Poremizing Clear Toner", "Centella Poremizing Deep Cleansing Foam", "Centella Poremizing Quick-Clay Stick Mask"]], ["데모·튜토리얼 루틴 저장 유도형", "", "7605094083702410526", 145809, 738, 6, 131, 0, 0.09, true, 0, "lifestyle", "", "", ["centella cleansing foam tube", "centella clear toner bottle", "centella light gel cream tube"]], ["데모·튜토리얼 루틴 저장 유도형", "", "7605006151834504478", 142310, 576, 1, 140, 0, 0.1, true, 0, "list_curation", "", "", ["Centella BHA foam cleanser", "Centella B5 cream tube", "Centella relief ampoule"]], ["라이프스타일·브이로그 감성 일상 노출형", "", "7605094083702410526", 145809, 738, 6, 131, 0, 0.09, true, 0, "lifestyle", "", "", ["centella cleansing foam tube", "centella clear toner bottle", "centella light gel cream tube"]], ["라이프스타일·브이로그 감성 일상 노출형", "", "7603936989892709645", 33758, 9277, 68, 428, 0.2, 1.27, false, 0, "lifestyle", "", "", ["over-ear headphones", "iPad", "Apple Pencil"]], ["라이프스타일·브이로그 감성 일상 노출형", "", "7605399838586539278", 25504, 7759, 67, 390, 0.26, 1.53, false, 0, "lifestyle", "", "", []], ["라이프스타일·브이로그 감성 일상 노출형", "", "7632021859881585950", 23874, 1352, 22, 217, 0.09, 0.91, false, 0, "tutorial", "", "", ["serum dropper bottle", "3:45 relief cream tube", "Round Lab cleanser tube"]], ["라이프스타일·브이로그 감성 일상 노출형", "", "7635825365595868447", 18623, 4253, 28, 241, 0.15, 1.29, true, 0, "lifestyle", "", "", ["Naturium product", "Dove personal care", "anua product"]], ["언박싱·리스트 큐레이션 쇼핑 유도형", "", "7604568696534617375", 134780, 241, 1, 26, 0, 0.02, true, 0, "review", "", "", ["cleansing foam tube", "product box"]], ["언박싱·리스트 큐레이션 쇼핑 유도형", "", "7605911379001806094", 79185, 2920, 168, 398, 0.21, 0.5, false, 0, "unboxing", "", "", ["Centella Teca Cream tube", "Centella Teca Ampoule dropper bottle", "Centella Teca Soothing Toner bottle"]], ["언박싱·리스트 큐레이션 쇼핑 유도형", "", "7605673410202520862", 66695, 382, 6, 111, 0.01, 0.17, true, 0, "unboxing", "", "", ["Centella cleansing oil bottle", "Centella ampoule serum", "Centella foaming cleanser"]], ["언박싱·리스트 큐레이션 쇼핑 유도형", "", "7605276360189234445", 60477, 286, 4, 49, 0.01, 0.08, true, 0, "list_curation", "", "", ["Centella toning toner bottle", "Centella light cleansing oil", "Centella soothing cream tube"]], ["언박싱·리스트 큐레이션 쇼핑 유도형", "", "7606261214594862349", 12943, 137, 8, 54, 0.06, 0.42, true, 0, "list_curation", "", "", ["centella ampoule dropper bottle", "pore minimizing set", "serum trio"]], ["할인·플래시세일 긴급 구매 유도형", "", "7604568696534617375", 134780, 241, 1, 26, 0, 0.02, true, 0, "review", "", "", ["cleansing foam tube", "product box"]], ["할인·플래시세일 긴급 구매 유도형", "", "7605672534041693453", 71123, 727, 47, 198, 0.07, 0.28, true, 0, "review", "", "", ["Centella cleansing gel foam tube", "Centella capsule cream tube", "Centella capsule ampoule bottle"]], ["할인·플래시세일 긴급 구매 유도형", "", "7605276360189234445", 60477, 286, 4, 49, 0.01, 0.08, true, 0, "list_curation", "", "", ["Centella toning toner bottle", "Centella light cleansing oil", "Centella soothing cream tube"]], ["할인·플래시세일 긴급 구매 유도형", "", "7605807399596772638", 32067, 133, 4, 39, 0.01, 0.12, true, 0, "testimonial", "", "", ["serum dropper bottle", "tone brightening bundle", "cleanser"]], ["할인·플래시세일 긴급 구매 유도형", "", "7605775743355817246", 16739, 117, 17, 21, 0.1, 0.13, true, 0, "review", "", "", ["Madagascar Centella light cleanser pump bottle", "Madagascar Centella ampoule foam tube"]], ["K뷰티 입문·전환 서사 큐레이션형", "", "7606094024130202911", 10499937, 92841, 112, 14550, 0, 0.14, true, 0, "review", "", "", ["Entella cleansing foam tube", "Madagascar Centella Purifying Deep Cleansing Foam"]], ["K뷰티 입문·전환 서사 큐레이션형", "", "7606467457091456269", 82267, 628, 29, 261, 0.04, 0.32, true, 0, "review", "", "", ["Skin1004 Centella cleanser tube", "Skin1004 Centella toner bottle", "Skin1004 face mask pack"]], ["K뷰티 입문·전환 서사 큐레이션형", "", "7606155574199323917", 32132, 447, 0, 147, 0, 0.46, true, 0, "review", "", "", ["SKIN1004 oil cleanser bottle", "Centella Madagascar cream jar", "Centella serum tube"]], ["K뷰티 입문·전환 서사 큐레이션형", "", "7605361441893305614", 16443, 781, 7, 307, 0.04, 1.87, false, 0, "lifestyle", "", "", ["Mediheal sheet mask", "Biodance mask pack", "Keyth product box"]], ["K뷰티 입문·전환 서사 큐레이션형", "", "7628615224312057119", 14398, 449, 6, 56, 0.04, 0.39, true, 0, "testimonial", "", "", ["SKIN1004 centella ampoule bottle", "SKIN1004 centella serum bottle", "SKIN1004 cream tube"]]], "monthlyTier": [["25-06", 6, 0, 2, 182, 0], ["25-07", 4, 4, 0, 197, 0], ["25-08", 1, 2, 1, 146, 0], ["25-09", 3, 1, 0, 96, 0], ["25-10", 0, 1, 0, 108, 0], ["25-11", 0, 6, 0, 138, 0], ["25-12", 1, 2, 1, 162, 0], ["26-01", 3, 2, 0, 265, 0], ["26-02", 5, 3, 0, 538, 0], ["26-03", 0, 0, 0, 444, 0], ["26-04", 12, 5, 2, 678, 0], ["26-05", 6, 4, 1, 337, 0], ["26-06", 13, 8, 5, 451, 0], ["26-07", 8, 8, 2, 356, 0]]}, "abib": {"name": "Abib", "totalContents": 10911, "sunCount": 2786, "monthly": [["25-06", 357, 0], ["25-07", 257, 0], ["25-08", 159, 0], ["25-09", 63, 0], ["25-10", 65, 0], ["25-11", 61, 0], ["25-12", 64, 0], ["26-01", 61, 0], ["26-02", 55, 0], ["26-03", 273, 0], ["26-04", 284, 0], ["26-05", 323, 0], ["26-06", 493, 0], ["26-07", 271, 0]], "tiers": [["nano", 14, 15, 9486], ["micro", 16, 16, 16773], ["mid", 1, 1, 652], ["미분류", 1601, 2754, 37846625]], "angles": [["before_after", 29.9, 2], ["tutorial", 29.7, 13], ["review", 18.8, 39], ["expert_education", 17.7, 8], ["lifestyle", 8.6, 12], ["testimonial", 8.3, 2], ["list_curation", 7.5, 6], ["comparison", 6.8, 5], ["unboxing", 4.2, 3]], "clusters": [{"n": "일상 감성 브이로그·페르소나형", "c": 57, "c2v": 0.46, "s2v": 0.82, "rev": null, "gpm": null, "tot": 53, "h": "personal_story 단독 훅 + 감성 텍스트 오버레이 또는 일상 오프닝으로 공감 진입"}, {"n": "개인 고민 공감 testimonial 리뷰형", "c": 44, "c2v": 0.17, "s2v": 0.74, "rev": null, "gpm": null, "tot": 40, "h": "personal_story + problem_statement 조합으로 피부 고민을 솔직히 고백하며 시작"}, {"n": "리스트·큐레이션 저장 유도형", "c": 39, "c2v": 0.14, "s2v": 1.25, "rev": null, "gpm": null, "tot": 38, "h": "list_preview 또는 curiosity_gap으로 '몇 가지 제품/루틴'을 예고하며 시청 지속 유도"}, {"n": "아이패치·눈가 케어 리뷰·결과형", "c": 35, "c2v": 0.16, "s2v": 0.85, "rev": null, "gpm": null, "tot": 34, "h": "problem_statement / transformation_promise / before_after로 눈가 고민 공감 유도"}, {"n": "Before/After 변환 결과 시각화형", "c": 31, "c2v": 0.13, "s2v": 0.75, "rev": null, "gpm": null, "tot": 27, "h": "transformation_promise + before_after 또는 problem_statement로 변화 기대감 자극"}, {"n": "선크림 문제제기·해결 설득형", "c": 30, "c2v": 0.15, "s2v": 0.66, "rev": null, "gpm": null, "tot": 20, "h": "problem_statement 훅으로 선크림 무지 또는 잘못된 습관 지적"}, {"n": "스킨케어·K-뷰티 루틴 튜토리얼형", "c": 30, "c2v": 0.1, "s2v": 1.45, "rev": null, "gpm": null, "tot": 30, "h": "personal_story + curiosity_gap 또는 social_proof로 '한국인처럼' 또는 '이 루틴 따라해봐' 유도"}, {"n": "성분·원리 전문가 교육형", "c": 26, "c2v": 0.07, "s2v": 0.66, "rev": null, "gpm": null, "tot": 24, "h": "curiosity_gap + question 또는 problem_statement 훅으로 성분 궁금증/오해 유발"}, {"n": "소셜 증거 기반 신뢰 구축·멀티 리뷰형", "c": 23, "c2v": 0.85, "s2v": 1.45, "rev": null, "gpm": null, "tot": 22, "h": "social_proof + personal_story 또는 curiosity_gap으로 '다들 쓰는 제품' 또는 '추천받아 써봤더니' 서사"}, {"n": "선크림 사회적 증거·구매 전환형", "c": 21, "c2v": 0.02, "s2v": 0.36, "rev": null, "gpm": null, "tot": 8, "h": "social_proof + problem_statement 또는 countdown으로 가격·혜택·인기 강조"}, {"n": "선크림 퍼스널 리뷰·경험 토킹헤드형", "c": 18, "c2v": 0.03, "s2v": 0.43, "rev": null, "gpm": null, "tot": 7, "h": "personal_story 또는 problem_statement로 본인의 선크림 고민/경험을 먼저 언급"}, {"n": "GRWM·데일리 메이크업 튜토리얼형", "c": 18, "c2v": 0.19, "s2v": 1.16, "rev": null, "gpm": null, "tot": 18, "h": "personal_story 또는 list_preview 훅 + 'GRWM/morning routine' 오버레이로 어떤 룩을 만들지 예고"}, {"n": "충격·호기심 고관여 리뷰형", "c": 17, "c2v": 0.09, "s2v": 0.47, "rev": null, "gpm": null, "tot": 14, "h": "shock_value + curiosity_gap 또는 problem_statement 조합으로 강한 첫인상 형성"}, {"n": "질문·비교 선택 가이드형", "c": 17, "c2v": 0.1, "s2v": 0.66, "rev": null, "gpm": null, "tot": 15, "h": "question + curiosity_gap 또는 comparison 훅으로 '어떤 게 낫지?' 궁금증 유발"}, {"n": "언박싱·하울 개봉 탐색형", "c": 16, "c2v": 0.17, "s2v": 0.63, "rev": null, "gpm": null, "tot": 14, "h": "curiosity_gap + personal_story 또는 list_preview로 '뭐가 들었을까/왔는지' 기대감 형성"}, {"n": "숍링크·고의도 구매 직접 전환형", "c": 11, "c2v": 0.07, "s2v": 1.14, "rev": null, "gpm": null, "tot": 10, "h": "list_preview 또는 personal_story + problem_statement 훅으로 니즈 자극"}, {"n": "선크림 비교·쇼크 바이럴형", "c": 9, "c2v": 0.14, "s2v": 0.53, "rev": null, "gpm": null, "tot": 7, "h": "shock_value + curiosity_gap 또는 comparison으로 '말도 안 되는' 사실·실험 제시"}], "vids": [["선크림 사회적 증거·구매 전환형", "", "7645157991305465101", 2643102, 119751, 507, 26387, 0.02, 1, true, 0, "review", "", "", ["sunscreen"]], ["선크림 사회적 증거·구매 전환형", "", "7645146216329694478", 473788, 4005, 74, 776, 0.02, 0.16, true, 0, "review", "", "", ["sunscreen"]], ["선크림 사회적 증거·구매 전환형", "", "7659648669750136078", 372903, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen", "sunstick"]], ["선크림 사회적 증거·구매 전환형", "", "7645231645062122766", 271514, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen"]], ["선크림 사회적 증거·구매 전환형", "", "7646574316393336078", 261708, 4714, 87, 237, 0.03, 0.09, true, 0, "expert_education", "", "", ["sunscreen"]], ["Before/After 변환 결과 시각화형", "", "7644724671346183457", 642123, 3308, 16, 862, 0, 0.13, true, 0, "tutorial", "", "", ["patch", "cream"]], ["Before/After 변환 결과 시각화형", "", "7665088071884344598", 597660, 4058, 6, 577, 0, 0.1, false, 0, "before_after", "", "", ["sunscreen"]], ["Before/After 변환 결과 시각화형", "", "7640903742216228116", 478554, 36318, 198, 6776, 0.04, 1.42, false, 0, "before_after", "", "", ["cream"]], ["Before/After 변환 결과 시각화형", "", "7660416921052925191", 276984, 1494, 16, 216, 0.01, 0.08, false, 0, "testimonial", "", "", ["eye patch"]], ["Before/After 변환 결과 시각화형", "", "7654594000829041934", 267416, 15932, 105, 5539, 0.04, 2.07, false, 0, "before_after", "", "", ["eye patch", "eye cream"]], ["선크림 퍼스널 리뷰·경험 토킹헤드형", "", "7665360350300130590", 2506116, 285783, 3115, 20875, 0.12, 0.83, false, 0, "tutorial", "", "", ["sunscreen"]], ["선크림 퍼스널 리뷰·경험 토킹헤드형", "", "7665088071884344598", 597660, 4058, 6, 577, 0, 0.1, false, 0, "before_after", "", "", ["sunscreen"]], ["선크림 퍼스널 리뷰·경험 토킹헤드형", "", "7653626924987682078", 111857, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen"]], ["선크림 퍼스널 리뷰·경험 토킹헤드형", "", "7639869259404807455", 94458, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen"]], ["선크림 퍼스널 리뷰·경험 토킹헤드형", "", "7652862064393735438", 70218, 4269, 31, 590, 0.04, 0.84, true, 0, "review", "", "", ["sunscreen", "bag"]], ["리스트·큐레이션 저장 유도형", "", "7636467132468874516", 252464, 21941, 77, 8867, 0.03, 3.51, false, 0, "list_curation", "", "", ["pad", "toner", "cream"]], ["리스트·큐레이션 저장 유도형", "", "7646184972390288654", 218101, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen"]], ["리스트·큐레이션 저장 유도형", "", "7657274623855234335", 184434, 30826, 58, 726, 0.03, 0.39, false, 0, "review", "", "", ["toner", "serum", "moisturizer"]], ["리스트·큐레이션 저장 유도형", "", "7653104924900805901", 158372, 10202, 148, 2881, 0.09, 1.82, false, 0, "list_curation", "", "", ["serum", "toner", "pad"]], ["리스트·큐레이션 저장 유도형", "", "7655092569675681055", 118283, 24508, 193, 5297, 0.16, 4.48, false, 0, "review", "", "", ["sunscreen", "mist"]], ["개인 고민 공감 testimonial 리뷰형", "", "7663407263486348557", 957040, 105611, 4438, 24860, 0.46, 2.6, false, 0, "expert_education", "", "", ["laptop"]], ["개인 고민 공감 testimonial 리뷰형", "", "7649015143073926420", 334962, 10364, 821, 2008, 0.25, 0.6, false, 0, "lifestyle", "", "", ["lipstick"]], ["개인 고민 공감 testimonial 리뷰형", "", "7660416921052925191", 276984, 1494, 16, 216, 0.01, 0.08, false, 0, "testimonial", "", "", ["eye patch"]], ["개인 고민 공감 testimonial 리뷰형", "", "7654594000829041934", 267416, 15932, 105, 5539, 0.04, 2.07, false, 0, "before_after", "", "", ["eye patch", "eye cream"]], ["개인 고민 공감 testimonial 리뷰형", "", "7645340527398817037", 124862, 4697, 54, 2519, 0.04, 2.02, false, 0, "tutorial", "", "", ["serum", "essence", "lotion"]], ["일상 감성 브이로그·페르소나형", "", "7649015143073926420", 334962, 10364, 821, 2008, 0.25, 0.6, false, 0, "lifestyle", "", "", ["lipstick"]], ["일상 감성 브이로그·페르소나형", "", "7638295485526281495", 290423, 19068, 278, 902, 0.1, 0.31, false, 0, "lifestyle", "", "", ["eye mask", "patch", "drink"]], ["일상 감성 브이로그·페르소나형", "", "7652808741980523790", 220485, 33416, 450, 1995, 0.2, 0.9, false, 0, "lifestyle", "", "", ["lip gloss", "supplement", "tea"]], ["일상 감성 브이로그·페르소나형", "", "7643267333397515533", 168865, 0, 0, null, 0, null, true, 0, "review", "", "", ["lip mask"]], ["일상 감성 브이로그·페르소나형", "", "7652813170343496980", 167441, 7697, 442, 1960, 0.26, 1.17, false, 0, "lifestyle", "", "", ["brush"]], ["선크림 비교·쇼크 바이럴형", "", "7665360350300130590", 2506116, 285783, 3115, 20875, 0.12, 0.83, false, 0, "tutorial", "", "", ["sunscreen"]], ["선크림 비교·쇼크 바이럴형", "", "7646574316393336078", 261708, 4714, 87, 237, 0.03, 0.09, true, 0, "expert_education", "", "", ["sunscreen"]], ["선크림 비교·쇼크 바이럴형", "", "7640162406924061982", 256999, 5458, 80, 758, 0.03, 0.29, false, 0, "comparison", "", "", ["sunscreen", "sunstick"]], ["선크림 비교·쇼크 바이럴형", "", "7643049281204620558", 80071, 2565, 21, 546, 0.03, 0.68, true, 0, "tutorial", "", "", ["sunstick", "sunscreen"]], ["선크림 비교·쇼크 바이럴형", "", "7645776925134179615", 43854, 956, 7, 194, 0.02, 0.44, false, 0, "comparison", "", "", ["sunscreen", "powder"]], ["언박싱·하울 개봉 탐색형", "", "7649543614363667725", 467441, 67003, 222, 4977, 0.05, 1.06, false, 0, "unboxing", "", "", ["box", "serum", "foundation"]], ["언박싱·하울 개봉 탐색형", "", "7662202935371222303", 111110, 6728, 230, 785, 0.21, 0.71, false, 0, "unboxing", "", "", ["sunscreen"]], ["언박싱·하울 개봉 탐색형", "", "7642735034339773709", 109929, 14594, 42, 2447, 0.04, 2.23, false, 0, "lifestyle", "", "", ["lipstick", "serum", "eyeshadow"]], ["언박싱·하울 개봉 탐색형", "", "7659092291470036254", 53594, 7718, 29, 186, 0.05, 0.35, false, 0, "review", "", "", ["mask", "foundation", "lotion"]], ["언박싱·하울 개봉 탐색형", "", "7668694450574511390", 52787, 9545, 113, 372, 0.21, 0.7, false, 0, "review", "", "", ["moisturizer", "serum", "lip balm"]], ["충격·호기심 고관여 리뷰형", "", "7655432017483500813", 865487, 74621, 83, 29616, 0.01, 3.42, false, 0, "review", "", "", ["soap", "serum", "cream"]], ["충격·호기심 고관여 리뷰형", "", "7663618013035236622", 218287, 2834, 39, 334, 0.02, 0.15, true, 0, "review", "", "", ["mask", "essence"]], ["충격·호기심 고관여 리뷰형", "", "7639892459748674829", 93441, 589, 0, 83, 0, 0.09, true, 0, "ingredient_breakdown", "", "", ["serum"]], ["충격·호기심 고관여 리뷰형", "", "7650281228108614926", 53344, 96, 4, 39, 0.01, 0.07, true, 0, "review", "", "", ["sunscreen"]], ["충격·호기심 고관여 리뷰형", "", "7646244891747470606", 34570, 0, 0, null, 0, null, true, 0, "review", "", "", ["lip serum"]], ["성분·원리 전문가 교육형", "", "7646574316393336078", 261708, 4714, 87, 237, 0.03, 0.09, true, 0, "expert_education", "", "", ["sunscreen"]], ["성분·원리 전문가 교육형", "", "7645340527398817037", 124862, 4697, 54, 2519, 0.04, 2.02, false, 0, "tutorial", "", "", ["serum", "essence", "lotion"]], ["성분·원리 전문가 교육형", "", "7646088219334839572", 94746, 5017, 95, 451, 0.1, 0.48, false, 0, "expert_education", "", "", ["eye patch"]], ["성분·원리 전문가 교육형", "", "7639892459748674829", 93441, 589, 0, 83, 0, 0.09, true, 0, "ingredient_breakdown", "", "", ["serum"]], ["성분·원리 전문가 교육형", "", "7640002384139128078", 87258, 172, 2, 36, 0, 0.04, true, 0, "ingredient_breakdown", "", "", ["serum"]], ["소셜 증거 기반 신뢰 구축·멀티 리뷰형", "", "7656589144105307405", 580515, 42566, 96, 16576, 0.02, 2.86, false, 0, "review", "", "", ["eye cream", "patch", "serum"]], ["소셜 증거 기반 신뢰 구축·멀티 리뷰형", "", "7638295485526281495", 290423, 19068, 278, 902, 0.1, 0.31, false, 0, "lifestyle", "", "", ["eye mask", "patch", "drink"]], ["소셜 증거 기반 신뢰 구축·멀티 리뷰형", "", "7645905536180833550", 179823, 2103, 30, 184, 0.02, 0.1, true, 0, "review", "", "", ["sunscreen"]], ["소셜 증거 기반 신뢰 구축·멀티 리뷰형", "", "7666338147562769695", 141662, 17684, 68, 6264, 0.05, 4.42, false, 0, "tutorial", "", "", ["cleanser", "toner", "serum"]], ["소셜 증거 기반 신뢰 구축·멀티 리뷰형", "", "7655051550892641549", 117004, 7112, 14, 3988, 0.01, 3.41, false, 0, "review", "", "", ["mist", "mask", "serum"]], ["아이패치·눈가 케어 리뷰·결과형", "", "7636875682525482253", 1150860, 84474, 630, 42907, 0.05, 3.73, false, 0, "review", "", "", ["eye patch", "jar"]], ["아이패치·눈가 케어 리뷰·결과형", "", "7664771278515047694", 296316, 22898, 262, 5440, 0.09, 1.84, true, 0, "review", "", "", ["eye patch"]], ["아이패치·눈가 케어 리뷰·결과형", "", "7660416921052925191", 276984, 1494, 16, 216, 0.01, 0.08, false, 0, "testimonial", "", "", ["eye patch"]], ["아이패치·눈가 케어 리뷰·결과형", "", "7654594000829041934", 267416, 15932, 105, 5539, 0.04, 2.07, false, 0, "before_after", "", "", ["eye patch", "eye cream"]], ["아이패치·눈가 케어 리뷰·결과형", "", "7644973454025936159", 141698, 9890, 140, 769, 0.1, 0.54, true, 0, "before_after", "", "", ["eye patch"]], ["숍링크·고의도 구매 직접 전환형", "", "7644550626193575199", 554278, 59522, 341, 2038, 0.06, 0.37, false, 0, "review", "", "", ["lip mask"]], ["숍링크·고의도 구매 직접 전환형", "", "7665370602357673230", 265435, 16971, 132, 2862, 0.05, 1.08, false, 0, "before_after", "", "", ["balm", "lip mask"]], ["숍링크·고의도 구매 직접 전환형", "", "7654291387004751117", 80505, 3304, 61, 1881, 0.08, 2.34, false, 0, "review", "", "", ["eye patch", "serum"]], ["숍링크·고의도 구매 직접 전환형", "", "7665074974071311646", 38289, 1645, 14, 1007, 0.04, 2.63, false, 0, "tutorial", "", "", ["eyeshadow", "mascara", "concealer"]], ["숍링크·고의도 구매 직접 전환형", "", "7660214427702136071", 22178, 200, 8, 126, 0.04, 0.57, false, 0, "comparison", "", "", ["supplement", "moisturizer", "foundation"]], ["선크림 문제제기·해결 설득형", "", "7643307048528071966", 356742, 28142, 205, 2079, 0.06, 0.58, true, 0, "lifestyle", "", "", ["sunstick"]], ["선크림 문제제기·해결 설득형", "", "7645847944880540941", 307087, 1359, 33, 666, 0.01, 0.22, true, 0, "review", "", "", ["sunscreen"]], ["선크림 문제제기·해결 설득형", "", "7645231645062122766", 271514, 0, 0, null, 0, null, true, 0, "review", "", "", ["sunscreen"]], ["선크림 문제제기·해결 설득형", "", "7645905536180833550", 179823, 2103, 30, 184, 0.02, 0.1, true, 0, "review", "", "", ["sunscreen"]], ["선크림 문제제기·해결 설득형", "", "7649050682141494559", 90735, 0, 0, null, 0, null, true, 0, "expert_education", "", "", ["sunscreen"]], ["질문·비교 선택 가이드형", "", "7648473485487934727", 880165, 94158, 532, 8091, 0.06, 0.92, false, 0, "tutorial", "", "", ["toner", "serum", "sunstick"]], ["질문·비교 선택 가이드형", "", "7644742242988510494", 478227, 30740, 97, 4157, 0.02, 0.87, false, 0, "review", "", "", ["sunscreen"]], ["질문·비교 선택 가이드형", "", "7650639043734113550", 98911, 985, 23, 28, 0.02, 0.03, true, 0, "tutorial", "", "", ["sunscreen"]], ["질문·비교 선택 가이드형", "", "7647202192104901901", 71038, 905, 9, 271, 0.01, 0.38, true, 0, "review", "", "", ["sunscreen"]], ["질문·비교 선택 가이드형", "", "7650903774814309663", 69550, 4759, 60, 234, 0.09, 0.34, true, 0, "tutorial", "", "", ["sunscreen"]], ["스킨케어·K-뷰티 루틴 튜토리얼형", "", "7639472868673277214", 1175335, 92522, 161, 8178, 0.01, 0.7, true, 0, "tutorial", "", "", ["lip oil", "eye patch", "cream"]], ["스킨케어·K-뷰티 루틴 튜토리얼형", "", "7648473485487934727", 880165, 94158, 532, 8091, 0.06, 0.92, false, 0, "tutorial", "", "", ["toner", "serum", "sunstick"]], ["스킨케어·K-뷰티 루틴 튜토리얼형", "", "7661595646637526303", 149629, 15233, 141, 4501, 0.09, 3.01, false, 0, "tutorial", "", "", ["concealer", "contour", "setting_spray"]], ["스킨케어·K-뷰티 루틴 튜토리얼형", "", "7650668091344489742", 148247, 764, 19, 156, 0.01, 0.11, true, 0, "testimonial", "", "", ["sunscreen"]], ["스킨케어·K-뷰티 루틴 튜토리얼형", "", "7665035210718858526", 144112, 7878, 106, 3551, 0.07, 2.46, false, 0, "tutorial", "", "", ["serum", "sunscreen", "essence"]], ["GRWM·데일리 메이크업 튜토리얼형", "", "7648300357893885205", 592683, 28696, 950, 2728, 0.16, 0.46, false, 0, "lifestyle", "", "", ["mascara", "mirror"]], ["GRWM·데일리 메이크업 튜토리얼형", "", "7636815585375948045", 410457, 6829, 55, 755, 0.01, 0.18, true, 0, "lifestyle", "", "", ["moisturizer"]], ["GRWM·데일리 메이크업 튜토리얼형", "", "7650911431059049748", 177965, 13756, 612, 1957, 0.34, 1.1, false, 0, "lifestyle", "", "", ["blush", "foundation", "headphone"]], ["GRWM·데일리 메이크업 튜토리얼형", "", "7665544525682674958", 78441, 10319, 62, 2280, 0.08, 2.91, false, 0, "tutorial", "", "", ["foundation", "serum", "setting spray"]], ["GRWM·데일리 메이크업 튜토리얼형", "", "7668418473848098062", 58597, 12709, 52, 1791, 0.09, 3.06, false, 0, "tutorial", "", "", ["makeup"]]], "monthlyTier": [["25-06", 0, 0, 0, 357, 0], ["25-07", 0, 0, 0, 257, 0], ["25-08", 1, 1, 0, 157, 0], ["25-09", 0, 0, 0, 63, 0], ["25-10", 1, 0, 0, 64, 0], ["25-11", 0, 0, 0, 61, 0], ["25-12", 0, 0, 0, 64, 0], ["26-01", 0, 0, 0, 61, 0], ["26-02", 0, 0, 0, 55, 0], ["26-03", 1, 4, 0, 268, 0], ["26-04", 0, 0, 0, 284, 0], ["26-05", 8, 5, 1, 309, 0], ["26-06", 4, 6, 0, 483, 0], ["26-07", 0, 0, 0, 271, 0]]}};
+const MBSR = {"eltamd": {"25-06": 1, "25-07": 1, "25-08": 1, "25-09": 1, "25-10": 1, "25-11": 1, "25-12": 1, "26-01": 1, "26-02": 1, "26-03": 1, "26-04": 1, "26-05": 1, "26-06": 1, "26-07": 1}, "lrp": {"25-06": 4, "25-07": 3, "25-08": 5, "25-09": 4, "25-10": 3, "25-11": 6, "25-12": 6, "26-01": 5, "26-02": 4, "26-03": 5, "26-04": 5, "26-05": 5, "26-06": 4, "26-07": 8}, "skin1004": {"25-12": 27, "26-01": 26, "26-02": 20, "26-03": 21, "26-04": 7, "26-05": 6, "26-06": 3, "26-07": 4}, "abib": {"25-06": 23, "25-07": 5, "25-08": 5, "25-09": 16, "25-10": 14, "25-11": 14, "25-12": 16, "26-01": 16, "26-02": 15, "26-03": 7, "26-04": 7, "26-05": 5, "26-06": 4, "26-07": 2}};
+const CALLOUT = {"eltamd": "<b>간증의 왕국.</b> 「선크림 개인 체험·간증 토킹헤드형」 71편이 평균 <b>94만 뷰</b>로 조회를 독식하고, 반응(저장·댓글)은 「메이크업 튜토리얼」과 GRWM이 만듭니다. 스파크애즈 25% — 간증이 자연 발생하는 브랜드 자산 위에서 노는 구조. Facial Sunscreens <b>3년 연속 1위</b>.", "lrp": "<b>권위와 페르소나의 이중주.</b> 더마(@drwhitneybowe)·셀럽(케케 팔머) 캐스팅과 「공병·페이버릿 리뷰」(46만 뷰)가 신뢰를 만들고, GRWM 페르소나 55편이 일상 침투를 맡습니다. 미드+매크로 42% — 4개 브랜드 중 최상위 티어 비중.", "skin1004": "<b>간증→스티치 증폭의 설계.</b> 토킹헤드 리뷰 99편(원료)에서 터진 영상을 「스티치·듀엣」 15편이 재증폭해 평균 <b>213만 뷰</b>. 선세럼 신제품을 12월 출시→시딩 폭증(2~4월)→<b>4개월 만에 서브카테고리 3위</b>.", "abib": "<b>물량전의 앵글 구성.</b> 「비교·쇼크 바이럴」(36만 뷰)이 포문을 열고 「사회적 증거·구매 전환」이 뒤를 받칩니다. 스파크 65%·나노+마이크로 86% — 이 물량전이 3년 만에 <b>102위→2위</b>. 저장은 「소셜 증거 멀티 리뷰」 rx 85.3 담당."};
+const nf = n => n==null ? "—" : n>=1e6 ? (n/1e6).toFixed(1)+"M" : n>=1e3 ? Math.round(n/1e3)+"K" : String(n);
+const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const rxCls = (v,hi,mid) => v==null ? "rx-lo" : v>=hi ? "rx-hi" : v>=mid ? "rx-mid" : "rx-lo";
+let CUR="eltamd", SORT="size", ANGLE="";
+
+function render(){
+  const D = DATA[CUR];
+  document.querySelectorAll(".case-btn").forEach(b=>b.setAttribute("aria-pressed", b.id==="cb-"+CUR));
+  document.getElementById("meta").innerHTML = [
+    `콘텐츠 전체 <b>${D.totalContents.toLocaleString()}</b>`,
+    `선케어 <b>${D.sunCount.toLocaleString()}</b>`,
+    `내러티브 <b>${D.clusters.length}</b>`,
+    `표본 영상 <b>${D.vids.length}</b>`,
+  ].map(t=>`<span class="chip">${t}</span>`).join("");
+  document.getElementById("callout").innerHTML = CALLOUT[CUR];
+
+  // §3 tier-stacked monthly
+  const bsr = MBSR[CUR]||{};
+  const mt = D.monthlyTier||[];
+  const mx = Math.max(...mt.map(r=>r[1]+r[2]+r[3]+r[4]));
+  document.getElementById("mmax").textContent = `월 최대 ${mx}편`;
+  const bvals = Object.values(bsr); const bmax = Math.max(...bvals,1);
+  const COLS=["var(--accent-line)","var(--accent)","#9d174d","var(--line)"];
+  document.getElementById("mchart").innerHTML = mt.map(([m,na,mi,md,uk,shop])=>{
+    const tot=na+mi+md+uk;
+    const b=bsr[m];
+    const dotY = b!=null ? Math.round((Math.log(b+1)/Math.log(bmax+1))*78) : null;
+    const seg=(n,c)=>n>0?`<div class="tseg" style="height:${Math.round(n/mx*100)}%;background:${c}"></div>`:"";
+    return `<div class="mcol">
+      <div class="tip"><div class="tt-h">${m} · ${tot}편</div><div class="tt-g">
+        <span>나노</span><b>${na}</b><span>마이크로</span><b>${mi}</b><span>미드+</span><b>${md}</b>
+        <span>미확인</span><b>${uk}</b><span>틱톡샵 연동</span><b>${shop}</b><span>BSR 최고</span><b>${b??"—"}</b></div></div>
+      <div class="mbar-wrap" style="height:100%;align-items:flex-end">
+        ${b!=null?`<span class="bsr-dot" style="bottom:${100-dotY}%"></span>`:""}
+        <div class="tstack" style="height:${Math.max(2,Math.round(tot/mx*100))}%">${seg(na,COLS[0])}${seg(mi,COLS[1])}${seg(md,COLS[2])}${seg(uk,COLS[3])}</div>
+        <span class="mbar shop" style="width:14%;height:${Math.max(shop>0?2:0,Math.round(shop/mx*100))}%"></span>
+      </div>
+      <span class="mval">${tot}</span><span class="mlab">${m}</span></div>`;
+  }).join("");
+
+  const tmax = Math.max(...D.tiers.map(t=>t[2]));
+  document.getElementById("tiers").innerHTML = D.tiers.map(([t,cr,v,views])=>`
+    <div class="trow"><span class="tname">${t}</span>
+      <div class="ttrack"><div class="tfill" style="width:${Math.round(v/tmax*100)}%;background:var(--accent)"></div></div>
+      <span class="tval"><b>${cr.toLocaleString()}</b>명 · ${v.toLocaleString()}편 · ${nf(views)}</span></div>`).join("");
+
+  const angles = [...new Set(D.vids.map(v=>v[11]).filter(Boolean))].sort();
+  const sel = document.getElementById("f-angle");
+  sel.innerHTML = '<option value="">전체</option>'+angles.map(a=>`<option${a===ANGLE?" selected":""}>${a}</option>`).join("");
+
+  let cls=[...D.clusters];
+  if(SORT==="rx") cls.sort((a,b)=>(b.c2v??-1)-(a.c2v??-1));
+  else if(SORT==="sv") cls.sort((a,b)=>(b.s2v??-1)-(a.s2v??-1));
+  else cls.sort((a,b)=>b.c-a.c);
+  const vidsOf = n => D.vids.filter(v=>v[0]===n && (!ANGLE||v[11]===ANGLE));
+  document.getElementById("list").innerHTML = cls.map(cl=>{
+    const vids = vidsOf(cl.n);
+    if(ANGLE && vids.length===0) return "";
+    const rows = vids.map(v=>{
+      const [_,handle,vid,views,likes,com,saves,c2v,s2v,ad,__,ang,fmt,___,prods]=v;
+      return `<tr>
+        <td><a class="who" href="https://www.tiktok.com/@${esc(handle)}/video/${vid}" target="_blank" rel="noopener">@${esc(handle)||"(핸들 미확인)"}</a><span class="ext">↗</span>
+          ${ad?'<span class="badge" style="background:var(--accent);color:#fff">SPARK</span>':''}
+          <div class="tags">${ang?`<span class="tag ang">${esc(ang)}</span>`:""}${fmt?`<span class="tag">${esc(fmt)}</span>`:""}</div>
+          ${prods&&prods.length?`<div class="prods">${prods.map(esc).join(" · ")}</div>`:""}</td>
+        <td class="num">${nf(views)}</td><td class="num">${nf(likes)}</td>
+        <td class="num">${com!=null?nf(com):'<span class="na">—</span>'}</td>
+        <td class="num">${saves!=null?nf(saves):'<span class="na">—</span>'}</td>
+        <td class="num rx ${rxCls(c2v,0.5,0.15)}">${c2v!=null?c2v.toFixed(2)+"%":"—"}</td>
+        <td class="num rx ${rxCls(s2v,1.0,0.3)}">${s2v!=null?s2v.toFixed(2)+"%":"—"}</td></tr>`;
+    }).join("");
+    return `<details class="narr"><summary>
+      <div><div class="n-name"><span class="caret">▶</span>${esc(cl.n)}</div>
+        <div class="n-hook">${esc(cl.h)}</div></div>
+      <div class="n-stats">
+        <span><span class="v">${cl.c}</span> 편</span>
+        <span>V→댓글 <span class="v rx ${rxCls(cl.c2v,0.5,0.15)}">${cl.c2v!=null?cl.c2v.toFixed(2)+"%":"—"}</span></span>
+        <span>V→저장 <span class="v rx ${rxCls(cl.s2v,1.0,0.3)}">${cl.s2v!=null?cl.s2v.toFixed(2)+"%":"—"}</span></span>
+        <span>측정 ${cl.tot}/${cl.c}</span></div></summary>
+      <div class="vids"><div class="vsort"><span class="bar-lab">조회 상위 ${vids.length}편 — 핸들 클릭 시 영상 열림</span></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>크리에이터 · 태그</th><th class="num">조회</th><th class="num">좋아요</th><th class="num">댓글</th><th class="num">저장</th><th class="num">V→댓글</th><th class="num">V→저장</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="7" class="empty">표본 영상 없음</td></tr>'}</tbody></table></div></div>
+    </details>`;
+  }).join("");
+
+  const amax = Math.max(...D.angles.map(a=>a[1]),1);
+  document.getElementById("angles").innerHTML = D.angles.map(([a,v,n])=>`
+    <div class="arow"><span class="aname">${esc(a)}</span>
+      <div class="atrack"><div class="afill" style="width:${Math.round(v/amax*100)}%"></div></div>
+      <span class="aval">${v}<span class="acnt"> 만 (${n})</span></span></div>`).join("");
+}
+document.querySelectorAll(".case-btn").forEach(b=>b.onclick=()=>{CUR=b.id.slice(3);ANGLE="";render();});
+document.querySelectorAll("#ssort button").forEach(b=>b.onclick=()=>{SORT=b.dataset.k;
+  document.querySelectorAll("#ssort button").forEach(x=>x.setAttribute("aria-pressed",x===b));render();});
+document.getElementById("f-angle").onchange=e=>{ANGLE=e.target.value;render();};
+render();
+</script>
