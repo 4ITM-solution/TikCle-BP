@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US 선케어 플레이북 — BSR 상위 4개 브랜드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{
+    --pink:#ec4899; --pink-d:#be185d; --pink-bg:#fdf2f8;
+    --blue:#0ea5e9; --blue-bg:#f0f9ff;
+    --ink:#18181b; --g7:#3f3f46; --g6:#52525b; --g5:#71717a; --g4:#a1a1aa;
+    --g2:#e4e4e7; --g1:#f4f4f5; --g05:#fafafa;
+    --pos:#15803d; --pos-bg:#f0fdf4; --warn:#b45309; --warn-bg:#fffbeb;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;
+    color:var(--ink); background:#f7f7f8; margin:0;
+    line-height:1.7; font-size:15px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:32px 20px 80px;}
+  header.top{
+    background:linear-gradient(135deg,#1a1a1f,#2a1622); color:#fff;
+    border-radius:18px; padding:26px 30px; margin-bottom:22px;
+  }
+  header.top h1{margin:0; font-size:25px; font-weight:800; letter-spacing:-.02em;}
+
+  section{background:#fff; border:1px solid var(--g2); border-radius:16px; padding:22px 26px; margin-bottom:16px;}
+  .sec-h{display:flex; align-items:center; gap:12px; margin:0 0 16px;}
+  .sec-num{
+    flex:none; min-width:30px; height:30px; border-radius:9px; background:var(--pink); padding:0 8px;
+    color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;
+  }
+  .sec-num.blue{background:var(--blue);}
+  .sec-h h2{margin:0; font-size:19px; font-weight:800; letter-spacing:-.01em;}
+  .sec-h h2 small{font-weight:600; color:var(--g5); font-size:14px;}
+  .sec-h .tag{margin-left:auto; font-size:11px; color:var(--g4); font-weight:600; text-align:right;}
+
+  .callout{
+    border-left:4px solid var(--pink); background:var(--pink-bg);
+    padding:14px 18px; border-radius:0 10px 10px 0; margin:14px 0;
+    font-size:14.5px; color:var(--g7); line-height:1.75; word-break:keep-all;
+  }
+  .callout.quote{font-weight:600; font-size:15px;}
+  .callout.blue{border-color:var(--blue); background:var(--blue-bg);}
+  .callout.note{border-color:var(--g4); background:var(--g05); color:var(--g6); font-size:13px;}
+
+  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13.5px;}
+  th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--g1); word-break:keep-all;}
+  thead th{background:var(--g05); font-size:11px; color:var(--g5); text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--g2);}
+  tbody tr:hover{background:var(--g05);}
+  td.metric{color:var(--g5); font-weight:600; white-space:nowrap;}
+  .num{font-variant-numeric:tabular-nums;}
+  b.pink{color:var(--pink-d);} b.blue{color:#0369a1;}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0;}
+  .stat{background:var(--g05); border:1px solid var(--g1); border-radius:12px; padding:12px 14px;}
+  .stat .v{font-size:20px; font-weight:800; letter-spacing:-.02em;}
+  .stat .k{font-size:11.5px; color:var(--g5); font-weight:600; margin-top:3px; line-height:1.5; word-break:keep-all;}
+  .stat.hi{background:var(--pink-bg); border-color:#fbcfe8;}
+  .stat.hi .v{color:var(--pink-d);}
+  .stat.bl{background:var(--blue-bg); border-color:#bae6fd;}
+  .stat.bl .v{color:#0369a1;}
+
+  .chart{margin:16px 0 6px;}
+  .chart .cap{font-size:12px; color:var(--g5); font-weight:700; margin-bottom:8px;}
+  .bars{display:flex; align-items:flex-end; gap:6px; height:150px; padding:0 2px; border-bottom:2px solid var(--g2);}
+  .bars .bcol{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; position:relative;}
+  .bars .bar{width:100%; max-width:44px; background:#f9a8d4; border-radius:5px 5px 0 0; position:relative;}
+  .bars .bar.hi{background:var(--pink);}
+  .bars .bar.blue{background:#7dd3fc;}
+  .bars .bar.blue.hi{background:var(--blue);}
+  .bars .bv{position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:700; color:var(--g6); white-space:nowrap;}
+  .bars .bsr{position:absolute; bottom:-38px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:800; color:var(--pink-d); white-space:nowrap;}
+  .xlab{display:flex; gap:6px; padding:4px 2px 0; margin-bottom:34px;}
+  .xlab span{flex:1; text-align:center; font-size:10px; color:var(--g4); font-weight:600;}
+  .legend{display:flex; gap:16px; font-size:11.5px; color:var(--g5); margin-top:2px; flex-wrap:wrap;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
+
+  .tierbar{display:flex; height:26px; border-radius:8px; overflow:hidden; margin:6px 0 4px; font-size:11px; font-weight:700; color:#fff;}
+  .tierbar div{display:flex; align-items:center; justify-content:center; white-space:nowrap; overflow:hidden;}
+  .t-nm{background:var(--pink);} .t-mid{background:#f9a8d4; color:var(--pink-d);} .t-big{background:var(--g2); color:var(--g6);}
+  .tb-nm{background:var(--blue);} .tb-mid{background:#7dd3fc; color:#075985;}
+
+  .funnel{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 6px;}
+  .fstep{border:1px solid var(--g2); border-radius:12px; padding:12px; text-align:center; background:var(--g05);}
+  .fstep .fv{font-size:20px; font-weight:800;}
+  .fstep .fk{font-size:11px; color:var(--g5); font-weight:600;}
+  .fstep.hot{background:var(--pink-bg); border-color:#fbcfe8;}
+  .fstep.hot .fv{color:var(--pink-d);}
+
+  .vids{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:14px 0 4px;}
+  .vid{border:1px solid var(--g2); border-radius:14px; overflow:hidden; background:var(--g05);}
+  .vid iframe{width:100%; height:420px; border:0; display:block; background:#000;}
+  .vid .meta{padding:10px 12px;}
+  .vid .meta .h{font-size:13px; font-weight:800;}
+  .vid .meta .d{font-size:11.5px; color:var(--g5); margin-top:2px; line-height:1.6;}
+  .pill{display:inline-block; font-size:10px; font-weight:800; padding:2px 8px; border-radius:99px; margin-right:4px; vertical-align:1px;}
+  .pill.ad{background:var(--pink-bg); color:var(--pink-d); border:1px solid #fbcfe8;}
+  .pill.org{background:var(--pos-bg); color:var(--pos); border:1px solid #bbf7d0;}
+  .pill.tier{background:var(--g1); color:var(--g6); border:1px solid var(--g2);}
+
+  .capline{font-size:12px; color:var(--g5); font-weight:700; margin:18px 0 8px;}
+
+  @media (max-width:640px){
+    .funnel{grid-template-columns:repeat(2,1fr);}
+    .bars{gap:3px;}
+    .bars .bv{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>US 선케어 플레이북 — Facial Sunscreens 상위 4개 브랜드는 어떻게 노나</h1>
+  <div style="font-size:13px;color:#d4d4d8;margin-top:6px;">eltaMD(1위) · La Roche-Posay(11위) · SKIN1004 선세럼(4위) · Abib 선스틱(9위) — 틱톡 65,833편 중 선케어 13,098편 실측 + 아마존 하위 카테고리 BSR 3년 · 데이터 기준 2026-08-01</div>
+</header>
+
+<!-- 0 -->
+<section>
+  <div class="sec-h"><div class="sec-num">0</div><h2>한 줄 요약</h2></div>
+  <div class="callout quote">
+    같은 순위표 위에서 두 개의 다른 게임이 진행 중입니다. <b>기성 강자(eltaMD·라로슈포제)는 간증·권위 콘텐츠 위에서 3년 내내 상위권을 지키고</b>, <b class="pink">K뷰티 챌린저(스킨1004·아비브)는 선세럼·선스틱이라는 폼팩터 차별화 + 스파크애즈 65% 물량전으로 사다리를 오릅니다.</b><br>
+    그리고 시즌의 진실: <b>여름 순위는 여름에 만들어지지 않습니다 — 3월에 만들어집니다.</b>
+  </div>
+</section>
+
+<!-- 1 -->
+<section>
+  <div class="sec-h"><div class="sec-num">1</div><h2>같은 순위표, 다른 게임 <small>3년 BSR 궤적</small></h2><span class="tag">Facial Sunscreens 순위 · 웨이백 아닌 Keepa 실측</span></div>
+  <table>
+    <thead><tr><th>브랜드 · 히어로</th><th>순위 궤적 (2023-08 → 2026-08)</th><th>게임 유형</th></tr></thead>
+    <tbody>
+      <tr><td><b>eltaMD</b> UV Clear</td><td class="num">1~2위 → <b>1위 고정</b> (36개월 연속 1위권)</td><td>상시 지배 — 계절도 경쟁도 순위를 못 흔듦</td></tr>
+      <tr><td><b>라로슈포제</b> Anthelios</td><td class="num">7~10위 → 2~13위 안정 순환</td><td>상시 상위권 — 멀티 카테고리 대형 브랜드의 한 축</td></tr>
+      <tr><td><b>아비브</b> Airy 선스틱</td><td class="num"><b class="pink">102위 → 44위 → 4위(25-03) → 2위(26-07)</b></td><td>3년 계단식 등반 — 시즌마다 한 계단씩</td></tr>
+      <tr><td><b>스킨1004</b> Water-Fit 선세럼</td><td class="num"><b class="pink">출시(25-12) 27위 → 4개월 만에 7위 → 3위(26-06)</b></td><td>신제품 런칭 직선 상승</td></tr>
+    </tbody>
+  </table>
+  <div class="callout note">하위 카테고리(Facial Sunscreens) 랭크 기준 — 뷰티 전체 BSR(수만 위 단위)로는 보이지 않는 움직임입니다. 스킨1004 선세럼은 출시 이전 데이터 없음.</div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="sec-h"><div class="sec-num">2</div><h2>SKU 구성 — 하나를 미는가, 종합으로 미는가</h2><span class="tag">아마존 리스팅 + 순위 실측</span></div>
+  <table>
+    <thead><tr><th>브랜드</th><th>선케어 SKU 구성</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>eltaMD</b></td><td>리스팅 37개+가 전부 선케어 — 그런데 실체는 <b>UV Clear · UV Daily 두 패밀리의 변형 도배</b>(틴트/무틴트 × 3사이즈 × 1·2팩). 변형 전원이 서브카테고리 1위권</td><td><b>단일 히어로 패밀리 극대화</b> — "한 제품"을 선택지 폭탄으로 확장</td></tr>
+      <tr><td><b>라로슈포제</b></td><td>Anthelios 우산 아래 <b>세부 니즈별 광폭 포트폴리오</b> — SPF100·키즈·스포츠·미네랄·세럼형·톤 보정(46위권 신제품 군단) + 비선케어 라인 별도</td><td><b>포트폴리오 종합 푸시</b> — 니즈마다 SKU 하나씩</td></tr>
+      <tr><td><b>스킨1004</b></td><td>선케어는 <b>Water-Fit 선세럼 단 하나</b>에 집중 (구형 Air-fit 선크림은 100위권 방치). 본업 센텔라 앰플(Serums 9위)과 투트랙</td><td><b>신설 폼팩터 단일 집중</b></td></tr>
+      <tr><td><b>아비브</b></td><td><b>선스틱 히어로 패밀리</b>(Airy·Quick·DUO 전원 2위권) → 폼팩터 확장(젤·튜브 SPF30, 틴티드 신규 346위) → 기프트세트 → <b>선스틱 전용 키체인 액세서리까지</b></td><td><b>히어로 중심 계열화</b> — 하나를 이긴 뒤 옆으로 확장</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <b>"메인 하나 vs 종합 푸시"의 답은 포지션에 따라 다릅니다.</b> 이미 이긴 자(eltaMD)는 한 패밀리를 변형으로 도배해 진열대를 독점하고, 대형 브랜드(라로슈포제)는 니즈별로 넓히며, <b class="pink">도전자(스킨1004·아비브)는 기성 선크림과 정면승부하지 않고 폼팩터를 새로 만들어(선세럼·선스틱) 그 안에서 1위를 차지한 뒤 계열화</b>했습니다. 챌린저의 공통점: 시작은 반드시 단일 히어로.
+  </div>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="sec-h"><div class="sec-num">3</div><h2>먹히는 콘텐츠 앵글</h2><span class="tag">내러티브 클러스터 실측 · 표본 태깅 기반</span></div>
+
+  <div class="capline">조회를 만드는 앵글 vs 반응을 만드는 앵글 — 브랜드별 상위 클러스터</div>
+  <table>
+    <thead><tr><th>브랜드</th><th>조회 견인 1위 앵글</th><th>평균 조회</th><th>반응(댓글/1만뷰) 강자 앵글</th></tr></thead>
+    <tbody>
+      <tr><td><b>eltaMD</b></td><td>선크림 개인 체험·간증 토킹헤드 (71편)</td><td class="num">941K</td><td>메이크업 튜토리얼 rx 115.7 · GRWM rx 39.1</td></tr>
+      <tr><td><b>라로슈포제</b></td><td>공병·페이버릿 업데이트 리뷰 (18편)</td><td class="num">462K</td><td>일상 브이로그 rx 25.1 · 전문가 교육 rx 20.3</td></tr>
+      <tr><td><b>스킨1004</b></td><td>스티치·듀엣 반응 증폭 (15편)</td><td class="num"><b class="pink">2,137K</b></td><td>커뮤니티 참여형 rx 39.7</td></tr>
+      <tr><td><b>아비브</b></td><td>선크림 비교·쇼크 바이럴 (9편)</td><td class="num">358K</td><td>소셜 증거 멀티 리뷰 rx 85.3 · GRWM rx 18.7</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <b>공통 문법이 선명합니다.</b> ①조회는 <b>개인 간증·체험(1인칭 토킹헤드)</b>이 견인 — "더마가 추천해서 바꿨다"(eltaMD), "이거 쓰고 백탁 없어짐"(아비브 비교·쇼크). ②저장·댓글 같은 <b>반응은 루틴 문맥(GRWM·메이크업·리스트)</b>이 만듦. ③챌린저의 무기는 <b>증폭 장치</b> — 스킨1004는 터진 영상을 스티치·듀엣으로 재증폭해 평균 213만 뷰를 만들었습니다.
+  </div>
+
+  <div class="capline">운용 방식 대비 — 기성 vs 챌린저 (선케어 콘텐츠, 25-06~26-07)</div>
+  <table>
+    <thead><tr><th></th><th>선케어 영상</th><th>스파크애즈</th><th>나노+마이크로 / 미드+</th><th>평균 조회</th></tr></thead>
+    <tbody>
+      <tr><td><b>eltaMD</b></td><td class="num">3,683</td><td class="num">25%</td><td class="num">70% / 30%</td><td class="num">67K</td></tr>
+      <tr><td><b>라로슈포제</b></td><td class="num">2,409</td><td class="num">26%</td><td class="num">58% / 42%</td><td class="num">185K</td></tr>
+      <tr><td><b>스킨1004</b></td><td class="num">4,220</td><td class="num"><b class="pink">65%</b></td><td class="num">83% / 17%</td><td class="num">107K</td></tr>
+      <tr><td><b>아비브</b></td><td class="num">2,786</td><td class="num"><b class="pink">65%</b></td><td class="num">86% / 13%</td><td class="num">14K</td></tr>
+    </tbody>
+  </table>
+  <div class="callout note">기성 2사는 스파크 25%대 — 간증이 자연 발생하는 브랜드 자산 위에서 놉니다. 챌린저 2사는 스파크 65% — 나노·마이크로 풀에 광고를 태워 인지를 삽니다. 아비브의 평균 조회 14K가 낮아 보이지만, 이 물량전이 3년 만에 102위→2위를 만들었습니다.</div>
+
+  <div class="capline">브랜드별 대표 영상</div>
+  <div class="vids">
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7629895478766734623" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta"><div class="h">@dermdoctor</div>
+      <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">메가 · 1,776만</span><br><b>1,632만 뷰</b> · eltaMD · 더마 권위 간증</div></div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7616808166889622798" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta"><div class="h">@grandma_droniak</div>
+      <div class="d"><span class="pill ad">SPARK ADS</span><br><b>4,465만 뷰</b> · 라로슈포제 · 페르소나 일상 문맥</div></div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7624655813038050573" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta"><div class="h">@brandon.dkim</div>
+      <div class="d"><span class="pill org">무광고</span><span class="pill tier">매크로 · 94만</span><br><b>2,006만 뷰</b> · 스킨1004 선세럼 · 간증→스티치 증폭의 원점</div></div>
+    </div>
+    <div class="vid">
+      <iframe src="https://www.tiktok.com/embed/v2/7645157991305465101" allow="encrypted-media" loading="lazy"></iframe>
+      <div class="meta"><div class="h">@clarahyee</div>
+      <div class="d"><span class="pill ad">SPARK ADS</span><span class="pill tier">마이크로 · 6.6만</span><br><b>264만 뷰</b> · 아비브 선스틱 · 비교·쇼크</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="sec-h"><div class="sec-num">4</div><h2>시즈널리티 — 여름 순위는 3월에 만들어진다</h2><span class="tag">월별 시딩 × BSR 동행 실측</span></div>
+
+  <div class="capline">아비브 — 월별 선케어 시딩(막대) × Facial Sunscreens 베스트 BSR(하단 핑크)</div>
+  <div class="bars">
+    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">63</span><span class="bsr">16</span></div></div>
+    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">65</span><span class="bsr">14</span></div></div>
+    <div class="bcol"><div class="bar" style="height:12%"><span class="bv">61</span><span class="bsr">14</span></div></div>
+    <div class="bcol"><div class="bar" style="height:13%"><span class="bv">64</span><span class="bsr">16</span></div></div>
+    <div class="bcol"><div class="bar" style="height:12%"><span class="bv">61</span><span class="bsr">16</span></div></div>
+    <div class="bcol"><div class="bar" style="height:11%"><span class="bv">55</span><span class="bsr">15</span></div></div>
+    <div class="bcol"><div class="bar hi" style="height:55%"><span class="bv">273</span><span class="bsr">7</span></div></div>
+    <div class="bcol"><div class="bar hi" style="height:58%"><span class="bv">284</span><span class="bsr">7</span></div></div>
+    <div class="bcol"><div class="bar hi" style="height:66%"><span class="bv">323</span><span class="bsr">5</span></div></div>
+    <div class="bcol"><div class="bar hi" style="height:100%"><span class="bv">493</span><span class="bsr">4</span></div></div>
+    <div class="bcol"><div class="bar hi" style="height:55%"><span class="bv">271</span><span class="bsr">2</span></div></div>
+  </div>
+  <div class="xlab"><span>25-09</span><span>10</span><span>11</span><span>12</span><span>26-01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span>26-07</span></div>
+  <div class="legend"><span><i style="background:var(--pink)"></i>시즌 램프업 (3월 개시)</span><span style="color:var(--pink-d);font-weight:800;">하단 숫자 = 그 달 베스트 BSR</span></div>
+
+  <div class="callout">
+    <b>공급(시딩)은 시즌을 탑니다 — 수요보다 90일 먼저.</b> 아비브는 겨울 내내 월 55~65편으로 명맥만 유지하다 <b class="pink">3월에 273편(4.5배)으로 점화</b>, 6월 493편 피크 — 그리고 순위는 램프업과 동행해 15위권→7→5→4→<b>2위</b>. 스킨1004는 선세럼 12월 출시 후 2~4월에 월 546~697편을 쏟아 4월 7위에 진입시켰습니다. eltaMD는 반대로 겨울에도 월 163편+을 유지하는 상시형 — <b>이미 1위인 자는 시즌이 필요 없고, 오르려는 자는 시즌 전에 움직입니다.</b>
+  </div>
+  <div class="callout note">수요 자체는 상시입니다 — eltaMD가 12월에도 1위인 게 증거 (미국 선케어는 "여름 용품"이 아니라 사계절 스킨케어 단계로 자리 잡음). 시즌을 타는 건 수요가 아니라 <b>순위 변동의 기회</b> — 검색·트래픽이 불어나는 3~7월에 새 플레이어가 밀고 들어갈 틈이 열립니다.
+  </div>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="sec-h"><div class="sec-num">5</div><h2>토코보를 위한 제안 — 선케어 진입 공식</h2><span class="tag">4개 브랜드 실측 종합</span></div>
+  <div class="funnel">
+    <div class="fstep"><div class="fv">폼팩터</div><div class="fk">기성 선크림과 정면승부 금지<br>선스틱·선세럼처럼 형태로 차별화</div></div>
+    <div class="fstep hot"><div class="fv">D-90</div><div class="fk">3월 램프업 개시<br>(여름 순위는 3월에 만들어짐)</div></div>
+    <div class="fstep hot"><div class="fv">65%</div><div class="fk">나노+마이크로 80% 풀에<br>스파크 집중 (챌린저 검증값)</div></div>
+    <div class="fstep"><div class="fv">간증 앵글</div><div class="fk">1인칭 체험 토킹헤드 + 비교·쇼크<br>+ GRWM 3종 믹스</div></div>
+  </div>
+  <table>
+    <thead><tr><th>제안</th><th>근거 (이 리포트 실측)</th></tr></thead>
+    <tbody>
+      <tr><td class="metric">① 단일 히어로 폼팩터로 진입</td><td>스킨1004(선세럼)·아비브(선스틱) — 기성이 점유한 '선크림'을 피해 새 폼팩터에서 1위 → 계열 확장. 시작은 반드시 SKU 하나</td></tr>
+      <tr><td class="metric">② 시딩 캘린더는 D-90</td><td>아비브 3월 4.5배 증량→2위 도달 · 스킨1004 2~4월 폭증→7위. 6월 시작은 늦음</td></tr>
+      <tr><td class="metric">③ 물량 + 스파크 65%</td><td>챌린저 2사 공통값. 월 250~500편 시딩(나노·마이크로 83~86%)에 스파크를 태워 인지 구매</td></tr>
+      <tr><td class="metric">④ 앵글 브리프</td><td>조회=간증 토킹헤드·비교쇼크(아비브 36만·eltaMD 94만) / 반응=GRWM·메이크업 문맥(rx 18~116) / 증폭=터진 영상 스티치·듀엣 재활용(스킨1004 213만)</td></tr>
+      <tr><td class="metric">⑤ 신제품 런칭과 결합 시 최속</td><td>스킨1004 선세럼: 12월 출시 → 시딩 결합 → 4개월 만에 서브카테고리 3위</td></tr>
+    </tbody>
+  </table>
+  <div class="callout note">
+    <b>데이터 한계 고지.</b> 선케어 콘텐츠 분리는 캡션 키워드 기준(브랜드별 전체의 13~37%) — 캡션에 무언급인 선케어 영상은 누락될 수 있음. 앵글은 태깅 표본(브랜드당 216~343편) 기반. 조회수는 수집 시점 누적. 아비브 클러스터는 재산출 직후 값. BSR은 Keepa 3년 실측(하위 카테고리 기준).
+  </div>
+</section>
+
+</div>
+</body>
+</html>
