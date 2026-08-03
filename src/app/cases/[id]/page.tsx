@@ -1282,7 +1282,7 @@ export default async function CaseDetailPage({
   if (isReady) {
     const { data: amzProds } = await supabase
       .from("products")
-      .select("id, asin, name")
+      .select("id, asin, name, category")
       .eq("case_id", c.id)
       .eq("channel", "amazon");
     const amz = (amzProds ?? []).filter((p) => p.asin);
@@ -1291,11 +1291,11 @@ export default async function CaseDetailPage({
       // ★ 페이지네이션 — PostgREST 기본 1000행 제한 때문에 그냥 쿼리하면 가장
       //   오래된 1000행(asc)만 와서, 최근 월 BSR이 누락→차트 범위와 안 겹쳐 BSR
       //   라인 토글이 비활성되던 버그. range로 전체 수집.
-      const snaps: Array<{ product_id: string; bsr: number | null; collected_at: string }> = [];
+      const snaps: Array<{ product_id: string; bsr: number | null; subcategory_bsr: number | null; collected_at: string }> = [];
       for (let off = 0; off < 200000; off += 1000) {
         let snapQ = supabase
           .from("sales_snapshot")
-          .select("product_id, bsr, collected_at")
+          .select("product_id, bsr, subcategory_bsr, collected_at")
           .in("product_id", pidList)
           .not("bsr", "is", null);
         if (psStart) snapQ = snapQ.gte("collected_at", psStart);
@@ -1322,13 +1322,20 @@ export default async function CaseDetailPage({
           })()
         : { data: [] as Array<{ url: string; views: number | null; caption: string | null; uploaded_at: string | null }> };
       // 제품별 월별 min BSR (랭크는 낮을수록 좋음)
+      // BE-35: 하위 카테고리 랭크가 있는 제품은 그걸 기준으로 (Facial Sunscreens 250위가
+      //   Beauty 전체 3만위보다 판독 가능). 제품 단위로 서브랭크 유무 판정 후 시리즈 일관 유지.
+      const hasSub = new Set<string>();
+      for (const s of snaps ?? []) {
+        if (s.subcategory_bsr != null) hasSub.add(s.product_id);
+      }
       const byPid = new Map<string, Map<string, number>>();
       for (const s of snaps ?? []) {
-        if (s.bsr == null) continue;
+        const eff = hasSub.has(s.product_id) ? s.subcategory_bsr : s.bsr;
+        if (eff == null) continue;
         const m = String(s.collected_at).slice(0, 7);
         const mm = byPid.get(s.product_id) ?? new Map<string, number>();
         const cur = mm.get(m);
-        if (cur == null || s.bsr < cur) mm.set(m, s.bsr);
+        if (cur == null || eff < cur) mm.set(m, eff);
         byPid.set(s.product_id, mm);
       }
       // 월별 브랜드 영상 (상관용)
@@ -1360,7 +1367,11 @@ export default async function CaseDetailPage({
             inflections.push({ month, from: prev, to: cur, videos: vids });
           }
         }
-        bsrSkus.push({ asin: p.asin!, name: p.name ?? p.asin!, series, inflections });
+        const label =
+          hasSub.has(p.id) && p.category
+            ? `${p.name ?? p.asin!} · ${p.category} 기준`
+            : (p.name ?? p.asin!);
+        bsrSkus.push({ asin: p.asin!, name: label, series, inflections });
       }
       bsrSkus.sort((a, b) => Math.min(...a.series.map((s) => s.bsr)) - Math.min(...b.series.map((s) => s.bsr)));
     }

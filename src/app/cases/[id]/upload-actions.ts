@@ -533,7 +533,7 @@ export async function uploadBsr(
 
   // 2. 파싱
   const text = await file.text();
-  const { rows, errors } = parseBsr(text);
+  const { rows, errors, subcategory_name } = parseBsr(text);
   if (rows.length === 0) {
     return { ok: false, error: `파싱된 행 0개. ${errors[0] ?? ""}` };
   }
@@ -555,18 +555,43 @@ export async function uploadBsr(
   // 4. sales_snapshot 업서트 — product의 country/currency 그대로 박음 (권역 case 분리)
   const bsrCountry = prod.country ?? c.country;
   const bsrCurrency = defaultCurrency(bsrCountry);
-  const inserts = dedupedRows.map((r) => ({
-    brand_id: prod.brand_id,
-    product_id: prod.id,
-    country: bsrCountry,
-    channel: "amazon",
-    bsr: r.bsr,
-    new_price: r.new_price,
-    list_price: r.list_price,
-    currency: bsrCurrency,
-    source: "keepa",
-    collected_at: r.collected_at,
-  }));
+  // BE-35: 카테고리 차트 export(subcategory_name 존재)는 가격 컬럼을 페이로드에서 제외 —
+  //   같은 날짜에 제품 export로 들어온 가격을 null로 덮어쓰지 않기 위함(upsert는 payload 컬럼만 SET).
+  const isChart = subcategory_name !== undefined;
+  const inserts = dedupedRows.map((r) =>
+    isChart
+      ? {
+          brand_id: prod.brand_id,
+          product_id: prod.id,
+          country: bsrCountry,
+          channel: "amazon",
+          bsr: r.bsr,
+          subcategory_bsr: r.subcategory_bsr ?? null,
+          currency: bsrCurrency,
+          source: "keepa",
+          collected_at: r.collected_at,
+        }
+      : {
+          brand_id: prod.brand_id,
+          product_id: prod.id,
+          country: bsrCountry,
+          channel: "amazon",
+          bsr: r.bsr,
+          new_price: r.new_price,
+          list_price: r.list_price,
+          currency: bsrCurrency,
+          source: "keepa",
+          collected_at: r.collected_at,
+        },
+  );
+
+  // BE-35: 최하위 카테고리명을 제품에 기록 (D섹션 라벨·선케어 등 SKU군 필터의 기준)
+  if (isChart && subcategory_name) {
+    await supabase
+      .from("products")
+      .update({ category: subcategory_name })
+      .eq("id", prod.id);
+  }
 
   for (let i = 0; i < inserts.length; i += BATCH) {
     const batch = inserts.slice(i, i + BATCH);
