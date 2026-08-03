@@ -7,8 +7,14 @@ const BRANDS = (process.env.BRANDS ?? "Abib,Elta MD,Larocheposay,Skin1004").spli
 const CHUNK = Number(process.env.CHUNK ?? 300);
 const tierOf = (f: number) => f >= 1000000 ? "mega" : f >= 500000 ? "macro" : f >= 100000 ? "mid" : f >= 10000 ? "micro" : f >= 1000 ? "nano" : null;
 
+async function fetchRetry(url: string, init?: any, tries = 3): Promise<any> {
+  for (let i = 0; i < tries; i++) {
+    try { return await fetch(url, init); }
+    catch (e) { if (i === tries - 1) throw e; await new Promise(r => setTimeout(r, 5000 * (i + 1))); }
+  }
+}
 async function runActor(handles: string[]): Promise<Map<string, number>> {
-  const start = await fetch(`https://api.apify.com/v2/acts/clockworks~tiktok-profile-scraper/runs?token=${token}`, {
+  const start = await fetchRetry(`https://api.apify.com/v2/acts/clockworks~tiktok-profile-scraper/runs?token=${token}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ profiles: handles, resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false, shouldDownloadAvatars: false, shouldDownloadSubtitles: false }) });
   const sj = await start.json() as any;
@@ -17,13 +23,13 @@ async function runActor(handles: string[]): Promise<Map<string, number>> {
   const deadline = Date.now() + 20 * 60 * 1000;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 10000));
-    const st = await (await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`)).json() as any;
+    const st = await (await fetchRetry(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`)).json() as any;
     if (st.data.status === "SUCCEEDED") break;
     if (["FAILED", "ABORTED", "TIMED-OUT"].includes(st.data.status)) { console.error("run", st.data.status); break; }
   }
   const out = new Map<string, number>();
   for (let off = 0; ; off += 1000) {
-    const items = await (await fetch(`https://api.apify.com/v2/datasets/${ds}/items?token=${token}&format=json&offset=${off}&limit=1000`)).json() as any[];
+    const items = await (await fetchRetry(`https://api.apify.com/v2/datasets/${ds}/items?token=${token}&format=json&offset=${off}&limit=1000`)).json() as any[];
     if (!items.length) break;
     for (const it of items) {
       const a = it.authorMeta ?? {};
