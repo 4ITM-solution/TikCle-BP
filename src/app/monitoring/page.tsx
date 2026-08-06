@@ -79,10 +79,18 @@ export default async function MonitoringPage() {
     .order("created_at", { ascending: false });
   const brands = (brandsData ?? []) as Brand[];
 
-  const { data: adsData } = await db
-    .from("tracked_brand_ads")
-    .select("tracked_brand_id, is_active, is_partnership, start_date, ended_at");
-  const ads = (adsData ?? []) as AdRow[];
+  // PostgREST 기본 1000행 제한 → 브랜드가 늘면 뒤 브랜드 광고가 잘려 누적/활성이 오표기됨
+  // (실측: 이퀄베리 177건이 6건으로 표시). range 페이지네이션으로 전체 수집.
+  const ads: AdRow[] = [];
+  for (let off = 0; off < 100000; off += 1000) {
+    const { data: page } = await db
+      .from("tracked_brand_ads")
+      .select("tracked_brand_id, is_active, is_partnership, start_date, ended_at")
+      .range(off, off + 999);
+    if (!page || page.length === 0) break;
+    ads.push(...(page as AdRow[]));
+    if (page.length < 1000) break;
+  }
 
   // BP 케이스 드롭다운 — 메타 광고가 적재됐거나 brand 설정이 있는 케이스
   const { data: caseData } = await db
