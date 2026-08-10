@@ -95,9 +95,17 @@ export const orchestrateAnalysis = inngest.createFunction(
       return data;
     });
 
-    const channels = (caseRow.data_channels ?? null) as DataChannel[] | null;
+    // data_channels는 015 마이그레이션이 "수집된 행이 있으면 켜준다"로 채운 **파생** 컬럼이고,
+    // 앱 어디에도 쓰기 경로가 없다(사용자 의사 아님). 이걸 실행 게이트로 쓰면 순환이 생긴다:
+    //   meta_ads 행이 없어서 채널 OFF → collect-meta 스킵 → 행이 안 생김 → 영원히 OFF.
+    // 그래서 수집 실행 여부는 **케이스에 실제로 박힌 설정**(brand_meta_pages/brand_keyword,
+    // ig_config, yt_config)으로만 판정하고, data_channels는 tt_shop 판정 보조로만 남긴다.
+    const channelsRaw = (caseRow.data_channels ?? null) as DataChannel[] | null;
+    // 빈 배열 = 미설정과 동일 취급 (컬럼 DEFAULT가 '[]'라 신규 케이스가 전부 차단되던 문제)
+    const channels =
+      channelsRaw && channelsRaw.length > 0 ? channelsRaw : null;
     const channelOn = (ch: DataChannel) =>
-      channels == null || channels.includes(ch); // data_channels 미설정 = 전부 허용 (구 동작)
+      channels == null || channels.includes(ch);
 
     const brandMetaPages = (caseRow.brand_meta_pages ?? []) as unknown[];
     const skipReasons: Partial<Record<StagePhase, string>> = {};
@@ -111,20 +119,13 @@ export const orchestrateAnalysis = inngest.createFunction(
     if (!caseRow.brand_keyword && brandMetaPages.length === 0) {
       skipReasons["collect-meta"] =
         "Meta 광고 설정 없음 (brand_keyword/brand_meta_pages)";
-    } else if (!channelOn("meta_ads")) {
-      skipReasons["collect-meta"] = "data_channels에 meta_ads 없음";
     }
     if (!caseRow.ig_config) {
       skipReasons["collect-ig"] = "ig_config 없음";
       skipReasons["enrich-ig-profiles"] = "ig_config 없음";
-    } else if (!channelOn("instagram")) {
-      skipReasons["collect-ig"] = "data_channels에 instagram 없음";
-      skipReasons["enrich-ig-profiles"] = "data_channels에 instagram 없음";
     }
     if (!caseRow.yt_config) {
       skipReasons["collect-yt"] = "yt_config 없음";
-    } else if (!channelOn("youtube")) {
-      skipReasons["collect-yt"] = "data_channels에 youtube 없음";
     }
     const skipped = (p: StagePhase) => skipReasons[p] != null;
 
