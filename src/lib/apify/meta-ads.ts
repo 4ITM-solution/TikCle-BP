@@ -42,9 +42,95 @@ export type MetaAdsResult = {
   total_fetched: number;
   cost_estimate_usd: number;
   skipped_reason?: string;
+  /** 액터가 대기 예산 안에 못 끝나서 dataset을 중간에 읽어온 경우 true. */
+  partial?: boolean;
+  /** 마지막으로 확인한 Apify run 상태 (SUCCEEDED / RUNNING / TIMED-OUT …). */
+  run_status?: string;
 };
 
 const COST_PER_AD = 0.00075;
+const APIFY_BASE = "https://api.apify.com/v2";
+const TERMINAL_RUN_STATES = ["SUCCEEDED", "FAILED", "TIMED-OUT", "ABORTED"];
+/** 공식 액터 폴링 대기 예산. 초과분은 partial로 반환(실패 아님). */
+const OFFICIAL_MAX_WAIT_MS = 240_000;
+
+/**
+ * Apify 액터를 **비동기 run + 폴링**으로 실행하고 dataset을 전량(페이지네이션) 회수한다.
+ *
+ * run-sync-get-dataset-items는 300초 하드캡이 있어 페이지당 광고가 많은 브랜드는 매번
+ * 잘렸다. 실측 2026-08-10 · Liquid Death page_id(2012750189007245, US):
+ *   sync  240초 → TIMED-OUT, 0건
+ *   async 175초 → SUCCEEDED, 1000건 (resultsLimit 상한 도달)
+ *
+ * 대기 예산(maxWaitMs)을 넘겨도 실패로 만들지 않고 그 시점까지 쌓인 dataset을 반환하며
+ * partial=true로 표시한다. 액터는 Apify에서 계속 돌기 때문에 재실행 시 더 잡힌다.
+ */
+async function runActorAsync(
+  actorId: string,
+  input: unknown,
+  opts: {
+    token: string;
+    maxWaitMs?: number;
+    memoryMbytes?: number;
+    runTimeoutSecs?: number;
+    pollMs?: number;
+  },
+): Promise<{ items: unknown[]; partial: boolean; run_status: string }> {
+  const maxWait = opts.maxWaitMs ?? 240_000;
+  const pollMs = opts.pollMs ?? 5_000;
+  const startedAt = Date.now();
+
+  const startUrl =
+    `${APIFY_BASE}/acts/${actorId}/runs?token=${opts.token}` +
+    `&timeout=${opts.runTimeoutSecs ?? 1800}&memory=${opts.memoryMbytes ?? 4096}`;
+  const startRes = await fetch(startUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!startRes.ok) {
+    const text = await startRes.text().catch(() => "");
+    throw new Error(
+      `Apify run start ${actorId} ${startRes.status}: ${text.slice(0, 300)}`,
+    );
+  }
+  const started = (await startRes.json()) as {
+    data: { id: string; defaultDatasetId: string; status: string };
+  };
+  const runId = started.data.id;
+  const datasetId = started.data.defaultDatasetId;
+  let runStatus = started.data.status;
+
+  while (
+    !TERMINAL_RUN_STATES.includes(runStatus) &&
+    Date.now() - startedAt < maxWait
+  ) {
+    await new Promise((r) => setTimeout(r, pollMs));
+    const r = await fetch(
+      `${APIFY_BASE}/actor-runs/${runId}?token=${opts.token}`,
+    );
+    if (!r.ok) continue;
+    const j = (await r.json()) as { data: { status: string } };
+    runStatus = j.data.status;
+  }
+
+  const items: unknown[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const r = await fetch(
+      `${APIFY_BASE}/datasets/${datasetId}/items?token=${opts.token}&offset=${offset}&limit=1000`,
+    );
+    if (!r.ok) break;
+    const batch = (await r.json()) as unknown[];
+    items.push(...batch);
+    if (batch.length < 1000) break;
+  }
+
+  return {
+    items,
+    partial: !TERMINAL_RUN_STATES.includes(runStatus),
+    run_status: runStatus,
+  };
+}
 
 /**
  * 페이지명/키워드 → FB Ads Library 검색 URL 생성.
@@ -61,6 +147,10 @@ function buildLibraryUrl(query: string, country: string): string {
 }
 
 /**
+ * @deprecated 파이프라인 미사용 (2026-08-10). 공식 액터를 비동기 폴링으로 고치면서
+ * 키워드 경로를 fetchMetaAdsCombined에서 제거했다. 수동 디버깅용으로만 남겨둔다.
+ * 키워드 검색은 리테일러·카피 광고가 섞이므로 수집 소스로 다시 쓰지 말 것.
+ *
  * Apify run-sync-get-dataset-items 호출.
  * 결과 1000개 cap 안에서 ads 반환.
  *
@@ -419,35 +509,34 @@ export async function fetchMetaAdsOfficial(opts: {
     };
   }
 
-  const apiUrl = `https://api.apify.com/v2/acts/${OFFICIAL_ACTOR_ID}/run-sync-get-dataset-items?token=${token}&timeout=${SYNC_TIMEOUT_SEC}`;
-  const body = {
-    startUrls: urls.map((u) => ({ url: u })),
-    resultsLimit: cap,
-    isDetailsPerAd: true,
-  };
+  const { items, partial, run_status } = await runActorAsync(
+    OFFICIAL_ACTOR_ID,
+    {
+      startUrls: urls.map((u) => ({ url: u })),
+      resultsLimit: cap,
+      isDetailsPerAd: true,
+    },
+    { token, maxWaitMs: OFFICIAL_MAX_WAIT_MS },
+  );
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(
-      `Apify Meta ads (official) ${response.status}: ${text.slice(0, 300)}`,
-    );
-  }
-
-  const items = (await response.json()) as unknown[];
   const ads = items
     .map(mapOfficialAdItem)
     .filter((a): a is MetaAdRaw => a !== null);
+
+  if (partial) {
+    console.warn(
+      `[meta-ads] 공식 액터 부분 반환 — run_status=${run_status}, ${ads.length}건. ` +
+        `대기 예산(${OFFICIAL_MAX_WAIT_MS}ms) 초과. 재실행하면 더 잡힘.`,
+    );
+  }
 
   return {
     ads,
     source_urls: urls,
     total_fetched: ads.length,
     cost_estimate_usd: ads.length * OFFICIAL_COST_PER_AD_GOLD,
+    partial,
+    run_status,
   };
 }
 
@@ -719,17 +808,18 @@ export type MetaAdsCombinedResult = MetaAdsResult & {
 };
 
 /**
- * 결합 스크랩 — 키워드(curious_coder) + 공식액터(page_id) 합쳐서 둘의 강점 다 취함.
+ * 공식 액터(page_id) 단독 스크랩.
  *
- *   1. 키워드 스크랩 → 종료+활성 전부 (2.7년 라이프사이클), 단 리테일러·카피 섞임
- *   2. 공식 page_id 결정 (brand_meta_pages 숫자 > 키워드에서 도출)
- *   3. 공식액터 스크랩 (page_id) → 활성 + 파트너십 attribution(크리에이터 핸들)
- *   4. ad_archive_id로 merge + 필터:
- *        keep = 공식페이지 ∪ 파트너십(공식에서 확인) ∪ 현재 파트너 크리에이터의 광고
- *        버림 = 리테일러·카피·무관 크리에이터
- *      라이프사이클(start/end/is_active)은 키워드(종료 포함)에서, attribution은 공식에서.
+ * 2026-08-10 이전에는 키워드(curious_coder)와 merge 했다. 공식 액터가 run-sync(300초
+ * 하드캡)에 잘려 페이지당 0~3건밖에 못 가져왔고 그 구멍을 키워드가 메우고 있었기 때문이다.
+ * 원인이 확정돼(같은 page_id: sync 240초 TIMED-OUT 0건 vs async 175초 1000건) 공식 액터를
+ * 비동기 폴링으로 바꿨고, 키워드 경로는 제거했다.
  *
- * 결과: 종료+온고잉 다 나오면서, 공식 직접광고 + 공식페이지 파트너십까지 attribution.
+ * 근거: merge 시절 결과 광고의 100%가 공식 page_id 소속이었다(6개 케이스 실측, 타 페이지 0건).
+ * 즉 키워드는 "다른 소스"가 아니라 공식 액터가 놓친 같은 페이지 광고를 줍는 우회로였다.
+ *
+ * brand_keyword는 수집에 쓰지 않지만 classifyLanding()의 DTC 판정에 계속 쓰이므로
+ * 시그니처는 유지한다.
  */
 export async function fetchMetaAdsCombined(opts: {
   brand_meta_pages: string[];
@@ -738,95 +828,35 @@ export async function fetchMetaAdsCombined(opts: {
   cap?: number;
 }): Promise<MetaAdsCombinedResult> {
   const cap = opts.cap ?? 1000;
-  const empty: MetaAdsResult = {
-    ads: [],
-    source_urls: [],
-    total_fetched: 0,
-    cost_estimate_usd: 0,
-  };
-
-  // 1) 키워드 스크랩 (전체 라이프사이클)
-  const kw: MetaAdsResult = opts.brand_keyword
-    ? await fetchMetaAds({
-        brand_meta_pages: [],
-        brand_keyword: opts.brand_keyword,
-        countries: opts.countries,
-        cap,
-      })
-    : empty;
-
-  // 2) 공식 page_id 결정
-  let officialPageId =
+  const officialPageId =
     (opts.brand_meta_pages ?? []).find((p) => /^\d+$/.test(p)) ?? null;
-  if (!officialPageId && opts.brand_keyword) {
-    officialPageId = deriveOfficialPageId(kw.ads, opts.brand_keyword);
-  }
 
-  // 3) 공식액터 스크랩 (활성 + 파트너십)
-  const off: MetaAdsResult = officialPageId
-    ? await fetchMetaAdsOfficial({
-        brand_meta_pages: [officialPageId],
-        brand_keyword: null,
-        countries: opts.countries,
-        cap,
-      })
-    : empty;
+  const off = await fetchMetaAdsOfficial({
+    brand_meta_pages: opts.brand_meta_pages ?? [],
+    brand_keyword: null,
+    countries: opts.countries,
+    cap,
+  });
 
-  // 4) merge + 필터
-  const partnershipById = new Map<string, MetaAdRaw>();
-  const partnerCreators = new Set<string>();
-  for (const a of off.ads) {
-    if (a.ad_archive_id) partnershipById.set(a.ad_archive_id, a);
-    if (a.creator_page_name)
-      partnerCreators.add(a.creator_page_name.toLowerCase());
-  }
-
+  // country별 URL에서 같은 광고가 중복으로 오므로 ad_archive_id로 dedupe
   const merged = new Map<string, MetaAdRaw>();
-  // 4a) 공식액터 ads 먼저 (전부 brand-relevant, attribution 보유)
   for (const a of off.ads) if (a.ad_archive_id) merged.set(a.ad_archive_id, a);
-  // 4b) 키워드 ads 중 brand-relevant만 추가/보강
-  for (const a of kw.ads) {
-    const id = a.ad_archive_id;
-    if (!id) continue;
-    const onOfficialPage =
-      officialPageId != null && a.page_id === officialPageId;
-    const isKnownPartner =
-      a.page_name != null && partnerCreators.has(a.page_name.toLowerCase());
-    const inOfficial = partnershipById.has(id);
-    if (!onOfficialPage && !isKnownPartner && !inOfficial) continue; // 리테일러·카피 제외
-
-    const creatorFromOfficial = partnershipById.get(id)?.creator_page_name;
-    const creator =
-      creatorFromOfficial ??
-      (isKnownPartner && !onOfficialPage ? a.page_name : null);
-    const existing = merged.get(id);
-    if (existing) {
-      // 라이프사이클은 키워드가 더 정확(종료 포함) → 덮어씀, attribution은 공식 유지
-      merged.set(id, {
-        ...existing,
-        start_date: a.start_date ?? existing.start_date,
-        end_date: a.end_date ?? existing.end_date,
-        is_active: a.is_active ?? existing.is_active,
-        creator_page_name: existing.creator_page_name ?? creator,
-      });
-    } else {
-      merged.set(id, { ...a, creator_page_name: creator });
-    }
-  }
-
   const ads = [...merged.values()];
+
   return {
     ads,
     official_page_id: officialPageId,
-    source_urls: [...kw.source_urls, ...off.source_urls],
+    source_urls: off.source_urls,
     total_fetched: ads.length,
-    cost_estimate_usd: kw.cost_estimate_usd + off.cost_estimate_usd,
+    cost_estimate_usd: off.cost_estimate_usd,
     skipped_reason:
       ads.length === 0
-        ? (kw.skipped_reason ?? off.skipped_reason ?? "결과 0건")
+        ? (off.skipped_reason ?? "결과 0건")
         : undefined,
+    partial: off.partial,
+    run_status: off.run_status,
     source_breakdown: {
-      keyword: kw.ads.length,
+      keyword: 0,
       official: off.ads.length,
       merged: ads.length,
     },
