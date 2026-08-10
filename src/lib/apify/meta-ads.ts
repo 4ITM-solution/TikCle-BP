@@ -7,6 +7,10 @@
  * - 부족하면 brand_keyword로 보충
  */
 
+// ⛔ 이 파일의 함수는 호출할 때마다 실제 과금된다 (케이스당 $0.2~$4+).
+//    여러 케이스에 배치로 돌리기 전에 반드시 1개로 가설을 검증할 것.
+//    2026-08-10: 검증 없이 6개 배치 → 오진단으로 하루 $28 중 약 $24 낭비. 상세는 /CLAUDE.md.
+
 const ACTOR_ID = "curious_coder~facebook-ads-library-scraper";
 const OFFICIAL_ACTOR_ID = "apify~facebook-ads-scraper";
 const SYNC_TIMEOUT_SEC = 300; // 5분 cap
