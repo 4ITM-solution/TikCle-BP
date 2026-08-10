@@ -118,7 +118,10 @@ export default async function MonitoringPage() {
         hasPageId,
       };
     })
-    .filter((c) => c.adCount > 0 && !trackedCaseIds.has(c.id))
+    // 광고가 이미 적재됐거나(adCount>0) page_id가 등록된 케이스(hasPageId) 둘 다 등록 대상.
+    // page_id만 있는 신규 케이스를 adCount>0로 막으면 "모니터링에 못 넣어서 광고가 안 쌓이고,
+    // 광고가 없어서 모니터링에 못 넣는" 순환이 생긴다.
+    .filter((c) => (c.adCount > 0 || c.hasPageId) && !trackedCaseIds.has(c.id))
     .sort((a, b) => b.adCount - a.adCount);
 
   const agg = new Map<
