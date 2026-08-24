@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchMetaAdsCombined } from "@/lib/apify/meta-ads";
-import { rehostMetaAdAssets } from "@/lib/storage/meta-ad-assets";
+import {
+  fetchPreviousAdAssets,
+  rehostMetaAdAssets,
+} from "@/lib/storage/meta-ad-assets";
 
 /**
  * 광고 모니터링 — 추적 브랜드 1개를 스크랩하고 diff(신규/킬)를 tracked_brand_ads에 적재.
@@ -87,26 +90,49 @@ export async function scrapeTrackedBrand(
       body_text: a.body_text ? a.body_text.slice(0, 2000) : null,
       video_url: a.video_url,
       thumbnail_url: a.thumbnail_url,
+      // 소재(파일 내용) md5 — 아래 3.5 rehost가 in-place로 채운다.
+      // 광고 N건 ↔ 소재 1개 집계 키 (같은 영상을 여러 ad_archive_id로 돌리는 게 메타 기본).
+      ad_creative_hash: null as string | null,
       last_seen_at: now,
       is_active: !ended,
       ended_at: ended ? (a.end_date ?? now) : null,
     };
   });
   // 3.5 영상/썸네일 Storage 재호스트 (FB CDN 만료 방지). 이미 저장된 건 스킵 → 멱등.
+  //     직전 실행이 남긴 저장 URL/해시를 넘겨야 재다운로드가 0이 된다 — 신규 업로드는
+  //     내용 md5 경로(by-hash/)로 가서 브랜드 prefix 목록에 안 잡히기 때문.
   try {
-    await rehostMetaAdAssets(db, rows, `meta-ads/tracked/${brand.id}`);
+    const previous = await fetchPreviousAdAssets(
+      db,
+      "tracked_brand_ads",
+      "tracked_brand_id",
+      brand.id,
+    );
+    await rehostMetaAdAssets(db, rows, `meta-ads/tracked/${brand.id}`, {
+      previous,
+    });
   } catch (e) {
     console.warn(
       `[monitor] rehost failed (keeping FB CDN urls): ${e instanceof Error ? e.message : String(e)}`,
     );
   }
 
-  for (let i = 0; i < rows.length; i += 500) {
-    const batch = rows.slice(i, i + 500);
-    const { error } = await db
-      .from("tracked_brand_ads")
-      .upsert(batch, { onConflict: "tracked_brand_id,ad_archive_id" });
-    if (error) throw new Error(`tracked_brand_ads upsert: ${error.message}`);
+  // 해시를 못 구한 행은 payload에서 컬럼 자체를 뺀다 — null로 덮어써서 이미 백필된
+  // ad_creative_hash를 지우면 안 되기 때문(만료된 옛 광고는 재다운로드가 실패한다).
+  // PostgREST는 한 배열 안 객체들의 키가 전부 같아야 해서 두 그룹으로 나눠 보낸다.
+  const withHash = rows.filter((r) => r.ad_creative_hash);
+  const withoutHash = rows
+    .filter((r) => !r.ad_creative_hash)
+    .map(({ ad_creative_hash: _omit, ...rest }) => rest);
+
+  for (const group of [withHash, withoutHash]) {
+    for (let i = 0; i < group.length; i += 500) {
+      const batch = group.slice(i, i + 500);
+      const { error } = await db
+        .from("tracked_brand_ads")
+        .upsert(batch, { onConflict: "tracked_brand_id,ad_archive_id" });
+      if (error) throw new Error(`tracked_brand_ads upsert: ${error.message}`);
+    }
   }
   // 신규(이번에 처음 본) = 직전 active에 없던 id (근사치 — 직전 ended였다 부활한 것도 포함)
   const newCount = ads.filter(
