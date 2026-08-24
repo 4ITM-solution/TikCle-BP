@@ -86,27 +86,30 @@ export const collectMeta = inngest.createFunction(
       const updated: typeof phase4a.ads_preview = [];
       for (let i = 0; i < phase4a.ads_preview.length; i++) {
         const ad = phase4a.ads_preview[i]!;
-        const idKey = ad.ad_archive_id ?? `idx${i}`;
-        const base = `${case_id}/meta-ads/${idKey}`;
 
+        // 저장 경로는 downloadAndStore가 내용 md5로 정한다(by-hash/). 예전엔
+        // `${case_id}/meta-ads/${ad_archive_id}/video.mp4` 였는데, phase4a가 이미
+        // 같은 영상을 저장한 뒤라 케이스마다 사본이 하나 더 생기고 있었다.
         let stored_video: string | null = null;
         if (ad.video_url) {
-          stored_video = await downloadAndStore(
+          const stored = await downloadAndStore(
             supabase,
             ad.video_url,
-            `${base}/video.mp4`,
+            "mp4",
             "video/mp4",
           );
+          stored_video = stored?.url ?? null;
         }
 
         let stored_thumb: string | null = null;
         if (ad.thumbnail_url) {
-          stored_thumb = await downloadAndStore(
+          const stored = await downloadAndStore(
             supabase,
             ad.thumbnail_url,
-            `${base}/thumb.jpg`,
+            "jpg",
             "image/jpeg",
           );
+          stored_thumb = stored?.url ?? null;
         }
 
         updated.push({
