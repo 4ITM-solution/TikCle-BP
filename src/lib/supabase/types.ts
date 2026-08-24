@@ -602,6 +602,7 @@ export type Database = {
           creator_page_name: string | null;
           partner_page_name: string | null;
           partner_page_id: string | null;
+          ad_creative_hash: string | null;
           inferred_creator_handle: string | null;
           ad_intel: Json | null;
           snapshot: Json | null;
@@ -628,6 +629,7 @@ export type Database = {
           creator_page_name?: string | null;
           partner_page_name?: string | null;
           partner_page_id?: string | null;
+          ad_creative_hash?: string | null;
           inferred_creator_handle?: string | null;
           ad_intel?: Json | null;
           snapshot?: Json | null;
@@ -654,6 +656,7 @@ export type Database = {
           creator_page_name?: string | null;
           partner_page_name?: string | null;
           partner_page_id?: string | null;
+          ad_creative_hash?: string | null;
           inferred_creator_handle?: string | null;
           ad_intel?: Json | null;
           snapshot?: Json | null;
@@ -1205,6 +1208,30 @@ export type Database = {
           cost_estimate_usd?: number | null;
           started_at?: string;
           finished_at?: string | null;
+        };
+        Relationships: [];
+      };
+      media_assets: {
+        Row: {
+          hash: string;
+          storage_path: string;
+          mime: string | null;
+          bytes: number | null;
+          first_seen_at: string | null;
+        };
+        Insert: {
+          hash: string;
+          storage_path: string;
+          mime?: string | null;
+          bytes?: number | null;
+          first_seen_at?: string | null;
+        };
+        Update: {
+          hash?: string;
+          storage_path?: string;
+          mime?: string | null;
+          bytes?: number | null;
+          first_seen_at?: string | null;
         };
         Relationships: [];
       };
