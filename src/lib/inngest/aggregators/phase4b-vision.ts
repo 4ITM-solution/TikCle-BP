@@ -131,15 +131,15 @@ export async function processPhase4bVisionBatch(
     const slice = igItems.slice(i, i + REHOST_CONCURRENCY);
     await Promise.all(
       slice.map(async (it) => {
-        const ref = it.external_ref ?? "";
-        const safeRef = ref.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
-        const storageUrl = await downloadAndStore(
+        // 경로는 downloadAndStore가 내용 md5로 정한다(by-hash/) — 같은 커버가
+        // 여러 케이스에 걸쳐도 파일은 하나. (옛 경로: vision-covers/{case_id}/ig_{ref}.jpg)
+        const stored = await downloadAndStore(
           supabase,
           it.cover_url,
-          `vision-covers/${case_id}/ig_${safeRef}.jpg`,
+          "jpg",
           "image/jpeg",
         );
-        if (storageUrl) it.cover_url = storageUrl;
+        if (stored) it.cover_url = stored.url;
       }),
     );
   }

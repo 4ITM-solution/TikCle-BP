@@ -9,7 +9,10 @@ import {
   isRegionCode,
   type Region,
 } from "@/lib/case-detail/countries";
-import { rehostMetaAdAssets } from "@/lib/storage/meta-ad-assets";
+import {
+  fetchPreviousAdAssets,
+  rehostMetaAdAssets,
+} from "@/lib/storage/meta-ad-assets";
 import type {
   LandingType,
   MetaAdEntry,
@@ -115,6 +118,8 @@ export async function runPhase4a(
     creator_page_name: ad.creator_page_name ?? null,
     partner_page_name: ad.partner_page_name ?? null,
     partner_page_id: ad.partner_page_id ?? null,
+    // 소재(파일 내용) md5 — 바로 아래 rehost가 in-place로 채운다. 광고 N건 ↔ 소재 1개 집계 키.
+    ad_creative_hash: null as string | null,
     snapshot: ad.snapshot as never,
   }));
 
@@ -127,13 +132,22 @@ export async function runPhase4a(
   // 6.5 영상/썸네일을 Storage로 재호스트 (FB CDN 만료 방지). inserts in-place 교체.
   //     이미 저장된 ad_archive_id는 스킵 → 재실행 멱등.
   try {
-    const { stored_videos, stored_thumbs } = await rehostMetaAdAssets(
+    // 직전 실행이 남긴 저장 URL/해시 → 재다운로드 0 (신규 업로드는 by-hash/ 로 가서
+    // 케이스 prefix 목록에 안 잡히므로 이게 없으면 매번 FB CDN에서 다시 받게 된다).
+    const previous = await fetchPreviousAdAssets(
+      supabase,
+      "meta_ads",
+      "case_id",
+      case_id,
+    );
+    const { stored_videos, stored_thumbs, deduped } = await rehostMetaAdAssets(
       supabase,
       inserts,
       `meta-ads/${case_id}`,
+      { previous },
     );
     console.log(
-      `[phase4a] rehosted ${stored_videos} videos / ${stored_thumbs} thumbs to storage`,
+      `[phase4a] rehosted ${stored_videos} videos / ${stored_thumbs} thumbs to storage (${deduped} deduped by hash)`,
     );
   } catch (e) {
     console.warn(
@@ -158,15 +172,27 @@ export async function runPhase4a(
   }
   const keyed = Array.from(keyedMap.values());
 
-  for (let i = 0; i < keyed.length; i += BATCH) {
-    const batch = keyed.slice(i, i + BATCH);
-    const { error } = await supabase
-      .from("meta_ads")
-      .upsert(batch, { onConflict: "case_id,ad_archive_id" });
-    if (error) {
-      throw new Error(
-        `meta_ads upsert (batch ${i}): ${error.message || JSON.stringify(error)}`,
-      );
+  // 해시를 못 구한 행은 payload에서 컬럼 자체를 뺀다 — null로 덮어써서 이미 백필된
+  // ad_creative_hash를 지우면 안 되기 때문(만료된 옛 광고는 재다운로드가 실패한다).
+  // PostgREST는 한 배열 안 객체들의 키가 전부 같아야 해서 두 그룹으로 나눠 보낸다.
+  const keyedGroups = [
+    keyed.filter((a) => a.ad_creative_hash),
+    keyed
+      .filter((a) => !a.ad_creative_hash)
+      .map(({ ad_creative_hash: _omit, ...rest }) => rest),
+  ];
+
+  for (const group of keyedGroups) {
+    for (let i = 0; i < group.length; i += BATCH) {
+      const batch = group.slice(i, i + BATCH);
+      const { error } = await supabase
+        .from("meta_ads")
+        .upsert(batch, { onConflict: "case_id,ad_archive_id" });
+      if (error) {
+        throw new Error(
+          `meta_ads upsert (batch ${i}): ${error.message || JSON.stringify(error)}`,
+        );
+      }
     }
   }
 
